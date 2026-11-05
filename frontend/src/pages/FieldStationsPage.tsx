@@ -1,4 +1,4 @@
-import { Ban } from 'lucide-react';
+import { Ban, ChevronDown } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../app/providers/useAuth';
@@ -33,6 +33,7 @@ import {
   type CollectionField,
 } from '../shared/ui';
 import { ErrorState, Fact } from '../shared/ui/bits';
+import { cn } from '../shared/ui/cn';
 import { invalid, messageOf } from '../shared/ui/errors';
 
 const TITLE_ID = 'field-stations-title';
@@ -53,11 +54,44 @@ const ReleaseCard: React.FC<{ organizationId: string }> = ({ organizationId }) =
   const release = useFieldStationRelease(organizationId);
   const unpublished =
     release.error instanceof ApiError && release.error.errorCode === 'RELEASE_UNAVAILABLE';
+  // Below 1280 by 800 CSS px the card folds into a disclosure, so the station list under it keeps
+  // its room in the fit page (ui standard §7, leader 2026-11-05).
+  const [open, setOpen] = useState(false);
+  const summary = release.data
+    ? `Version ${release.data.version}`
+    : unpublished
+      ? 'Not published on this server'
+      : undefined;
   return (
-    <Card aria-labelledby="release-title" className="mb-4">
-      <h2 id="release-title" className="mb-3 text-title-sm text-ink">
-        Field Station software
+    <Card aria-label="Field Station software" className="mb-4 py-2 roomy:py-5">
+      <h2 className="text-title-sm text-ink roomy:mb-3">
+        <span className="hidden roomy:inline">Field Station software</span>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls="release-body"
+          onClick={() => setOpen((now) => !now)}
+          className="flex min-h-11 w-full items-center gap-2 rounded-control text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus roomy:hidden"
+        >
+          <span className="min-w-0 flex-1">
+            Field Station software
+            {summary && (
+              <span className="block text-body-sm font-normal text-ink-muted">{summary}</span>
+            )}
+          </span>
+          <ChevronDown
+            aria-hidden="true"
+            className={cn('h-5 w-5 shrink-0 transition-transform', open && 'rotate-180')}
+          />
+        </button>
       </h2>
+      <div
+        id="release-body"
+        className={cn(
+          open ? 'mt-2 block' : 'hidden roomy:block',
+          '-mx-1 max-h-[40dvh] overflow-y-auto overscroll-contain px-1 roomy:mx-0 roomy:max-h-none roomy:overflow-visible roomy:px-0',
+        )}
+      >
       {release.isLoading && (
         <div role="status" className="flex flex-col gap-2">
           <span className="sr-only">Loading the release</span>
@@ -111,6 +145,7 @@ const ReleaseCard: React.FC<{ organizationId: string }> = ({ organizationId }) =
           </ul>
         </div>
       )}
+      </div>
     </Card>
   );
 };

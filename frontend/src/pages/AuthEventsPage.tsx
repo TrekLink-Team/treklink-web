@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { cn } from '../shared/ui/cn';
 import { fromLocalInput, toLocalInput } from '../entities/audit/model';
 import {
   AUTH_EVENT_PAGE_SIZE,
@@ -174,7 +175,8 @@ export const AuthEventsPage: React.FC = () => {
   const pageNumber = pageOf(params);
   const events = useAuthEvents(filters, pageNumber);
   const organizations = useOrganizations(undefined);
-  // Narrow screens keep the filters behind a disclosure (screen 7.3, 360 px layout).
+  // Below 1280 by 800 CSS px the filters sit behind a disclosure (screen 7.3), so the list keeps its
+  // room in the fit page (ui standard §7).
   const [filtersOpen, setFiltersOpen] = useState(false);
   // After Apply, focus moves to the result count, which a polite live region announces.
   const countRef = useRef<HTMLParagraphElement>(null);
@@ -257,20 +259,27 @@ export const AuthEventsPage: React.FC = () => {
           title="Sign-in events"
           description="Every sign-in, refresh, reset and lock, newest first. No password is ever stored here."
         />
-        <Card aria-labelledby="auth-events-filters">
-          <div className="hidden sm:block">
+        <Card aria-labelledby="auth-events-filters" className="p-2 roomy:p-5">
+          <div className="hidden roomy:block">
             <CardHeader title="Filters" id="auth-events-filters" />
           </div>
           <Button
             variant="secondary"
-            className="mb-4 w-full sm:hidden"
+            className={cn('w-full roomy:hidden', filtersOpen && 'mb-2')}
             aria-expanded={filtersOpen}
             aria-controls="auth-events-filter-bar"
             onClick={() => setFiltersOpen((now) => !now)}
           >
-            Filters
+            {hasFilters(filters) ? 'Filters (on)' : 'Filters'}
           </Button>
-          <div id="auth-events-filter-bar" className={filtersOpen ? 'block' : 'hidden sm:block'}>
+          <div
+            id="auth-events-filter-bar"
+            // Open on a short screen, the filters scroll inside themselves so the list keeps its room.
+            className={cn(
+              filtersOpen ? 'block' : 'hidden roomy:block',
+              '-mx-1 max-h-[45dvh] overflow-y-auto overscroll-contain px-1 roomy:mx-0 roomy:max-h-none roomy:overflow-visible roomy:px-0',
+            )}
+          >
             <FilterBar
               key={params.toString()}
               applied={filters}

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { cn } from '../shared/ui/cn';
 import {
   AUDIT_PAGE_SIZE,
   useAuditLogs,
@@ -206,8 +207,8 @@ export const AuditLogPage: React.FC = () => {
   const addressErrors = useMemo(() => filterErrors(filters), [filters]);
   const addressValid = Object.keys(addressErrors).length === 0;
   const logs = useAuditLogs(filters, pageNumber, addressValid);
-  // Below 640 px the filters sit behind a Filters button, so the entries start on the first screen
-  // (screen 7.4, 360 px layout); they open by themselves when a filter needs fixing.
+  // Below 1280 by 800 CSS px the filters sit behind a Filters button, so the entries keep their room
+  // in the fit page (screen 7.4, ui standard §7); they open by themselves when a filter needs fixing.
   const [filtersOpen, setFiltersOpen] = useState(!addressValid);
   const organizations = useOrganizations(undefined);
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
@@ -333,13 +334,13 @@ export const AuditLogPage: React.FC = () => {
           title="Audit log"
           description="Who changed what, newest first. Secrets are replaced before they are stored."
         />
-        <Card aria-labelledby="audit-filters">
-          <div className="hidden sm:block">
+        <Card aria-labelledby="audit-filters" className="p-2 roomy:p-5">
+          <div className="hidden roomy:block">
             <CardHeader title="Filters" id="audit-filters" />
           </div>
           <Button
             variant="secondary"
-            className="w-full sm:hidden"
+            className="w-full roomy:hidden"
             aria-expanded={filtersOpen || !addressValid}
             aria-controls="audit-filter-bar"
             onClick={() => setFiltersOpen((now) => !now)}
@@ -348,7 +349,11 @@ export const AuditLogPage: React.FC = () => {
           </Button>
           <div
             id="audit-filter-bar"
-            className={filtersOpen || !addressValid ? 'mt-4 block sm:mt-0' : 'hidden sm:block'}
+            // Open on a short screen, the filters scroll inside themselves so the list keeps its room.
+            className={cn(
+              filtersOpen || !addressValid ? 'mt-2 block roomy:mt-0' : 'hidden roomy:block',
+              '-mx-1 max-h-[45dvh] overflow-y-auto overscroll-contain px-1 roomy:mx-0 roomy:max-h-none roomy:overflow-visible roomy:px-0',
+            )}
           >
             <FilterBar
               key={params.toString()}
