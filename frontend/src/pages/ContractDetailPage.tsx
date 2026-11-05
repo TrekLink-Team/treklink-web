@@ -30,6 +30,7 @@ import { TabPanel, type TabItem } from '../shared/ui/Tabs';
 import { useToast } from '../shared/ui/toastStore';
 import { useConfirmStep } from '../shared/ui/useConfirmStep';
 import { HolderDialog } from '../widgets/ContractActions/HolderDialog';
+import { EndNowDialog } from '../widgets/ContractActions/EndNowDialog';
 import { NoticeDialog } from '../widgets/ContractActions/NoticeDialog';
 import { ContractActionBar, type HomeTab } from '../widgets/ContractHome/ContractActionBar';
 import { ContractHeader, LifecycleCard } from '../widgets/ContractHome/ContractHeader';
@@ -175,6 +176,7 @@ type Open =
   | { kind: 'cancel' }
   | { kind: 'reject' }
   | { kind: 'notice' }
+  | { kind: 'end' }
   | { kind: 'close' }
   | { kind: 'label'; device: ContractDevice }
   | { kind: 'lost'; deviceId: string; assetTag: string; scope: 'o' | 't' }
@@ -312,6 +314,7 @@ export const ContractDetailPage: React.FC<{
       case 'cancel':
       case 'reject':
       case 'notice':
+      case 'end':
       case 'close':
         setOpen({ kind: key });
         return;
@@ -453,6 +456,9 @@ export const ContractDetailPage: React.FC<{
         />
       )}
       {open?.kind === 'notice' && <NoticeDialog contract={data} onClose={() => setOpen(null)} />}
+      {open?.kind === 'end' && viewer !== 'operator' && (
+        <EndNowDialog contract={data} viewer={viewer} onClose={() => setOpen(null)} />
+      )}
       {open?.kind === 'label' && (
         <HolderDialog contract={data} device={open.device} onClose={() => setOpen(null)} />
       )}

@@ -152,9 +152,13 @@ export const lifecycleOf = (
     return exits;
   };
 
+  // End now (D-097, rentals design §12) moves a monthly contract from ACTIVE straight to RETURN_DUE:
+  // with no notice given and no ENDING entry, the Ending step was never reached.
+  const endingSkipped = !at.has('ENDING') && !contract.noticeGivenAt;
   const steps = path.map((step, position): LifecycleStep => {
     let state: StepState;
-    if (status === 'CLOSED') state = 'done';
+    if (step === 'ENDING' && endingSkipped && position < index && !terminal) state = 'skipped';
+    else if (status === 'CLOSED') state = 'done';
     else if (terminal) state = position <= index ? 'done' : 'skipped';
     else if (onExit) state = position <= index ? 'done' : 'todo';
     else state = position < index ? 'done' : position === index ? 'current' : 'todo';
@@ -196,5 +200,8 @@ export const transitionLine = (step: ContractTransition): string => {
   const base = TRANSITION_LABELS[step.toStatus];
   if (step.toStatus === 'CANCELLED' && step.reason === 'HOLD_EXPIRED')
     return 'Request cancelled, the unpaid hold expired';
+  // End now (D-097): the server writes "Ended early: {reason}" on the move to RETURN_DUE.
+  if (step.toStatus === 'RETURN_DUE' && step.reason?.startsWith('Ended early: '))
+    return 'Ended early, return due now';
   return base;
 };

@@ -187,6 +187,14 @@ export const MoneyTab: React.FC<{
                 ))}
               </div>
             )}
+            {(balance.data.owedToOrganizationVnd ?? 0) > 0 && (
+              // D-097 rule 3: no refund flow exists yet, so the page says how the money comes back.
+              <p className="mt-3 text-body-sm font-semibold text-ink">
+                TrekLink owes{' '}
+                {scope === 'o' ? 'your organization' : (contract.organization?.legalName ?? 'the organization')}{' '}
+                {formatVnd(balance.data.owedToOrganizationVnd ?? 0)}. It is refunded outside TrekLink.
+              </p>
+            )}
             {balance.data.pendingDamageCharges.length > 0 && (
               <p className="mt-3 text-body-sm text-ink-muted">
                 {balance.data.pendingDamageCharges.length} damage{' '}

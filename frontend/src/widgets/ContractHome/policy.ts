@@ -21,6 +21,7 @@ export type ActionKey =
   | 'counter'
   | 'close'
   | 'notice'
+  | 'end'
   | 'pay';
 
 export interface HomeAction {
@@ -57,6 +58,10 @@ export interface PolicyInput {
 }
 
 const OUT_STATES = ['RETURN_DUE', 'OVERDUE', 'DEFAULTED'];
+
+// End now (D-097, rentals design §12): Staff and the Org Manager, ACTIVE or ENDING, destructive and
+// last in More actions; it never takes the primary slot.
+const END_NOW: HomeAction = { key: 'end', label: 'End contract now', destructive: true };
 
 const unitsOut = (contract: PolicyInput['contract']) =>
   contract.devices.filter((device) => device.handedOverAt && !device.checkedInAt && !device.lostAt)
@@ -114,7 +119,7 @@ export const homeActions = (input: PolicyInput): HomeActions => {
         return {
           primary: null,
           idle: 'No action due from TrekLink Staff',
-          more: [{ key: 'counter', label: 'Open the counter' }],
+          more: ordered([{ key: 'counter', label: 'Open the counter' }, END_NOW]),
         };
       case 'RETURN_DUE':
       case 'OVERDUE':
@@ -166,18 +171,23 @@ export const homeActions = (input: PolicyInput): HomeActions => {
       case 'ACTIVE': {
         const notice: HomeAction | null =
           contract.planType === 'MONTHLY' ? { key: 'notice', label: 'Give notice' } : null;
-        if (payable) return { primary: pay, idle: null, more: notice ? [notice] : [] };
+        if (payable)
+          return { primary: pay, idle: null, more: ordered([...(notice ? [notice] : []), END_NOW]) };
         // Nothing to pay: no Pay at all, not a disabled one (review of treklink-web#350).
         return notice
-          ? { primary: notice, idle: null, more: [] }
-          : { primary: null, idle: 'Return the units when the day plan ends', more: [] };
+          ? { primary: notice, idle: null, more: [END_NOW] }
+          : { primary: null, idle: 'Return the units when the day plan ends', more: [END_NOW] };
       }
+      case 'ENDING':
+        return payable
+          ? { primary: pay, idle: null, more: [END_NOW] }
+          : { primary: null, idle: 'Return the units at the TrekLink counter', more: [END_NOW] };
       default:
         if (payable) return { primary: pay, idle: null, more: [] };
         return {
           primary: null,
           idle:
-            status === 'ENDING' || OUT_STATES.includes(status)
+            OUT_STATES.includes(status)
               ? 'Return the units at the TrekLink counter'
               : status === 'RETURNED'
                 ? 'TrekLink Staff close the contract'

@@ -157,4 +157,6 @@ standard) with the reason field, the amounts of rentals 31 as text (nothing comp
 Keep the contract running; a preview that fails names the error and keeps End now disabled. After it the
 contract is `RETURN_DUE`, so Staff see Record return as primary and the counter (screen 5.5) checks the units in
 as for any due return. The credit appears on the closing invoice as an Early end credit line (screen 6.1).
+On a monthly contract ended from Active, the lifecycle card marks Ending "not reached", and the History tab
+reads the move as "Ended early, return due now" with the reason.
 

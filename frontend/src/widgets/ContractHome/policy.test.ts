@@ -59,11 +59,12 @@ describe('contract home actions (screen 5.2, rentals design §2)', () => {
     });
     expect(actionsOf('ACTIVE', 'manager', { openInvoiceId: 'inv-1' }).more.map((action) => action.label)).toEqual([
       'Give notice',
+      'End contract now',
     ]);
     const nothingDue = actionsOf('ACTIVE', 'manager');
     expect(nothingDue.primary?.label).toBe('Give notice');
-    // Nothing to pay: no disabled Pay either (review of treklink-web#350).
-    expect(nothingDue.more).toEqual([]);
+    // Nothing to pay: no disabled Pay either (review of treklink-web#350); End now stays in More actions.
+    expect(nothingDue.more.map((action) => action.key)).toEqual(['end']);
     expect(actionsOf('ACTIVE', 'manager', { planType: 'DAY' }).primary).toBeNull();
   });
 
@@ -97,6 +98,37 @@ describe('contract home actions (screen 5.2, rentals design §2)', () => {
     expect(request(0).primary).toBeNull();
     expect(request(0).idle).toBe('TrekLink Staff review the request');
   });
+
+  // D-097, rentals design §12: End contract now is in More actions, destructive and last, for Staff and
+  // the Org Manager on ACTIVE and ENDING only, and never the primary action.
+  it.each<[ContractStatus, Viewer]>([
+    ['ACTIVE', 'staff'],
+    ['ENDING', 'staff'],
+    ['ACTIVE', 'manager'],
+    ['ENDING', 'manager'],
+  ])('offers End contract now last in More actions on %s to %s', (status, viewer) => {
+    const actions = actionsOf(status, viewer);
+    expect(actions.more.at(-1)).toEqual({ key: 'end', label: 'End contract now', destructive: true });
+    expect(actions.primary?.key).not.toBe('end');
+  });
+
+  it('keeps End contract now on a day plan and behind Pay invoice', () => {
+    expect(actionsOf('ACTIVE', 'manager', { planType: 'DAY' }).more.map((action) => action.key)).toEqual(['end']);
+    const paying = actionsOf('ENDING', 'manager', { openInvoiceId: 'inv-1' });
+    expect(paying.primary?.key).toBe('pay');
+    expect(paying.more.map((action) => action.key)).toEqual(['end']);
+  });
+
+  it.each<ContractStatus>(['REQUESTED', 'APPROVED', 'RETURN_DUE', 'OVERDUE', 'DEFAULTED', 'RETURNED', 'CLOSED'])(
+    'offers End contract now to nobody on %s, and never to an Org Operator',
+    (status) => {
+      (['staff', 'manager', 'operator'] as Viewer[]).forEach((viewer) => {
+        const actions = actionsOf(status, viewer);
+        expect([actions.primary, ...actions.more].map((action) => action?.key)).not.toContain('end');
+      });
+      expect(actionsOf('ACTIVE', 'operator').more).toEqual([]);
+    },
+  );
 
   it('never gives an Org Operator an action, nor the Org Manager a Staff one', () => {
     (['REQUESTED', 'APPROVED', 'ACTIVE', 'RETURNED'] as ContractStatus[]).forEach((status) => {

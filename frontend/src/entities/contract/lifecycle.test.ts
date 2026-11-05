@@ -62,7 +62,11 @@ describe('contract lifecycle (rentals design §2)', () => {
     const returned = lifecycleOf({ ...base, planType: 'DAY', status: 'RETURNED' }, history);
     expect(returned.steps[3].exits.map((exit) => exit.status)).toEqual(['OVERDUE']);
     expect(returned.steps[4].state).toBe('current');
-    expect(lifecycleOf({ ...base, status: 'CLOSED' }).steps.every((step) => step.state === 'done')).toBe(true);
+    expect(
+      lifecycleOf({ ...base, status: 'CLOSED', noticeGivenAt: '2026-11-12T02:00:00Z' }).steps.every(
+        (step) => step.state === 'done',
+      ),
+    ).toBe(true);
   });
 
   it('names history entries in words, with the hold expiry spelled out', () => {
@@ -70,6 +74,21 @@ describe('contract lifecycle (rentals design §2)', () => {
     expect(transitionLine({ ...move('REQUESTED', 'CANCELLED', '2026-11-01T00:00:00Z'), reason: 'HOLD_EXPIRED' })).toBe(
       'Request cancelled, the unpaid hold expired',
     );
+  });
+
+  // D-097, rentals design §12: End now moves a monthly contract from Active straight to Return due.
+  it('marks Ending not reached on a monthly contract ended now, and names the early end in the history', () => {
+    const ended = { ...move('ACTIVE', 'RETURN_DUE', '2026-11-06T03:00:00Z'), reason: 'Ended early: Trek finished early' };
+    const { steps } = lifecycleOf({ ...base, status: 'RETURN_DUE' }, [ended]);
+    expect(steps.map((step) => step.state)).toEqual(['done', 'done', 'done', 'skipped', 'current', 'todo', 'todo']);
+    const closed = lifecycleOf({ ...base, status: 'CLOSED' }, [ended]);
+    expect(closed.steps[3].state).toBe('skipped');
+    expect(transitionLine(ended)).toBe('Ended early, return due now');
+    // Ended from Ending: the notice step stays done.
+    const fromEnding = lifecycleOf({ ...base, status: 'RETURN_DUE', noticeGivenAt: '2026-11-04T02:00:00Z' }, [
+      { ...move('ENDING', 'RETURN_DUE', '2026-11-06T03:00:00Z'), reason: 'Ended early: Weather' },
+    ]);
+    expect(fromEnding.steps[3].state).toBe('done');
   });
 
   // The demo walk of 2026-11-05: RC-2026-0003's history said the organization was suspended while
