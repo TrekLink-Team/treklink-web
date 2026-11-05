@@ -204,7 +204,7 @@ export const ComplianceCasesPage: React.FC = () => {
   );
 
   return (
-    <section aria-labelledby="cases-title">
+    <section aria-labelledby="cases-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         id="cases-title"
         title="Compliance cases"
@@ -222,7 +222,7 @@ export const ComplianceCasesPage: React.FC = () => {
         }}
         className="mb-4"
       />
-      <TabPanel idPrefix="cases" tabKey={tab}>
+      <TabPanel idPrefix="cases" tabKey={tab} fill>
         <CollectionView<ComplianceCase>
           label="Compliance cases"
           items={cases.data?.items}

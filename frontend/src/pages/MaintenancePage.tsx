@@ -970,7 +970,7 @@ export const MaintenancePage: React.FC = () => {
   };
 
   return (
-    <section aria-labelledby="maintenance-title" className="flex flex-col gap-4">
+    <section aria-labelledby="maintenance-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         id="maintenance-title"
         title="Maintenance"
@@ -1012,7 +1012,7 @@ export const MaintenancePage: React.FC = () => {
         ]}
       />
 
-      <TabPanel idPrefix="maintenance" tabKey="records" className={tab === 'records' ? undefined : 'hidden'}>
+      <TabPanel idPrefix="maintenance" tabKey="records" fill={tab === 'records'} className={tab === 'records' ? undefined : 'hidden'}>
         {/* Status is the Show filter of the list; the reason stays a select beside it until the
             multi-select Show menu lands (leader ruling of 2026-11-04 on the fleet). */}
         <Field id="maintenance-reason" label="Reason" className="mb-3 w-full sm:w-56">
@@ -1055,7 +1055,7 @@ export const MaintenancePage: React.FC = () => {
         />
       </TabPanel>
 
-      <TabPanel idPrefix="maintenance" tabKey="week" className={tab === 'week' ? 'flex flex-col gap-4' : 'hidden'}>
+      <TabPanel idPrefix="maintenance" tabKey="week" fill={tab === 'week'} className={tab === 'week' ? 'gap-4' : 'hidden'}>
         <RecordsTable
           caption="This week's service"
           page={week.data}
@@ -1092,7 +1092,7 @@ export const MaintenancePage: React.FC = () => {
       </TabPanel>
 
       {isAdmin && (
-        <TabPanel idPrefix="maintenance" tabKey="approvals" className={tab === 'approvals' ? undefined : 'hidden'}>
+        <TabPanel idPrefix="maintenance" tabKey="approvals" fill={tab === 'approvals'} className={tab === 'approvals' ? undefined : 'hidden'}>
           <RecordsTable
             caption="Costs waiting for a decision"
             page={approvals.data}
