@@ -11,6 +11,10 @@ import { LINK } from '../../shared/ui/styles';
 import { Tabs, type TabItem } from '../../shared/ui/Tabs';
 import type { ActionKey, HomeAction, HomeActions } from './policy';
 
+// The tab list wraps onto more rows instead of scrolling sideways, so every section stays in view and
+// no fading edge covers a label (W20B item 6). Each tab keeps its own words on one line.
+const TABS_WRAP = 'flex-wrap gap-y-1 overflow-x-visible border-b-0';
+
 export type HomeTab = 'overview' | 'devices' | 'money' | 'history' | 'documents';
 
 interface Props {
@@ -123,7 +127,9 @@ export const ContractActionBar: React.FC<Props> = ({
       items={tabs}
       value={tab}
       onChange={onTab}
-      className="border-b-0"
+      // The five sections wrap onto a second row rather than scroll: at 360 px History hid behind a
+      // scroll arrow, and the fading edge cut the words at either end (W20B item 6).
+      className={TABS_WRAP}
     />
   );
 
