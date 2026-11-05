@@ -88,7 +88,7 @@ export const AccountMenu: React.FC = () => {
         label={me ? `${initialsOf(me.fullName)} ${me.fullName}, account menu` : 'Account menu'}
         items={items}
         align="end"
-        triggerClassName="h-11 min-w-11 gap-2 px-1 sm:pr-3"
+        triggerClassName="h-11 min-w-11 gap-1 px-1 sm:gap-2 sm:pr-3"
         header={
           me && (
             <>
