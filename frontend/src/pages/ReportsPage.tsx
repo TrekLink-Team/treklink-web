@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { PageScrollBody } from '../shared/ui/PageChrome';
 import {
   fetchReportCsv,
   REPORT_KINDS,
@@ -550,7 +551,7 @@ export const ReportsPage: React.FC = () => {
   const rangeText = `${formatDay(period.from)} to ${formatDay(addDays(period.to, -1))}`;
 
   return (
-    <section aria-labelledby="reports-title" className="flex flex-col gap-4">
+    <section aria-labelledby="reports-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         id="reports-title"
         title="Reports"
@@ -566,129 +567,131 @@ export const ReportsPage: React.FC = () => {
           </Button>
         }
       />
-      {csvFailure && (
-        <Alert
-          tone="error"
-          action={
-            <Button variant="secondary" size="sm" onClick={() => void download()}>
-              Retry
-            </Button>
-          }
-        >
-          {csvFailure}
-        </Alert>
-      )}
-
-      <Card aria-labelledby="reports-period">
-        <CardHeader title="Period" id="reports-period" />
-        <form
-          noValidate
-          onSubmit={(event) => {
-            event.preventDefault();
-            apply(null, toInput);
-          }}
-          className="flex flex-col gap-4"
-        >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field id="reports-from" label="From" required>
-              <Input
-                id="reports-from"
-                type="date"
-                value={fromInput}
-                onChange={(event) => setFromInput(event.target.value)}
-              />
-            </Field>
-            <Field id="reports-to" label="To" required error={periodMessage ?? undefined}>
-              <Input
-                id="reports-to"
-                type="date"
-                value={toInput}
-                onChange={(event) => setToInput(event.target.value)}
-                {...invalid('reports-to', periodMessage ?? undefined)}
-              />
-            </Field>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="submit" variant="primary">
-              Apply
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => quick(monthPeriod(new Date()))}>
-              This month
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => quick(monthPeriod(new Date(), -1))}
-            >
-              Last month
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => quick(lastDaysPeriod(new Date(), 30))}
-            >
-              Last 30 days
-            </Button>
-          </div>
-        </form>
-      </Card>
-
-      <div className="sm:hidden">
-        <label htmlFor="reports-kind" className="mb-1.5 block text-body-sm font-semibold text-ink">
-          Report
-        </label>
-        <Select
-          id="reports-kind"
-          value={kind}
-          onChange={(event) => go({ kind: event.target.value as ReportKind })}
-        >
-          {TAB_ITEMS.map((item) => (
-            <option key={item.key} value={item.key}>
-              {item.label}
-            </option>
-          ))}
-        </Select>
-      </div>
-      <div className="hidden sm:block">
-        <Tabs
-          label="Reports"
-          idPrefix="reports"
-          items={TAB_ITEMS}
-          value={kind}
-          onChange={(next) => go({ kind: next })}
-        />
-      </div>
-
-      <TabPanel idPrefix="reports" tabKey={kind} className="flex flex-col gap-4">
-        <h2 ref={headingRef} tabIndex={-1} className="text-title-sm text-ink outline-none">
-          {KIND_LABEL[kind]}
-        </h2>
-
-        {failure && !(failure instanceof ApiError && failure.statusCode === 400) && (
-          <ErrorState error={failure} onRetry={() => void report.refetch()} />
-        )}
-        {failure instanceof ApiError && failure.statusCode === 400 && (
-          <Alert tone="error">{messageOf(failure)}</Alert>
+      <PageScrollBody label="Report results" className="flex flex-col gap-4">
+        {csvFailure && (
+          <Alert
+            tone="error"
+            action={
+              <Button variant="secondary" size="sm" onClick={() => void download()}>
+                Retry
+              </Button>
+            }
+          >
+            {csvFailure}
+          </Alert>
         )}
 
-        {report.isPending && (
-          <div role="status" aria-label="Loading the report" className="flex flex-col gap-2">
-            {Array.from({ length: 5 }, (_, index) => (
-              <Skeleton key={index} className="h-10 w-full" />
+        <Card aria-labelledby="reports-period">
+          <CardHeader title="Period" id="reports-period" />
+          <form
+            noValidate
+            onSubmit={(event) => {
+              event.preventDefault();
+              apply(null, toInput);
+            }}
+            className="flex flex-col gap-4"
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field id="reports-from" label="From" required>
+                <Input
+                  id="reports-from"
+                  type="date"
+                  value={fromInput}
+                  onChange={(event) => setFromInput(event.target.value)}
+                />
+              </Field>
+              <Field id="reports-to" label="To" required error={periodMessage ?? undefined}>
+                <Input
+                  id="reports-to"
+                  type="date"
+                  value={toInput}
+                  onChange={(event) => setToInput(event.target.value)}
+                  {...invalid('reports-to', periodMessage ?? undefined)}
+                />
+              </Field>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="submit" variant="primary">
+                Apply
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => quick(monthPeriod(new Date()))}>
+                This month
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => quick(monthPeriod(new Date(), -1))}
+              >
+                Last month
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => quick(lastDaysPeriod(new Date(), 30))}
+              >
+                Last 30 days
+              </Button>
+            </div>
+          </form>
+        </Card>
+
+        <div className="sm:hidden">
+          <label htmlFor="reports-kind" className="mb-1.5 block text-body-sm font-semibold text-ink">
+            Report
+          </label>
+          <Select
+            id="reports-kind"
+            value={kind}
+            onChange={(event) => go({ kind: event.target.value as ReportKind })}
+          >
+            {TAB_ITEMS.map((item) => (
+              <option key={item.key} value={item.key}>
+                {item.label}
+              </option>
             ))}
-          </div>
-        )}
+          </Select>
+        </div>
+        <div className="hidden sm:block">
+          <Tabs
+            label="Reports"
+            idPrefix="reports"
+            items={TAB_ITEMS}
+            value={kind}
+            onChange={(next) => go({ kind: next })}
+          />
+        </div>
 
-        {report.data && (
-          <>
-            <Panel kind={kind} rows={rows} />
-            <p className="text-body-sm text-ink-muted">
-              {rows.length} {rows.length === 1 ? 'row' : 'rows'}, generated{' '}
-              {formatTime(report.dataUpdatedAt)}
-            </p>
-          </>
-        )}
-      </TabPanel>
+        <TabPanel idPrefix="reports" tabKey={kind} className="flex flex-col gap-4">
+          <h2 ref={headingRef} tabIndex={-1} className="text-title-sm text-ink outline-none">
+            {KIND_LABEL[kind]}
+          </h2>
+
+          {failure && !(failure instanceof ApiError && failure.statusCode === 400) && (
+            <ErrorState error={failure} onRetry={() => void report.refetch()} />
+          )}
+          {failure instanceof ApiError && failure.statusCode === 400 && (
+            <Alert tone="error">{messageOf(failure)}</Alert>
+          )}
+
+          {report.isPending && (
+            <div role="status" aria-label="Loading the report" className="flex flex-col gap-2">
+              {Array.from({ length: 5 }, (_, index) => (
+                <Skeleton key={index} className="h-10 w-full" />
+              ))}
+            </div>
+          )}
+
+          {report.data && (
+            <>
+              <Panel kind={kind} rows={rows} />
+              <p className="text-body-sm text-ink-muted">
+                {rows.length} {rows.length === 1 ? 'row' : 'rows'}, generated{' '}
+                {formatTime(report.dataUpdatedAt)}
+              </p>
+            </>
+          )}
+        </TabPanel>
+      </PageScrollBody>
     </section>
   );
 };

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { PageScrollBody } from '../shared/ui/PageChrome';
 import {
   createDamageRate,
   schedulePrice,
@@ -424,99 +425,101 @@ export const PricesPage: React.FC = () => {
   ];
 
   return (
-    <section aria-labelledby="prices-title" className="flex flex-col gap-6">
+    <section aria-labelledby="prices-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-6">
       <PageHeader id="prices-title" title="Prices and damage rates" />
 
-      <Card>
-        <CardHeader
-          title="Monthly prices"
-          action={
-            <Button variant="primary" onClick={() => setPricing(true)}>
-              Schedule price
-            </Button>
-          }
-        />
-        <CollectionView<PriceRow>
-          label="Monthly price history"
-          items={prices.data?.items}
-          loading={prices.isLoading}
-          error={prices.error ? <ErrorState error={prices.error} onRetry={() => void prices.refetch()} /> : undefined}
-          itemId={(row) => row.id}
-          itemName={(row) => `${codeOf(row.hardwareVariantId)} from ${formatDateTime(row.effectiveFrom)}`}
-          itemTitle={(row) => <span className="whitespace-nowrap">{formatDateTime(row.effectiveFrom)}</span>}
-          fields={priceFields}
-          noun={{ one: 'price', other: 'prices' }}
-          search={{ label: 'Search prices by variant' }}
-          filters={[
-            { key: 'all', label: 'All states' },
-            ...(Object.keys(PRICE_STATE) as PriceRow['state'][]).map((state) => ({
-              key: state,
-              label: PRICE_STATE[state].label,
-              test: (row: PriceRow) => row.state === state,
-            })),
-          ]}
-          filterGroups={[
-            {
-              key: 'variant',
-              label: 'Variant',
-              options: [
-                { key: '', label: 'All variants' },
-                ...variants.map((variant) => ({
-                  key: variant.id,
-                  label: variant.code,
-                  test: (row: PriceRow) => row.hardwareVariantId === variant.id,
-                })),
-              ],
-            },
-          ]}
-          emptyState={{ title: 'No prices yet.' }}
-          footer={
-            prices.data && prices.data.totalPages > 1 ? (
-              <Pagination
-                pageNumber={prices.data.pageNumber}
-                totalPages={prices.data.totalPages}
-                onPage={setPageNumber}
-              />
-            ) : undefined
-          }
-        />
-      </Card>
+      <PageScrollBody label="Prices and damage rates" className="flex flex-col gap-6">
+        <Card>
+          <CardHeader
+            title="Monthly prices"
+            action={
+              <Button variant="primary" onClick={() => setPricing(true)}>
+                Schedule price
+              </Button>
+            }
+          />
+          <CollectionView<PriceRow>
+            label="Monthly price history"
+            items={prices.data?.items}
+            loading={prices.isLoading}
+            error={prices.error ? <ErrorState error={prices.error} onRetry={() => void prices.refetch()} /> : undefined}
+            itemId={(row) => row.id}
+            itemName={(row) => `${codeOf(row.hardwareVariantId)} from ${formatDateTime(row.effectiveFrom)}`}
+            itemTitle={(row) => <span className="whitespace-nowrap">{formatDateTime(row.effectiveFrom)}</span>}
+            fields={priceFields}
+            noun={{ one: 'price', other: 'prices' }}
+            search={{ label: 'Search prices by variant' }}
+            filters={[
+              { key: 'all', label: 'All states' },
+              ...(Object.keys(PRICE_STATE) as PriceRow['state'][]).map((state) => ({
+                key: state,
+                label: PRICE_STATE[state].label,
+                test: (row: PriceRow) => row.state === state,
+              })),
+            ]}
+            filterGroups={[
+              {
+                key: 'variant',
+                label: 'Variant',
+                options: [
+                  { key: '', label: 'All variants' },
+                  ...variants.map((variant) => ({
+                    key: variant.id,
+                    label: variant.code,
+                    test: (row: PriceRow) => row.hardwareVariantId === variant.id,
+                  })),
+                ],
+              },
+            ]}
+            emptyState={{ title: 'No prices yet.' }}
+            footer={
+              prices.data && prices.data.totalPages > 1 ? (
+                <Pagination
+                  pageNumber={prices.data.pageNumber}
+                  totalPages={prices.data.totalPages}
+                  onPage={setPageNumber}
+                />
+              ) : undefined
+            }
+          />
+        </Card>
 
-      <Card>
-        <CardHeader
-          title="Damage rates"
-          action={
-            <Button variant="primary" onClick={() => setEditing(null)}>
-              Add damage rate
-            </Button>
-          }
-        />
-        <CollectionView<DamageRate>
-          label="Damage rates"
-          items={rates.data}
-          loading={rates.isLoading}
-          error={rates.error ? <ErrorState error={rates.error} onRetry={() => void rates.refetch()} /> : undefined}
-          itemId={(rate) => rate.id}
-          itemName={(rate) => rate.code}
-          itemTitle={(rate) => <span className="font-mono font-semibold text-ink">{rate.code}</span>}
-          fields={rateFields}
-          noun={{ one: 'damage rate', other: 'damage rates' }}
-          itemActions={[{ key: 'edit', label: 'Edit', icon: <Pencil />, onSelect: (rate) => setEditing(rate) }]}
-          search={{ label: 'Filter by code, label or variant', placeholder: 'Code, label or variant' }}
-          filters={[
-            { key: 'all', label: 'Active and inactive' },
-            { key: 'active', label: 'Active', test: (rate) => rate.isActive },
-            { key: 'inactive', label: 'Inactive', test: (rate) => !rate.isActive },
-          ]}
-          emptyState={{
-            title: 'No damage codes yet.',
-            description: 'Add one before inspections can record damage.',
-          }}
-        />
-      </Card>
+        <Card>
+          <CardHeader
+            title="Damage rates"
+            action={
+              <Button variant="primary" onClick={() => setEditing(null)}>
+                Add damage rate
+              </Button>
+            }
+          />
+          <CollectionView<DamageRate>
+            label="Damage rates"
+            items={rates.data}
+            loading={rates.isLoading}
+            error={rates.error ? <ErrorState error={rates.error} onRetry={() => void rates.refetch()} /> : undefined}
+            itemId={(rate) => rate.id}
+            itemName={(rate) => rate.code}
+            itemTitle={(rate) => <span className="font-mono font-semibold text-ink">{rate.code}</span>}
+            fields={rateFields}
+            noun={{ one: 'damage rate', other: 'damage rates' }}
+            itemActions={[{ key: 'edit', label: 'Edit', icon: <Pencil />, onSelect: (rate) => setEditing(rate) }]}
+            search={{ label: 'Filter by code, label or variant', placeholder: 'Code, label or variant' }}
+            filters={[
+              { key: 'all', label: 'Active and inactive' },
+              { key: 'active', label: 'Active', test: (rate) => rate.isActive },
+              { key: 'inactive', label: 'Inactive', test: (rate) => !rate.isActive },
+            ]}
+            emptyState={{
+              title: 'No damage codes yet.',
+              description: 'Add one before inspections can record damage.',
+            }}
+          />
+        </Card>
 
-      {pricing && <PriceDialog onClose={() => setPricing(false)} />}
-      {editing !== undefined && <RateDialog rate={editing} onClose={() => setEditing(undefined)} />}
+        {pricing && <PriceDialog onClose={() => setPricing(false)} />}
+        {editing !== undefined && <RateDialog rate={editing} onClose={() => setEditing(undefined)} />}
+      </PageScrollBody>
     </section>
   );
 };

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { PageScrollBody } from '../shared/ui/PageChrome';
 import { useQueryClient } from '@tanstack/react-query';
 import { ScanLine, X } from 'lucide-react';
 import {
@@ -229,130 +230,132 @@ export const StockTakePage: React.FC = () => {
   const data = past.data;
 
   return (
-    <section aria-labelledby="stock-take-title" className="flex flex-col gap-4 pb-20 md:pb-0">
+    <section aria-labelledby="stock-take-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4 pb-20 md:pb-0">
       <PageHeader
         id="stock-take-title"
         title="Stock-take"
         description="Scan every unit on the shelf, then finish to see which units are unconfirmed."
       />
 
-      {run ? (
-        <Results
-          run={run}
-          onNew={() => {
-            setRun(null);
-            setTimeout(() => scanField.current?.focus(), 0);
-          }}
-        />
-      ) : (
-        <Card>
-          <CardHeader
-            title="Scan"
-            id="stock-take-scan"
-            action={<span className="text-body text-ink-muted">{scans.length} scanned</span>}
+      <PageScrollBody label="Stock-take" className="flex flex-col gap-4">
+        {run ? (
+          <Results
+            run={run}
+            onNew={() => {
+              setRun(null);
+              setTimeout(() => scanField.current?.focus(), 0);
+            }}
           />
-          <form onSubmit={add} className="flex flex-col gap-2">
-            <Field
-              id="stock-take-tag"
-              label="Asset tag"
-              hint="Scan the label or type the tag, then press Enter."
-              error={note}
-            >
-              <Input
+        ) : (
+          <Card>
+            <CardHeader
+              title="Scan"
+              id="stock-take-scan"
+              action={<span className="text-body text-ink-muted">{scans.length} scanned</span>}
+            />
+            <form onSubmit={add} className="flex flex-col gap-2">
+              <Field
                 id="stock-take-tag"
-                ref={scanField}
-                value={typed}
-                // The scan field takes focus on arrival, as the screen asks: a scanner types into it at once.
-                autoFocus
-                autoComplete="off"
-                disabled={submitting}
-                placeholder="TL-0042"
-                onChange={(event) => setTyped(event.target.value)}
-              />
-            </Field>
-          </form>
-          <p aria-live="polite" className="sr-only">
-            {announcement}
-          </p>
-          {error && (
-            <Alert tone="error" className="mt-3">
-              {error}
-            </Alert>
-          )}
-          {scans.length === 0 ? (
-            <p className="mt-4 text-body text-ink-muted">Scan a device&apos;s asset tag to start.</p>
-          ) : (
-            <ul aria-label="Scanned tags" className="mt-4 flex max-h-80 flex-col divide-y divide-line overflow-y-auto">
-              {scans.map((tag) => (
-                <li key={tag} className="flex items-center justify-between gap-2 py-1">
-                  <span className="font-mono text-body text-ink">{tag}</span>
-                  <IconButton
-                    label={`Remove ${tag}`}
-                    icon={<X aria-hidden="true" className="h-4 w-4" />}
-                    size="lg"
-                    onClick={() => remove(tag)}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="fixed inset-x-0 bottom-[calc(theme(spacing.tabbar)+env(safe-area-inset-bottom))] z-raised border-t border-line bg-surface p-3 md:static md:mt-4 md:border-0 md:bg-transparent md:p-0">
-            <Button
-              variant="primary"
-              icon={<ScanLine aria-hidden="true" className="h-4 w-4" />}
-              className="min-h-11 w-full md:w-auto"
-              loading={submitting}
-              disabled={scans.length === 0}
-              onClick={() => setConfirming(true)}
-            >
-              Finish stock-take
-            </Button>
-          </div>
-        </Card>
-      )}
+                label="Asset tag"
+                hint="Scan the label or type the tag, then press Enter."
+                error={note}
+              >
+                <Input
+                  id="stock-take-tag"
+                  ref={scanField}
+                  value={typed}
+                  // The scan field takes focus on arrival, as the screen asks: a scanner types into it at once.
+                  autoFocus
+                  autoComplete="off"
+                  disabled={submitting}
+                  placeholder="TL-0042"
+                  onChange={(event) => setTyped(event.target.value)}
+                />
+              </Field>
+            </form>
+            <p aria-live="polite" className="sr-only">
+              {announcement}
+            </p>
+            {error && (
+              <Alert tone="error" className="mt-3">
+                {error}
+              </Alert>
+            )}
+            {scans.length === 0 ? (
+              <p className="mt-4 text-body text-ink-muted">Scan a device&apos;s asset tag to start.</p>
+            ) : (
+              <ul aria-label="Scanned tags" className="mt-4 flex max-h-80 flex-col divide-y divide-line overflow-y-auto">
+                {scans.map((tag) => (
+                  <li key={tag} className="flex items-center justify-between gap-2 py-1">
+                    <span className="font-mono text-body text-ink">{tag}</span>
+                    <IconButton
+                      label={`Remove ${tag}`}
+                      icon={<X aria-hidden="true" className="h-4 w-4" />}
+                      size="lg"
+                      onClick={() => remove(tag)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="fixed inset-x-0 bottom-[calc(theme(spacing.tabbar)+env(safe-area-inset-bottom))] z-raised border-t border-line bg-surface p-3 md:static md:mt-4 md:border-0 md:bg-transparent md:p-0">
+              <Button
+                variant="primary"
+                icon={<ScanLine aria-hidden="true" className="h-4 w-4" />}
+                className="min-h-11 w-full md:w-auto"
+                loading={submitting}
+                disabled={scans.length === 0}
+                onClick={() => setConfirming(true)}
+              >
+                Finish stock-take
+              </Button>
+            </div>
+          </Card>
+        )}
 
-      <section aria-labelledby="past-stock-takes" className="flex flex-col gap-2">
-        <h2 id="past-stock-takes" className="text-title text-ink">
-          Past stock-takes
-        </h2>
-        <CollectionView<StockTakeSummary>
-          label="Past stock-takes"
-          items={data?.items}
-          loading={past.isPending}
-          error={failure ? <ErrorState error={failure} onRetry={() => void past.refetch()} /> : undefined}
-          itemId={(row) => row.id}
-          itemName={(row) => formatDateTime(row.createdAt)}
-          itemTitle={(row) => <span title={formatUtc(row.createdAt)}>{formatDateTime(row.createdAt)}</span>}
-          fields={fields}
-          noun={{ one: 'stock-take', other: 'stock-takes' }}
-          details={false}
-          hideCommandBar
-          emptyState={{ title: 'No stock-takes yet.' }}
-          footer={
-            data && data.totalPages > 1 ? (
-              <Pagination
-                pageNumber={data.pageNumber}
-                totalPages={data.totalPages}
-                totalItems={data.totalCount}
-                pageSize={STOCK_TAKE_PAGE_SIZE}
-                onPage={setPageNumber}
-              />
-            ) : undefined
-          }
-        />
-      </section>
+        <section aria-labelledby="past-stock-takes" className="flex flex-col gap-2">
+          <h2 id="past-stock-takes" className="text-title text-ink">
+            Past stock-takes
+          </h2>
+          <CollectionView<StockTakeSummary>
+            label="Past stock-takes"
+            items={data?.items}
+            loading={past.isPending}
+            error={failure ? <ErrorState error={failure} onRetry={() => void past.refetch()} /> : undefined}
+            itemId={(row) => row.id}
+            itemName={(row) => formatDateTime(row.createdAt)}
+            itemTitle={(row) => <span title={formatUtc(row.createdAt)}>{formatDateTime(row.createdAt)}</span>}
+            fields={fields}
+            noun={{ one: 'stock-take', other: 'stock-takes' }}
+            details={false}
+            hideCommandBar
+            emptyState={{ title: 'No stock-takes yet.' }}
+            footer={
+              data && data.totalPages > 1 ? (
+                <Pagination
+                  pageNumber={data.pageNumber}
+                  totalPages={data.totalPages}
+                  totalItems={data.totalCount}
+                  pageSize={STOCK_TAKE_PAGE_SIZE}
+                  onPage={setPageNumber}
+                />
+              ) : undefined
+            }
+          />
+        </section>
 
-      {confirming && (
-        <ConfirmDialog
-          titleId="stock-take-confirm-title"
-          title={`Submit ${scannedTagsText(scans.length)}?`}
-          description="Units not scanned and not heard recently are listed as unconfirmed."
-          confirmLabel="Finish stock-take"
-          pending={submitting}
-          onConfirm={() => void finish()}
-          onCancel={() => setConfirming(false)}
-        />
-      )}
+        {confirming && (
+          <ConfirmDialog
+            titleId="stock-take-confirm-title"
+            title={`Submit ${scannedTagsText(scans.length)}?`}
+            description="Units not scanned and not heard recently are listed as unconfirmed."
+            confirmLabel="Finish stock-take"
+            pending={submitting}
+            onConfirm={() => void finish()}
+            onCancel={() => setConfirming(false)}
+          />
+        )}
+      </PageScrollBody>
     </section>
   );
 };
