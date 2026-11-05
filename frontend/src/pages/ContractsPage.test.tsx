@@ -62,9 +62,9 @@ describe('ContractsPage (/o/contracts, screen 5.2)', () => {
     renderPage();
     expect(table().getByRole('link', { name: 'RC-2026-0001' }).getAttribute('href')).toBe('/o/contracts/c-1');
     // Cancel contract is a status change, in the row's Change status menu (chapter 06 §9.6).
-    expect(table().getByRole('button', { name: /Change status of RC-2026-0001$/ })).toBeTruthy();
-    expect(table().getByRole('button', { name: /Change status of RC-2026-0002$/ })).toBeTruthy();
-    expect(table().queryByRole('button', { name: /Change status of RC-2026-0003$/ })).toBeNull();
+    expect(table().getByRole('button', { name: /change status of RC-2026-0001$/ })).toBeTruthy();
+    expect(table().getByRole('button', { name: /change status of RC-2026-0002$/ })).toBeTruthy();
+    expect(table().queryByRole('button', { name: /change status of RC-2026-0003$/ })).toBeNull();
     // Status changes stay per row: no selection to change together (review of treklink-web#350).
     expect(screen.queryAllByRole('checkbox', { name: /^Select / })).toHaveLength(0);
   });
@@ -89,7 +89,7 @@ describe('ContractsPage (/o/contracts, screen 5.2)', () => {
   it('cancels with the reason and the loaded version', async () => {
     cancelContract.mockResolvedValue({});
     renderPage();
-    fireEvent.click(table().getByRole('button', { name: /Change status of RC-2026-0002$/ }));
+    fireEvent.click(table().getByRole('button', { name: /change status of RC-2026-0002$/ }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Cancel contract' }));
     const dialog = within(screen.getByRole('alertdialog', { name: 'Cancel contract RC-2026-0002?' }));
     fireEvent.click(dialog.getByRole('button', { name: 'Cancel contract' }));

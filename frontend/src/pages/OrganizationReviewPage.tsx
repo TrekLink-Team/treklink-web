@@ -519,7 +519,7 @@ export const OrganizationReviewPage: React.FC = () => {
                       }))
                   : undefined
               }
-              statusOf={(item) => ORGANIZATION_STATUS[item.status].label}
+              status={{ field: 'status', value: (item) => ORGANIZATION_STATUS[item.status] }}
               search={{ label: 'Search by code, name or tax code', placeholder: 'Code, name or tax code' }}
               filters={[
                 { key: 'any', label: 'Verified or not' },

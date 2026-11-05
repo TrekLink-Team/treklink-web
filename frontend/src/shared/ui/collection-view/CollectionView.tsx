@@ -34,6 +34,7 @@ import {
   toggleItem,
   type SelectionState,
 } from './selection';
+import { StatusBadgeMenu } from './StatusBadgeMenu';
 import { TooltipButton } from './TooltipButton';
 import type {
   CollectionAction,
@@ -48,6 +49,7 @@ import type {
   CollectionPageInfo,
   CollectionQuery,
   CollectionSort,
+  CollectionStatus,
   CollectionTransition,
   CollectionViewKey,
 } from './types';
@@ -105,8 +107,11 @@ export interface CollectionViewProps<T> {
    * before or after the item leaves the list. The details pane shows it (review of treklink-web#350).
    */
   freshItem?: (id: string) => T | undefined;
-  /** The item's current status as text, shown on its Change status button (§9.6 rule 1). */
-  statusOf?: (item: T) => string;
+  /**
+   * The status field (§11.3): its cell shows the status badge, and when `transitions` allows a change
+   * the badge itself is the menu button. No separate Status change column is drawn.
+   */
+  status?: CollectionStatus<T>;
   bulkActions?: CollectionBulkAction<T>[];
   commands?: CollectionCommand[];
   views?: CollectionViewKey[];
@@ -165,7 +170,7 @@ export function CollectionView<T>({
   transitions,
   bulkTransitions: transitionsApplyToSelection = false,
   freshItem,
-  statusOf,
+  status,
   bulkActions = [],
   commands = [],
   views = ['details', 'list'],
@@ -582,12 +587,15 @@ export function CollectionView<T>({
         disabledReason: action.unavailableReason?.(item),
         onSelect: () => action.onSelect(item),
       })),
-      ...transitionsOf(item).map((transition) => ({
-        key: `status-${transition.key}`,
-        label: `Change status: ${transition.label}`,
-        destructive: transition.destructive,
-        onSelect: () => transition.onSelect([item]),
-      })),
+      // With a status field the badge menu stays on the row, so the dropdown holds no status items.
+      ...(status
+        ? []
+        : transitionsOf(item).map((transition) => ({
+            key: `status-${transition.key}`,
+            label: `Change status: ${transition.label}`,
+            destructive: transition.destructive,
+            onSelect: () => transition.onSelect([item]),
+          }))),
     ];
     const ordered = [...plain.filter((each) => !each.destructive), ...plain.filter((each) => each.destructive)];
     const firstDestructive = ordered.findIndex((each) => each.destructive);
@@ -602,14 +610,38 @@ export function CollectionView<T>({
     );
   };
 
-  const statusMenu = (item: T) => (
-    <StatusMenu
-      item={item}
-      itemName={itemName(item)}
-      statusText={statusOf?.(item)}
-      transitions={transitionsOf(item)}
-    />
-  );
+  // A list with transitions but no status field keeps the older Change status button beside the
+  // actions; every page with a status column passes `status` instead (§11.3).
+  const statusMenu = (item: T) =>
+    status ? null : (
+      <StatusMenu item={item} itemName={itemName(item)} transitions={transitionsOf(item)} />
+    );
+
+  // The status cell: the badge, which is the menu button while a transition is allowed and no
+  // selection exists (§11.3), then any further badges.
+  const statusCell = (item: T) => {
+    if (!status) return null;
+    const extra = status.extra?.(item);
+    const badge = (
+      <StatusBadgeMenu
+        status={status.value(item)}
+        itemName={itemName(item)}
+        items={[item]}
+        transitions={transitionsOf(item)}
+        disabled={selectedCount > 0}
+      />
+    );
+    return extra ? (
+      <span className="inline-flex flex-wrap items-center gap-1.5">
+        {badge}
+        {extra}
+      </span>
+    ) : (
+      badge
+    );
+  };
+  const renderField = (field: CollectionField<T>, item: T) =>
+    status && field.key === status.field ? statusCell(item) : field.render(item);
 
   // ----- command bar -----
 
@@ -928,7 +960,8 @@ export function CollectionView<T>({
   const tableFields = fields.filter((field) => !(pushedAside && field.hideWithPane));
   const narrowHide = (field: CollectionField<T>) =>
     fitsNarrow && field.hideWithPane ? '[@container(max-width:1099px)]:hidden' : undefined;
-  const statusColumn = transitions !== undefined && !pushedAside && !phone;
+  // The older Change status button, for a list with transitions and no status field.
+  const statusColumn = transitions !== undefined && !status && !pushedAside && !phone;
   const actionsColumn = !phone && (offersDetails || itemActions.length > 0);
 
   const detailsView = (
@@ -1035,7 +1068,7 @@ export function CollectionView<T>({
                         narrowHide(field),
                       )}
                     >
-                      {field.render(item)}
+                      {renderField(field, item)}
                     </td>
                   ))}
                   {statusColumn && <td className="whitespace-nowrap px-3 py-1">{statusMenu(item)}</td>}
@@ -1055,6 +1088,11 @@ export function CollectionView<T>({
   }
 
   const compactFields = fields.filter((field) => field.compact);
+  const cardFields = compactFields.length > 0 ? compactFields : fields;
+  // The badge menu stays on the row in every view, phones included (§11.3): a view that does not
+  // list the status field shows it after the fields.
+  const statusOutside = (shown: CollectionField<T>[]) =>
+    status !== undefined && !shown.some((field) => field.key === status.field);
 
   const list = (
     <ul aria-label={label} className="flex flex-col rounded-panel border border-line bg-surface shadow-raise">
@@ -1076,9 +1114,10 @@ export function CollectionView<T>({
             <span className="flex min-w-0 flex-[2_1_12rem] flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-ink">
               {compactFields.map((field) => (
                 <span key={field.key} className="min-w-0">
-                  {field.render(item)}
+                  {renderField(field, item)}
                 </span>
               ))}
+              {statusOutside(compactFields) && statusCell(item)}
             </span>
             {phone ? (
               phoneMenu(item)
@@ -1114,13 +1153,14 @@ export function CollectionView<T>({
               <h3 className="min-w-0 flex-1 text-body font-semibold">{titleOf(item)}</h3>
             </div>
             <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-body-sm">
-              {(compactFields.length > 0 ? compactFields : fields).map((field) => (
+              {cardFields.map((field) => (
                 <React.Fragment key={field.key}>
                   <dt className="text-ink-muted">{field.label}</dt>
-                  <dd className="min-w-0 text-ink">{field.render(item)}</dd>
+                  <dd className="min-w-0 text-ink">{renderField(field, item)}</dd>
                 </React.Fragment>
               ))}
             </dl>
+            {statusOutside(cardFields) && <div>{statusCell(item)}</div>}
             <div className="mt-auto flex flex-wrap items-center justify-between gap-1">
               {phone ? phoneMenu(item) : (
                 <>
@@ -1210,7 +1250,7 @@ export function CollectionView<T>({
             details={details || undefined}
             actions={actionsOf(paneItem)}
             transitions={transitionsOf(paneItem)}
-            statusText={statusOf?.(paneItem)}
+            statusText={status?.value(paneItem).label}
             onClose={closeDetails}
           />,
         )}

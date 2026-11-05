@@ -1,16 +1,13 @@
 import React from 'react';
 import { cn } from './cn';
+import { BADGE_BASE, badgeTone } from './badgeTone';
 import {
   CONFIDENCE_LABEL,
-  TONE_CLASSES,
   TONE_GLYPH,
   type IncidentConfidence,
   type StatusEntry,
   type StatusTone,
 } from './status';
-
-const BADGE_BASE =
-  'inline-flex w-fit max-w-full items-center gap-1.5 whitespace-nowrap rounded-badge border px-2 py-0.5 text-caption';
 
 export interface BadgeProps {
   /** A status tone, or a class string from an entity's *_TONES map. Neutral when absent. */
@@ -26,17 +23,12 @@ export interface BadgeProps {
   after?: React.ReactNode;
 }
 
-const isTone = (tone: string): tone is StatusTone => Object.hasOwn(TONE_CLASSES, tone);
-
-// Entities pass the class string of a tone (STATUS_TONES); map it back so the glyph shows too.
-const toneOfClass = (classes: string): StatusTone | undefined =>
-  (Object.keys(TONE_CLASSES) as StatusTone[]).find((key) => TONE_CLASSES[key] === classes);
-
 /** A small label. For lifecycle states use StatusBadge, which also supplies the text. */
 export const Badge: React.FC<BadgeProps> = ({ tone: given, glyph, className, children, after }) => {
-  const tone = given !== undefined && !isTone(given) ? (toneOfClass(given) ?? given) : given;
-  const known = tone !== undefined && isTone(tone);
-  const toneClass = known ? TONE_CLASSES[tone] : tone ?? 'border-line bg-sunken font-semibold text-ink';
+  const resolved = badgeTone(given);
+  const tone = resolved.tone;
+  const known = tone !== undefined;
+  const toneClass = resolved.classes;
   const showGlyph = glyph ?? known;
   const badge = (
     <span className={cn(BADGE_BASE, toneClass, className)}>

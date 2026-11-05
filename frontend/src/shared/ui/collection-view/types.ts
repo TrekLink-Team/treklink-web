@@ -59,6 +59,26 @@ export interface CollectionTransition<T> {
   onSelect: (items: T[]) => void;
 }
 
+/** The status of one item as its badge shows it. */
+export interface CollectionStatusValue {
+  /** One or two words: "Active". */
+  label: string;
+  /** A status tone, or a class string from an entity's *_TONES map. */
+  tone?: string;
+}
+
+/**
+ * The status column of chapter 06 §11.3: the cell of `field` shows the item's status badge, and the
+ * badge itself is the menu of the allowed transitions. There is no separate Status change column.
+ */
+export interface CollectionStatus<T> {
+  /** The key of the field whose cell holds the badge. */
+  field: string;
+  value: (item: T) => CollectionStatusValue;
+  /** Further badges after the status, outside the control (Suspected, Device silent). */
+  extra?: (item: T) => React.ReactNode;
+}
+
 /** A command of the command bar with no selection (Register device, Export). */
 export interface CollectionCommand {
   key: string;

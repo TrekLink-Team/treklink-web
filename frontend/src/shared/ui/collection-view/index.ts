@@ -2,6 +2,7 @@
 export * from './CollectionView';
 export * from './DetailsPane';
 export * from './selection';
+export * from './StatusBadgeMenu';
 export * from './TooltipButton';
 export * from './types';
 export * from './CollectionPaneHost';

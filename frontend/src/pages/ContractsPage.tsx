@@ -98,7 +98,10 @@ export const ContractsPage: React.FC = () => {
         fields={fields}
         noun={{ one: 'contract', other: 'contracts' }}
         transitions={isManager ? transitions : undefined}
-        statusOf={(contract) => STATUS_LABELS[contract.status]}
+        status={{
+          field: 'status',
+          value: (contract) => ({ label: STATUS_LABELS[contract.status], tone: STATUS_TONES[contract.status] }),
+        }}
         search={{ label: 'Search by contract code or plan', placeholder: 'RC-... or Monthly' }}
         filters={[
           { key: '', label: 'Every status' },

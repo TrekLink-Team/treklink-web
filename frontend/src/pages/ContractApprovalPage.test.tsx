@@ -216,7 +216,7 @@ describe('ContractApprovalPage row actions (W29)', () => {
 
   const table = () => within(screen.getByRole('table', { name: 'Contracts' }));
   const movesOf = (code: string, status: string) => {
-    fireEvent.click(table().getByRole('button', { name: `Status: ${status}. Change status of ${code}` }));
+    fireEvent.click(table().getByRole('button', { name: `${status}, change status of ${code}` }));
     const labels = screen.getAllByRole('menuitem').map((item) => item.textContent);
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
     return labels;
@@ -287,11 +287,11 @@ describe('ContractApprovalPage row actions (W29)', () => {
     renderPage();
     expect(movesOf('RC-2026-0004', 'Requested')).toEqual(['Reject contract', 'Cancel contract']);
     expect(movesOf('RC-2026-0005', 'Approved')).toEqual(['Cancel contract']);
-    expect(table().queryByRole('button', { name: /Change status of RC-2026-0006/ })).toBeNull();
+    expect(table().queryByRole('button', { name: /change status of RC-2026-0006/ })).toBeNull();
     expect(table().getByRole('button', { name: 'Open counter RC-2026-0005' })).toBeTruthy();
     expect(table().getByRole('button', { name: 'Open counter RC-2026-0006' })).toBeTruthy();
     expect(table().queryByRole('button', { name: /^Open counter RC-2026-000[47]/ })).toBeNull();
-    expect(table().queryByRole('button', { name: /Change status of RC-2026-0007/ })).toBeNull();
+    expect(table().queryByRole('button', { name: /change status of RC-2026-0007/ })).toBeNull();
     // Status changes stay per row: no selection to change together (review of treklink-web#350).
     expect(screen.queryAllByRole('checkbox', { name: /^Select / })).toHaveLength(0);
   });
@@ -300,7 +300,7 @@ describe('ContractApprovalPage row actions (W29)', () => {
     cancelContract.mockResolvedValue({});
     queue = [{ ...requested, id: 'c-2', code: 'RC-2026-0005', status: 'APPROVED', version: 3 }];
     renderPage();
-    fireEvent.click(table().getByRole('button', { name: 'Status: Approved. Change status of RC-2026-0005' }));
+    fireEvent.click(table().getByRole('button', { name: 'Approved, change status of RC-2026-0005' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Cancel contract' }));
     const dialog = within(screen.getByRole('alertdialog', { name: 'Cancel contract RC-2026-0005?' }));
     fireEvent.change(dialog.getByLabelText(/Reason/), { target: { value: 'Tour cancelled' } });

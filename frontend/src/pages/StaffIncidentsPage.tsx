@@ -7,7 +7,7 @@ import {
   type FleetIncidentFilters,
 } from '../entities/incident/api';
 import { isReportable } from '../entities/incident/authorityReports';
-import { StateBadges } from '../entities/incident/ui';
+import { IncidentFlags, StateBadges } from '../entities/incident/ui';
 import { AuthorityReportsPanel, ReportDialog } from '../widgets/AuthorityReports/AuthorityReports';
 import {
   StaffIncidentDetail,
@@ -209,7 +209,11 @@ export const StaffIncidentsPage: React.FC = () => {
                   },
                 ]}
                 transitions={transitions}
-                statusOf={(incident) => INCIDENT_STATE[incident.state].label}
+                status={{
+                  field: 'state',
+                  value: (incident) => INCIDENT_STATE[incident.state],
+                  extra: (incident) => <IncidentFlags incident={incident} />,
+                }}
                 filters={SCOPES.map((option) => ({ key: option.id, label: option.label }))}
                 query={{ search: '', filter: scope.id, sort: null }}
                 onQueryChange={(next) => {
