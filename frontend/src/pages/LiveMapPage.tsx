@@ -58,6 +58,11 @@ const incidentText = (device: SnapshotDevice) =>
     ? `SOS, state ${INCIDENT_STATE[device.openIncident.state]?.label ?? device.openIncident.state}`
     : null;
 
+const incidentPath = (scope: 'o' | 't', incidentId: string) =>
+  scope === 'o' ? `/o/incidents/${incidentId}` : `/t/incidents?incident=${incidentId}`;
+const incidentLinkText = (incident: NonNullable<SnapshotDevice['openIncident']>) =>
+  `Open incident${incident.code ? ` ${incident.code}` : ''}`;
+
 interface Row {
   device: SnapshotDevice;
   state: UnitState;
@@ -141,11 +146,23 @@ const markerOf = (row: Row, scope: 'o' | 't'): MapMarker | null => {
     ],
     // Screen 9.1: the popup opens the device's telemetry history (screen 9.2) in the same scope; the
     // asset tag travels along for the history heading.
-    link: {
-      label: 'Position history',
-      to: `/${scope}/devices/${device.id}/telemetry`,
-      state: { assetTag: device.assetTag },
-    },
+    // An open incident comes first: it is the urgent page. The staff queue has no per-incident route, so
+    // its link selects the incident on `/t/incidents` (screen 8.2).
+    links: [
+      ...(device.openIncident
+        ? [
+            {
+              label: incidentLinkText(device.openIncident),
+              to: incidentPath(scope, device.openIncident.id),
+            },
+          ]
+        : []),
+      {
+        label: 'Position history',
+        to: `/${scope}/devices/${device.id}/telemetry`,
+        state: { assetTag: device.assetTag },
+      },
+    ],
   };
 };
 
@@ -206,11 +223,9 @@ const DeviceRow: React.FC<{
       {device.openIncident && (
         <p className="mt-1 flex flex-wrap items-center gap-2 text-body-sm">
           <Badge tone={sosOf(device) ? 'critical' : 'done'}>{incidentText(device)}</Badge>
-          {scope === 'o' && (
-            <Link to={`/o/incidents/${device.openIncident.id}`} className={LINK}>
-              Open incident{device.openIncident.code ? ` ${device.openIncident.code}` : ''}
-            </Link>
-          )}
+          <Link to={incidentPath(scope, device.openIncident.id)} className={LINK}>
+            {incidentLinkText(device.openIncident)}
+          </Link>
         </p>
       )}
     </li>
@@ -264,6 +279,7 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
         ),
       )
     : rows;
+  const fieldStations = snapshot.data?.fieldStations ?? [];
   const sosCount = rows.filter(({ device }) => sosOf(device)).length;
   const count = (unit: UnitState) => rows.filter((row) => row.state === unit).length;
 
@@ -365,6 +381,24 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
               ))}
             </ul>
           </div>
+          {fieldStations.length > 0 && (
+            <section aria-labelledby="map-field-stations" className="border-t border-line p-4">
+              <h3 id="map-field-stations" className="text-body-sm font-semibold text-ink">
+                Field Stations
+              </h3>
+              <ul className="mt-2 space-y-2">
+                {fieldStations.map((station) => (
+                  <li key={station.id} className="flex flex-wrap items-center gap-2 text-body-sm">
+                    <span className="font-semibold text-ink">{station.name}</span>
+                    {station.stale && <Badge tone="waiting">Stale</Badge>}
+                    <span className="w-full text-ink-muted">
+                      Last sync {station.lastSyncAt ? formatDateTime(station.lastSyncAt) : 'Never'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </aside>
       </div>
     </div>
