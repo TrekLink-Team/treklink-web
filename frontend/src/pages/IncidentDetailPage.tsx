@@ -27,6 +27,7 @@ import { Badge } from '../shared/ui/Badge';
 import { ErrorState, Fact, Loading, PageTitle } from '../shared/ui/bits';
 import { Button } from '../shared/ui/Button';
 import { Field, Textarea } from '../shared/ui/Field';
+import { PageScrollBody } from '../shared/ui/PageChrome';
 import { RecordActionBar, type RecordAction } from '../shared/ui/RecordActionBar';
 import { useMediaQuery } from '../shared/lib/useMediaQuery';
 import { messageOf } from '../shared/ui/errors';
@@ -273,7 +274,7 @@ export const IncidentDetailPage: React.FC = () => {
   const createdAtOf = new Map(incident.statusUpdates.map((update) => [update.id, update.createdAt]));
 
   return (
-    <section aria-labelledby="incident-title" className="flex flex-1 flex-col">
+    <section aria-labelledby="incident-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col">
       <Link to="/o/incidents" className={`${LINK} inline-flex min-h-6 items-center self-start`}>
         Back to incidents
       </Link>
@@ -286,134 +287,137 @@ export const IncidentDetailPage: React.FC = () => {
       </div>
       <p className={`${WARNING} mb-4`}>{SAR_DISCLAIMER}</p>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="flex flex-col gap-4">
-          <div className={CARD}>
-            <dl className={phone ? FACT_LIST_PHONE : 'grid gap-3 sm:grid-cols-2'}>
-              <Fact label="Device">{incident.device.assetTag ?? 'Unknown device'}</Fact>
-              <Fact label="Holder">
-                {incident.device.holder
-                  ? `${incident.device.holder.name}${incident.device.holder.phone ? `, ${incident.device.holder.phone}` : ''}`
-                  : 'No holder label'}
-              </Fact>
-              <Fact label="Owner">{incident.owner?.fullName ?? 'Unclaimed'}</Fact>
-              <Fact label="Deadline">{deadlineOf(incident)}</Fact>
-              <Fact label="Source">{SOURCE_LABEL[incident.source]}</Fact>
-              <Fact label="Events">
-                {incident.eventCount}
-                {incident.reopenCount > 0 ? `, reopened ${incident.reopenCount} times` : ''}
-              </Fact>
-              <Fact label="First event">{formatDateTime(incident.firstEventAt)}</Fact>
-              <Fact label="Latest episode event">{formatDateTime(incident.lastEventAt)}</Fact>
-              <Fact label="Last known coordinates">
-                {incident.lastPosition
-                  ? `${incident.lastPosition.lat.toFixed(5)}, ${incident.lastPosition.lon.toFixed(5)}`
-                  : 'Position unavailable'}
-              </Fact>
-              {incident.outcomeNote && (
-                <Fact label="Outcome" className={phone ? undefined : 'sm:col-span-2'}>
-                  <span className="whitespace-pre-wrap break-words">{incident.outcomeNote}</span>
+      {/* The record body is the one scroll region; the title and the actions stay (ui standard §7). */}
+      <PageScrollBody label="Incident details">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="flex flex-col gap-4">
+            <div className={CARD}>
+              <dl className={phone ? FACT_LIST_PHONE : 'grid gap-3 sm:grid-cols-2'}>
+                <Fact label="Device">{incident.device.assetTag ?? 'Unknown device'}</Fact>
+                <Fact label="Holder">
+                  {incident.device.holder
+                    ? `${incident.device.holder.name}${incident.device.holder.phone ? `, ${incident.device.holder.phone}` : ''}`
+                    : 'No holder label'}
                 </Fact>
-              )}
-            </dl>
+                <Fact label="Owner">{incident.owner?.fullName ?? 'Unclaimed'}</Fact>
+                <Fact label="Deadline">{deadlineOf(incident)}</Fact>
+                <Fact label="Source">{SOURCE_LABEL[incident.source]}</Fact>
+                <Fact label="Events">
+                  {incident.eventCount}
+                  {incident.reopenCount > 0 ? `, reopened ${incident.reopenCount} times` : ''}
+                </Fact>
+                <Fact label="First event">{formatDateTime(incident.firstEventAt)}</Fact>
+                <Fact label="Latest episode event">{formatDateTime(incident.lastEventAt)}</Fact>
+                <Fact label="Last known coordinates">
+                  {incident.lastPosition
+                    ? `${incident.lastPosition.lat.toFixed(5)}, ${incident.lastPosition.lon.toFixed(5)}`
+                    : 'Position unavailable'}
+                </Fact>
+                {incident.outcomeNote && (
+                  <Fact label="Outcome" className={phone ? undefined : 'sm:col-span-2'}>
+                    <span className="whitespace-pre-wrap break-words">{incident.outcomeNote}</span>
+                  </Fact>
+                )}
+              </dl>
+            </div>
+
+            {ownedByOther && (
+              <p className="text-body text-ink">
+                {incident.owner?.fullName ?? 'Another member'} owns the response.
+              </p>
+            )}
+            {ackFailure && (
+              <p role="alert" className={ALERT}>
+                {ackFailure}
+              </p>
+            )}
+            {!phone && !open && <RecordActionBar label="Incident actions" actions={barActions} />}
+            {open && (
+              <ActionForm
+                key={correcting ? `correct-${correcting.id}` : open}
+                incident={incident}
+                action={open}
+                correcting={correcting ?? undefined}
+                onDone={() => void settled()}
+                onCancel={close}
+              />
+            )}
           </div>
 
-          {ownedByOther && (
-            <p className="text-body text-ink">
-              {incident.owner?.fullName ?? 'Another member'} owns the response.
-            </p>
-          )}
-          {ackFailure && (
-            <p role="alert" className={ALERT}>
-              {ackFailure}
-            </p>
-          )}
-          {!phone && !open && <RecordActionBar label="Incident actions" actions={barActions} />}
-          {open && (
-            <ActionForm
-              key={correcting ? `correct-${correcting.id}` : open}
-              incident={incident}
-              action={open}
-              correcting={correcting ?? undefined}
-              onDone={() => void settled()}
-              onCancel={close}
-            />
-          )}
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <section className={CARD} aria-labelledby="status-history">
-            <h2 id="status-history" className="mb-3 text-title-sm text-ink">
-              Status updates
-            </h2>
-            {incident.statusUpdates.length === 0 ? (
-              <p className="text-body text-ink-muted">No status updates recorded.</p>
-            ) : (
-              <ol className="flex flex-col gap-3">
-                {incident.statusUpdates.map((update) => {
-                  const corrected = createdAtOf.get(update.correctsId ?? '');
-                  return (
-                    <li key={update.id} className="flex flex-col gap-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-body-sm text-ink-muted">
-                          {update.author.fullName ?? 'A member'}, {formatDateTime(update.createdAt)}
-                        </p>
-                        {update.correctedById && <Badge tone="ended">Corrected</Badge>}
-                        {update.correctsId && (
-                          <Badge>
-                            {corrected
-                              ? `Correction of ${formatDateTime(corrected)}`
-                              : 'Correction'}
-                          </Badge>
-                        )}
-                      </div>
-                      <p
-                        className={`whitespace-pre-wrap break-words text-body ${update.correctedById ? 'text-ink-muted' : 'text-ink'}`}
-                      >
-                        {update.note}
-                      </p>
-                      {mayCorrect && !update.correctedById && (
-                        <div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            aria-label={`Correct the update of ${formatDateTime(update.createdAt)}`}
-                            onClick={() => correct(update)}
-                          >
-                            Correct
-                          </Button>
+          <div className="flex flex-col gap-4">
+            <section className={CARD} aria-labelledby="status-history">
+              <h2 id="status-history" className="mb-3 text-title-sm text-ink">
+                Status updates
+              </h2>
+              {incident.statusUpdates.length === 0 ? (
+                <p className="text-body text-ink-muted">No status updates recorded.</p>
+              ) : (
+                <ol className="flex flex-col gap-3">
+                  {incident.statusUpdates.map((update) => {
+                    const corrected = createdAtOf.get(update.correctsId ?? '');
+                    return (
+                      <li key={update.id} className="flex flex-col gap-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-body-sm text-ink-muted">
+                            {update.author.fullName ?? 'A member'}, {formatDateTime(update.createdAt)}
+                          </p>
+                          {update.correctedById && <Badge tone="ended">Corrected</Badge>}
+                          {update.correctsId && (
+                            <Badge>
+                              {corrected
+                                ? `Correction of ${formatDateTime(corrected)}`
+                                : 'Correction'}
+                            </Badge>
+                          )}
                         </div>
-                      )}
+                        <p
+                          className={`whitespace-pre-wrap break-words text-body ${update.correctedById ? 'text-ink-muted' : 'text-ink'}`}
+                        >
+                          {update.note}
+                        </p>
+                        {mayCorrect && !update.correctedById && (
+                          <div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              aria-label={`Correct the update of ${formatDateTime(update.createdAt)}`}
+                              onClick={() => correct(update)}
+                            >
+                              Correct
+                            </Button>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </section>
+            <section className={CARD} aria-labelledby="authority-reports">
+              <h2 id="authority-reports" className="mb-3 text-title-sm text-ink">
+                Authority reports
+              </h2>
+              {incident.authorityReports.length === 0 ? (
+                <p className="text-body text-ink-muted">No authority reports recorded.</p>
+              ) : (
+                <ul className="flex flex-col gap-3">
+                  {incident.authorityReports.map((report) => (
+                    <li key={report.id} className="text-body text-ink">
+                      {report.agency}, {report.reference}, reported{' '}
+                      {formatDateTime(report.reportedAt)},{' '}
+                      {report.caseClosedAt ? `closed ${formatDateTime(report.caseClosedAt)}` : 'open'}
                     </li>
-                  );
-                })}
-              </ol>
+                  ))}
+                </ul>
+              )}
+            </section>
+            <TransitionTrail incidentId={incident.id} onLostAccess={recheck} />
+            {hasAnyRole(user?.roles ?? [], ['ORG_MANAGER']) && (
+              <AlertLog incidentId={incident.id} onLostAccess={recheck} />
             )}
-          </section>
-          <section className={CARD} aria-labelledby="authority-reports">
-            <h2 id="authority-reports" className="mb-3 text-title-sm text-ink">
-              Authority reports
-            </h2>
-            {incident.authorityReports.length === 0 ? (
-              <p className="text-body text-ink-muted">No authority reports recorded.</p>
-            ) : (
-              <ul className="flex flex-col gap-3">
-                {incident.authorityReports.map((report) => (
-                  <li key={report.id} className="text-body text-ink">
-                    {report.agency}, {report.reference}, reported{' '}
-                    {formatDateTime(report.reportedAt)},{' '}
-                    {report.caseClosedAt ? `closed ${formatDateTime(report.caseClosedAt)}` : 'open'}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-          <TransitionTrail incidentId={incident.id} onLostAccess={recheck} />
-          {hasAnyRole(user?.roles ?? [], ['ORG_MANAGER']) && (
-            <AlertLog incidentId={incident.id} onLostAccess={recheck} />
-          )}
+          </div>
         </div>
-      </div>
+      </PageScrollBody>
       {phone && !open && <RecordActionBar label="Incident actions" actions={barActions} />}
     </section>
   );

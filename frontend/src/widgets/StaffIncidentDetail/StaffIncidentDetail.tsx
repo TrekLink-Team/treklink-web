@@ -11,7 +11,7 @@ import { ApiError } from '../../shared/api/apiClient';
 import { ErrorState, Fact, Loading } from '../../shared/ui/bits';
 import { Button } from '../../shared/ui/Button';
 import { PageHeader } from '../../shared/ui/PageHeader';
-import { StickyPageHeader } from '../../shared/ui/PageChrome';
+import { StickyPageHeader, PageScrollBody } from '../../shared/ui/PageChrome';
 import { RecordActionBar, type RecordAction } from '../../shared/ui/RecordActionBar';
 import { CARD, LINK, WARNING } from '../../shared/ui/styles';
 import { ReportDialog } from '../AuthorityReports/AuthorityReports';
@@ -28,6 +28,19 @@ export const StaffDisclaimer: React.FC = () => (
 
 // The selected incident (api-design 02). Staff never acknowledge or act as an organization's
 // response owner (screen 8.2 Roles). They may report to authorities or declare UNROUTED false.
+/**
+ * The record body: on the incident page it is the one scroll region under the pinned title, with
+ * the phone action bar below it (ui standard §7); beside the queue it is plain content.
+ */
+const IncidentBody: React.FC<{ page?: boolean; children: React.ReactNode }> = ({ page, children }) =>
+  page ? (
+    <PageScrollBody label="Incident details" className="flex flex-col gap-4">
+      {children}
+    </PageScrollBody>
+  ) : (
+    <>{children}</>
+  );
+
 export const StaffIncidentDetail: React.FC<{
   id: string;
   onBack: () => void;
@@ -87,7 +100,8 @@ export const StaffIncidentDetail: React.FC<{
   ];
   return (
     <section
-      className={`${page ? 'min-w-0' : CARD} flex flex-col gap-4`}
+      data-fit-page={page ? '' : undefined}
+      className={`${page ? 'min-h-0 min-w-0 flex-1' : CARD} flex flex-col gap-4`}
       aria-labelledby="staff-incident-title"
     >
       {page && (
@@ -103,136 +117,138 @@ export const StaffIncidentDetail: React.FC<{
           <StaffDisclaimer />
         </>
       )}
-      {error && <ErrorState error={error} onRetry={() => void refetch()} />}
-      {!page && (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 id="staff-incident-title" tabIndex={-1} className="text-title-sm text-ink">
-            {incident.code}
-          </h2>
-          <StateBadges incident={incident} />
-        </div>
-      )}
-      <dl className="grid gap-3 sm:grid-cols-2">
-        <Fact label="Device">{incident.device.assetTag ?? 'Unknown device'}</Fact>
-        <Fact label="Holder">
-          {incident.device.holder
-            ? `${incident.device.holder.name}${incident.device.holder.phone ? `, ${incident.device.holder.phone}` : ''}`
-            : 'No holder label'}
-        </Fact>
-        <Fact label="Owner">{incident.owner?.fullName ?? 'TrekLink Staff queue'}</Fact>
-        <Fact label="Deadline">{deadlineOf(incident)}</Fact>
-        <Fact label="Source">{SOURCE_LABEL[incident.source]}</Fact>
-        <Fact label="Events">
-          {incident.eventCount}
-          {incident.reopenCount > 0 ? `, reopened ${incident.reopenCount} times` : ''}
-        </Fact>
-        <Fact label="In this state since">{formatDateTime(incident.stateChangedAt)}</Fact>
-        <Fact label="Latest episode event">{formatDateTime(incident.lastEventAt)}</Fact>
-        <Fact label="Last known coordinates">
-          {incident.lastPosition
-            ? `${incident.lastPosition.lat.toFixed(5)}, ${incident.lastPosition.lon.toFixed(5)}`
-            : 'Position unavailable'}
-        </Fact>
-        {page && <Fact label="First event">{formatDateTime(incident.firstEventAt)}</Fact>}
-        {page && incident.outcomeNote && <Fact label="Outcome">{incident.outcomeNote}</Fact>}
-      </dl>
-      <IncidentEpisode
-        incidentId={incident.id}
-        onLostAccess={refetch}
-        headingLevel={page ? 2 : 3}
-      />
-      <div className="flex flex-wrap gap-3">
+      <IncidentBody page={page}>
+        {error && <ErrorState error={error} onRetry={() => void refetch()} />}
         {!page && (
-          <Link to={`/t/incidents/${incident.id}`} className={LINK}>
-            Open incident page
-          </Link>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 id="staff-incident-title" tabIndex={-1} className="text-title-sm text-ink">
+              {incident.code}
+            </h2>
+            <StateBadges incident={incident} />
+          </div>
         )}
-        {page && incident.organizationId && (
-          <Link to={`/t/organizations/${incident.organizationId}`} className={LINK}>
-            View organization
+        <dl className="grid gap-3 sm:grid-cols-2">
+          <Fact label="Device">{incident.device.assetTag ?? 'Unknown device'}</Fact>
+          <Fact label="Holder">
+            {incident.device.holder
+              ? `${incident.device.holder.name}${incident.device.holder.phone ? `, ${incident.device.holder.phone}` : ''}`
+              : 'No holder label'}
+          </Fact>
+          <Fact label="Owner">{incident.owner?.fullName ?? 'TrekLink Staff queue'}</Fact>
+          <Fact label="Deadline">{deadlineOf(incident)}</Fact>
+          <Fact label="Source">{SOURCE_LABEL[incident.source]}</Fact>
+          <Fact label="Events">
+            {incident.eventCount}
+            {incident.reopenCount > 0 ? `, reopened ${incident.reopenCount} times` : ''}
+          </Fact>
+          <Fact label="In this state since">{formatDateTime(incident.stateChangedAt)}</Fact>
+          <Fact label="Latest episode event">{formatDateTime(incident.lastEventAt)}</Fact>
+          <Fact label="Last known coordinates">
+            {incident.lastPosition
+              ? `${incident.lastPosition.lat.toFixed(5)}, ${incident.lastPosition.lon.toFixed(5)}`
+              : 'Position unavailable'}
+          </Fact>
+          {page && <Fact label="First event">{formatDateTime(incident.firstEventAt)}</Fact>}
+          {page && incident.outcomeNote && <Fact label="Outcome">{incident.outcomeNote}</Fact>}
+        </dl>
+        <IncidentEpisode
+          incidentId={incident.id}
+          onLostAccess={refetch}
+          headingLevel={page ? 2 : 3}
+        />
+        <div className="flex flex-wrap gap-3">
+          {!page && (
+            <Link to={`/t/incidents/${incident.id}`} className={LINK}>
+              Open incident page
+            </Link>
+          )}
+          {page && incident.organizationId && (
+            <Link to={`/t/organizations/${incident.organizationId}`} className={LINK}>
+              View organization
+            </Link>
+          )}
+          {incident.contractId && (
+            <Link to={`/t/contracts/${incident.contractId}`} className={LINK}>
+              View contract
+            </Link>
+          )}
+          <Link to="/t/map" className={LINK}>
+            Fleet map
           </Link>
-        )}
-        {incident.contractId && (
-          <Link to={`/t/contracts/${incident.contractId}`} className={LINK}>
-            View contract
-          </Link>
-        )}
-        <Link to="/t/map" className={LINK}>
-          Fleet map
-        </Link>
-      </div>
-      {!page && isReportable(incident) && (
-        <div>
-          <Button variant="primary" onClick={() => setReporting(true)}>
-            Report to authorities
-          </Button>
         </div>
-      )}
-      {reporting && (
-        <ReportDialog
-          entry={{ kind: 'incident', id: incident.id }}
-          onClose={() => setReporting(false)}
-        />
-      )}
-      {!page && incident.state === 'UNROUTED' && user && hasAnyRole(user.roles, ['STAFF']) && (
-        <Button variant="danger" onClick={() => setFalseAlarm(true)}>
-          Declare false alarm
-        </Button>
-      )}
-      {falseAlarm && incident.state === 'UNROUTED' && (
-        <StaffFalseAlarmDialog
-          incident={incident}
-          onClose={() => setFalseAlarm(false)}
-          onUnavailable={onUnavailable}
-          onSaved={(code) => {
-            setFalseAlarm(false);
-            onSaved(code);
-          }}
-        />
-      )}
-      <section aria-labelledby="staff-authority-reports">
-        <SectionHeading
-          id="staff-authority-reports"
-          className="mb-2 text-body font-semibold text-ink"
-        >
-          Authority reports
-        </SectionHeading>
-        {incident.authorityReports.length === 0 ? (
-          <p className="text-body text-ink-muted">No authority reports recorded.</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {incident.authorityReports.map((report) => (
-              <li key={report.id} className="break-words text-body text-ink">
-                {report.agency}, {report.reference}, reported {formatDateTime(report.reportedAt)}
-                {report.caseClosedAt
-                  ? `, case closed ${formatDateTime(report.caseClosedAt)}`
-                  : ', case open'}
-              </li>
-            ))}
-          </ul>
+        {!page && isReportable(incident) && (
+          <div>
+            <Button variant="primary" onClick={() => setReporting(true)}>
+              Report to authorities
+            </Button>
+          </div>
         )}
-      </section>
-      <section aria-labelledby="staff-status-history">
-        <SectionHeading id="staff-status-history" className="mb-2 text-body font-semibold text-ink">
-          Status updates
-        </SectionHeading>
-        {incident.statusUpdates.length === 0 ? (
-          <p className="text-body text-ink-muted">No status updates recorded.</p>
-        ) : (
-          <ol className="flex flex-col gap-2">
-            {incident.statusUpdates.map((update) => (
-              <li key={update.id}>
-                <p className="text-body-sm text-ink-muted">
-                  {update.author.fullName ?? 'A member'}, {formatDateTime(update.createdAt)}
-                </p>
-                <p className="whitespace-pre-wrap break-words text-body text-ink">{update.note}</p>
-              </li>
-            ))}
-          </ol>
+        {reporting && (
+          <ReportDialog
+            entry={{ kind: 'incident', id: incident.id }}
+            onClose={() => setReporting(false)}
+          />
         )}
-      </section>
-      {page && <TransitionTrail incidentId={incident.id} onLostAccess={refetch} />}
-      {page && <AlertLog incidentId={incident.id} onLostAccess={refetch} />}
+        {!page && incident.state === 'UNROUTED' && user && hasAnyRole(user.roles, ['STAFF']) && (
+          <Button variant="danger" onClick={() => setFalseAlarm(true)}>
+            Declare false alarm
+          </Button>
+        )}
+        {falseAlarm && incident.state === 'UNROUTED' && (
+          <StaffFalseAlarmDialog
+            incident={incident}
+            onClose={() => setFalseAlarm(false)}
+            onUnavailable={onUnavailable}
+            onSaved={(code) => {
+              setFalseAlarm(false);
+              onSaved(code);
+            }}
+          />
+        )}
+        <section aria-labelledby="staff-authority-reports">
+          <SectionHeading
+            id="staff-authority-reports"
+            className="mb-2 text-body font-semibold text-ink"
+          >
+            Authority reports
+          </SectionHeading>
+          {incident.authorityReports.length === 0 ? (
+            <p className="text-body text-ink-muted">No authority reports recorded.</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {incident.authorityReports.map((report) => (
+                <li key={report.id} className="break-words text-body text-ink">
+                  {report.agency}, {report.reference}, reported {formatDateTime(report.reportedAt)}
+                  {report.caseClosedAt
+                    ? `, case closed ${formatDateTime(report.caseClosedAt)}`
+                    : ', case open'}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+        <section aria-labelledby="staff-status-history">
+          <SectionHeading id="staff-status-history" className="mb-2 text-body font-semibold text-ink">
+            Status updates
+          </SectionHeading>
+          {incident.statusUpdates.length === 0 ? (
+            <p className="text-body text-ink-muted">No status updates recorded.</p>
+          ) : (
+            <ol className="flex flex-col gap-2">
+              {incident.statusUpdates.map((update) => (
+                <li key={update.id}>
+                  <p className="text-body-sm text-ink-muted">
+                    {update.author.fullName ?? 'A member'}, {formatDateTime(update.createdAt)}
+                  </p>
+                  <p className="whitespace-pre-wrap break-words text-body text-ink">{update.note}</p>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+        {page && <TransitionTrail incidentId={incident.id} onLostAccess={refetch} />}
+        {page && <AlertLog incidentId={incident.id} onLostAccess={refetch} />}
+      </IncidentBody>
       {page && !wide && <RecordActionBar label="Incident actions" actions={actions} />}
       {!page && (
         <div className="flex flex-wrap gap-3">

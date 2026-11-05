@@ -28,7 +28,7 @@ import { StatusBadge } from '../shared/ui/Badge';
 import { ReportLossDialog } from '../features/report-loss/ReportLossDialog';
 import { DisposeDialog, IntakeDialog, ResetDialog } from '../widgets/DeviceActions/DeviceDialogs';
 import { deviceFailure, MSG29 } from '../widgets/DeviceActions/deviceFailure';
-import { StickyPageHeader } from '../shared/ui/PageChrome';
+import { StickyPageHeader, PageScrollBody } from '../shared/ui/PageChrome';
 import { RecordActionBar, type RecordAction } from '../shared/ui/RecordActionBar';
 import { useToast } from '../shared/ui/toastStore';
 import { useMediaQuery } from '../shared/lib/useMediaQuery';
@@ -298,7 +298,7 @@ export const DeviceDetailPage: React.FC = () => {
   );
 
   return (
-    <section aria-labelledby="device-title" className="flex flex-1 flex-col">
+    <section aria-labelledby="device-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col">
       {/* The back link and the title stay pinned together (ui standard §7). */}
       <StickyPageHeader>
         <Link to="/t/fleet" className={`${LINK} inline-flex min-h-6 items-center self-start`}>
@@ -313,98 +313,101 @@ export const DeviceDetailPage: React.FC = () => {
         </div>
       </StickyPageHeader>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="flex flex-col gap-4">
-          {!phone && variantCard}
-          <div className={CARD}>
-            <dl className={phone ? FACT_LIST_PHONE : 'grid gap-3 sm:grid-cols-2'}>
-              {/* The facts a person checks first, ahead of the render on a phone (W20B item 3). */}
-              <Fact label="Holder">{holderOf(device)}</Fact>
-              <Fact label="Battery">{device.batteryPct !== null ? `${device.batteryPct}%` : 'Not reported'}</Fact>
-              <Fact label="Last seen">{device.lastSeenAt ? formatDateTime(device.lastSeenAt) : 'Never heard'}</Fact>
-              <Fact label="Node">{device.nodeId} ({device.nodeNum})</Fact>
-              <Fact label="Hardware variant">{device.hardwareVariant.code}</Fact>
-              <Fact label="Acquired">{formatDate(device.acquiredAt)}</Fact>
-              <Fact label="Status since">{formatDateTime(device.statusChangedAt)}</Fact>
-              <Fact label="Firmware">{device.firmwareVersion}</Fact>
-              <Fact label="Key version and organization">
-                {device.keyVersion !== null
-                  ? `v${device.keyVersion}, ${device.keyOrganization?.legalName ?? 'unknown organization'}`
-                  : 'None'}
-              </Fact>
-              <Fact label="Last intake check">
-                {device.lastIntakeCheck
-                  ? `${device.lastIntakeCheck.passed ? 'Passed' : 'Failed'}, ${formatDateTime(device.lastIntakeCheck.createdAt)}`
-                  : 'None'}
-              </Fact>
-              <Fact label="Last reset">
-                {device.lastReset ? formatDateTime(device.lastReset.createdAt) : 'None'}
-              </Fact>
-              <Fact label="Open maintenance">
-                {device.openMaintenance ? (
-                  <Link to="/t/maintenance" className={LINK}>
-                    {MAINTENANCE_STATUS[device.openMaintenance.status].label}, {device.openMaintenance.description}
-                  </Link>
-                ) : (
-                  'None'
-                )}
-              </Fact>
-            </dl>
+      {/* The record body is the one scroll region; the title and the actions stay (ui standard §7). */}
+      <PageScrollBody label="Device details">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="flex flex-col gap-4">
+            {!phone && variantCard}
+            <div className={CARD}>
+              <dl className={phone ? FACT_LIST_PHONE : 'grid gap-3 sm:grid-cols-2'}>
+                {/* The facts a person checks first, ahead of the render on a phone (W20B item 3). */}
+                <Fact label="Holder">{holderOf(device)}</Fact>
+                <Fact label="Battery">{device.batteryPct !== null ? `${device.batteryPct}%` : 'Not reported'}</Fact>
+                <Fact label="Last seen">{device.lastSeenAt ? formatDateTime(device.lastSeenAt) : 'Never heard'}</Fact>
+                <Fact label="Node">{device.nodeId} ({device.nodeNum})</Fact>
+                <Fact label="Hardware variant">{device.hardwareVariant.code}</Fact>
+                <Fact label="Acquired">{formatDate(device.acquiredAt)}</Fact>
+                <Fact label="Status since">{formatDateTime(device.statusChangedAt)}</Fact>
+                <Fact label="Firmware">{device.firmwareVersion}</Fact>
+                <Fact label="Key version and organization">
+                  {device.keyVersion !== null
+                    ? `v${device.keyVersion}, ${device.keyOrganization?.legalName ?? 'unknown organization'}`
+                    : 'None'}
+                </Fact>
+                <Fact label="Last intake check">
+                  {device.lastIntakeCheck
+                    ? `${device.lastIntakeCheck.passed ? 'Passed' : 'Failed'}, ${formatDateTime(device.lastIntakeCheck.createdAt)}`
+                    : 'None'}
+                </Fact>
+                <Fact label="Last reset">
+                  {device.lastReset ? formatDateTime(device.lastReset.createdAt) : 'None'}
+                </Fact>
+                <Fact label="Open maintenance">
+                  {device.openMaintenance ? (
+                    <Link to="/t/maintenance" className={LINK}>
+                      {MAINTENANCE_STATUS[device.openMaintenance.status].label}, {device.openMaintenance.description}
+                    </Link>
+                  ) : (
+                    'None'
+                  )}
+                </Fact>
+              </dl>
+            </div>
+
+            {device.nextStep && <NextStepPanel device={device} step={device.nextStep} />}
+
+            {phone && variantCard}
+
+            {/* Screen 4.2: the last position on a small map with the overlay, coordinates under it. */}
+            <section className={CARD} aria-labelledby="device-position">
+              <h2 id="device-position" className="mb-3 text-title-sm text-ink">
+                Last position
+              </h2>
+              <PositionMap position={device.lastPosition} label={device.assetTag} seenAt={device.lastSeenAt} />
+            </section>
+
+            {!phone && <RecordActionBar label="Device actions" actions={actions} />}
           </div>
 
-          {device.nextStep && <NextStepPanel device={device} step={device.nextStep} />}
-
-          {phone && variantCard}
-
-          {/* Screen 4.2: the last position on a small map with the overlay, coordinates under it. */}
-          <section className={CARD} aria-labelledby="device-position">
-            <h2 id="device-position" className="mb-3 text-title-sm text-ink">
-              Last position
-            </h2>
-            <PositionMap position={device.lastPosition} label={device.assetTag} seenAt={device.lastSeenAt} />
-          </section>
-
-          {!phone && <RecordActionBar label="Device actions" actions={actions} />}
+          <div className="flex flex-col gap-4">
+            <section className={CARD} aria-labelledby="device-history">
+              <h2 id="device-history" className="mb-3 text-title-sm text-ink">
+                History
+              </h2>
+              {!history || history.items.length === 0 ? (
+                <p className="text-body text-ink-muted">No history recorded yet.</p>
+              ) : (
+                <ol className="flex flex-col gap-3">
+                  {history.items.map((item, index) => {
+                    const link = historyLink(item);
+                    return (
+                      <li key={`${item.at}-${index}`}>
+                        <p className="text-body-sm text-ink-muted">
+                          {formatDateTime(item.at)}, {item.actor}
+                        </p>
+                        {link ? (
+                          <Link
+                            to={link.to}
+                            state={link.state}
+                            className={`${LINK} inline-flex min-h-6 items-center text-body`}
+                          >
+                            {item.summary}
+                          </Link>
+                        ) : (
+                          <p className="text-body text-ink">{item.summary}</p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+              {history && (
+                <Pager pageNumber={historyPage} totalPages={history.totalPages} onPage={setHistoryPage} />
+              )}
+            </section>
+          </div>
         </div>
-
-        <div className="flex flex-col gap-4">
-          <section className={CARD} aria-labelledby="device-history">
-            <h2 id="device-history" className="mb-3 text-title-sm text-ink">
-              History
-            </h2>
-            {!history || history.items.length === 0 ? (
-              <p className="text-body text-ink-muted">No history recorded yet.</p>
-            ) : (
-              <ol className="flex flex-col gap-3">
-                {history.items.map((item, index) => {
-                  const link = historyLink(item);
-                  return (
-                    <li key={`${item.at}-${index}`}>
-                      <p className="text-body-sm text-ink-muted">
-                        {formatDateTime(item.at)}, {item.actor}
-                      </p>
-                      {link ? (
-                        <Link
-                          to={link.to}
-                          state={link.state}
-                          className={`${LINK} inline-flex min-h-6 items-center text-body`}
-                        >
-                          {item.summary}
-                        </Link>
-                      ) : (
-                        <p className="text-body text-ink">{item.summary}</p>
-                      )}
-                    </li>
-                  );
-                })}
-              </ol>
-            )}
-            {history && (
-              <Pager pageNumber={historyPage} totalPages={history.totalPages} onPage={setHistoryPage} />
-            )}
-          </section>
-        </div>
-      </div>
+      </PageScrollBody>
 
       {phone && <RecordActionBar label="Device actions" actions={actions} />}
 

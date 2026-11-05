@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { PageScrollBody } from '../shared/ui/PageChrome';
+import { useMediaQuery } from '../shared/lib/useMediaQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
@@ -196,6 +198,9 @@ export const ContractDetailPage: React.FC<{
   const { id = '' } = useParams();
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
+  // On a phone the lifecycle card moves into the scrolling body, so the pinned rows leave the record
+  // room at 320 by 568 (ui standard §7).
+  const phone = !useMediaQuery('(min-width: 600px)', true);
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const roles = user?.roles ?? [];
@@ -410,9 +415,9 @@ export const ContractDetailPage: React.FC<{
   })();
 
   return (
-    <section aria-labelledby="contract-title" className="flex flex-1 flex-col gap-3">
+    <section aria-labelledby="contract-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-3">
       <ContractHeader contract={data} scope={scope} variantName={variant} />
-      <LifecycleCard contract={data} history={history.data} viewer={viewer} />
+      {!phone && <LifecycleCard contract={data} history={history.data} viewer={viewer} />}
       <ContractActionBar
         tabs={tabs}
         tab={tab}
@@ -424,7 +429,11 @@ export const ContractDetailPage: React.FC<{
         primaryForm={mode === 'review' ? REVIEW_FORM_ID : undefined}
         primaryPending={mode === 'review' && approving}
       />
-      {body}
+      {/* The record body is the one scroll region; the header, the sections row and the actions stay (ui standard §7). */}
+      <PageScrollBody label="Contract details" className="flex flex-col gap-3">
+        {phone && <LifecycleCard contract={data} history={history.data} viewer={viewer} />}
+        {body}
+      </PageScrollBody>
 
       {open?.kind === 'cancel' && <CancelDialog contract={data} onClose={() => setOpen(null)} />}
       {open?.kind === 'reject' && (
