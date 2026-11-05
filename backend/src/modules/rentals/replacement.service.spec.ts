@@ -289,7 +289,7 @@ describe('ReplacementService (rentals task 4.3, api-design 15)', () => {
       errorCode: ErrorCode.CHANNEL_KEY_EXPOSED,
     });
     expect(devices.recordProvisioning).not.toHaveBeenCalled();
-    expect(contracts.markCheckedIn).not.toHaveBeenCalled();
+    expect(contracts.closeCustody).not.toHaveBeenCalled();
   });
 
   it('refuses a key version other than the organization current one', async () => {
