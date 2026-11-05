@@ -361,13 +361,14 @@ export const LossCasePage: React.FC = () => {
     );
   }
 
+  // No breadcrumb of the page's own: the shell's trail already leads back to Loss cases, and a second
+  // one showed two "Loss cases" back links on a phone (W20B follow-up).
   if (detail.error || !item) {
     return (
       <section aria-labelledby={TITLE_ID}>
         <PageHeader
           id={TITLE_ID}
           title="Loss case"
-          breadcrumb={[{ label: 'Loss cases', to: '/t/loss-cases' }, { label: 'Case' }]}
         />
         <Alert
           tone="error"
@@ -413,7 +414,6 @@ export const LossCasePage: React.FC = () => {
       <PageHeader
         id={TITLE_ID}
         title={`${item.code}, ${LOSS_CASE_STATE[item.state].label}`}
-        breadcrumb={[{ label: 'Loss cases', to: '/t/loss-cases' }, { label: item.code }]}
         meta={
           <span className="inline-flex flex-wrap items-center gap-2">
             <StatusBadge entry={LOSS_CASE_STATE[item.state]} />
