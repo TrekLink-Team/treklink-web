@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { PageScrollBody } from '../shared/ui/PageChrome';
 import { registerOrganization, type RegistrationInput } from '../entities/organization/api';
 import { ApiError } from '../shared/api/apiClient';
 import { Alert, Button, Card, Field, Input, SAR_DISCLAIMER } from '../shared/ui';
@@ -89,58 +90,70 @@ export const RegisterPage: React.FC = () => {
             Registration received. Visit the TrekLink counter or call us to verify your
             organization.
           </Alert>
-          <p className="text-body text-ink-muted">
-            Your organization code is{' '}
-            <span className="font-mono font-semibold text-ink">{done}</span>. The Manager receives
-            an email to set a password.
-          </p>
-          <Link to="/sign-in" className={`${LINK} self-start`}>
-            Back to sign in
-          </Link>
-        </Card>
-      </section>
-    );
-  }
+            <p className="text-body text-ink-muted">
+              Your organization code is{' '}
+              <span className="font-mono font-semibold text-ink">{done}</span>. The Manager receives
+              an email to set a password.
+            </p>
+            <Link to="/sign-in" className={`${LINK} self-start`}>
+              Back to sign in
+            </Link>
+          </Card>
+        </section>
+      );
+    }
 
-  return (
-    <section aria-labelledby="register-title" className="mx-auto max-w-lg">
-      <form onSubmit={submit} noValidate>
-        <Card className="flex flex-col gap-4">
-          <h1 id="register-title" className="text-title-lg text-ink">
-            Register your organization
-          </h1>
-          <p className="-mt-2 text-body text-ink-muted">
-            TrekLink verifies every organization at the counter or by phone before it can rent
-            devices.
-          </p>
-          <p role="note" className={WARNING}>
-            {SAR_DISCLAIMER}
-          </p>
-          {failure && <Alert tone="error">{failure}</Alert>}
-          {FIELDS.map((field) => (
-            <Field
-              key={field.name}
-              id={`register-${field.name}`}
-              label={field.label}
-              error={errors[field.name]}
-              hint={field.hint}
-              required
+    return (
+      // A fit page: the title and the Register button stay, the form body scrolls (ui standard §7).
+      <section
+        aria-labelledby="register-title"
+        data-fit-page=""
+        className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col"
+      >
+        <form onSubmit={submit} noValidate className="flex min-h-0 flex-col">
+          <Card padding="none" className="flex min-h-0 flex-col">
+            <h1 id="register-title" className="shrink-0 px-5 pb-2 pt-5 text-title-lg text-ink">
+              Register your organization
+            </h1>
+            <PageScrollBody
+              label="Registration form"
+              className="mx-0 flex flex-col gap-4 px-5 pb-4 pt-1 md:mx-0 md:px-5"
             >
-              <Input
+            <p className="text-body text-ink-muted">
+              TrekLink verifies every organization at the counter or by phone before it can rent
+              devices.
+            </p>
+            <p role="note" className={WARNING}>
+              {SAR_DISCLAIMER}
+            </p>
+            {failure && <Alert tone="error">{failure}</Alert>}
+            {FIELDS.map((field) => (
+              <Field
+                key={field.name}
                 id={`register-${field.name}`}
-                type={field.type ?? 'text'}
-                value={form[field.name]}
-                onChange={(event) => set(field.name, event.target.value)}
-                {...invalid(`register-${field.name}`, errors[field.name])}
-              />
-            </Field>
-          ))}
-          <Button type="submit" variant="primary" loading={pending} loadingLabel="Sending">
-            Register
-          </Button>
-          <Link to="/sign-in" className={`${LINK} self-start text-body-sm`}>
-            Already registered? Sign in
-          </Link>
+                label={field.label}
+                error={errors[field.name]}
+                hint={field.hint}
+                required
+              >
+                <Input
+                  id={`register-${field.name}`}
+                  type={field.type ?? 'text'}
+                  value={form[field.name]}
+                  onChange={(event) => set(field.name, event.target.value)}
+                  {...invalid(`register-${field.name}`, errors[field.name])}
+                />
+              </Field>
+            ))}
+          </PageScrollBody>
+          <div className="flex shrink-0 flex-col gap-3 border-t border-line px-5 py-4">
+            <Button type="submit" variant="primary" loading={pending} loadingLabel="Sending">
+              Register
+            </Button>
+            <Link to="/sign-in" className={`${LINK} self-start text-body-sm`}>
+              Already registered? Sign in
+            </Link>
+          </div>
         </Card>
       </form>
     </section>
