@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ContractDevice, ContractStatus } from '../../entities/contract/api';
-import { homeActions, type HomeMode, type Viewer } from './policy';
+import { homeActions, nextStepOf, type HomeMode, type Viewer } from './policy';
 
 const out: ContractDevice = {
   deviceId: 'd-1',
@@ -107,5 +107,28 @@ describe('contract home actions (screen 5.2, rentals design §2)', () => {
       expect(manager).not.toContain('close');
       expect(manager).not.toContain('handover');
     });
+  });
+});
+
+describe('contract home Next step (screen 5.2 lifecycle card)', () => {
+  // The demo walk of 2026-11-05 read "The organization is suspended." on RC-2026-0003 while ORG-0001 was
+  // ACTIVE: the contract detail carries no organization status, so the line must not claim one.
+  it('tells Staff to recover a defaulted unit without claiming the organization is suspended', () => {
+    const next = nextStepOf(
+      {
+        status: 'DEFAULTED',
+        planType: 'MONTHLY',
+        quantity: 1,
+        holdExpiresAt: null,
+        handoverAppointmentAt: null,
+        currentTerm: null,
+        endsAt: null,
+        returnDueAt: '2026-10-05T05:55:00Z',
+        devices: [out],
+      },
+      'staff',
+    );
+    expect(next).toEqual({ actor: 'TrekLink Staff', text: 'Recover the 1 unit still out or record them lost.' });
+    expect(next.text).not.toMatch(/suspended/i);
   });
 });

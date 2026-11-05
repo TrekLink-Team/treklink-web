@@ -180,7 +180,8 @@ export const TRANSITION_LABELS: Record<ContractStatus, string> = {
   ENDING: 'Notice given, ends at term end',
   RETURN_DUE: 'Return due',
   OVERDUE: 'Return overdue',
-  DEFAULTED: 'Defaulted, organization suspended',
+  // A transition records the contract only; the organization's status is not part of it.
+  DEFAULTED: 'Contract defaulted',
   RETURNED: 'Every unit back or recorded lost',
   CLOSED: 'Contract closed',
 };
