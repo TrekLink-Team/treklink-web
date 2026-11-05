@@ -432,6 +432,45 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
     expect(repository.alertDeliveries).not.toHaveBeenCalled();
   });
 
+  describe('liveFieldsOf (monitoring task 2.1)', () => {
+    it('gives the code, the owner name, the last position and the stale mark', async () => {
+      await expect(service.liveFieldsOf('inc-1')).resolves.toEqual({
+        code: 'INC-2026-000001',
+        ownerName: 'Pham Van D',
+        lastPosition: { lat: 21.03, lon: 105.85 },
+        stale: false,
+      });
+      expect(repository.findById).toHaveBeenCalledWith('inc-1');
+    });
+
+    it('gives a null owner name and a null position for an incident with neither', async () => {
+      repository.findById.mockResolvedValue({
+        ...ROW,
+        ownerId: null,
+        lastLatitude: null,
+        lastLongitude: null,
+        stale: true,
+      });
+      await expect(service.liveFieldsOf('inc-1')).resolves.toEqual({
+        code: 'INC-2026-000001',
+        ownerName: null,
+        lastPosition: null,
+        stale: true,
+      });
+      expect(organizations.memberNames).toHaveBeenCalledWith([]);
+    });
+
+    it('gives a null owner name for an owner the directory does not know', async () => {
+      organizations.memberNames.mockResolvedValue(new Map());
+      await expect(service.liveFieldsOf('inc-1')).resolves.toMatchObject({ ownerName: null });
+    });
+
+    it('gives null for an unknown incident', async () => {
+      repository.findById.mockResolvedValue(null);
+      await expect(service.liveFieldsOf('inc-x')).resolves.toBeNull();
+    });
+  });
+
   it('gives the incidents of a device with their transitions, actors as ids (monitoring api-design 07)', async () => {
     const incidents = await service.incidentsOfDevice('dev-1');
 

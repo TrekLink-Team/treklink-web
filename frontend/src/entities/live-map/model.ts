@@ -110,7 +110,8 @@ export const applyEntry = (state: LiveMapState, entry: LiveEntry): LiveMapState 
     }
     // The entry names the incident's device (`deviceId`). One stored before the field was added names
     // none and only moves the cursor here. `useLiveMap` reloads the snapshot for it, and for an
-    // incident the marker does not hold yet, whose `code` only the snapshot has (`needsSnapshot`).
+    // incident the marker does not hold yet when the entry carries no `code`, as one stored before
+    // monitoring 2.1's enrichment does (`needsSnapshot`).
     case 'incident.changed': {
       const incidentId = asString(payload.incidentId);
       const incidentState = asString(payload.state) as IncidentState | null;
@@ -120,7 +121,7 @@ export const applyEntry = (state: LiveMapState, entry: LiveEntry): LiveMapState 
           return device.openIncident?.id === incidentId
             ? { ...device, openIncident: null }
             : device;
-        // `code` joins the payload with monitoring 2.1's enrichment; until then the known code stays.
+        // The payload carries `code` since monitoring 2.1's enrichment; an older entry keeps the known code.
         const code =
           asString(payload.code) ??
           (device.openIncident?.id === incidentId ? device.openIncident.code : null);
@@ -136,8 +137,9 @@ export const applyEntry = (state: LiveMapState, entry: LiveEntry): LiveMapState 
  * Whether a stream entry needs the snapshot read again. `device.handedOver` brings a device the map
  * does not list. An `incident.changed` with no device id (stored before the field was added) cannot
  * be placed on a marker. One for an incident its marker does not hold yet, a new SOS, is placed from
- * the entry, but its `code` joins the payload only with monitoring 2.1's enrichment, so the snapshot
- * is read again for it and the panel shows "Open incident INC-..." (demo MF-04 step 1).
+ * the entry, and its `code` comes with it since monitoring 2.1's enrichment, so the panel shows "Open
+ * incident INC-..." without a read; an entry with no `code` (stored before the enrichment, or sent when
+ * the server could not read the incident) still reads the snapshot again (demo MF-04 step 1).
  */
 export const needsSnapshot = (state: LiveMapState | null, entry: LiveEntry): boolean => {
   if (entry.type === 'device.handedOver') return true;
