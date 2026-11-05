@@ -303,7 +303,9 @@ describe('DevicesService retire and dispose', () => {
 
       const [entry] = await service.trail('dev-1');
 
-      expect(entry.summary).toBe('MAINTENANCE to RETIRED (Retired): Unrepairable water damage');
+      expect(entry.summary).toBe(
+        'From Maintenance to Retired (Retired): Unrepairable water damage',
+      );
     });
 
     it('puts state rows of one time in the order of their moves, whatever order they arrive in', async () => {
@@ -348,10 +350,10 @@ describe('DevicesService retire and dispose', () => {
       const entries = await service.trail('dev-1');
 
       expect(entries.map((entry) => entry.summary)).toEqual([
-        'Registered to IN_INTAKE (In intake)',
-        'IN_INTAKE to AVAILABLE (Available)',
-        'AVAILABLE to RESERVED (Reserved)',
-        'RESERVED to RENTED (Rented)',
+        'Registered as In intake',
+        'From In intake to Available (Available)',
+        'From Available to Reserved (Reserved)',
+        'From Reserved to Rented (Rented)',
       ]);
     });
   });

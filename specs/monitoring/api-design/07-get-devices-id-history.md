@@ -43,7 +43,7 @@ No body.
       {
         "at": "2026-10-20T03:15:00.000Z",
         "kind": "STATE",
-        "summary": "RETURNED to AVAILABLE",
+        "summary": "From Returned to Available (Inspection pass)",
         "actor": "Tran Thi B",
         "refType": "INSPECTION",
         "refId": "in-1"

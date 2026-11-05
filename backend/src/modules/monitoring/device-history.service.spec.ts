@@ -106,7 +106,7 @@ describe('DeviceHistoryService (monitoring api-design 07)', () => {
           {
             at: at('2026-08-01T02:00:00Z'),
             kind: 'STATE',
-            summary: 'Registered to IN_INTAKE (Registered)',
+            summary: 'Registered as In intake',
             actorId: null,
             refType: null,
             refId: null,
@@ -122,7 +122,7 @@ describe('DeviceHistoryService (monitoring api-design 07)', () => {
           {
             at: both,
             kind: 'STATE',
-            summary: 'AVAILABLE to RESERVED (Reserved)',
+            summary: 'From Available to Reserved (Reserved)',
             actorId: null,
             refType: 'CONTRACT',
             refId: 'c-1',
@@ -158,7 +158,7 @@ describe('DeviceHistoryService (monitoring api-design 07)', () => {
       'Handed over on RC-2026-0001 (ORG-0001)',
       'Provisioned with key version 1',
       'Reserved for RC-2026-0001 (ORG-0001)',
-      'Registered to IN_INTAKE (Registered)',
+      'Registered as In intake',
     ]);
     expect(items[0]).not.toHaveProperty('tie');
   });

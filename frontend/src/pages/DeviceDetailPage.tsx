@@ -12,13 +12,14 @@ import {
   nextStepPath,
   type Device,
   type DeviceDetail,
+  type DeviceHistoryItem,
   type NextAction,
   type NextStep,
 } from '../entities/device/api';
 import { VariantCard } from '../entities/variant/VariantCard';
 import { formatDate, formatDateTime } from '../shared/lib/format';
 import { hasAnyRole } from '../shared/lib/permissions';
-import { ErrorState, Fact, Loading, PageTitle } from '../shared/ui/bits';
+import { ErrorState, Fact, Loading, PageTitle, Pager } from '../shared/ui/bits';
 import { Button } from '../shared/ui/Button';
 import { Dialog } from '../shared/ui/Dialog';
 import { Field, Input, Textarea } from '../shared/ui/Field';
@@ -85,6 +86,28 @@ const IN_SERVICE: readonly DeviceStatus[] = [
 
 const failureOf = deviceFailure;
 
+// Where a history row leads (screen 4.2, "History row link"): the contract, the loss case, the incident
+// or the maintenance record it names. Staff have no incident or maintenance detail route, so those open
+// the list with the record's id in the navigation state. Other references (an inspection, an intake
+// check, the key's organization) have no page of their own and stay plain text.
+const historyLink = (
+  item: Pick<DeviceHistoryItem, 'refType' | 'refId'>,
+): { to: string; state?: Record<string, string> } | null => {
+  if (!item.refId) return null;
+  switch (item.refType) {
+    case 'CONTRACT':
+      return { to: `/t/contracts/${item.refId}` };
+    case 'LOSS_CASE':
+      return { to: `/t/loss-cases/${item.refId}` };
+    case 'INCIDENT':
+      return { to: '/t/incidents', state: { incidentId: item.refId } };
+    case 'MAINTENANCE':
+      return { to: '/t/maintenance', state: { recordId: item.refId } };
+    default:
+      return null;
+  }
+};
+
 // Firmware edit (devices api-design 08): one text field, no confirmation (screen 4.2).
 const FirmwareDialog: React.FC<{ device: Device; onDone: () => void; onCancel: () => void }> = ({
   device,
@@ -144,7 +167,9 @@ export const DeviceDetailPage: React.FC = () => {
   const showToast = useToast((state) => state.show);
   const isAdmin = hasAnyRole(user?.roles ?? [], ['ADMIN']);
   const { data: device, isLoading, error, refetch } = useDevice(id);
-  const { data: history } = useDeviceHistory(id, 1);
+  // Paged as the spec's query key ['device-history', id, page] says, 20 rows a page.
+  const [historyPage, setHistoryPage] = useState(1);
+  const { data: history } = useDeviceHistory(id, historyPage);
   const [editingFirmware, setEditingFirmware] = useState(false);
   const [intaking, setIntaking] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -326,15 +351,31 @@ export const DeviceDetailPage: React.FC = () => {
               <p className="text-body text-ink-muted">No history recorded yet.</p>
             ) : (
               <ol className="flex flex-col gap-3">
-                {history.items.map((item, index) => (
-                  <li key={`${item.at}-${index}`}>
-                    <p className="text-body-sm text-ink-muted">
-                      {formatDateTime(item.at)}, {item.actor}
-                    </p>
-                    <p className="text-body text-ink">{item.summary}</p>
-                  </li>
-                ))}
+                {history.items.map((item, index) => {
+                  const link = historyLink(item);
+                  return (
+                    <li key={`${item.at}-${index}`}>
+                      <p className="text-body-sm text-ink-muted">
+                        {formatDateTime(item.at)}, {item.actor}
+                      </p>
+                      {link ? (
+                        <Link
+                          to={link.to}
+                          state={link.state}
+                          className={`${LINK} inline-flex min-h-6 items-center text-body`}
+                        >
+                          {item.summary}
+                        </Link>
+                      ) : (
+                        <p className="text-body text-ink">{item.summary}</p>
+                      )}
+                    </li>
+                  );
+                })}
               </ol>
+            )}
+            {history && (
+              <Pager pageNumber={historyPage} totalPages={history.totalPages} onPage={setHistoryPage} />
             )}
           </section>
         </div>

@@ -48,6 +48,7 @@ const staleVersion = () =>
   );
 import { RemainingValueStep, remainingValue } from './remaining-value';
 import { toNodeId } from './node-id';
+import { stateSummary } from './device-status-labels';
 
 // One unit as the handover note prints it (rentals design §4.1): its radio identity, the key version
 // on it, and the remaining value a confirmed loss would charge at `at` (FR-BILL-05), null when the
@@ -805,9 +806,8 @@ export class DevicesService {
       ...inMoveOrder(rows.transitions).map((row) => ({
         at: row.createdAt,
         kind: 'STATE' as const,
-        summary:
-          `${row.fromStatus ?? 'Registered'} to ${row.toStatus} (${titleCase(row.reason)})` +
-          (row.note ? `: ${row.note}` : ''),
+        // Labelled states, never the enum names (screen 4.2 history, W20B).
+        summary: stateSummary(row),
         actorId: row.actorId,
         refType: row.refType,
         refId: row.refId,
