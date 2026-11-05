@@ -4,6 +4,11 @@ import { Menu } from 'lucide-react';
 import { tabBarEntries, type NavGroup } from '../../shared/config/navigation';
 import { cn } from '../../shared/ui/cn';
 
+// A fifth of a 360 px screen holds about ten characters of caption text, so "Invoices and payments"
+// ended in an ellipsis (W20B item 8). A label of the form "X and Y" shows X in the tab bar; the link
+// keeps the full label as its name, which starts with the words shown (WCAG 2.5.3).
+const tabBarLabel = (label: string): string => label.split(' and ')[0];
+
 /** The phone's bottom bar: up to four key modules and More, which opens the full drawer. */
 export const MobileTabBar: React.FC<{ groups: NavGroup[]; onMore: () => void }> = ({ groups, onMore }) => {
   const entries = tabBarEntries(groups);
@@ -17,14 +22,21 @@ export const MobileTabBar: React.FC<{ groups: NavGroup[]; onMore: () => void }> 
     >
       {entries.map((entry) => {
         const Icon = entry.icon;
+        const shown = tabBarLabel(entry.label);
         return (
-          <NavLink key={entry.route} to={entry.route} end={entry.route.split('/').length <= 2} className={({ isActive }) => cn(item, isActive ? 'text-ink' : 'text-ink-muted')}>
+          <NavLink
+            key={entry.route}
+            to={entry.route}
+            end={entry.route.split('/').length <= 2}
+            aria-label={shown === entry.label ? undefined : entry.label}
+            className={({ isActive }) => cn(item, isActive ? 'text-ink' : 'text-ink-muted')}
+          >
             {({ isActive }) => (
               <>
                 <span className={cn(pill, isActive && 'bg-spark text-on-spark')}>
                   <Icon aria-hidden="true" className="h-5 w-5" />
                 </span>
-                <span className={cn('max-w-full truncate px-1', isActive && 'font-extrabold')}>{entry.label}</span>
+                <span className={cn('max-w-full truncate px-1', isActive && 'font-extrabold')}>{shown}</span>
               </>
             )}
           </NavLink>
