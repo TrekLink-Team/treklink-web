@@ -191,6 +191,20 @@ describe('DeviceTelemetryPage (screen 9.2)', () => {
     expect(Date.parse(last.to) - Date.parse(last.from)).toBe(14 * 86_400_000);
   });
 
+  it('moves Download CSV into a More menu below 640 px (screen 9.2)', () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: Number(/min-width:\s*(\d+)px/.exec(query)?.[1] ?? 0) <= 360,
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    renderPage();
+    expect(screen.queryByRole('button', { name: 'Download CSV' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /^More actions/ }));
+    expect(screen.getByRole('menuitem', { name: 'Download CSV' })).toBeTruthy();
+    vi.unstubAllGlobals();
+  });
+
   it('offers no "Last n days" before the first answer and checks only the order', () => {
     state = { data: undefined, isPending: true, error: null };
     renderPage();

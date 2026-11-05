@@ -107,3 +107,7 @@ endpoint or a member-readable parameter). The page's roles cannot read `GET /api
 keeps the value of the last answer: MSG35 names it and "Last {n} days" uses it. Before the first answer
 the form checks only that the end is after the start ("Choose an end after the start."), and the server's
 400 banner is the backstop, as for a range opened from a link. No client constant remains.
+
+Built in the W21 visual pass (2026-11-05): below 640 px Download CSV is the one item of a More menu in the
+page header, as the 360 px layout above asks; Back stays, because it returns to the page that opened
+this one.

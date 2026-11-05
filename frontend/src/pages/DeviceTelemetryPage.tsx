@@ -12,6 +12,7 @@ import {
 } from '../entities/telemetry-history/api';
 import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime } from '../shared/lib/format';
+import { useMediaQuery } from '../shared/lib/useMediaQuery';
 import {
   Alert,
   Badge,
@@ -22,6 +23,7 @@ import {
   CollectionView,
   Field,
   Input,
+  Menu,
   PageHeader,
   Pagination,
   Skeleton,
@@ -141,6 +143,8 @@ export const DeviceTelemetryPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =
   const summary = useRef<HTMLParagraphElement>(null);
   const focusSummary = useRef(false);
 
+  // Below 640 px Download CSV moves into a More menu (screen 9.2, 360 px layout).
+  const wide = useMediaQuery('(min-width: 640px)', true);
   const history = useHistory(id, applied);
   // The server's range limit from the last answer; kept while a later range is refused or loading.
   const [maxRangeDays, setMaxRangeDays] = useState<number | null>(null);
@@ -286,14 +290,29 @@ export const DeviceTelemetryPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =
             <Button variant="ghost" onClick={back}>
               Back
             </Button>
-            <Button
-              variant="secondary"
-              onClick={() => void download()}
-              loading={downloading}
-              loadingLabel="Preparing"
-            >
-              Download CSV
-            </Button>
+            {wide ? (
+              <Button
+                variant="secondary"
+                onClick={() => void download()}
+                loading={downloading}
+                loadingLabel="Preparing"
+              >
+                Download CSV
+              </Button>
+            ) : (
+              <Menu
+                label="More actions"
+                trigger={<span>More</span>}
+                items={[
+                  {
+                    key: 'csv',
+                    label: downloading ? 'Preparing CSV' : 'Download CSV',
+                    disabled: downloading,
+                    onSelect: () => void download(),
+                  },
+                ]}
+              />
+            )}
           </>
         }
       />
