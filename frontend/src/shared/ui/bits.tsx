@@ -22,7 +22,7 @@ export const PageTitle: React.FC<{ title: string; action?: React.ReactNode; id?:
 }) => (
   // Pins itself in the app shell like PageHeader (ui standard §7).
   <PinnedTitle>
-    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 group-data-[compact=true]/chrome:mb-2">
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 group-data-[compact=true]/chrome:mb-2 [@media(min-height:480px)_and_(max-height:640px)]:mb-2">
       <h1
         id={id}
         tabIndex={-1}

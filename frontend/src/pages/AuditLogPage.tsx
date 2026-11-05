@@ -207,7 +207,7 @@ export const AuditLogPage: React.FC = () => {
   const addressErrors = useMemo(() => filterErrors(filters), [filters]);
   const addressValid = Object.keys(addressErrors).length === 0;
   const logs = useAuditLogs(filters, pageNumber, addressValid);
-  // Below 1280 by 800 CSS px the filters sit behind a Filters button, so the entries keep their room
+  // Below 1280 by 900 CSS px the filters sit behind a Filters button, so the entries keep their room
   // in the fit page (screen 7.4, ui standard §7); they open by themselves when a filter needs fixing.
   const [filtersOpen, setFiltersOpen] = useState(!addressValid);
   const organizations = useOrganizations(undefined);
@@ -328,13 +328,20 @@ export const AuditLogPage: React.FC = () => {
   const data = logs.data;
   return (
     <AuditTabs>
-      <section aria-labelledby="audit-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4 [@media(min-height:480px)_and_(max-height:639.98px)]:gap-2">
+      <section aria-labelledby="audit-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4 [@media(min-height:480px)_and_(max-height:640px)]:gap-2">
         <PageHeader
           id="audit-title"
           title="Audit log"
           description="Who changed what, newest first. Secrets are replaced before they are stored."
         />
-        <Card aria-labelledby="audit-filters" className="p-2 roomy:p-5">
+        <Card
+          aria-labelledby="audit-filters"
+          // Folded on a short screen, the card is only its Filters button (review of #397).
+          className={cn(
+            filtersOpen || !addressValid ? 'p-2' : 'border-transparent bg-transparent p-0 shadow-none',
+            'roomy:border-line roomy:bg-surface roomy:p-5 roomy:shadow-raise',
+          )}
+        >
           <div className="hidden roomy:block">
             <CardHeader title="Filters" id="audit-filters" />
           </div>
