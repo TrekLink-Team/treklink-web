@@ -949,14 +949,14 @@ export const CounterPage: React.FC<{
                 </p>
               </form>
 
-            {!docking.supported && (
-              <div role="status" className={WARNING}>
-                Docking needs Chrome or Edge on a desktop. Open this page there to provision units.
-              </div>
-            )}
+              {!docking.supported && (
+                <div role="status" className={WARNING}>
+                  Docking needs Chrome or Edge on a desktop. Open this page there to provision units.
+                </div>
+              )}
               <p className="text-sm text-ink-muted">
-              Dock each unit to write channel key version {keyVersion ?? '…'} and record it, or
-              record it manually; then read the battery and check the GPS fix.
+                Dock each unit to write channel key version {keyVersion ?? '…'} and record it, or
+                record it manually; then read the battery and check the GPS fix.
               </p>
               {organization.error && <ErrorState error={organization.error} />}
 
@@ -989,7 +989,7 @@ export const CounterPage: React.FC<{
                       selectedIds.length === 0 ||
                       bulkRunning ||
                       busyRow !== null ||
-                    docking.busy ||
+                      docking.busy ||
                       keyVersion === undefined
                     }
                     onClick={() => void provisionSelected()}
@@ -1055,8 +1055,8 @@ export const CounterPage: React.FC<{
                 {devices.map((device) => {
                   const check = checkOf(device.deviceId);
                   const error = rowErrors[device.deviceId];
-                const dockingThis = docking.state.target === device.deviceId;
-                const stage = dockingThis ? docking.state.stage : null;
+                  const dockingThis = docking.state.target === device.deviceId;
+                  const stage = dockingThis ? docking.state.stage : null;
                   return (
                     <li
                       key={device.deviceId}
@@ -1068,7 +1068,7 @@ export const CounterPage: React.FC<{
                             : 'border-line'
                       }`}
                     >
-                    <div className="grid items-end gap-3 md:grid-cols-[auto_1fr_auto_auto_120px_auto_auto]">
+                      <div className="grid items-end gap-3 md:grid-cols-[auto_1fr_auto_auto_120px_auto_auto]">
                         <label className="flex h-11 items-center">
                           <input
                             type="checkbox"
@@ -1092,7 +1092,7 @@ export const CounterPage: React.FC<{
                                 type="button"
                                 className={`${LINK} font-semibold`}
                                 aria-label={`Undo provisioning of ${tagOf(device)}`}
-                              disabled={busyRow !== null || bulkRunning || docking.busy}
+                                disabled={busyRow !== null || bulkRunning || docking.busy}
                                 onClick={() => setUndoing(device)}
                               >
                                 Undo
@@ -1102,32 +1102,32 @@ export const CounterPage: React.FC<{
                         </div>
                         <button
                           type="button"
-                        className={PRIMARY_BUTTON}
-                        aria-describedby={dockingThis ? `dock-status-${device.deviceId}` : undefined}
-                        disabled={
-                          !docking.supported ||
-                          docking.busy ||
-                          busyRow !== null ||
-                          bulkRunning ||
-                          keyVersion === undefined
-                        }
-                        onClick={() => void dockOne(device)}
-                      >
-                        {dockingThis ? 'Docking…' : 'Dock and provision'}
-                      </button>
-                      <button
-                        type="button"
+                          className={PRIMARY_BUTTON}
+                          aria-describedby={dockingThis ? `dock-status-${device.deviceId}` : undefined}
+                          disabled={
+                            !docking.supported ||
+                            docking.busy ||
+                            busyRow !== null ||
+                            bulkRunning ||
+                            keyVersion === undefined
+                          }
+                          onClick={() => void dockOne(device)}
+                        >
+                          {dockingThis ? 'Docking…' : 'Dock and provision'}
+                        </button>
+                        <button
+                          type="button"
                           className={SECONDARY_BUTTON}
                           disabled={
-                          busyRow === device.deviceId ||
-                          dockingThis ||
-                          bulkRunning ||
-                          keyVersion === undefined
+                            busyRow === device.deviceId ||
+                            dockingThis ||
+                            bulkRunning ||
+                            keyVersion === undefined
                           }
                           onClick={() => void provision(device)}
                         >
-                        {/* The manual fallback of devices design 8.6 decision 3. */}
-                        {busyRow === device.deviceId ? 'Recording…' : 'Enter manually'}
+                          {/* The manual fallback of devices design 8.6 decision 3. */}
+                          {busyRow === device.deviceId ? 'Recording…' : 'Enter manually'}
                         </button>
                         <div className="flex flex-col gap-1.5">
                           <label
@@ -1169,48 +1169,48 @@ export const CounterPage: React.FC<{
                           Swap
                         </button>
                       </div>
-                    {/* Mounted for the whole visit, so a screen reader announces the first stage too
-                        (WCAG 4.1.3); only its text changes. */}
-                    <p
+                      {/* Mounted for the whole visit, so a screen reader announces the first stage too
+                          (WCAG 4.1.3); only its text changes. */}
+                      <p
                         id={`dock-status-${device.deviceId}`}
                         role="status"
-                      className={stage ? 'mt-2 text-sm text-ink' : 'sr-only'}
+                        className={stage ? 'mt-2 text-sm text-ink' : 'sr-only'}
                       >
-                      {stage ? DOCK_STAGE_TEXT[stage] : ''}
-                    </p>
-                        {stage === 'reconnect' && (
-                      <div className="mt-2 flex flex-wrap items-center gap-3">
-                            <button
-                              type="button"
-                              className={SECONDARY_BUTTON}
-                              onClick={() => void docking.reconnect()}
-                            >
-                              Reconnect
-                            </button>
-                            <button type="button" className={LINK} onClick={docking.giveUp}>
-                              Stop
-                            </button>
-                      </div>
-                    )}
+                        {stage ? DOCK_STAGE_TEXT[stage] : ''}
+                      </p>
+                      {stage === 'reconnect' && (
+                        <div className="mt-2 flex flex-wrap items-center gap-3">
+                          <button
+                            type="button"
+                            className={SECONDARY_BUTTON}
+                            onClick={() => void docking.reconnect()}
+                          >
+                            Reconnect
+                          </button>
+                          <button type="button" className={LINK} onClick={docking.giveUp}>
+                            Stop
+                          </button>
+                        </div>
+                      )}
                       {error && (
                         <p role="alert" className="mt-2 text-sm text-status-critical-fg">
                           {error}
                         </p>
                       )}
-                    {offers[device.deviceId] !== undefined && (
-                      <button
-                        type="button"
-                        className={`${PRIMARY_BUTTON} mt-2`}
-                        disabled={docking.busy || busyRow !== null || bulkRunning}
-                        onClick={() => {
-                          setSwapError(null);
-                          setQuickSwap({ device, connectionId: offers[device.deviceId] });
-                        }}
-                      >
-                        Put {registry.get(offers[device.deviceId])?.recognized?.device?.assetTag ?? 'the docked unit'} in
-                        place of {tagOf(device)}
-                      </button>
-                    )}
+                      {offers[device.deviceId] !== undefined && (
+                        <button
+                          type="button"
+                          className={`${PRIMARY_BUTTON} mt-2`}
+                          disabled={docking.busy || busyRow !== null || bulkRunning}
+                          onClick={() => {
+                            setSwapError(null);
+                            setQuickSwap({ device, connectionId: offers[device.deviceId] });
+                          }}
+                        >
+                          Put {registry.get(offers[device.deviceId])?.recognized?.device?.assetTag ?? 'the docked unit'} in
+                          place of {tagOf(device)}
+                        </button>
+                      )}
                     </li>
                   );
                 })}
