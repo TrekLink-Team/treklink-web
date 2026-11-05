@@ -334,7 +334,7 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
         </div>
         <aside
           aria-label="Devices"
-          className="flex max-h-[45%] shrink-0 flex-col overflow-y-auto rounded-panel border border-line bg-surface lg:max-h-none lg:w-[22rem] lg:overflow-hidden"
+          className="relative flex max-h-[45%] shrink-0 flex-col overflow-y-auto rounded-panel border border-line bg-surface lg:max-h-none lg:w-[22rem] lg:overflow-hidden"
         >
           <div className="space-y-3 border-b border-line p-4">
             <h2 className="font-display text-body-lg font-extrabold text-ink">{title}</h2>
