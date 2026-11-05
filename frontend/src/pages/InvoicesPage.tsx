@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useInvoices, type InvoiceFilters } from '../entities/billing/api';
 import { PageTitle } from '../shared/ui/bits';
 import { Pagination } from '../shared/ui/DataTable';
-import { LINK } from '../shared/ui/styles';
 import { InvoiceDetailView } from '../widgets/InvoiceDetail/InvoiceDetailView';
 import { InvoiceTable } from '../widgets/InvoiceDetail/InvoiceTable';
 import { pageInfoOf } from '../shared/ui/collection-view';
@@ -68,14 +67,12 @@ export const InvoicesPage: React.FC = () => {
   );
 };
 
-// /o/invoices/:id, the invoice detail of screen 6.1 (billing api-design 09).
+// /o/invoices/:id, the invoice detail of screen 6.1 (billing api-design 09). The way back is the shell's
+// breadcrumb (its back link on a phone), so the page spends no line on a second one (W21).
 export const InvoiceDetailPage: React.FC = () => {
   const { id = '' } = useParams();
   return (
     <section aria-label="Invoice">
-      <Link to="/o/invoices" className={`${LINK} mb-4 inline-block text-sm`}>
-        Back to invoices
-      </Link>
       <InvoiceDetailView
         invoiceId={id}
         contractPath={(contractId) => `/o/contracts/${contractId}`}

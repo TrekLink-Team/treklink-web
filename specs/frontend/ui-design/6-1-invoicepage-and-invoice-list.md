@@ -140,3 +140,8 @@ and status, the two parties, the lines as a plain table (number, description, ty
 price, due date, amount), the totals footer, the payments and the hotline. The application chrome, the
 command bars and the buttons do not print, and printing always uses the light theme. The print copy
 is a hidden portal on `<body>` (`InvoicePrintDocument`), so it is not in the accessibility tree on screen.
+
+Layout on a phone (W21 visual pass, 2026-11-05): the six header facts sit in two columns, the actions
+(Pay with SePay full width, Print invoice) follow them directly, and the seller and buyer blocks come
+after the actions, so the first screen at 360 and 320 px shows the facts and Pay with SePay. The page has
+no "Back to invoices" link of its own: the shell's breadcrumb, a back link on a phone, leads back.

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Printer } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ApiError } from '../../shared/api/apiClient';
@@ -91,8 +91,29 @@ export const InvoiceDetailView: React.FC<{
   canRecordCounter: boolean;
   canPayOnline?: boolean;
   asPageTitle?: boolean;
-}> = ({ invoiceId, contractPath, canRecordCounter, canPayOnline = false, asPageTitle = false }) => {
+  /** Moves focus to the invoice number once it loads (screen 6.1: opening an invoice from a list). */
+  focusOnOpen?: boolean;
+}> = ({
+  invoiceId,
+  contractPath,
+  canRecordCounter,
+  canPayOnline = false,
+  asPageTitle = false,
+  focusOnOpen = false,
+}) => {
   const { data, isLoading, error, refetch } = useInvoice(invoiceId);
+  // On a phone the invoice opens below the list: focus moves to its number and its first card scrolls
+  // into view, so the facts and the payment action are on screen (W21).
+  const heading = useRef<HTMLHeadingElement>(null);
+  const summary = useRef<HTMLDivElement>(null);
+  const loaded = Boolean(data);
+  useEffect(() => {
+    if (!focusOnOpen || !loaded) return;
+    heading.current?.focus({ preventScroll: true });
+    // The whole first card, with its facts and payment action, comes into view; a card already on
+    // screen (the side panel on a wide screen) does not move.
+    summary.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [focusOnOpen, loaded]);
   const navigate = useNavigate();
   const [recording, setRecording] = useState(false);
   // A cancelled contract's voiding ADJUSTMENT sits on its CLOSING invoice, so an earlier invoice
@@ -131,16 +152,21 @@ export const InvoiceDetailView: React.FC<{
 
   return (
     <div className="flex flex-col gap-4">
-      <div className={CARD}>
+      <div ref={summary} className={CARD}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           {asPageTitle ? (
-            <h1 className="text-title-lg text-ink">{data.number}</h1>
+            <h1 ref={heading} tabIndex={-1} className="text-title-lg text-ink">
+              {data.number}
+            </h1>
           ) : (
-            <h2 className="text-xl font-bold text-ink">{data.number}</h2>
+            <h2 ref={heading} tabIndex={-1} className="text-xl font-bold text-ink">
+              {data.number}
+            </h2>
           )}
           <Badge tone={INVOICE_TONES[data.status]}>{INVOICE_STATUS_LABELS[data.status]}</Badge>
         </div>
-        <dl className="grid gap-3 sm:grid-cols-3">
+        {/* Two columns on a phone, so the facts and the main action share the first screen (W21). */}
+        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Fact label="Contract">
             <Link to={contractPath(data.contract.id)} className={LINK}>
               {data.contract.code ?? 'Open contract'}
@@ -152,9 +178,6 @@ export const InvoiceDetailView: React.FC<{
           <Fact label="Paid">{formatVnd(data.paidVnd)}</Fact>
           <Fact label="Still due">{formatVnd(Math.max(due, 0))}</Fact>
         </dl>
-        <div className="mt-4 border-t border-line pt-4">
-          <InvoiceParties invoice={data} />
-        </div>
         {payError && (
           <Alert tone="error" className="mt-3">
             {payError}
@@ -180,6 +203,10 @@ export const InvoiceDetailView: React.FC<{
           <Button variant="secondary" icon={<Printer aria-hidden className="h-4 w-4" />} onClick={() => window.print()}>
             Print invoice
           </Button>
+        </div>
+        {/* The parties follow the actions: on a phone the facts and Pay come first (W21). */}
+        <div className="mt-4 border-t border-line pt-4">
+          <InvoiceParties invoice={data} />
         </div>
       </div>
 
