@@ -145,6 +145,13 @@ positioning. Dialogs follow the same rule: the title and the footer stay put and
 A control that takes keyboard focus under the header or the bar is scrolled clear of it; a control in a
 modal dialog is not, because the dialog sits above the page chrome (review of #190).
 
+**Viewport** (leader rule of 2026-11-05, W24). The document never scrolls: the shell is fixed to the
+dynamic viewport (`h-dvh`) and `#main` is the one vertical scroll region of a standard page, with the
+page header, the command bar and the action bar pinned in it. A `PageHeader` or `PageTitle` rendered in
+the shell outside a `StickyPageHeader` wraps itself in one, so every page title stays in view. Full-bleed
+map pages fit `#main` exactly and scroll only their device list. Below a viewport height of 480 CSS px
+(400 % zoom) the shell releases its fixed bars and the document scrolls. Checks: `ui-design/0-ui-standard.md` §7.
+
 Moved onto it on 2026-10-30: the counter handover and the counter's screen 5.5 (check-in, reset and
 inspection, close), the contract request, organization review, and the open and complete maintenance
 dialogs. The rule applies to every new long or multi-step page.
