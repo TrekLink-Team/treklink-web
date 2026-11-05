@@ -21,13 +21,20 @@ const md5 = (bytes: Uint8Array) => createHash('md5').update(bytes).digest('hex')
 const url = (name: string) =>
   `https://github.com/${REPO}/releases/download/v2.7.26-treklink.2/${name}`;
 
-const entry = (variantCode: string, chip: string, overrides: object = {}) => ({
-  variantCode,
-  pioEnv: `${variantCode}-env`,
+// The manifest of firmware task 8.1 exactly as treklink-firmware#30 publishes it (ruling of 2026-11-06):
+// the tag as `version`, the short variant code, esptool's lower-case chip, `fileName`, integer offsets.
+const entry = (code: 'v2' | 'v3' | 'v4', pioEnv: string, chip: string, overrides: object = {}) => ({
+  variantCode: code,
+  pioEnv,
   chip,
-  app: { file: `${variantCode}-firmware.bin`, offset: 0x10000, size: APP.length, sha256: sha(APP) },
+  app: {
+    fileName: `firmware-treklink-${code}.bin`,
+    offset: 65536,
+    size: APP.length,
+    sha256: sha(APP),
+  },
   factory: {
-    file: `${variantCode}-firmware.factory.bin`,
+    fileName: `firmware-treklink-${code}.factory.bin`,
     offset: 0,
     size: FACTORY.length,
     sha256: sha(FACTORY),
@@ -36,9 +43,17 @@ const entry = (variantCode: string, chip: string, overrides: object = {}) => ({
 });
 
 const MANIFEST = {
-  version: '2.7.26-treklink.2',
-  variants: [entry('treklink-v3', 'ESP32'), entry('treklink-v4', 'ESP32-S3')],
+  version: 'v2.7.26-treklink.2',
+  variants: [
+    entry('v2', 'treklink-v2', 'esp32s3'),
+    entry('v3', 'treklink-v3-tbeam', 'esp32'),
+    entry('v4', 'treklink-v4-supreme', 'esp32s3'),
+  ],
 };
+const ASSETS = ['v2', 'v3', 'v4'].flatMap((code) => [
+  `firmware-treklink-${code}.bin`,
+  `firmware-treklink-${code}.factory.bin`,
+]);
 
 const release = (tag: string, publishedAt: string, assets: string[]) => ({
   tag_name: tag,
@@ -57,19 +72,13 @@ describe('FirmwareReleaseService (devices task 8.2)', () => {
   beforeEach(() => {
     files = new Map([
       [url(MANIFEST_ASSET), Buffer.from(JSON.stringify(MANIFEST))],
-      [url('treklink-v3-firmware.bin'), APP],
-      [url('treklink-v3-firmware.factory.bin'), FACTORY],
-      [url('treklink-v4-firmware.bin'), APP],
-      [url('treklink-v4-firmware.factory.bin'), FACTORY],
+      ...ASSETS.map((name): [string, Uint8Array] => [
+        url(name),
+        name.includes('factory') ? FACTORY : APP,
+      ]),
     ]);
     listing = [
-      release('v2.7.26-treklink.2', '2026-10-20T03:15:00Z', [
-        MANIFEST_ASSET,
-        'treklink-v3-firmware.bin',
-        'treklink-v3-firmware.factory.bin',
-        'treklink-v4-firmware.bin',
-        'treklink-v4-firmware.factory.bin',
-      ]),
+      release('v2.7.26-treklink.2', '2026-10-20T03:15:00Z', [MANIFEST_ASSET, ...ASSETS]),
       // No manifest: not a TrekLink release.
       release('v2.7.25', '2026-10-25T03:15:00Z', ['firmware.bin']),
     ];
@@ -121,13 +130,14 @@ describe('FirmwareReleaseService (devices task 8.2)', () => {
           publishedAt: '2026-10-20T03:15:00Z',
           isBaseline: true,
           variants: [
+            expect.objectContaining({ variantCode: 'treklink-v2', chip: 'esp32s3' }),
             {
               variantCode: 'treklink-v3',
-              chip: 'ESP32',
+              chip: 'esp32',
               app: { offset: 0x10000, sizeBytes: APP.length },
               factory: { offset: 0, sizeBytes: FACTORY.length },
             },
-            expect.objectContaining({ variantCode: 'treklink-v4', chip: 'ESP32-S3' }),
+            expect.objectContaining({ variantCode: 'treklink-v4', chip: 'esp32s3' }),
           ],
         },
       ]);
@@ -140,7 +150,7 @@ describe('FirmwareReleaseService (devices task 8.2)', () => {
           variants: [expect.objectContaining({ variantCode: 'treklink-v4' })],
         }),
       ]);
-      expect(await service.list('treklink-v2')).toEqual([]);
+      expect(await service.list('treklink-v1')).toEqual([]);
     });
 
     it('answers an empty list while no release is published', async () => {
@@ -189,7 +199,7 @@ describe('FirmwareReleaseService (devices task 8.2)', () => {
         version: '2.7.26-treklink.2',
         variantCode: 'treklink-v3',
         kind: 'APP',
-        chip: 'ESP32',
+        chip: 'esp32',
         offset: 0x10000,
         sizeBytes: APP.length,
         sha256: sha(APP),
@@ -204,12 +214,12 @@ describe('FirmwareReleaseService (devices task 8.2)', () => {
       ).resolves.toMatchObject({
         offset: 0,
         md5: md5(FACTORY),
-        chip: 'ESP32-S3',
+        chip: 'esp32s3',
       });
     });
 
     it('answers 502 FIRMWARE_IMAGE_INVALID and no image when the SHA-256 differs (AC-20)', async () => {
-      files.set(url('treklink-v3-firmware.bin'), Uint8Array.from([0xe9, 0, 0, 0, 0, 0, 0, 0]));
+      files.set(url('firmware-treklink-v3.bin'), Uint8Array.from([0xe9, 0, 0, 0, 0, 0, 0, 0]));
       const error = await refusal(service.image('2.7.26-treklink.2', 'treklink-v3', 'APP'));
       expect(error.getStatus()).toBe(HttpStatus.BAD_GATEWAY);
       expect(error.errorCode).toBe(ErrorCode.FIRMWARE_IMAGE_INVALID);
@@ -222,9 +232,9 @@ describe('FirmwareReleaseService (devices task 8.2)', () => {
           JSON.stringify({
             ...MANIFEST,
             variants: [
-              entry('treklink-v3', 'ESP32', {
+              entry('v3', 'treklink-v3-tbeam', 'esp32', {
                 factory: {
-                  file: 'big.bin',
+                  fileName: 'big.bin',
                   offset: 0,
                   size: MAX_IMAGE_BYTES + 1,
                   sha256: sha(FACTORY),
@@ -241,7 +251,7 @@ describe('FirmwareReleaseService (devices task 8.2)', () => {
 
     it('refuses a downloaded image above the limit even when the manifest under-states it', async () => {
       const big = new Uint8Array(MAX_IMAGE_BYTES + 1);
-      files.set(url('treklink-v3-firmware.bin'), big);
+      files.set(url('firmware-treklink-v3.bin'), big);
       expect(
         (await refusal(service.image('2.7.26-treklink.2', 'treklink-v3', 'APP'))).errorCode,
       ).toBe(ErrorCode.FIRMWARE_IMAGE_TOO_LARGE);
@@ -252,12 +262,12 @@ describe('FirmwareReleaseService (devices task 8.2)', () => {
         HttpStatus.NOT_FOUND,
       );
       expect(
-        (await refusal(service.image('2.7.26-treklink.2', 'treklink-v2', 'APP'))).getStatus(),
+        (await refusal(service.image('2.7.26-treklink.2', 'treklink-v1', 'APP'))).getStatus(),
       ).toBe(HttpStatus.NOT_FOUND);
     });
 
     it('answers 502 FIRMWARE_SOURCE_UNAVAILABLE when the asset cannot be downloaded', async () => {
-      files.delete(url('treklink-v3-firmware.bin'));
+      files.delete(url('firmware-treklink-v3.bin'));
       expect(
         (await refusal(service.image('2.7.26-treklink.2', 'treklink-v3', 'APP'))).errorCode,
       ).toBe(ErrorCode.FIRMWARE_SOURCE_UNAVAILABLE);
@@ -269,21 +279,78 @@ describe('FirmwareReleaseService (devices task 8.2)', () => {
       expect(
         parseManifest({
           version: '1',
-          variants: [entry('treklink-v3', 'ESP32'), { variantCode: 'x' }],
+          variants: [entry('v3', 'treklink-v3-tbeam', 'esp32'), { variantCode: 'x' }],
         })?.variants,
       ).toHaveLength(1);
       expect(
         parseManifest({
           version: '1',
           variants: [
-            entry('treklink-v3', 'ESP32', {
-              app: { file: 'a', offset: 0, size: 1, sha256: 'xyz' },
+            entry('v3', 'treklink-v3-tbeam', 'esp32', {
+              app: { fileName: 'a', offset: 0, size: 1, sha256: 'xyz' },
             }),
           ],
         }),
       ).toBeNull();
       expect(parseManifest({ variants: [] })).toBeNull();
+      // The old key `file` is not the manifest's (ruling of 2026-11-06): such an entry is dropped.
+      expect(
+        parseManifest({
+          version: 'v1',
+          variants: [
+            entry('v3', 'treklink-v3-tbeam', 'esp32', {
+              app: { file: 'a.bin', offset: 65536, size: 1, sha256: 'a'.repeat(64) },
+            }),
+          ],
+        }),
+      ).toBeNull();
       expect(parseManifest('nope')).toBeNull();
+    });
+  });
+
+  describe('the manifest of treklink-firmware#30 (design section 9.1, 2026-11-06)', () => {
+    it("maps the short variant code to the platform code and drops the tag's leading v", () => {
+      expect(parseManifest(MANIFEST)).toEqual({
+        version: '2.7.26-treklink.2',
+        variants: [
+          expect.objectContaining({
+            variantCode: 'treklink-v2',
+            pioEnv: 'treklink-v2',
+            chip: 'esp32s3',
+          }),
+          expect.objectContaining({
+            variantCode: 'treklink-v3',
+            pioEnv: 'treklink-v3-tbeam',
+            chip: 'esp32',
+            app: {
+              file: 'firmware-treklink-v3.bin',
+              offset: 65536,
+              size: APP.length,
+              sha256: sha(APP),
+            },
+            factory: {
+              file: 'firmware-treklink-v3.factory.bin',
+              offset: 0,
+              size: FACTORY.length,
+              sha256: sha(FACTORY),
+            },
+          }),
+          expect.objectContaining({
+            variantCode: 'treklink-v4',
+            pioEnv: 'treklink-v4-supreme',
+            chip: 'esp32s3',
+          }),
+        ],
+      });
+    });
+
+    it('finds an image by the tag or by the version without its v', async () => {
+      await expect(
+        service.image('v2.7.26-treklink.2', 'treklink-v3', 'APP'),
+      ).resolves.toMatchObject({
+        version: '2.7.26-treklink.2',
+        chip: 'esp32',
+      });
     });
   });
 

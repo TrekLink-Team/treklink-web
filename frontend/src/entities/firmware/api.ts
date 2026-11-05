@@ -16,7 +16,8 @@ export interface FirmwareRelease {
   isBaseline: boolean;
   variants: {
     variantCode: string;
-    // esptool's chip name from the manifest, which the unit must report (REQ-ERR-16).
+    // The manifest's chip in esptool's lower-case form (`esp32`, `esp32s3`), which the unit must report
+    // (REQ-ERR-16, treklink-firmware#30).
     chip: string;
     app: FirmwareImageInfo;
     factory: FirmwareImageInfo;

@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Lists the TrekLink firmware releases published in the configured repository (`devices.firmwareReleaseRepo`), newest first, with the variants each release carries, so the flash panel of a `FIRMWARE_UPDATE` record offers only images built for the device's variant (design §9). Read from each release's manifest asset; cached for `devices.firmwareReleaseCacheSeconds`. `chip` is the manifest's chip name for the variant, which the flash panel compares with the unit before writing (REQ-ERR-16). No release published yet is an empty list, not an error.
+Lists the TrekLink firmware releases published in the configured repository (`devices.firmwareReleaseRepo`), newest first, with the variants each release carries, so the flash panel of a `FIRMWARE_UPDATE` record offers only images built for the device's variant (design §9). Read from each release's manifest asset; cached for `devices.firmwareReleaseCacheSeconds`. `chip` is the manifest's chip name for the variant (`esp32`, `esp32s3`), which the flash panel compares with the unit before writing (REQ-ERR-16). `version` is the release tag without its leading `v`; `variantCode` is the platform's code for the manifest's short one (design §9.1). No release published yet is an empty list, not an error.
 
 ## API Specification
 
@@ -39,7 +39,7 @@ No body.
       "variants": [
         {
           "variantCode": "treklink-v3",
-          "chip": "ESP32",
+          "chip": "esp32",
           "app": {
             "offset": 65536,
             "sizeBytes": 2031616

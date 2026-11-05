@@ -27,6 +27,7 @@ const SHA256 = /^[0-9a-f]{64}$/;
 export type ImageKind = 'APP' | 'FACTORY';
 
 export interface ManifestImage {
+  // The release asset's name, `fileName` in the manifest.
   file: string;
   offset: number;
   size: number;
@@ -34,6 +35,7 @@ export interface ManifestImage {
 }
 
 export interface ManifestVariant {
+  // The platform's hardware variant code (`treklink-v3`), from the manifest's short code (`v3`).
   variantCode: string;
   pioEnv: string;
   chip: string;
@@ -93,7 +95,7 @@ const imageOf = (value: unknown): ManifestImage | null => {
   const entry = record(value);
   if (
     !entry ||
-    !text(entry.file) ||
+    !text(entry.fileName) ||
     !whole(entry.offset) ||
     !whole(entry.size) ||
     !text(entry.sha256)
@@ -102,13 +104,21 @@ const imageOf = (value: unknown): ManifestImage | null => {
   }
   const sha256 = entry.sha256.toLowerCase();
   return SHA256.test(sha256)
-    ? { file: entry.file, offset: entry.offset, size: entry.size, sha256 }
+    ? { file: entry.fileName, offset: entry.offset, size: entry.size, sha256 }
     : null;
 };
 
-// The manifest of design section 9.1: `version`, and per variant `variantCode`, `pioEnv`, `chip`, and for
-// `app` and `factory` the file name, offset, size and SHA-256. An entry that misses a field is dropped; a
-// manifest with no valid entry is no release.
+// The manifest firmware task 8.1 publishes (treklink-firmware#30, design section 9.1, ruling of
+// 2026-11-06): `version`, the release tag; per variant the short `variantCode` (`v2`, `v3`, `v4`), `pioEnv`,
+// `chip` in esptool's lower-case form (`esp32`, `esp32s3`), and for `app` and `factory` the `fileName`,
+// integer `offset` and `size`, and `sha256`. The short code maps to the platform's variant code
+// `treklink-<code>`, and the tag's leading `v` is dropped, so versions read as `firmwareBaseline` does.
+// An entry that misses a field is dropped; a manifest with no valid entry is no release.
+export const variantCodeOf = (manifestCode: string): string =>
+  manifestCode.startsWith('treklink-') ? manifestCode : `treklink-${manifestCode}`;
+
+export const versionOf = (tag: string): string => tag.replace(/^v(?=\d)/, '');
+
 export const parseManifest = (
   value: unknown,
 ): { version: string; variants: ManifestVariant[] } | null => {
@@ -120,10 +130,18 @@ export const parseManifest = (
     const app = imageOf(entry.app);
     const factory = imageOf(entry.factory);
     return app && factory
-      ? [{ variantCode: entry.variantCode, pioEnv: entry.pioEnv, chip: entry.chip, app, factory }]
+      ? [
+          {
+            variantCode: variantCodeOf(entry.variantCode),
+            pioEnv: entry.pioEnv,
+            chip: entry.chip.toLowerCase(),
+            app,
+            factory,
+          },
+        ]
       : [];
   });
-  return variants.length > 0 ? { version: manifest.version, variants } : null;
+  return variants.length > 0 ? { version: versionOf(manifest.version), variants } : null;
 };
 
 // The MD5 esptool-js compares with the chip's flash after the write: of the image padded to 4 bytes with
@@ -187,7 +205,9 @@ export class FirmwareReleaseService {
     kind: ImageKind,
     now: number = Date.now(),
   ): Promise<FirmwareImage> {
-    const release = (await this.releases(now)).find((candidate) => candidate.version === version);
+    const release = (await this.releases(now)).find(
+      (candidate) => candidate.version === versionOf(version),
+    );
     const entry = release?.variants.find((candidate) => candidate.variantCode === variantCode);
     if (!release || !entry) {
       throw new DomainException(
@@ -227,7 +247,7 @@ export class FirmwareReleaseService {
       );
     }
     return {
-      version,
+      version: release.version,
       variantCode,
       kind,
       chip: entry.chip,

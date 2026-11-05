@@ -26,7 +26,8 @@ const request = (overrides: Partial<FlashRequest> = {}): FlashRequest => ({
   port: {} as SerialPort,
   assetTag: 'TL-0042',
   variantCode: 'treklink-v3',
-  chip: 'ESP32',
+  // The manifest's form (treklink-firmware#30); esptool-js reports 'ESP32'.
+  chip: 'esp32',
   nodeNum: NODE,
   mode: 'UPDATE',
   image: { data: IMAGE, offset: 0x10000, md5: 'f'.repeat(32) },
@@ -45,6 +46,11 @@ const run = async (loader: ReturnType<typeof fakeLoader>, overrides: Partial<Fla
 };
 
 describe('esp-flasher (devices task 8.3)', () => {
+  it('compares the manifest chip with the one esptool-js reports', async () => {
+    const s3 = await run(fakeLoader({ chipName: 'ESP32-S3' }), { variantCode: 'treklink-v4', chip: 'esp32s3' });
+    expect(s3.result).toBeNull();
+  });
+
   it('derives the node number from MAC bytes 2 to 5', () => {
     expect(nodeNumFromMac(MAC)).toBe(NODE);
     expect(nodeNumFromMac('00:00:ff:ff:ff:ff')).toBe(0xffffffff);
@@ -93,7 +99,7 @@ describe('esp-flasher (devices task 8.3)', () => {
 
   it('writes nothing when the chip differs (REQ-ERR-16, AC-20)', async () => {
     const loader = fakeLoader({ chipName: 'ESP32' });
-    const { result, close } = await run(loader, { chip: 'ESP32-S3' });
+    const { result, close } = await run(loader, { chip: 'esp32s3' });
     expect(result).toBeInstanceOf(FlashError);
     expect((result as FlashError).failure).toBe('chip');
     expect((result as FlashError).message).toBe(
@@ -106,7 +112,7 @@ describe('esp-flasher (devices task 8.3)', () => {
 
   it('writes nothing when the MAC-derived node number is another unit (REQ-ERR-16, AC-20)', async () => {
     const loader = fakeLoader({ mac: 'a4:cf:de:ad:be:ef' });
-    const { result } = await run(loader, { variantCode: 'treklink-v2', chip: 'ESP32' });
+    const { result } = await run(loader, { variantCode: 'treklink-v2', chip: 'esp32' });
     expect((result as FlashError).failure).toBe('node');
     expect((result as FlashError).message).toBe(
       'The unit on the port is !deadbeef, not TL-0042. Nothing was written.',
