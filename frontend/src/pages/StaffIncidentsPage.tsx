@@ -23,7 +23,7 @@ import { useToast } from '../shared/ui/toastStore';
 import { formatDateTime } from '../shared/lib/format';
 import { ErrorState, PageTitle } from '../shared/ui/bits';
 import { Pagination } from '../shared/ui/DataTable';
-import { FileWarning } from 'lucide-react';
+import { FileWarning, Siren } from 'lucide-react';
 import {
   CollectionView,
   pageInfoOf,
@@ -189,6 +189,7 @@ export const StaffIncidentsPage: React.FC = () => {
               {/* The incident detail of screen 8.2 opens beside the queue, from the code or from
                   Show details: it is this queue's details view, in place of the built-in pane. */}
               <CollectionView<Incident>
+                icon={<Siren />}
                 label="Incidents"
                 items={data?.items}
                 loading={isLoading}

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PageScrollBody } from '../shared/ui/PageChrome';
 import { useQueryClient } from '@tanstack/react-query';
-import { ScanLine, X } from 'lucide-react';
+import { ClipboardList, ScanLine, X } from 'lucide-react';
 import {
   STOCK_TAKE_PAGE_SIZE,
   runStockTake,
@@ -318,6 +318,7 @@ export const StockTakePage: React.FC = () => {
             Past stock-takes
           </h2>
           <CollectionView<StockTakeSummary>
+            icon={<ClipboardList />}
             label="Past stock-takes"
             items={data?.items}
             loading={past.isPending}

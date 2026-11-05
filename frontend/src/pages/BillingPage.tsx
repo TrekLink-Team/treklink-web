@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Receipt } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import {
   usePayments,
@@ -135,6 +136,7 @@ const PaymentsTab: React.FC = () => {
 
   return (
     <CollectionView<PaymentRow>
+      icon={<Receipt />}
       label="Payments"
       items={rows}
       loading={isLoading}

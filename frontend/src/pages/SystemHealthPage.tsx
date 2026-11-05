@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Gauge } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageScrollBody } from '../shared/ui/PageChrome';
 import {
@@ -341,6 +342,7 @@ export const SystemHealthPage: React.FC = () => {
               <p className="text-body text-ink-muted">No Field Stations are registered yet.</p>
             ) : (
               <CollectionView<HealthStation>
+                icon={<Gauge />}
                 label="Field Station list"
                 items={stations}
                 itemId={(row) => row.id}

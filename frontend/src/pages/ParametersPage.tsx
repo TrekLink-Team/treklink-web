@@ -37,7 +37,7 @@ import {
   type CollectionAction,
   type CollectionField,
 } from '../shared/ui';
-import { History, Pencil } from 'lucide-react';
+import { History, Pencil, SlidersHorizontal } from 'lucide-react';
 import { messageOf } from '../shared/ui/errors';
 import { LINK } from '../shared/ui/styles';
 import { ParameterHistoryDrawer } from '../widgets/ParameterHistory/ParameterHistoryDrawer';
@@ -356,6 +356,7 @@ export const ParametersPage: React.FC = () => {
               </h2>
               {open && (
                 <CollectionView<Parameter>
+                  icon={<SlidersHorizontal />}
                   label={`Parameters of ${module}`}
                   items={rows}
                   itemId={(row) => row.key}
@@ -376,8 +377,7 @@ export const ParametersPage: React.FC = () => {
                   fields={fields}
                   noun={{ one: 'parameter', other: 'parameters' }}
                   itemActions={actions}
-                  views={['details', 'cards']}
-                  defaultView={roomy ? 'details' : 'cards'}
+                  defaultView={roomy ? 'details' : 'largeCards'}
                   search={{ label: `Search the parameters of ${module}` }}
                   details={false}
                   emptyState={{ title: 'No results match your filters.' }}

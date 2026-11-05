@@ -4,7 +4,10 @@ import type React from 'react';
 // nothing about a module, an endpoint or the server's result set. A page supplies the data, the
 // fields and the actions.
 
-export type CollectionViewKey = 'details' | 'list' | 'cards';
+// The views of every collection (chapter 06 §9.2; leader, 2026-11-06, W30): the Details list is the
+// default and main view, then Grid and the Small, Medium and Large cards. The List view is gone, because
+// it had no column headers.
+export type CollectionViewKey = 'details' | 'grid' | 'smallCards' | 'mediumCards' | 'largeCards';
 
 export interface CollectionNoun {
   one: string;
@@ -22,7 +25,7 @@ export interface CollectionField<T> {
   sortable?: boolean;
   /** Leaves the table while the details pane is pushed aside, because the pane shows it (§10.8). */
   hideWithPane?: boolean;
-  /** Shown in the List and card views too, after the item's title. */
+  /** Shown on a Medium and a Large card. Without any compact field, a card shows every field. */
   compact?: boolean;
   align?: 'start' | 'end';
 }

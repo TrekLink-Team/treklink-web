@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../app/providers/useAuth';
@@ -91,6 +92,7 @@ export const ContractsPage: React.FC = () => {
       <PageTitle id="contracts-title" title="Contracts" action={requestLink} />
 
       <CollectionView<Contract>
+        icon={<FileText />}
         label="Contracts"
         items={rows}
         loading={isLoading}

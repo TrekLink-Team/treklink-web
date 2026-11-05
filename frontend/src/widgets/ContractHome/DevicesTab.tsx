@@ -1,10 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Flag, HandCoins, Tag } from 'lucide-react';
+import { Cpu, Flag, HandCoins, Tag } from 'lucide-react';
 import type { ContractDetail, ContractDevice } from '../../entities/contract/api';
 import { NEXT_STEP_LABELS, nextStepPath } from '../../entities/device/api';
 import { DeviceRef } from '../../entities/device/DeviceRef';
 import { VariantCard } from '../../entities/variant/VariantCard';
+import { VariantSubtitle, VariantTile } from '../../entities/variant/VariantTile';
 import { formatDateTime } from '../../shared/lib/format';
 import { StatusBadge } from '../../shared/ui/Badge';
 import {
@@ -200,6 +201,9 @@ export const DevicesTab: React.FC<Props> = ({
         )}
         fields={fields}
         noun={{ one: 'unit', other: 'units' }}
+        cardImage={variant ? () => <VariantTile variant={variant} /> : undefined}
+        cardSubtitle={variant ? () => <VariantSubtitle variant={variant} /> : undefined}
+        icon={<Cpu />}
         itemActions={actions}
         search={{ label: 'Search by asset tag or holder' }}
         filters={[
@@ -208,7 +212,6 @@ export const DevicesTab: React.FC<Props> = ({
           { key: 'back', label: 'Checked in', test: (device) => Boolean(device.checkedInAt) },
           { key: 'lost', label: 'Lost', test: (device) => Boolean(device.lostAt) },
         ]}
-        views={['details', 'list', 'cards']}
         details={{
           image: variant
             ? () => <VariantCard variant={variant} render="detail" headingLevel="h3" />

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { ScrollText } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { cn } from '../shared/ui/cn';
 import {
@@ -392,6 +393,7 @@ export const AuditLogPage: React.FC = () => {
         {/* The filter form above queries the server; the list renders on CollectionView (chapter 06
             §9, D-096), with the before and after in the details pane as well as in its column. */}
         <CollectionView<AuditLogItem>
+          icon={<ScrollText />}
           label="Audit log"
           items={addressValid ? data?.items : []}
           loading={addressValid && logs.isPending}
@@ -400,7 +402,6 @@ export const AuditLogPage: React.FC = () => {
           itemTitle={(row) => <span className="font-mono font-semibold text-ink">{row.action}</span>}
           fields={fields}
           noun={{ one: 'entry', other: 'entries' }}
-          views={['details', 'list']}
           pageInfo={pageInfoOf(data ? { ...data, pageSize: AUDIT_PAGE_SIZE } : undefined)}
           details={{ fields: ['time', 'actor', 'organization', 'subject', 'request'], extra: (row) => <Snapshots row={row} /> }}
           emptyState={{

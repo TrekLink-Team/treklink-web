@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CreditCard, QrCode } from 'lucide-react';
+import { CreditCard, QrCode, Receipt } from 'lucide-react';
 import {
   useBalance,
   useInvoices,
@@ -224,6 +224,7 @@ export const MoneyTab: React.FC<{
             </Link>
           </div>
           <CollectionView<Invoice>
+            icon={<Receipt />}
             label={`Invoices of ${contract.code}`}
             items={invoices.data?.items}
             loading={invoices.isLoading}
@@ -262,6 +263,7 @@ export const MoneyTab: React.FC<{
             Payments
           </h2>
           <CollectionView<Payment>
+            icon={<Receipt />}
             label={`Payments of ${contract.code}`}
             items={payments.data?.items}
             loading={payments.isLoading}

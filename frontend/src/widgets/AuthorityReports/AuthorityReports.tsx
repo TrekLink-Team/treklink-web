@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CircleCheck, RefreshCw } from 'lucide-react';
+import { CircleCheck, RefreshCw, Siren } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
@@ -599,6 +599,7 @@ export const AuthorityReportsPanel: React.FC<{ onViewIncident: (id: string) => v
       </div>
       <p className={WARNING}>{REPORT_DISCLAIMER}</p>
       <CollectionView<AuthorityReport>
+        icon={<Siren />}
         label="Authority reports"
         items={data?.items}
         loading={isLoading}

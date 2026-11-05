@@ -258,13 +258,26 @@ describe('CollectionView', () => {
     expect(screen.queryByRole('button', { name: 'Details pane' })).toBeNull();
   });
 
-  it('keeps the selection when the view changes', () => {
-    renderView({ views: ['details', 'list'] });
-    fireEvent.click(box('TL-0002'));
-    fireEvent.click(screen.getByRole('button', { name: 'View: Details list. Switch to List' }));
+  it('keeps the selection, the search, the filter and the sort when the view changes', () => {
+    renderView();
+    fireEvent.click(screen.getByRole('button', { name: /^Battery/ }));
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search units' }), { target: { value: 'TL-000' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Show: All/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /^Active/ }));
+    fireEvent.click(box('TL-0004'));
+    fireEvent.click(screen.getByRole('button', { name: 'View: Details list. Switch to Grid' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Choose view' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Large cards' }));
     expect(screen.queryByRole('table')).toBeNull();
-    expect(screen.getByRole('list', { name: 'Units of CT-0042' })).toBeTruthy();
-    expect(box('TL-0002').checked).toBe(true);
+    const cards = screen.getByRole('list', { name: 'Units of CT-0042' });
+    expect(box('TL-0004').checked).toBe(true);
+    expect((screen.getByRole('searchbox', { name: 'Search units' }) as HTMLInputElement).value).toBe('TL-000');
+    // Active only, sorted by battery ascending: TL-0003 (55), TL-0001 (80), TL-0004 (91).
+    expect(within(cards).getAllByRole('heading').map((heading) => heading.textContent)).toEqual([
+      'TL-0003',
+      'TL-0001',
+      'TL-0004',
+    ]);
   });
 
   it('marks the sorted column with aria-sort and leaves the others without it', () => {
@@ -634,6 +647,98 @@ const atWidth = (width: number) =>
       removeEventListener: () => undefined,
     };
   });
+
+const chooseView = (name: string) => {
+  fireEvent.click(screen.getByRole('button', { name: 'Choose view' }));
+  fireEvent.click(screen.getByRole('menuitem', { name }));
+};
+
+describe('views: the Details list, Grid and three card sizes (W30)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('offers the Details list as the default, then Grid and Small, Medium and Large cards; no List view', () => {
+    renderView();
+    expect(screen.getByRole('table', { name: 'Units of CT-0042' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Choose view' }));
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      'Details list (current)',
+      'Grid',
+      'Small cards',
+      'Medium cards',
+      'Large cards',
+    ]);
+  });
+
+  it('cycles the split View button through every view and back to the Details list', () => {
+    renderView();
+    const order = ['Details list', 'Grid', 'Small cards', 'Medium cards', 'Large cards', 'Details list'];
+    for (let step = 0; step < order.length - 1; step += 1)
+      fireEvent.click(screen.getByRole('button', { name: `View: ${order[step]}. Switch to ${order[step + 1]}` }));
+    expect(screen.getByRole('table', { name: 'Units of CT-0042' })).toBeTruthy();
+  });
+
+  it.each([
+    ['Grid', 'grid'],
+    ['Small cards', 'smallCards'],
+    ['Medium cards', 'mediumCards'],
+    ['Large cards', 'largeCards'],
+  ])('draws %s as a list of cards titled by the item name, with the badge menu and Show details', (name, key) => {
+    const { container } = renderView({ icon: <svg data-testid="collection-icon" /> });
+    chooseView(name);
+    expect(container.querySelector(`[data-cv-view="${key}"]`)).toBeTruthy();
+    const cards = within(screen.getByRole('list', { name: 'Units of CT-0042' })).getAllByRole('listitem');
+    expect(cards).toHaveLength(4);
+    const card = within(cards[0]);
+    expect(card.getByRole('heading', { level: 3 }).textContent).toBe('TL-0001');
+    expect(card.getByTestId('collection-icon')).toBeTruthy();
+    expect(card.getByRole('button', { name: 'Active, change status of TL-0001' })).toBeTruthy();
+    expect(card.getByRole('button', { name: 'Show details of TL-0001' })).toBeTruthy();
+  });
+
+  it('draws a Large card with the image tile, the name as a heading, the fields, the badge menu and the slots', () => {
+    renderView({
+      cardImage: (unit) => <img alt={`${unit.tag} render`} src="/variants/treklink-v3-icon.png" />,
+      cardSubtitle: () => 'TrekLink v3, GPS',
+      defaultView: 'largeCards',
+    });
+    const cards = within(screen.getByRole('list', { name: 'Units of CT-0042' })).getAllByRole('listitem');
+    expect(cards).toHaveLength(4);
+    const card = within(cards[0]);
+    expect(card.getByRole('heading', { level: 3 }).textContent).toBe('TL-0001');
+    expect(card.getByRole('img', { name: 'TL-0001 render' })).toBeTruthy();
+    expect(card.getByText('TrekLink v3, GPS')).toBeTruthy();
+    // The compact fields only: Status here, Battery stays in the Details list.
+    expect(card.getByText('Status').tagName).toBe('DT');
+    expect(card.queryByText('80%')).toBeNull();
+    // The status badge is the state menu (§11.3); no separate Change status button.
+    expect(card.getByRole('button', { name: 'Active, change status of TL-0001' })).toBeTruthy();
+    expect(card.queryByRole('button', { name: /^Change status/ })).toBeNull();
+    // Fixed slots, Show details at the inline end (§11.4).
+    const buttons = card.getAllByRole('button').map((button) => button.getAttribute('aria-label') ?? button.textContent);
+    expect(buttons.at(-1)).toBe('Show details of TL-0001');
+  });
+
+  it('draws the collection icon in the tile when an item has no image', () => {
+    const { container } = renderView({ icon: <svg data-testid="collection-icon" />, defaultView: 'largeCards' });
+    expect(screen.getAllByTestId('collection-icon')).toHaveLength(4);
+    expect(container.querySelector('[data-cv-view="largeCards"] [aria-hidden="true"] svg')).toBeTruthy();
+  });
+
+  it('opens on Large cards below 600 px, whatever the page default', () => {
+    atWidth(360);
+    renderView({ defaultView: 'details' });
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.getByRole('list', { name: 'Units of CT-0042' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'View: Large cards. Switch to Details list' })).toBeTruthy();
+    expect(document.querySelector('[data-cv-view="largeCards"]')).toBeTruthy();
+  });
+
+  it('opens on the Details list from 600 px', () => {
+    atWidth(834);
+    renderView();
+    expect(screen.getByRole('table', { name: 'Units of CT-0042' })).toBeTruthy();
+  });
+});
 
 describe('command bar placement (chapter 06 §9.3, §11.1, W30)', () => {
   const bar = () => screen.getByRole('group', { name: 'Units of CT-0042: commands' }).parentElement!;

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ShieldAlert } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   CUSTODY_LABEL,
@@ -94,6 +95,7 @@ export const LossCasesPage: React.FC<{ scope: LossScope }> = ({ scope }) => {
         meta={cases.data ? `${cases.data.totalCount} ${cases.data.totalCount === 1 ? 'case' : 'cases'}` : undefined}
       />
       <CollectionView<LossCase>
+        icon={<ShieldAlert />}
         label="Loss cases"
         items={cases.data?.items}
         loading={cases.isLoading}

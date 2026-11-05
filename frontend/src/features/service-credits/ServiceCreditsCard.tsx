@@ -1,4 +1,5 @@
 import React from 'react';
+import { Undo2 } from 'lucide-react';
 import {
   causeLabel,
   useContractServiceCredits,
@@ -46,6 +47,7 @@ export const ServiceCreditsCard: React.FC<{ contractId: string }> = ({ contractI
     <div className={CARD}>
       <h2 className="mb-3 text-lg font-bold text-ink">Service credits</h2>
       <CollectionView<ServiceCredit>
+        icon={<Undo2 />}
         label="Service credits of this contract"
         items={credits.data?.items}
         loading={credits.isLoading}

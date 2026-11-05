@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ShieldCheck } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -224,6 +225,7 @@ export const ComplianceCasesPage: React.FC = () => {
       />
       <TabPanel idPrefix="cases" tabKey={tab} fill>
         <CollectionView<ComplianceCase>
+          icon={<ShieldCheck />}
           label="Compliance cases"
           items={cases.data?.items}
           loading={cases.isLoading}

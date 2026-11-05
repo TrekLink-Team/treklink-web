@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Building2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../app/providers/useAuth';
 import {
@@ -493,6 +494,7 @@ export const OrganizationReviewPage: React.FC = () => {
             {/* The code and Show details open the organization card beside the list, this screen's
                 record view (verification, channel key, decision) in place of the built-in pane. */}
             <CollectionView<OrganizationReview>
+              icon={<Building2 />}
               label="Organizations"
               items={organizations.data?.items}
               loading={organizations.isLoading}

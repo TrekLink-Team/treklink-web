@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Siren } from 'lucide-react';
 import {
   deadlineOf,
   INCIDENT_SORT_FIELDS,
@@ -73,6 +74,7 @@ export const IncidentsPage: React.FC = () => {
       <p className={WARNING}>{SAR_DISCLAIMER}</p>
 
       <CollectionView<Incident>
+        icon={<Siren />}
         label="Incidents"
         items={data?.items}
         loading={isLoading}

@@ -1,4 +1,4 @@
-import { Ban, ChevronDown } from 'lucide-react';
+import { Ban, ChevronDown, MapPin } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../app/providers/useAuth';
@@ -404,6 +404,7 @@ export const FieldStationsPage: React.FC = () => {
       )}
 
       <CollectionView<FieldStation>
+        icon={<MapPin />}
         label="Field Stations"
         items={stations.data?.items}
         loading={stations.isLoading}

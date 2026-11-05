@@ -5,12 +5,14 @@ import {
   ArrowDown,
   ArrowUp,
   ChevronsUpDown,
+  Grid2x2,
+  Grid3x3,
   Info,
   LayoutGrid,
   MoreHorizontal,
-  List as ListIcon,
   PanelRight,
   Search,
+  Square,
   Table2,
   X,
 } from 'lucide-react';
@@ -65,16 +67,75 @@ export const SEARCH_ANNOUNCE_MS = 500;
 export const SELECTION_CLEARED = 'Selection cleared';
 export const NO_MATCHES = 'No results match your filters.';
 
+// The views every collection offers, in the order the View button cycles them (chapter 06 §9.2, W30).
+// The Claude Design canvas "Contract Home" draws the table icon for the Details list and the square
+// for Large cards.
+const COLLECTION_VIEWS: readonly CollectionViewKey[] = ['details', 'grid', 'smallCards', 'mediumCards', 'largeCards'];
+
 const VIEW_LABEL: Record<CollectionViewKey, string> = {
   details: 'Details list',
-  list: 'List',
-  cards: 'Cards',
+  grid: 'Grid',
+  smallCards: 'Small cards',
+  mediumCards: 'Medium cards',
+  largeCards: 'Large cards',
 };
 
 const VIEW_ICON: Record<CollectionViewKey, React.ReactNode> = {
   details: <Table2 />,
-  list: <ListIcon />,
-  cards: <LayoutGrid />,
+  grid: <LayoutGrid />,
+  smallCards: <Grid3x3 />,
+  mediumCards: <Grid2x2 />,
+  largeCards: <Square />,
+};
+
+type CardViewKey = Exclude<CollectionViewKey, 'details'>;
+
+// One card anatomy at four scales (W30, the Large card of the canvas scaled down): the columns follow
+// the width of the item box, not the window, so a list beside the details pane keeps readable cards.
+const CARD_LAYOUT: Record<
+  CardViewKey,
+  { columns: string; tile: string; icon: string; card: string; heading: string; fields: boolean; subtitle: boolean }
+> = {
+  largeCards: {
+    columns:
+      'grid-cols-1 [@container(min-width:30rem)]:grid-cols-2 [@container(min-width:46rem)]:grid-cols-3 [@container(min-width:60rem)]:grid-cols-4',
+    tile: 'h-[4.5rem] w-[4.5rem]',
+    icon: '[&>svg]:h-8 [&>svg]:w-8',
+    card: 'gap-3 p-3',
+    heading: 'text-body',
+    fields: true,
+    subtitle: true,
+  },
+  mediumCards: {
+    columns:
+      'grid-cols-1 [@container(min-width:24rem)]:grid-cols-2 [@container(min-width:38rem)]:grid-cols-3 [@container(min-width:50rem)]:grid-cols-4 [@container(min-width:64rem)]:grid-cols-5',
+    tile: 'h-12 w-12',
+    icon: '[&>svg]:h-6 [&>svg]:w-6',
+    card: 'gap-2 p-2.5',
+    heading: 'text-body-sm',
+    fields: true,
+    subtitle: true,
+  },
+  smallCards: {
+    columns:
+      'grid-cols-1 [@container(min-width:20rem)]:grid-cols-2 [@container(min-width:34rem)]:grid-cols-3 [@container(min-width:46rem)]:grid-cols-4 [@container(min-width:60rem)]:grid-cols-6',
+    tile: 'h-8 w-8',
+    icon: '[&>svg]:h-5 [&>svg]:w-5',
+    card: 'gap-1.5 p-2',
+    heading: 'text-body-sm',
+    fields: false,
+    subtitle: false,
+  },
+  grid: {
+    columns:
+      'grid-cols-2 [@container(min-width:24rem)]:grid-cols-3 [@container(min-width:36rem)]:grid-cols-4 [@container(min-width:50rem)]:grid-cols-6 [@container(min-width:66rem)]:grid-cols-8',
+    tile: 'h-16 w-16',
+    icon: '[&>svg]:h-8 [&>svg]:w-8',
+    card: 'gap-1.5 p-2',
+    heading: 'text-body-sm',
+    fields: false,
+    subtitle: false,
+  },
 };
 
 const MENU_TRIGGER = 'h-10 border border-line-strong bg-surface px-3 text-body-sm';
@@ -115,8 +176,17 @@ export interface CollectionViewProps<T> {
   status?: CollectionStatus<T>;
   bulkActions?: CollectionBulkAction<T>[];
   commands?: CollectionCommand[];
-  views?: CollectionViewKey[];
+  /** The view from 600 px up, the Details list by default; below it a collection opens on Large cards (W30). */
   defaultView?: CollectionViewKey;
+  /**
+   * The image tile of a Large card: a device's variant render from `public/variants/` (W30). Without
+   * it the tile shows `icon`.
+   */
+  cardImage?: (item: T) => React.ReactNode;
+  /** The lines under a Large card's heading: for a device, the variant name and its capabilities. */
+  cardSubtitle?: (item: T) => React.ReactNode;
+  /** The collection's icon, drawn large in the tile of a card with no image. */
+  icon?: React.ReactNode;
   /** The details pane of §9.8; false leaves it out. */
   details?: CollectionDetails<T> | false;
   /**
@@ -177,8 +247,10 @@ export function CollectionView<T>({
   status,
   bulkActions = [],
   commands = [],
-  views = ['details', 'list'],
   defaultView,
+  cardImage,
+  cardSubtitle,
+  icon,
   details = {},
   onShowDetails,
   emptyState,
@@ -216,8 +288,7 @@ export function CollectionView<T>({
   });
   const query = controlledQuery ?? ownQuery;
   const [chosenView, setChosenView] = useState<CollectionViewKey | null>(null);
-  const view: CollectionViewKey =
-    chosenView ?? (phone && views.includes('list') ? 'list' : (defaultView ?? views[0]));
+  const view: CollectionViewKey = chosenView ?? (phone ? 'largeCards' : (defaultView ?? 'details'));
   const [selection, setSelection] = useState<SelectionState>(EMPTY_SELECTION);
   const [paneId, setPaneId] = useState<string | null>(null);
   // The item the pane was opened on, kept while it leaves the list (a request just decided leaves
@@ -801,9 +872,9 @@ export function CollectionView<T>({
   const sortShort = activeSort ? (sortLabelOf(activeSort.key) ?? 'Default') : 'Default';
   const sortText = `Sort: ${sortShort}`;
 
-  const viewIndex = views.indexOf(view);
-  const nextView = views[(viewIndex + 1) % views.length];
-  const viewSwitch = views.length > 1 && (
+  const views = COLLECTION_VIEWS;
+  const nextView = views[(views.indexOf(view) + 1) % views.length];
+  const viewSwitch = (
     <span
       role="group"
       aria-label="View"
@@ -1038,7 +1109,7 @@ export function CollectionView<T>({
   // its natural height while the rows fit and scrolls inside itself once they do not, with the
   // header row pinned. Elsewhere it scrolls sideways only, as before.
   const detailsView = (
-    <div className="relative cv-fill:flex cv-fill:min-h-0 cv-fill:flex-col">
+    <div data-cv-view="details" className="relative cv-fill:flex cv-fill:min-h-0 cv-fill:flex-col">
       <ScrollHintOverlay hints={pushedAside ? { ...tableHints, left: false, right: false } : tableHints} />
       <div
         ref={setTableScroller}
@@ -1176,86 +1247,106 @@ export function CollectionView<T>({
   const statusOutside = (shown: CollectionField<T>[]) =>
     status !== undefined && !shown.some((field) => field.key === status.field);
 
-  const list = (
-    <ul aria-label={label} className="flex flex-col rounded-panel border border-line bg-surface shadow-raise">
-      {visible.map((item, index) => {
-        const id = itemId(item);
-        return (
-          <li
-            key={id}
-            data-cv-item={id}
-            data-cv-index={index}
-            onFocusCapture={noteFocus}
-            className={cn(
-              'flex flex-wrap items-center gap-x-3 gap-y-1 border-line px-2 py-1.5 [&+&]:border-t',
-              selection.selected.has(id) && 'bg-chrome/60',
-            )}
-          >
-            {selectable && checkbox(item)}
-            <span className="min-w-0 flex-[1_1_8rem]">{titleOf(item)}</span>
-            <span className="flex min-w-0 flex-[2_1_12rem] flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-ink">
-              {compactFields.map((field) => (
-                <span key={field.key} className="min-w-0">
-                  {renderField(field, item)}
-                </span>
-              ))}
-              {statusOutside(compactFields) && statusCell(item)}
-            </span>
-            {phone ? (
+  // The image tile of a card: the item's image, else the collection's icon, in a box of the view's size.
+  const tile = (item: T, layout: (typeof CARD_LAYOUT)[CardViewKey]) => {
+    const image = cardImage?.(item);
+    if (image)
+      return <div className={cn('shrink-0 overflow-hidden rounded-card', layout.tile)}>{image}</div>;
+    if (!icon) return null;
+    return (
+      <span
+        aria-hidden="true"
+        className={cn(
+          'flex shrink-0 items-center justify-center rounded-card border border-line bg-sunken text-ink-muted',
+          layout.tile,
+          layout.icon,
+        )}
+      >
+        {icon}
+      </span>
+    );
+  };
+
+  // The card views (chapter 06 §9.2; W30, Claude Design canvas "Contract Home", artboard "Large cards
+  // view (1280)" and the smaller sizes): the checkbox, the image tile, the item name as the heading with
+  // its subtitle, the label and value block with the status badge as the state menu (§11.3), a divider,
+  // then the item actions right-aligned in their fixed slots (§11.4). Small cards and the Grid keep the
+  // tile, the name, the status badge and the actions; Grid stacks the tile above the name.
+  const cardsOf = (key: CardViewKey) => {
+    const layout = CARD_LAYOUT[key];
+    const stacked = key === 'grid';
+    return (
+      <div data-cv-view={key} className="[container-type:inline-size]">
+        <ul aria-label={label} className={cn('grid gap-3', layout.columns)}>
+          {visible.map((item, index) => {
+            const id = itemId(item);
+            const actions = phone ? (
               phoneMenu(item)
-            ) : (
-              <span className="ml-auto flex items-center gap-1">
+            ) : offersDetails || listActions.length > 0 || (transitions !== undefined && !status) ? (
+              <>
                 {statusMenu(item)}
                 {actionButtons(item)}
-              </span>
-            )}
-          </li>
-        );
-      })}
-    </ul>
-  );
-
-  const cards = (
-    <ul aria-label={label} className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-3">
-      {visible.map((item, index) => {
-        const id = itemId(item);
-        return (
-          <li
-            key={id}
-            data-cv-item={id}
-            data-cv-index={index}
-            onFocusCapture={noteFocus}
-            className={cn(
-              'flex flex-col gap-2 rounded-panel border border-line bg-surface p-3 shadow-raise',
-              selection.selected.has(id) && 'border-accent bg-chrome/40',
-            )}
-          >
-            <div className="flex items-center gap-1">
-              {selectable && checkbox(item)}
-              <h3 className="min-w-0 flex-1 text-body font-semibold">{titleOf(item)}</h3>
-            </div>
-            <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-body-sm">
-              {cardFields.map((field) => (
-                <React.Fragment key={field.key}>
-                  <dt className="text-ink-muted">{field.label}</dt>
-                  <dd className="min-w-0 text-ink">{renderField(field, item)}</dd>
-                </React.Fragment>
-              ))}
-            </dl>
-            {statusOutside(cardFields) && <div>{statusCell(item)}</div>}
-            <div className="mt-auto flex flex-wrap items-center justify-between gap-1">
-              {phone ? phoneMenu(item) : (
-                <>
-                  {statusMenu(item)}
-                  {actionButtons(item)}
-                </>
-              )}
-            </div>
-          </li>
-        );
-      })}
-    </ul>
-  );
+              </>
+            ) : null;
+            const shown = layout.fields ? cardFields : [];
+            return (
+              <li
+                key={id}
+                data-cv-item={id}
+                data-cv-index={index}
+                onFocusCapture={noteFocus}
+                className={cn(
+                  'flex min-w-0 flex-col rounded-panel border border-line bg-surface shadow-raise',
+                  layout.card,
+                  selection.selected.has(id) && 'border-accent bg-chrome/40',
+                )}
+              >
+                <div className={cn('flex gap-2', stacked ? 'flex-col items-center text-center' : 'items-start')}>
+                  {selectable && (
+                    <span className={cn('-ml-2 -mt-2 shrink-0', stacked && 'self-start')}>{checkbox(item)}</span>
+                  )}
+                  {tile(item, layout)}
+                  <div className="min-w-0 flex-1">
+                    <h3 className={cn('font-semibold [overflow-wrap:anywhere]', layout.heading)}>{titleOf(item)}</h3>
+                    {layout.subtitle && cardSubtitle && (
+                      <div className="mt-0.5 text-body-sm text-ink-muted [overflow-wrap:anywhere]">
+                        {cardSubtitle(item)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {shown.length > 0 && (
+                  <dl className="grid grid-cols-[minmax(0,6rem)_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-body-sm">
+                    {shown.map((field) => (
+                      <React.Fragment key={field.key}>
+                        <dt className="text-ink-muted">{field.label}</dt>
+                        <dd className="min-w-0 text-ink [overflow-wrap:anywhere]">{renderField(field, item)}</dd>
+                      </React.Fragment>
+                    ))}
+                  </dl>
+                )}
+                {statusOutside(shown) && (
+                  <div className={cn(stacked && 'flex justify-center')}>{statusCell(item)}</div>
+                )}
+                {actions && (
+                  <div className="mt-auto">
+                    <div
+                      className={cn(
+                        'flex flex-wrap items-center gap-1 border-t border-line pt-2',
+                        stacked ? 'justify-center' : 'justify-end',
+                      )}
+                    >
+                      {actions}
+                    </div>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
+  };
 
   const body = (() => {
     if (error) return error;
@@ -1286,7 +1377,7 @@ export function CollectionView<T>({
           )}
         </div>
       );
-    return view === 'details' ? detailsView : view === 'cards' ? cards : list;
+    return view === 'details' ? detailsView : cardsOf(view);
   })();
 
   // A hosted pane that is pushed aside renders in the host's slot, beside every list of the host.

@@ -33,7 +33,7 @@ import {
   type BulkItem,
   type CollectionField,
 } from '../shared/ui';
-import { Scale } from 'lucide-react';
+import { BadgeDollarSign, Scale } from 'lucide-react';
 import { ErrorState } from '../shared/ui/bits';
 
 const DECISIONS: { value: DamageDecision; label: string }[] = [
@@ -251,6 +251,7 @@ export const DamageChargesPage: React.FC = () => {
         </Alert>
       )}
       <CollectionView<DamageCharge>
+        icon={<BadgeDollarSign />}
         label="Damage charges"
         items={charges.data?.items}
         loading={charges.isLoading}

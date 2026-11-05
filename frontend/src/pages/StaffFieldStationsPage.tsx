@@ -1,4 +1,4 @@
-import { Ban } from 'lucide-react';
+import { Ban, MapPin } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { useOrganizations, type OrganizationReview } from '../entities/organization/api';
@@ -146,6 +146,7 @@ export const StaffFieldStationsPage: React.FC = () => {
         </Alert>
       )}
       <CollectionView<StationRow>
+        icon={<MapPin />}
         label="Field Stations of every organization"
         items={loading ? undefined : rows}
         loading={loading}

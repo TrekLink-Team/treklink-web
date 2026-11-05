@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { KeyRound, Pencil, UserCheck, UserPlus, UserX } from 'lucide-react';
+import { KeyRound, Pencil, UserCheck, UserCog, UserPlus, UserX } from 'lucide-react';
 import { useAuth } from '../app/providers/useAuth';
 import {
   ACCOUNT_PAGE_SIZE,
@@ -262,6 +262,7 @@ export const AccountsPage: React.FC = () => {
       />
 
       <CollectionView<AccountItem>
+        icon={<UserCog />}
         label="Accounts"
         items={data?.items}
         loading={accounts.isPending}

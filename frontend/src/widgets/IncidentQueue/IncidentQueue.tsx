@@ -1,4 +1,5 @@
 import React from 'react';
+import { Siren } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useFleetIncidents, type Incident } from '../../entities/incident/api';
 import { formatDateTime } from '../../shared/lib/format';
@@ -85,6 +86,7 @@ export const IncidentQueue: React.FC = () => {
         <p className="text-body text-ink-muted">No open incidents.</p>
       ) : (
         <CollectionView<Incident>
+          icon={<Siren />}
           label="Open incidents"
           items={items.slice(0, 5)}
           itemId={(incident) => incident.id}
@@ -92,7 +94,6 @@ export const IncidentQueue: React.FC = () => {
           itemHref={(incident) => `/o/incidents/${incident.id}`}
           fields={FIELDS}
           noun={{ one: 'incident', other: 'incidents' }}
-          views={['list']}
           details={false}
           hideCommandBar
           emptyState={{ title: 'No open incidents.' }}

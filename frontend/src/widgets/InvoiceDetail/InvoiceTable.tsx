@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Receipt } from 'lucide-react';
 import {
   INVOICE_SORT_FIELDS,
   INVOICE_STATUS_LABELS,
@@ -124,6 +125,7 @@ export const InvoiceTable: React.FC<{
 
   return (
     <CollectionView<Invoice>
+      icon={<Receipt />}
       label="Invoices"
       items={rows}
       loading={loading}

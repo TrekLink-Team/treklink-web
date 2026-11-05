@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { MapPin } from 'lucide-react';
+import { Activity, MapPin } from 'lucide-react';
 import { PageScrollBody } from '../shared/ui/PageChrome';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
@@ -425,6 +425,7 @@ export const DeviceTelemetryPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =
               <BatteryChart readings={readings} deviceLabel={tag} />
             </Card>
             <CollectionView<Row>
+              icon={<Activity />}
               label="Positions and telemetry"
               items={pageRows}
               itemId={(row) => row.key}
