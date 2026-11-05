@@ -276,7 +276,7 @@ queue and the detail.
 |---|---|
 | `IncidentIngress.onSos(event, tx)`, `onPosition(event, tx, history)` | gateway-sync (`history`: its stored positions, for the cadence count) |
 | `IncidentsService.markDeviceStale(deviceId, stale, lastSeenAt, tx)` | monitoring (staleness sweep, in the sweep's transaction) |
-| `IncidentsService.openByDevices(ids)`, `incidentsOfDevice(id)`, `liveFieldsOf(id)` (the code, owner name, last position and stale mark the `incident.changed` stream entry carries), `responseTimes(range)`, `alertDeliveryStats()` | monitoring |
+| `IncidentsQueryService.openByDevices(ids)`, `incidentsOfDevice(id)`, `liveFieldsOf(id, ownerId)` (the code, the name of the owner the event carries, last position and stale mark the `incident.changed` stream entry carries), `responseTimes(range)`, `alertDeliveryStats()` | monitoring |
 | provider of `CONTRACT_CLOSE_CHECKS` | rentals |
 | declares `INCIDENT_EVENTS.eventsOfIncident(incidentId, scope)` | provided by gateway-sync through global `IncidentEventsPortsModule`; incidents keeps the route and policy (issue #118, R2-b) |
 | provider of `ORGANIZATION_COUNTS` `openIncidents` (`IncidentsOrganizationCount` in the global `IncidentsPortsModule`: incidents not CLOSED) | organizations (api-design 03) |

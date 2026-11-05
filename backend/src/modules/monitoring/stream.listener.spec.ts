@@ -312,7 +312,7 @@ describe('StreamListener', () => {
         tier: 'PRIMARY',
         ownerId: 'u-1',
       });
-      expect(incidents.liveFieldsOf).toHaveBeenCalledWith('inc-1');
+      expect(incidents.liveFieldsOf).toHaveBeenCalledWith('inc-1', 'u-1');
       expect(published[0].payload).toEqual({
         incidentId: 'inc-1',
         state: 'ACKNOWLEDGED',

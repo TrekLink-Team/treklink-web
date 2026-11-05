@@ -92,12 +92,15 @@ export class StreamListener {
   async onIncidentChanged(event: IncidentChangedEvent): Promise<void> {
     // The code, the owner's name, the last position and the stale mark come from the committed
     // incident, so a client places the marker and shows "Open incident INC-..." from the entry alone.
+    // The name is looked up from the event's own `ownerId`, so one entry never names two owners.
     // A read that fails must not lose the entry: it then goes out as before and the client reloads
     // the snapshot (frontend `needsSnapshot`).
-    const live = await this.incidents.liveFieldsOf(event.incidentId).catch((error: unknown) => {
-      this.logger.warn(`incident ${event.incidentId} not enriched: ${String(error)}`);
-      return null;
-    });
+    const live = await this.incidents
+      .liveFieldsOf(event.incidentId, event.ownerId)
+      .catch((error: unknown) => {
+        this.logger.warn(`incident ${event.incidentId} not enriched: ${String(error)}`);
+        return null;
+      });
     await this.stream.publish({
       organizationId: event.organizationId,
       type: 'incident.changed',
