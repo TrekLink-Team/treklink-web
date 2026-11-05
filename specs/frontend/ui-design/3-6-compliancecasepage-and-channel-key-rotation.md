@@ -149,4 +149,4 @@ Added by KhoaDD. The case list of `/t/compliance-cases` renders through `Collect
 under the Open, Closed and All tabs, which stay because the server filters by status (open point 2). The
 code links to the case page and is each case's title; the organization, type and status stay beside it
 when the details pane is open, and the pane links to the case page. The cards of the 360 px layout
-are the collection's list view.
+are the collection's Large cards view (W30, the List view is gone).
