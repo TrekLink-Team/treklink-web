@@ -35,14 +35,15 @@ export const VariantCard: React.FC<Props> = ({
   const baseline = variant.firmwareBaseline?.trim() || null;
   const Heading = headingLevel;
   return (
-    <div className={cn('flex min-w-0 gap-3', render === 'detail' && 'flex-col', className)}>
+    // The text wraps under the image when the card is narrower than both (reflow at 320 px).
+    <div className={cn('flex min-w-0 flex-wrap gap-3', render === 'detail' && 'flex-col', className)}>
       <VariantImage variant={variant} render={render} size={render === 'detail' ? 'lg' : 'md'} />
-      <div className="min-w-0">
+      <div className="min-w-[10rem] flex-1">
         <Heading id={headingId} className="text-body font-semibold text-ink">
           {variant.name}
         </Heading>
         {(lines.length > 0 || capabilities !== null || baseline !== null) && (
-          <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-body-sm">
+          <dl className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-body-sm [&_dd]:[overflow-wrap:anywhere]">
             {lines.map((line) => (
               <React.Fragment key={line.key}>
                 <dt className="text-ink-muted">{line.label}</dt>

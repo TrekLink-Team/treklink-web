@@ -25,7 +25,7 @@ export const VariantPicker: React.FC<Props> = ({ variants, value, onChange, coun
     <legend className="mb-1.5 text-body-sm font-semibold text-ink">Hardware variant</legend>
     {/* One card per row up to 1536 px: beside the quote, two cards left the spec list about 150 px and
         broke its values word by word at 1280 px (W15 panel walk). */}
-    <div className="grid gap-3 2xl:grid-cols-2">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3 2xl:grid-cols-2">
       {variants.map((item) => {
         const selected = item.id === value;
         const count = countOf(item.id);
@@ -40,7 +40,7 @@ export const VariantPicker: React.FC<Props> = ({ variants, value, onChange, coun
               if (!(event.target instanceof HTMLInputElement)) onChange(item.id);
             }}
             className={cn(
-              'flex cursor-pointer gap-3 rounded-card border p-3',
+              'flex min-w-0 cursor-pointer gap-3 rounded-card border p-3',
               selected ? 'border-2 border-brand bg-sunken' : 'border-line bg-surface',
             )}
           >
