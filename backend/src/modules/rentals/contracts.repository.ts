@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ContractStatus, FaultResolution, PlanType, Prisma } from '@prisma/client';
 import { DomainException, ErrorCode } from '../../common/errors';
+import { ListSort, orderByOf, SortColumns } from '../../common/dto/sorting';
 import { likeLiteral } from '../../common/prisma/like-literal';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { FINISHED_STATES, RUNNING_STATES } from './contract-states';
@@ -93,6 +94,22 @@ export const TRANSITION_SELECT = {
 export type TransitionRow = Prisma.ContractTransitionGetPayload<{
   select: typeof TRANSITION_SELECT;
 }>;
+
+// The sortable columns of the contract lists (api-design 02, W26): the code, the status in lifecycle
+// order, the number of devices and the requested start. Organization and variant are other modules'
+// labels; the plan and the next date are text or a date picked per status.
+export const CONTRACT_SORT_FIELDS = ['code', 'status', 'quantity', 'requestedStartDate'] as const;
+export type ContractSortField = (typeof CONTRACT_SORT_FIELDS)[number];
+
+const CONTRACT_SORTS: SortColumns<
+  ContractSortField,
+  Prisma.RentalContractOrderByWithRelationInput
+> = {
+  code: (order) => ({ code: order }),
+  status: (order) => ({ status: order }),
+  quantity: (order) => ({ quantity: order }),
+  requestedStartDate: (order) => ({ requestedStartDate: order }),
+};
 
 export interface ContractFilter {
   organizationId?: string;
@@ -497,12 +514,14 @@ export class ContractsRepository {
     });
   }
 
-  // A page of contracts, newest first (api-design 02).
+  // A page of contracts, newest status change first unless `sort` names an allowed column (api-design
+  // 02, W26).
   page(
     filter: ContractFilter,
     skip: number,
     take: number,
     client: Client = this.prisma,
+    sort?: ListSort<ContractSortField>,
   ): Promise<[ContractListRow[], number]> {
     const where: Prisma.RentalContractWhereInput = {
       ...(filter.organizationId ? { organizationId: filter.organizationId } : {}),
@@ -524,7 +543,12 @@ export class ContractsRepository {
     return Promise.all([
       client.rentalContract.findMany({
         where,
-        orderBy: [{ statusChangedAt: 'desc' }, { code: 'desc' }],
+        orderBy: orderByOf(
+          sort,
+          CONTRACT_SORTS,
+          [{ statusChangedAt: 'desc' }, { code: 'desc' }],
+          (order) => ({ id: order }),
+        ),
         skip,
         take,
         select: LIST_SELECT,

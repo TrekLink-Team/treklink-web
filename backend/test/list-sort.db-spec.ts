@@ -1,12 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import {
   AccountType,
+  ContractStatus,
   DeviceStatus,
   IncidentConfidence,
   IncidentSource,
   IncidentState,
   LossCaseState,
   MaintenanceStatus,
+  PlanType,
+  Prisma,
 } from '@prisma/client';
 import { ListSort } from '../src/common/dto/sorting';
 import { PrismaService } from '../src/common/prisma/prisma.service';
@@ -23,6 +26,10 @@ import {
   INCIDENT_SORT_FIELDS,
   IncidentsRepository,
 } from '../src/modules/incidents/incidents.repository';
+import {
+  CONTRACT_SORT_FIELDS,
+  ContractsRepository,
+} from '../src/modules/rentals/contracts.repository';
 
 // Capture explicit connection settings before Prisma can load a local .env at construction.
 const databaseUrl = process.env.DATABASE_URL;
@@ -40,6 +47,7 @@ describe('server sort of the paged lists against Postgres (W26)', () => {
   const maintenance = new MaintenanceRepository(prisma);
   const lossCases = new LossCasesRepository(prisma);
   const incidents = new IncidentsRepository(prisma);
+  const contracts = new ContractsRepository(prisma);
   const runId = randomUUID();
   const token = runId.slice(0, 8).toUpperCase();
   const nodeBase = BigInt(Date.now() % 1_000_000_000) * 4n + 3_000_000_000n;
@@ -53,6 +61,8 @@ describe('server sort of the paged lists against Postgres (W26)', () => {
   let caseB: string;
   let incidentA: string;
   let incidentB: string;
+  let contractA: string;
+  let contractB: string;
 
   const orderOf = (ids: string[], first: string, second: string) =>
     ids.filter((id) => id === first || id === second);
@@ -167,6 +177,26 @@ describe('server sort of the paged lists against Postgres (W26)', () => {
       });
     incidentA = (await incident(deviceA, true)).id;
     incidentB = (await incident(deviceB, false)).id;
+
+    // The low contract changed status first, so the default newest-change order puts it last.
+    const contract = (low: boolean) =>
+      prisma.rentalContract.create({
+        data: {
+          code: `RC-W26-${token}-${low ? 'A' : 'B'}`,
+          organizationId,
+          planType: PlanType.MONTHLY,
+          hardwareVariantId: variantId,
+          quantity: low ? 1 : 3,
+          requestedStartDate: new Date(low ? '2026-12-01' : '2026-12-15'),
+          monthlyUnitPriceVnd: 250_000n,
+          holdingFeeRatio: new Prisma.Decimal('0.5'),
+          status: low ? ContractStatus.REQUESTED : ContractStatus.APPROVED,
+          statusChangedAt: new Date(low ? '2026-11-01T00:00:00.000Z' : '2026-11-02T00:00:00.000Z'),
+          requestedById: userId,
+        },
+      });
+    contractA = (await contract(true)).id;
+    contractB = (await contract(false)).id;
   });
 
   afterAll(async () => {
@@ -231,6 +261,20 @@ describe('server sort of the paged lists against Postgres (W26)', () => {
     it('keeps the most urgent deadline first without a sort (D-059 rule 7)', async () => {
       const [rows] = await incidents.page({ organizationId }, 0, 20);
       expect(rows.map((row) => row.id)).toEqual([incidentB, incidentA]);
+    });
+  });
+
+  describe('rentals api-design 02', () => {
+    it.each(both(CONTRACT_SORT_FIELDS))('sorts by $field $order', async (sort) => {
+      const [rows, total] = await contracts.page({ organizationId }, 0, 20, undefined, sort);
+      const expected = sort.order === 'asc' ? [contractA, contractB] : [contractB, contractA];
+      expect(rows.map((row) => row.id)).toEqual(expected);
+      expect(total).toBe(2);
+    });
+
+    it('keeps the newest status change first without a sort', async () => {
+      const [rows] = await contracts.page({ organizationId }, 0, 20);
+      expect(rows.map((row) => row.id)).toEqual([contractB, contractA]);
     });
   });
 

@@ -9,6 +9,7 @@ import {
   resolvePage,
   toPagedResult,
 } from '../../common/dto/paging';
+import { resolveSort, SortQuery } from '../../common/dto/sorting';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { BalanceService, BalanceSummary } from '../billing';
 import {
@@ -25,10 +26,11 @@ import {
   ContractDetailRow,
   ContractListRow,
   ContractsRepository,
+  ContractSortField,
   TransitionRow,
 } from './contracts.repository';
 
-export interface ContractQuery extends PagedQueryDto {
+export interface ContractQuery extends PagedQueryDto, SortQuery<ContractSortField> {
   organizationId?: string;
   status?: ContractStatus;
   planType?: PlanType;
@@ -105,6 +107,8 @@ export class ContractReadsService {
       },
       page.skip,
       page.take,
+      undefined,
+      resolveSort(query),
     );
     const label = await this.labeller(rows);
     return toPagedResult(
