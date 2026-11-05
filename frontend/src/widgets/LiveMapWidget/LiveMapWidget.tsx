@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import {
   MAP_CONFIG_KEY,
   getMapConfig,
+  initialBasemap,
   usableBasemaps,
   type Basemap,
   type MapConfig,
@@ -252,9 +253,9 @@ const LeafletMap: React.FC<{
       // symbol with no place on a TrekLink map (dry run 2026-10-30, MF-02 step 3).
       instance.attributionControl.setPrefix(LEAFLET_CREDIT);
 
-      // One tile layer per basemap, in the server's order, opening on the default (D-072); a localOnly
-      // basemap is left out off loopback. Only the active layer is on the map, so only it reports loads
-      // and failures.
+      // One tile layer per basemap, in the server's order, opening on the default or, when the default
+      // is not offered, on the first basemap (D-072). A hidden basemap is left out, and a localOnly one
+      // off loopback. Only the active layer is on the map, so only it reports loads and failures.
       const basemaps: Basemap[] = config.basemaps.length
         ? usableBasemaps(config.basemaps)
         : [
@@ -289,7 +290,7 @@ const LeafletMap: React.FC<{
         });
         layers[basemap.name] = tiles;
       }
-      const initial = basemaps.find((basemap) => basemap.id === config.provider) ?? basemaps[0];
+      const initial = initialBasemap(basemaps, config.provider);
       layers[initial.name].addTo(instance);
       // Base layers only: the sovereignty overlay is never offered for switching off (REQ-UBI-06).
       if (basemaps.length > 1)
