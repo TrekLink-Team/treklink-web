@@ -298,6 +298,7 @@ export const SyncStatusPage: React.FC = () => {
         fields={eventFields}
         noun={{ one: 'event', other: 'events' }}
         query={{ search: '', filter: '', sort: { key: 'receivedAt', direction: eventOrder } }}
+        defaultSort={{ key: 'receivedAt', direction: 'desc' }}
         onQueryChange={(next) => {
           setEventOrder(next.sort?.direction ?? 'desc');
           setEventPage(1);

@@ -206,6 +206,22 @@ describe('DataTable sorting and activation', () => {
     expect(onSort).toHaveBeenLastCalledWith({ key: 'status', direction: 'asc' });
   });
 
+  it('returns to the default order on the third click, and toggles the default column (§11.2)', () => {
+    const onSort = vi.fn();
+    render(<Harness extra={{ sort: { key: 'status', direction: 'desc' }, onSortChange: onSort }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Status' }));
+    expect(onSort).toHaveBeenLastCalledWith(null);
+    cleanup();
+    const defaultSort: SortState<'tag' | 'status'> = { key: 'tag', direction: 'desc' };
+    render(<Harness extra={{ sort: defaultSort, defaultSort, onSortChange: onSort }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Asset tag' }));
+    expect(onSort).toHaveBeenLastCalledWith({ key: 'tag', direction: 'asc' });
+    cleanup();
+    render(<Harness extra={{ sort: { key: 'tag', direction: 'asc' }, defaultSort, onSortChange: onSort }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Asset tag' }));
+    expect(onSort).toHaveBeenLastCalledWith({ key: 'tag', direction: 'desc' });
+  });
+
   it('opens a row through a button in the first column, by keyboard or by a click on the row', () => {
     const onActivate = vi.fn();
     render(<Harness extra={{ onRowActivate: onActivate }} />);

@@ -130,6 +130,8 @@ const Swatch: React.FC<{ name: string; className: string; text?: string; note?: 
   </div>
 );
 
+const DEMO_DEFAULT_SORT: SortState<'code' | 'devices'> = { key: 'code', direction: 'desc' };
+
 const TONES: StatusTone[] = ['critical', 'attention', 'active', 'waiting', 'done', 'ended'];
 
 const Palette: React.FC<{ title: string; palette: Record<string, StatusEntry> }> = ({ title, palette }) => (
@@ -159,7 +161,7 @@ export const DesignSystemPage: React.FC = () => {
   const [deviceVersion, setDeviceVersion] = useState(3);
   const [conflictNext, setConflictNext] = useState(false);
   const [active, setActive] = useState<string>('c1');
-  const [sort, setSort] = useState<SortState<'code' | 'devices'>>({ key: 'code', direction: 'desc' });
+  const [sort, setSort] = useState<SortState<'code' | 'devices'>>(DEMO_DEFAULT_SORT);
   const [page, setPage] = useState(1);
   const [tab, setTab] = useState<'all' | 'active' | 'due'>('all');
   const [dialog, setDialog] = useState<null | 'dialog' | 'confirm' | 'left' | 'right' | 'bottom'>(null);
@@ -435,7 +437,8 @@ export const DesignSystemPage: React.FC = () => {
             rows={rows}
             rowId={(row) => row.id}
             sort={sort}
-            onSortChange={(next) => setSort(next as SortState<'code' | 'devices'>)}
+            defaultSort={DEMO_DEFAULT_SORT}
+            onSortChange={(next) => setSort((next ?? DEMO_DEFAULT_SORT) as SortState<'code' | 'devices'>)}
             rowLabel={(row) => row.code}
             noun={{ one: 'contract', other: 'contracts' }}
             selectedIds={selected}
