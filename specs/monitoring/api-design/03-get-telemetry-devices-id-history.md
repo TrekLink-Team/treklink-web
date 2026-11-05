@@ -58,7 +58,8 @@ No body.
         "batteryPct": 81
       }
     ],
-    "truncated": false
+    "truncated": false,
+    "maxRangeDays": 7
   },
   "isSuccess": true,
   "statusCode": 200,
@@ -71,6 +72,7 @@ No body.
 | clippedTo[] | Periods the caller's organization held the device that overlap the range; empty for Staff and Admin | object[] | see sample |
 | points[] | Positions and telemetry by occurrence time, oldest first, at most 50,000 | object[] | see sample |
 | truncated | True when the range holds more than 50,000 points and only the oldest 50,000 are answered | bool | `false` |
+| maxRangeDays | The live `monitoring.historyMaxRangeDays` the range was checked against, so the range form of screen 9.2 uses the server's limit; member roles cannot read the parameter (W21, 2026-11-05) | int | `7` |
 
 ## Validation
 
