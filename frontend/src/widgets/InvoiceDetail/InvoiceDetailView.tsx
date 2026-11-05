@@ -16,6 +16,7 @@ import {
 import { formatDate, formatDateTime, formatVnd } from '../../shared/lib/format';
 import { Alert, Button, CollectionView, type CollectionField } from '../../shared/ui';
 import { Badge, ErrorState, Fact, Loading } from '../../shared/ui/bits';
+import { PinnedTitle } from '../../shared/ui/PageChrome';
 import { TONE_CLASSES } from '../../shared/ui/status';
 import { CARD, LINK } from '../../shared/ui/styles';
 import { CounterPaymentDialog } from './CounterPaymentDialog';
@@ -72,7 +73,11 @@ const LINE_FIELDS: CollectionField<InvoiceLine>[] = [
   {
     key: 'status',
     label: 'Status',
-    render: (line) => <Badge tone={LINE_TONES[lineStatus(line)] ?? LINE_TONES['Due later']}>{lineStatus(line)}</Badge>,
+    render: (line) => (
+      <Badge tone={LINE_TONES[lineStatus(line)] ?? LINE_TONES['Due later']}>
+        {lineStatus(line)}
+      </Badge>
+    ),
     text: lineStatus,
     compact: true,
   },
@@ -150,21 +155,31 @@ export const InvoiceDetailView: React.FC<{
   if (error || !data) return <ErrorState error={error} onRetry={() => void refetch()} />;
   const due = data.totalVnd - data.paidVnd;
 
+  const badge = (
+    <Badge tone={INVOICE_TONES[data.status]}>{INVOICE_STATUS_LABELS[data.status]}</Badge>
+  );
   return (
     <div className="flex flex-col gap-4">
-      <div ref={summary} className={CARD}>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          {asPageTitle ? (
-            <h1 ref={heading} tabIndex={-1} className="text-title-lg text-ink">
+      {/* On its own page the number is the page title, pinned above the summary (ui standard §7). */}
+      {asPageTitle && (
+        <PinnedTitle>
+          <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+            <h1 ref={heading} tabIndex={-1} className="text-title-lg text-ink outline-none">
               {data.number}
             </h1>
-          ) : (
+            {badge}
+          </div>
+        </PinnedTitle>
+      )}
+      <div ref={summary} className={CARD}>
+        {!asPageTitle && (
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 ref={heading} tabIndex={-1} className="text-xl font-bold text-ink">
               {data.number}
             </h2>
-          )}
-          <Badge tone={INVOICE_TONES[data.status]}>{INVOICE_STATUS_LABELS[data.status]}</Badge>
-        </div>
+            {badge}
+          </div>
+        )}
         {/* Two columns on a phone, so the facts and the main action share the first screen (W21). */}
         <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Fact label="Contract">
@@ -200,7 +215,11 @@ export const InvoiceDetailView: React.FC<{
               Record counter payment
             </Button>
           )}
-          <Button variant="secondary" icon={<Printer aria-hidden className="h-4 w-4" />} onClick={() => window.print()}>
+          <Button
+            variant="secondary"
+            icon={<Printer aria-hidden className="h-4 w-4" />}
+            onClick={() => window.print()}
+          >
             Print invoice
           </Button>
         </div>
@@ -220,9 +239,7 @@ export const InvoiceDetailView: React.FC<{
           itemTitle={(line) => (
             <span className="flex flex-col">
               <span className="font-semibold text-ink">{line.description}</span>
-              <span className="text-caption text-ink-muted">
-                Line {line.seq}
-              </span>
+              <span className="text-caption text-ink-muted">Line {line.seq}</span>
             </span>
           )}
           fields={LINE_FIELDS}
