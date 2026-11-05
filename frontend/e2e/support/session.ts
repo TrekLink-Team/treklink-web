@@ -223,7 +223,7 @@ export const publishSos = async (nodeId: string): Promise<void> => {
 };
 
 // A status badge (shared/ui StatusBadge): the element whose whole text is the label. A history line
-// such as "IN_INTAKE to AVAILABLE" or "..., case closed" does not match.
+// such as "From In intake to Available (Intake passed)" or "..., case closed" does not match.
 export const statusBadge = (scope: Page | Locator, label: string): Locator =>
   scope.getByText(label, { exact: true });
 
