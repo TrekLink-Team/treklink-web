@@ -6,7 +6,7 @@
 | Task | `specs/frontend/tasks.md` 3.2 |
 | Assigned, due | 2026-10-21, 2026-10-23 |
 | Status | Built: the queue, verification, approve and reject, and (2026-10-30) suspend, reactivate, close and the status history |
-| Routes | `/t/organizations`, the queue with the selected organization in a side panel (beside the table from 1280 px, under it below) (`specs/frontend/design.md` §2). The sidebar entry sits under Organizations and compliance. `/t/organizations/:id` is not built. |
+| Routes | `/t/organizations`, the queue with the selected organization in a side panel (beside the table from 1280 px, under it below) (`specs/frontend/design.md` §2). The sidebar entry sits under Organizations and compliance. `/t/organizations/:id` is the organization's own page (2026-11-05, TanNB, TK-190): the record, the counter verification, the status history and, read only, the permissions of its two roles; the panel of the queue links to it with "Open the full page". It changes nothing; every action stays on the queue. |
 | Roles | TrekLink Staff: the queue and the counter verification. TrekLink Admin: the same, plus Approve and Reject. Organization accounts: MSG26 (TrekLink route). |
 | Use case, FRs, story | UC-02, UC-03; FR-ORG-02, FR-ORG-03; US-UC02, US-UC03, US-UC07 |
 | Requirements | `specs/organizations/requirements.md` REQ-UBI-01, REQ-EVT-02, REQ-EVT-03, REQ-ERR-02, REQ-ERR-07 |
@@ -26,6 +26,18 @@ Scope from the task: organizations api-design 02, 03, 05 to 11; verification for
 | Panel: Status history (not for `PENDING`), one line per change: from and to status, time, actor and reason | organizations 11 `fromStatus`, `toStatus`, `createdAt`, `actor` (a name, or `SYSTEM`), `reason`. api-design 11 returns no row id, so a row is keyed by its time and target status (review of #156) |
 
 The panel reads the selected row of the list; organizations 03 (the detail) is not called yet.
+
+## Organization page (`/t/organizations/:id`, 2026-11-05)
+
+| Shown | Source (api-design file, property) |
+|---|---|
+| Title, code, status badge, time of the last status change | organizations 03 `legalName`, `code`, `status`, `statusChangedAt` |
+| Record: tax code, address, contact email and phone, members, running contracts, open incidents, channel key version | organizations 03 `taxCode`, `address`, `contactEmail`, `contactPhone`, `counts`, `channelKeyVersion` |
+| Counter verification: time, verifier, method, master contract, documents seen; "Not verified at the counter yet." when absent | organizations 03 `verifiedAt`, `verification` |
+| Status history, one line per change ("No status change yet." when empty) | organizations 11 |
+| Roles and permissions, read only: the grid of screen 3.7 with every cell disabled, no toolbar, no reset | organizations 33 |
+
+States: skeletons while loading; MSG26 with a link back to the queue for a 403 or 404 on the record; an error with Try again for the roles alone, which leaves the record on screen. The grid scrolls inside its box on a phone; the one-role-at-a-time layout of 3.7 is for the editing page only.
 
 ## Actions
 

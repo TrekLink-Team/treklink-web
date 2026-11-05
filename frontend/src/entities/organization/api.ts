@@ -14,6 +14,23 @@ export interface OrganizationSummary {
   version: number;
 }
 
+// The whole record of organizations api-design 03 (the page `/t/organizations/:id`, screen 3.2).
+export interface OrganizationDetail extends OrganizationSummary {
+  taxCode: string;
+  address: string;
+  contactEmail: string;
+  contactPhone: string;
+  verifiedAt: string | null;
+  decidedAt: string | null;
+  verification: {
+    method: 'IN_PERSON' | 'PHONE';
+    documentsSeen: string[];
+    masterContractRef: string | null;
+    verifiedBy: string | null;
+  } | null;
+  counts: { members: number; runningContracts: number; openIncidents: number };
+}
+
 // organizations api-design 12.
 export interface Member {
   id: string;
@@ -84,6 +101,7 @@ export const organizationKeys = {
   list: (status: OrganizationStatus | undefined) => ['organizations', status ?? 'ALL'] as const,
   detail: (id: string) => ['organization', id] as const,
   members: (id: string) => ['org-members', id] as const,
+  profile: (id: string) => ['organization', 'profile', id] as const,
   // Under `all`, so every status action refreshes the history too.
   transitions: (id: string) => ['organizations', 'transitions', id] as const,
 };
@@ -141,6 +159,14 @@ export const useOrganization = (id: string | undefined) =>
     queryKey: organizationKeys.detail(id ?? ''),
     queryFn: () => apiClient<OrganizationSummary>(`/organizations/${id}`),
     enabled: Boolean(id),
+  });
+
+export const useOrganizationDetail = (id: string | undefined) =>
+  useQuery({
+    queryKey: organizationKeys.profile(id ?? ''),
+    queryFn: () => apiClient<OrganizationDetail>(`/organizations/${id}`),
+    enabled: Boolean(id),
+    retry: false,
   });
 
 export const useMembers = (id: string | undefined) =>
