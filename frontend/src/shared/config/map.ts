@@ -40,6 +40,11 @@ export const usableBasemaps = (
   return reachable.length > 0 ? reachable : offered;
 };
 
+// The basemap the map opens on: the configured default when the picker still offers it, otherwise the
+// first one offered. A default that names a hidden or unreachable basemap falls back without an error.
+export const initialBasemap = (basemaps: readonly Basemap[], preferredId: string): Basemap =>
+  basemaps.find((basemap) => basemap.id === preferredId) ?? basemaps[0];
+
 // GET /api/map/config (monitoring api-design 01). Basemaps, attribution, viewport and the overlay labels
 // all come from the server; nothing here defines a provider (D-031, D-072). `provider` is the id of the
 // default basemap; `tileUrl` and `attribution` repeat it.
