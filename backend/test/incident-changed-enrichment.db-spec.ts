@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { performance } from 'node:perf_hooks';
-import { io, Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
 import { Caller } from '../src/common/decorators/access.decorator';
 import { IncidentsService } from '../src/modules/incidents/incidents.service';
 import { IncidentLifecycle } from '../src/modules/incidents/incident-lifecycle';
@@ -12,6 +12,7 @@ import { RoutingService } from '../src/modules/incidents/routing.service';
 import { LiveIoAdapter } from '../src/modules/monitoring/live-io.adapter';
 import { TransactionalEvents } from '../src/modules/platform/events/emit-after-commit';
 import { compileRentalFlow, RentalFlow } from './db-rental-flow';
+import { openLiveSocket } from './live-socket-client';
 
 interface Entry {
   seq: number;
@@ -45,27 +46,13 @@ describe('incident.changed carries the fields of the committed incident (monitor
   const quiet = (ms = 400) => new Promise((resolve) => setTimeout(resolve, ms));
   const as = async (caller: Caller): Promise<Client> => {
     const token = await flow.get(JwtService).signAsync({ sub: caller.id, pv: 0 });
-    const socket = io(url, {
-      auth: { token },
-      transports: ['websocket'],
-      reconnection: false,
-      autoConnect: false,
+    // The shared helper waits 10 s for the handshake; the entries are collected from the first one on.
+    const entries: Entry[] = [];
+    const socket = await openLiveSocket(url, { token }, (opened) => {
+      opened.on('stream', (entry: Entry) => entries.push(entry));
     });
-    const client: Client = { socket, entries: [] };
+    const client: Client = { socket, entries };
     clients.push(client);
-    socket.on('stream', (entry: Entry) => client.entries.push(entry));
-    await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('Handshake timed out')), 3000);
-      socket.once('connect', () => {
-        clearTimeout(timer);
-        resolve();
-      });
-      socket.once('connect_error', (error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-      socket.connect();
-    });
     return client;
   };
   const changesOf = (client: Client, incidentId: string) =>
