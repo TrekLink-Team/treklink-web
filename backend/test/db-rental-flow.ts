@@ -310,6 +310,12 @@ export const compileRentalFlow = async (options: { http?: boolean } = {}) => {
     return body ? call.send(body) : call;
   };
 
+  // A GET with an organization API key in `X-Api-Key` (monitoring 3.2); only with `http`.
+  const sendKey = (key: string, path: string) => {
+    if (!app) throw new Error('compileRentalFlow({ http: true }) serves HTTP.');
+    return request(app.getHttpServer()).get(path).set('X-Api-Key', key);
+  };
+
   return {
     moduleRef,
     get,
@@ -331,6 +337,7 @@ export const compileRentalFlow = async (options: { http?: boolean } = {}) => {
     codeOf,
     seededParameters,
     send,
+    sendKey,
     close: () => (app ? app.close() : moduleRef.close()),
   };
 };
