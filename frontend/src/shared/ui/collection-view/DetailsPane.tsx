@@ -127,7 +127,7 @@ export function DetailsPane<T>({
           onClose();
         }
       }}
-      className="sticky top-[calc(var(--tl-page-header-h,0px)+var(--tl-collection-bar-h,0px)+0.5rem)] flex max-h-[calc(100dvh-10rem)] w-80 shrink-0 flex-col self-start overflow-y-auto rounded-panel border border-line bg-surface p-4 shadow-raise"
+      className="sticky top-[calc(var(--tl-page-header-h,0px)+var(--tl-collection-bar-h,0px)+0.5rem)] flex max-h-[calc(100dvh-10rem)] w-80 cv-fill:max-h-full shrink-0 flex-col self-start overflow-y-auto rounded-panel border border-line bg-surface p-4 shadow-raise"
     >
       <div className="mb-3 flex items-start gap-2">
         <h2

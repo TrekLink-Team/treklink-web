@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
@@ -22,6 +22,7 @@ import { Menu, type MenuItem } from '../Menu';
 import { useEdgeNode, useFocusClearOf, usePublishedHeight } from '../stickyEdges';
 import { ScrollHintOverlay } from '../ScrollHints';
 import { useScrollHints } from '../useScrollHints';
+import { useScrollStop } from '../scrollStop';
 import { Skeleton } from '../Skeleton';
 import { ariaSortOf, nextSort } from '../sortCycle';
 import { FOCUS, LINK } from '../styles';
@@ -226,8 +227,18 @@ export function CollectionView<T>({
   const [opener, setOpener] = useState<HTMLElement | null>(null);
   const lastFocus = useRef<{ id: string; index: number } | null>(null);
   const [barNode, setBarNode] = useEdgeNode<HTMLDivElement>();
-  const tableScroller = useRef<HTMLDivElement>(null);
+  const tableScroller = useRef<HTMLDivElement | null>(null);
   const tableHints = useScrollHints(tableScroller);
+  // The item box is the scroll region on a fit page; with nothing focusable in it, it takes a tab
+  // stop and a name of its own (ui standard §7).
+  const [tableNode, setTableNode] = useState<HTMLDivElement | null>(null);
+  const setTableScroller = useCallback((node: HTMLDivElement | null) => {
+    tableScroller.current = node;
+    setTableNode(node);
+  }, []);
+  const [itemBox, setItemBox] = useState<HTMLDivElement | null>(null);
+  useScrollStop(tableNode, `${label}: table`);
+  useScrollStop(itemBox, label);
   usePublishedHeight(barNode, '--tl-collection-bar-h');
   useFocusClearOf(barNode, 'top');
 
@@ -1018,19 +1029,24 @@ export function CollectionView<T>({
   const statusColumn = transitions !== undefined && !status && !pushedAside && !phone;
   const actionsColumn = !phone && (offersDetails || itemActions.length > 0);
 
+  // On a fit page (`data-fit-page`, ui standard §7) the table box is the one scroll region: it keeps
+  // its natural height while the rows fit and scrolls inside itself once they do not, with the
+  // header row pinned. Elsewhere it scrolls sideways only, as before.
   const detailsView = (
-    <div className="relative">
+    <div className="relative cv-fill:flex cv-fill:min-h-0 cv-fill:flex-col">
       <ScrollHintOverlay hints={pushedAside ? { ...tableHints, left: false, right: false } : tableHints} />
       <div
-        ref={tableScroller}
+        ref={setTableScroller}
         className={cn(
           'relative rounded-panel border border-line bg-surface shadow-raise',
           pushedAside ? 'overflow-x-hidden' : 'overflow-x-auto',
+          'scroll-pt-10 cv-fill:min-h-0 cv-fill:overflow-y-auto',
+          FOCUS,
         )}
       >
         <table className="w-full border-collapse text-body-sm">
           <caption className="sr-only">{label}</caption>
-          <thead>
+          <thead className="sticky top-0 z-[1]">
             <tr className="bg-sunken text-left">
               {selectable && (
                 <th scope="col" className="w-11 p-0">
@@ -1270,7 +1286,11 @@ export function CollectionView<T>({
       aria-label={label}
       data-cv={baseId}
       onKeyDown={onRegionKeyDown}
-      className={cn('flex flex-col gap-2', fitsNarrow && '[container-type:inline-size]', className)}
+      className={cn(
+        'flex flex-col gap-2 cv-fill-root:min-h-0 cv-fill-root:flex-1',
+        fitsNarrow && '[container-type:inline-size]',
+        className,
+      )}
     >
       {!barHidden && (
         <div
@@ -1290,10 +1310,24 @@ export function CollectionView<T>({
       <p role="status" aria-live="polite" className="sr-only">
         {message}
       </p>
-      <div className={cn('flex items-start gap-3', pushedAside && 'min-w-0')}>
-        <div className="min-w-0 flex-1">
-          {body}
-          {footer && <div className="mt-2">{footer}</div>}
+      <div
+        className={cn(
+          'flex items-start gap-3 cv-fill:min-h-0 cv-fill:flex-1 cv-fill:items-stretch',
+          pushedAside && 'min-w-0',
+        )}
+      >
+        <div className="min-w-0 flex-1 cv-fill:flex cv-fill:min-h-0 cv-fill:flex-col">
+          {view === 'details' && visible.length > 0 && !error && !loading && items !== undefined ? (
+            body
+          ) : (
+            <div
+              ref={setItemBox}
+              className={cn('rounded-panel cv-fill:min-h-0 cv-fill:overflow-y-auto', FOCUS)}
+            >
+              {body}
+            </div>
+          )}
+          {footer && <div className="mt-2 shrink-0">{footer}</div>}
         </div>
         {paneVisible && paneItem !== undefined && renderPane(
           <DetailsPane

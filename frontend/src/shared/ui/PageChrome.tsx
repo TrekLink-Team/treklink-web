@@ -8,6 +8,7 @@ import React, {
   useState,
 } from 'react';
 import { cn } from './cn';
+import { useScrollStop } from './scrollStop';
 import { scrollParentOf, useEdgeNode, useFocusClearOf, usePublishedHeight } from './stickyEdges';
 
 /**
@@ -203,6 +204,41 @@ export const PageActionBar: React.FC<{
       >
         {children}
       </div>
+    </div>
+  );
+};
+
+/**
+ * The nested scroll region of a fit page (viewport rule, leader 2026-11-05, ui standard §7): the
+ * record body of a detail page, the form body of a long form, or the body of a page that holds
+ * several lists. Its page root carries `data-fit-page` and `flex min-h-0 flex-1 flex-col`; the page
+ * header sits above this body and the page action bar below it, so neither ever scrolls away and
+ * the content area (`#main`) does not scroll. The body releases with the shell's fixed bars at 400 %
+ * zoom. While nothing inside it is focusable, it takes a tab stop of its own so a keyboard user can
+ * scroll it (WCAG 2.1.1).
+ */
+export const PageScrollBody: React.FC<{
+  /** Names the region for screen readers, for example "Contract details". */
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}> = ({ label, children, className }) => {
+  const [box, setBox] = useState<HTMLDivElement | null>(null);
+  useScrollStop(box, label);
+  return (
+    <div
+      ref={setBox}
+      role="region"
+      aria-label={label}
+      data-page-body=""
+      className={cn(
+        // The ring is inset, so the region's own edge never clips it.
+        'relative -mx-1 min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus md:-mx-2 md:px-2',
+        '[@media(max-height:479.98px)]:overflow-visible',
+        className,
+      )}
+    >
+      {children}
     </div>
   );
 };
