@@ -92,7 +92,7 @@ const STATUS_LABEL: Record<AlertDelivery['status'], string> = {
   FAILED: 'Failed',
 };
 
-// api-design 14, Org Manager only. No push announces a delivery retry, so the log has its own
+// api-design 14, Org Manager, TrekLink Staff and Admin. No push announces a delivery retry, so the log has its own
 // Refresh. A failed delivery never means the incident failed to move.
 export const AlertLog: React.FC<PanelProps> = ({ incidentId, onLostAccess }) => {
   const { data, isLoading, isFetching, error, refetch } = useIncidentAlerts(incidentId, true);

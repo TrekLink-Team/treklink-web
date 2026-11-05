@@ -364,3 +364,88 @@ describe('StaffIncidentsPage row actions (W29)', () => {
     expect(await screen.findByLabelText(/Reason/)).toBeTruthy();
   });
 });
+
+
+describe('documented Staff queue filters', () => {
+  it('shows the filtered empty state and resets filters without losing keyboard focus', async () => {
+    api.mockImplementation((url: string) => Promise.resolve(page(String(url).includes('deviceId=') ? [] : [incident()])));
+    renderPage();
+    await screen.findByRole('button', { name: 'INC-2026-000007' });
+    fireEvent.click(screen.getByRole('button', { name: 'Filter incidents' }));
+    fireEvent.change(screen.getByLabelText('Device ID'), { target: { value: '5cf39008-4c02-48dd-a6ca-97454deb9b78' } });
+    fireEvent.submit(screen.getByLabelText('Device ID').closest('form')!);
+    await screen.findByText('No results match your filters.');
+    fireEvent.click(screen.getByRole('button', { name: 'Reset filters' }));
+    await screen.findByRole('button', { name: 'INC-2026-000007' });
+    expect(screen.getByRole('button', { name: 'Filter incidents' })).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Incident queue' }));
+  });
+  it('rejects a date outside the JavaScript range and cancels without changing applied filters', async () => {
+    api.mockResolvedValue(page([incident()]));
+    renderPage();
+    await screen.findByRole('button', { name: 'INC-2026-000007' });
+    const trigger = screen.getByRole('button', { name: 'Filter incidents' });
+    trigger.focus();
+    fireEvent.click(trigger);
+    fireEvent.change(screen.getByLabelText('Created from'), { target: { value: '999999-01-01T00:00' } });
+    fireEvent.submit(screen.getByLabelText('Created from').closest('form')!);
+    expect(await screen.findByText('Enter a valid date and time.')).toBeTruthy();
+    expect(api).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    fireEvent.click(trigger);
+    fireEvent.submit(screen.getByLabelText('Device ID').closest('form')!);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Filter incidents' })).toBeTruthy();
+  });
+  it('validates UUID input, keeps applied filters on refresh/scope change, and resets at page 1', async () => {
+    api.mockImplementation((url: string) => Promise.resolve(url === '/incidents/inc-1' ? incident() : {
+      ...page([incident()]), totalPages: 3, totalCount: 60,
+    }));
+    renderPage();
+    await screen.findByRole('button', { name: 'INC-2026-000007' });
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    await waitFor(() => expect(api.mock.calls.some(([url]) => String(url).includes('pageNumber=2'))).toBe(true));
+    fireEvent.click(screen.getByRole('button', { name: 'Filter incidents' }));
+    fireEvent.change(screen.getByLabelText('Device ID'), { target: { value: 'TL-0010' } });
+    const before = api.mock.calls.length;
+    fireEvent.submit(screen.getByLabelText('Device ID').closest('form')!);
+    expect(await screen.findByText('Enter a valid device UUID.')).toBeTruthy();
+    expect(api.mock.calls).toHaveLength(before);
+    const deviceId = '5cf39008-4c02-48dd-a6ca-97454deb9b78';
+    fireEvent.change(screen.getByLabelText('Device ID'), { target: { value: deviceId } });
+    fireEvent.change(screen.getByLabelText('Created from'), { target: { value: '2026-11-05T08:00' } });
+    fireEvent.submit(screen.getByLabelText('Device ID').closest('form')!);
+    const check = () => {
+      const url = new URL(String(api.mock.calls.at(-1)![0]), 'https://example.test');
+      expect(url.searchParams.get('pageNumber')).toBe('1');
+      expect(url.searchParams.get('deviceId')).toBe(deviceId);
+      expect(url.searchParams.get('from')).toBe(new Date('2026-11-05T08:00').toISOString());
+      return url;
+    };
+    await waitFor(check);
+    expect(check().searchParams.getAll('state')).toEqual(['UNROUTED', 'ESCALATED']);
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    await waitFor(check);
+    showScope('All incidents');
+    await waitFor(() => expect(check().searchParams.getAll('state')).toEqual([]));
+    fireEvent.click(screen.getByRole('button', { name: 'Filter incidents (active)' }));
+    expect((screen.getByLabelText('Device ID') as HTMLInputElement).value).toBe(deviceId);
+    expect((screen.getByLabelText('Created from') as HTMLInputElement).value).toBe('2026-11-05T08:00');
+    fireEvent.click(screen.getByRole('button', { name: 'Reset filters' }));
+    await waitFor(() => {
+      const url = new URL(String(api.mock.calls.at(-1)![0]), 'https://example.test');
+      expect(url.searchParams.get('deviceId')).toBeNull();
+      expect(url.searchParams.get('from')).toBeNull();
+      expect(url.searchParams.get('pageNumber')).toBe('1');
+    });
+  });
+  it('retains inline detail and links to the standalone record', async () => {
+    api.mockImplementation((url: string) => Promise.resolve(url === '/incidents/inc-1' ? incident() : page([incident()])));
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'INC-2026-000007' }));
+    expect(await screen.findByRole('link', { name: 'Open incident page' })).toHaveProperty('pathname', '/t/incidents/inc-1');
+    expect(screen.getByRole('button', { name: 'Back to queue' })).toBeTruthy();
+  });
+});

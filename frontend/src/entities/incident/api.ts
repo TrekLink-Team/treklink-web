@@ -118,17 +118,29 @@ export const incidentKeys = {
 export const fetchIncidents = (filters: IncidentFilters) =>
   apiClient<Page<Incident>>(`/incidents${queryString({ pageSize: 20, ...filters })}`);
 
+export type FleetIncidentFilters = Pick<IncidentFilters, 'deviceId' | 'from'>;
+
 // The Staff queue (screen 8.2): repeatable `state` (api-design 01); no states reads every incident.
-export const fetchFleetIncidents = (states: readonly IncidentState[], pageNumber: number) => {
+export const fetchFleetIncidents = (
+  states: readonly IncidentState[],
+  pageNumber: number,
+  filters: FleetIncidentFilters = {},
+) => {
   const query = new URLSearchParams({ pageSize: '20', pageNumber: String(pageNumber) });
   states.forEach((state) => query.append('state', state));
+  if (filters.deviceId) query.set('deviceId', filters.deviceId);
+  if (filters.from) query.set('from', filters.from);
   return apiClient<Page<Incident>>(`/incidents?${query.toString()}`);
 };
 
-export const useFleetIncidents = (states: readonly IncidentState[], pageNumber: number) =>
+export const useFleetIncidents = (
+  states: readonly IncidentState[],
+  pageNumber: number,
+  filters: FleetIncidentFilters = {},
+) =>
   useQuery({
-    queryKey: [...incidentKeys.all, 'fleet', states, pageNumber] as const,
-    queryFn: () => fetchFleetIncidents(states, pageNumber),
+    queryKey: [...incidentKeys.all, 'fleet', states, pageNumber, filters] as const,
+    queryFn: () => fetchFleetIncidents(states, pageNumber, filters),
   });
 
 export const fetchIncident = (id: string) => apiClient<IncidentDetail>(`/incidents/${id}`);

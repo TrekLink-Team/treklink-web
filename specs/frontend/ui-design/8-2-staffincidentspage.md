@@ -6,7 +6,7 @@
 | Task | `specs/frontend/tasks.md` 8.2 |
 | Assigned, due | 2026-10-21, 2026-10-23 |
 | Status | Ready for review |
-| Routes | `/t/incidents`, queue tab with inline detail. No `/t/incidents/:id` route is added. [Frontend design section 2](../design.md#2-routes-and-screen-authorization). |
+| Routes | `/t/incidents`, queue tab with inline detail; `/t/incidents/:id`, standalone Staff detail (November 5 leader assignment). [Frontend design section 2](../design.md#2-routes-and-screen-authorization). |
 | Roles | TrekLink Staff and TrekLink Admin (D-057 rule 7). Organization roles: MSG26. Staff inspect all incidents, report `UNROUTED`/`ESCALATED` incidents, and declare false alarm only from `UNROUTED`. They never acknowledge or act as an organization's response owner. |
 | Use case, FRs, story | UC-29, UC-31; FR-EVT-17, FR-INC-01 to FR-INC-05, FR-INC-13; US-UC29, US-UC31. False alarm supports UC-34/FR-INC-08; authority reporting belongs to task 8.3. |
 | Requirements | [Incidents](../../incidents/requirements.md): REQ-UBI-01 to REQ-UBI-05, REQ-EVT-01 to REQ-EVT-04, REQ-EVT-07 to REQ-EVT-09, REQ-EVT-12, REQ-STA-01, REQ-ERR-01; AC-02, AC-04, AC-09. [Frontend](../requirements.md): REQ-UBI-01 to REQ-UBI-05, REQ-EVT-01 to REQ-EVT-03, REQ-ERR-01. |
@@ -134,3 +134,16 @@ buttons become its Show filter, Report to authorities is an item action, and Dec
 the Change status menu and opens the detail with its dialog, as before. The incident code and Show details (the
 first item action) open the inline detail beside the queue, which stays this screen's details view in
 place of the built-in pane (`onShowDetails`). Endpoints and messages are unchanged.
+
+
+## Standalone Staff detail (November 5 assignment)
+
+The Staff/Admin route `/t/incidents/:id` lives under the existing AppShell and Staff guard. The queue and inline detail remain; Open incident page in the inline detail links to the route. Back to queue returns to `/t/incidents`. Organization roles receive MSG26 before an incident query.
+
+Both surfaces reuse the Staff detail widget and the existing `useIncident` query. The full page uses PageHeader, StickyPageHeader, StateBadges, Fact and RecordActionBar with semantic theme tokens. On a phone the action bar follows the shared bottom-bar behavior. Staff retain only the existing authority-report and UNROUTED false-alarm actions, never organization acknowledgement or resolution controls.
+
+The full page renders independent panels: IncidentEpisode over API 13 for the complete ordered event trail, TransitionTrail over API 12 for sequence-ordered History, and AlertLog over API 14 for delivery evidence. Each keeps the existing loading, empty, error, retry and forbidden behavior. A missing panel rechecks the main record; loss of main-record access clears its cached evidence and shows MSG26. The episode remains an array with no pagination, range or kind query parameters. Text coordinates and Fleet map navigation preserve the existing custody-scoped contract.
+
+Queue filters remain API 01 filters. The Show menu selects the state scope. Filter incidents opens a shared Dialog with Device ID (UUID) and Created from (viewer-local input converted to ISO). Apply and reset return to page 1; applied values participate in the query key and survive refresh. Invalid UUID/date input prevents a request and names the field error. These filters do not truncate API 13 evidence. The existing server ordering and inline-detail behavior remain.
+
+Verification for this follow-up is recorded in the PR and HoangTK's session. It does not close incidents DoD 8.1 or staging issue #371. The new route requires post-merge testing on an authoritatively identified live deployment.
