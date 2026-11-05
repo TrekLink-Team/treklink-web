@@ -250,7 +250,7 @@ test('MF-05 step 13 (optional): TL-0017 completes maintenance and passes an inta
 
   await page.getByRole('link', { name: 'Open TL-0017' }).click();
   await expect(page).toHaveURL(/\/t\/devices\/[^/]+$/);
-  // The device history already lists "IN_INTAKE to AVAILABLE": only the status badge counts.
+  // The device history already lists "From In intake to Available (Intake passed)": only the status badge counts.
   await expect(titleStatus(page, 'Maintenance')).toBeVisible();
   await expect(titleStatus(page, 'Available')).toHaveCount(0);
   await expect(page.getByText('Next step: Intake check')).toBeVisible();
