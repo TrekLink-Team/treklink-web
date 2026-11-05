@@ -150,6 +150,14 @@ const openDamagedInspection = async () => {
 };
 
 describe('ReturnCounter (screen 5.5)', () => {
+  it('wraps the counter steps instead of scrolling them, so every step is in view at 360 px (W20B item 7)', () => {
+    renderCounter(contract());
+    const tablist = screen.getByRole('tablist', { name: 'Counter steps' });
+    expect(tablist.className).toContain('flex-wrap');
+    expect(tablist.className).toContain('overflow-x-visible');
+    expect(tablist.className).not.toContain('overflow-x-auto');
+  });
+
   it('keeps a logged reset after a reload: the read carries resetAt, so Staff go on to Inspect', () => {
     renderCounter(
       contract({
