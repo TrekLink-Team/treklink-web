@@ -220,7 +220,7 @@ export const AuthEventsPage: React.FC = () => {
         row.userId ? (
           <button
             type="button"
-            className={LINK}
+            className={`${LINK} inline-flex min-h-6 items-center`}
             aria-label={`Filter by this account: ${row.email ?? row.userId}`}
             onClick={() => apply({ ...filters, userId: row.userId ?? undefined })}
           >

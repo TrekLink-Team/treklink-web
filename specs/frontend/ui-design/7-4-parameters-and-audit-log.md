@@ -132,3 +132,10 @@ Below 768 px each parameter group renders as cards (`CollectionView` `cards` vie
 and Changes link as the card title, then Value and Allowed, then Edit and History (in the card's Actions
 menu below 600 px, chapter 06 §10.5). The inline editor opens in the card. From 768 px the group is the
 table. After a save or a cancel focus returns to Edit, or to the Actions menu that holds it.
+
+Change log on a phone and filters from the address (W21 visual pass, 2026-11-05): below 640 px the seven
+filters sit behind a Filters button (reading "Filters (on)" while a filter applies), as on screen 7.3, so
+the entries start on the first screen; this is the "Filters collapse into a disclosure" of the 360 px
+layout above. Filters taken from the address that fail the form's check (an actor id that is not a
+UUID, an end before the start) are not sent: the filters open with the error under its field, and the
+list shows MSG01 with Clear filters, instead of a banner naming the query parameter.
