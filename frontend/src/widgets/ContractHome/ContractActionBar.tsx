@@ -54,7 +54,9 @@ export const ContractActionBar: React.FC<Props> = ({
   // The sticky row is a different element below and above 600 px: the hooks follow it.
   const [rowNode, setRowNode] = useEdgeNode<HTMLDivElement>();
   const reasonId = useId();
-  usePublishedHeight(rowNode, '--tl-page-header-h');
+  // The row pins under the pinned contract header, so it publishes as the command bar under it
+  // (ui standard §7); the content area adds both to its scroll padding.
+  usePublishedHeight(rowNode, '--tl-collection-bar-h');
   useFocusClearOf(rowNode, 'top');
 
   const primary = actions.primary;
@@ -145,7 +147,7 @@ export const ContractActionBar: React.FC<Props> = ({
           role="region"
           // Its own name, apart from the tablist's (review of treklink-web#349).
           aria-label="Contract navigation"
-          className="sticky top-0 z-raised flex flex-wrap items-center justify-between gap-1 rounded-panel border border-line bg-surface px-1 shadow-raise"
+          className="sticky top-[var(--tl-page-header-h,0px)] z-raised flex flex-wrap items-center justify-between gap-1 rounded-panel border border-line bg-surface px-1 shadow-raise [@media(max-height:479.98px)]:static"
         >
           {left}
           {inTopRow && more}
@@ -168,7 +170,7 @@ export const ContractActionBar: React.FC<Props> = ({
       ref={setRowNode}
       role="region"
       aria-label="Contract sections and actions"
-      className="sticky top-0 z-raised flex min-h-[3.25rem] flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-panel border border-line bg-surface pl-1 pr-2 shadow-raise"
+      className="sticky top-[var(--tl-page-header-h,0px)] z-raised flex min-h-[3.25rem] flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-panel border border-line bg-surface pl-1 pr-2 shadow-raise [@media(max-height:479.98px)]:static"
     >
       <div className="min-w-0 flex-[1_1_auto]">{left}</div>
       <div className="flex flex-wrap items-center justify-end gap-2 py-1">

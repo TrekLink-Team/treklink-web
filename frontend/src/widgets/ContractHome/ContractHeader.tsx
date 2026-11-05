@@ -7,6 +7,7 @@ import { formatDate, formatDateTime, viewerTimeZone } from '../../shared/lib/for
 import { useMediaQuery } from '../../shared/lib/useMediaQuery';
 import { Badge, StatusBadge } from '../../shared/ui/Badge';
 import { cn } from '../../shared/ui/cn';
+import { COMPACT_HIDDEN, PinnedTitle } from '../../shared/ui/PageChrome';
 import { CONTRACT_STATUS } from '../../shared/ui/status';
 import { deadlineOf, nextStepOf, type Viewer } from './policy';
 
@@ -15,7 +16,8 @@ const shortDate = (iso: string | null) => (iso ? formatDate(iso).replace(/ \d{4}
 /**
  * The compact header of a contract home (chapter 06 §10.4): title, status, the organization, plan
  * and units in one line, and the deadline that matters now. About 60 px on a laptop. The breadcrumb
- * is the shell's.
+ * is the shell's. It pins itself to the top of the content area, with the section row under it
+ * (viewport rule, ui standard §7).
  */
 export const ContractHeader: React.FC<{
   contract: ContractDetail;
@@ -24,34 +26,38 @@ export const ContractHeader: React.FC<{
 }> = ({ contract, scope, variantName }) => {
   const deadline = deadlineOf(contract);
   return (
-    <header className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1.5">
-      <div className="flex min-w-0 flex-[1_1_28rem] flex-wrap items-center gap-x-3 gap-y-1">
-        <h1 id="contract-title" className="font-display text-title text-ink">
-          {contract.code}
-        </h1>
-        <StatusBadge entry={CONTRACT_STATUS[contract.status]} />
-        <p className="min-w-0 text-body-sm text-ink [overflow-wrap:anywhere]">
-          {scope === 't' && contract.organization && (
-            <span className="font-semibold">{contract.organization.legalName} · </span>
-          )}
-          <span className="text-ink-muted">
-            {planLabel(contract)} · {contract.quantity} x {variantName}
-          </span>
-        </p>
-      </div>
-      {deadline && (
-        <p className="flex flex-wrap items-baseline gap-x-2 rounded-control border border-line bg-surface px-3 py-1">
-          <span className="text-label uppercase text-ink-muted">{deadline.label}</span>
-          <time
-            dateTime={deadline.at}
-            title={viewerTimeZone()}
-            className="text-body font-semibold tabular-nums text-ink"
+    <PinnedTitle>
+      <header className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1.5 pb-1">
+        <div className="flex min-w-0 flex-[1_1_28rem] flex-wrap items-center gap-x-3 gap-y-1">
+          <h1 id="contract-title" className="font-display text-title text-ink">
+            {contract.code}
+          </h1>
+          <StatusBadge entry={CONTRACT_STATUS[contract.status]} />
+          <p
+            className={cn('min-w-0 text-body-sm text-ink [overflow-wrap:anywhere]', COMPACT_HIDDEN)}
           >
-            {formatDateTime(deadline.at)}
-          </time>
-        </p>
-      )}
-    </header>
+            {scope === 't' && contract.organization && (
+              <span className="font-semibold">{contract.organization.legalName} · </span>
+            )}
+            <span className="text-ink-muted">
+              {planLabel(contract)} · {contract.quantity} x {variantName}
+            </span>
+          </p>
+        </div>
+        {deadline && (
+          <p className="flex flex-wrap items-baseline gap-x-2 rounded-control border border-line bg-surface px-3 py-1">
+            <span className="text-label uppercase text-ink-muted">{deadline.label}</span>
+            <time
+              dateTime={deadline.at}
+              title={viewerTimeZone()}
+              className="text-body font-semibold tabular-nums text-ink"
+            >
+              {formatDateTime(deadline.at)}
+            </time>
+          </p>
+        )}
+      </header>
+    </PinnedTitle>
   );
 };
 
@@ -170,7 +176,10 @@ export const LifecycleCard: React.FC<{
         </details>
       ) : (
         <div className="min-w-0 flex-[1_1_40rem]">
-          <ol aria-label="Lifecycle steps" className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+          <ol
+            aria-label="Lifecycle steps"
+            className="flex flex-wrap items-center gap-x-1.5 gap-y-1"
+          >
             {steps.map((step, position) => (
               <StepItem
                 key={step.status}
