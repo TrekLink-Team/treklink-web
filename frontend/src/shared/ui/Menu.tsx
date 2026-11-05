@@ -135,7 +135,7 @@ export const Menu: React.FC<MenuProps> = ({
   useLayoutEffect(() => {
     if (!open) return;
     place();
-  }, [open, place]);
+  }, [open, place, active, hovered]);
 
   // The list stays `visibility: hidden` until it is placed, and a hidden element cannot take focus:
   // focus the active item only once the position is set (review of treklink-web#278).
@@ -263,40 +263,45 @@ export const Menu: React.FC<MenuProps> = ({
             {item.separatorBefore && index > 0 && (
               <div role="separator" className="my-1 h-px bg-line" />
             )}
-            <button
-              ref={(node) => {
-                itemRefs.current[index] = node;
-              }}
-              type="button"
-              role="menuitem"
-              tabIndex={index === active ? 0 : -1}
-              aria-disabled={item.disabled || undefined}
-              // The reason sits inside the item (a menu owns menuitems only), so the name is pinned to
-              // the label and the reason is the description.
-              aria-label={reasonId ? item.label : undefined}
-              aria-describedby={reasonId}
-              onClick={() => choose(index)}
+            <div
+              role="presentation"
               onMouseEnter={() => setHovered(index)}
               onMouseLeave={() => setHovered((current) => (current === index ? null : current))}
-              onFocus={() => setActive(index)}
-              className={cn(
-                'flex min-h-11 w-full flex-col justify-center rounded-control px-3 py-1.5 text-left text-body font-semibold outline-none hover:bg-chrome/60 focus-visible:bg-chrome/60',
-                FOCUS,
-                item.destructive && !item.disabled && 'text-status-critical-fg',
-                item.disabled && 'cursor-not-allowed text-ink-muted hover:bg-transparent',
-              )}
             >
-              <span className="flex w-full items-center gap-2">
-                {item.icon && (
-                  <span aria-hidden="true" className="flex shrink-0 [&>svg]:h-4 [&>svg]:w-4">
-                    {item.icon}
-                  </span>
+              <button
+                ref={(node) => {
+                  itemRefs.current[index] = node;
+                }}
+                type="button"
+                role="menuitem"
+                tabIndex={index === active ? 0 : -1}
+                aria-disabled={item.disabled || undefined}
+                // The separate hint describes the item without becoming part of its visible label.
+                aria-label={reasonId ? item.label : undefined}
+                aria-describedby={reasonId}
+                onClick={() => choose(index)}
+                onFocus={() => setActive(index)}
+                className={cn(
+                  'flex min-h-11 w-full flex-col justify-center rounded-control px-3 py-1.5 text-left text-body font-semibold outline-none hover:bg-chrome/60 focus-visible:bg-chrome/60',
+                  FOCUS,
+                  item.destructive && !item.disabled && 'text-status-critical-fg',
+                  item.disabled && 'cursor-not-allowed text-ink-muted hover:bg-transparent',
                 )}
-                <span className="flex-1">{item.label}</span>
-              </span>
+              >
+                <span className="flex w-full items-center gap-2">
+                  {item.icon && (
+                    <span aria-hidden="true" className="flex shrink-0 [&>svg]:h-4 [&>svg]:w-4">
+                      {item.icon}
+                    </span>
+                  )}
+                  <span className="flex-1">{item.label}</span>
+                </span>
+              </button>
               {reasonId && (
                 <span
                   id={reasonId}
+                  // The ID reference still exposes this description, without adding it to the label.
+                  aria-hidden="true"
                   className={cn(
                     showReason
                       ? 'mt-1 block rounded-control bg-inverse px-2 py-1 text-body-sm font-medium text-ink-inverse'
@@ -306,7 +311,7 @@ export const Menu: React.FC<MenuProps> = ({
                   {item.disabledReason}
                 </span>
               )}
-            </button>
+            </div>
           </React.Fragment>
         );
       })}

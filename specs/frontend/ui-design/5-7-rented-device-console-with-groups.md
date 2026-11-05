@@ -57,10 +57,11 @@ on 2026-11-05. The implemented screen was also inspected at 1440 px and 390 px w
 | Edit (tree node menu) | always | rentals 24 `PATCH /api/groups/:id` with `version` | none | toast MSG03 |
 | Remove (tree node menu) | always | rentals 25 `DELETE /api/groups/:id` | alert dialog: "Remove {name}? Its {n} subgroups go with it, and its {m} devices become ungrouped." | toast MSG03; tree and table refetch |
 | Select rows, then Assign to group (bulk bar) | one or more rows selected | rentals 26 `POST /api/groups/:id/devices` with `deviceIds` | dialog with the group picker | toast "{n} devices moved to {group}."; table and tree refetch |
-| Remove from group (row action) | the row has a group | rentals 27 `DELETE /api/groups/:id/devices/:deviceId` | none | toast MSG03 |
-| Report fault (row action) | the row has no open fault report | rentals 28 `POST /api/contracts/:id/devices/:deviceId/fault-reports` | the dialog itself | toast MSG41 |
-| Report lost, Label holder (row actions) | as on the contract page (screens 4.4, 5.2) | devices 17, rentals holder label | as there | as there |
-| Give notice (row action) | the row's contract is a monthly `ACTIVE` one | opens the notice dialog of screen 5.2 | as there | MSG18 |
+| Fault history (row action) | always | rentals 29, filtered to this device | none | none |
+| Remove from group (row action) | always; disabled without a group or while saving a group change, with the reason | rentals 27 `DELETE /api/groups/:id/devices/:deviceId` | none | toast MSG03 |
+| Report fault (row action) | always; disabled with a reason when a fault or loss case is already open | rentals 28 `POST /api/contracts/:id/devices/:deviceId/fault-reports` | the dialog itself | toast MSG41 |
+| Report lost, Label holder (row actions) | always; disabled on a closed contract; Report lost is also disabled for an open loss case | devices 17, rentals holder label | as on screens 4.4 and 5.2 | as there |
+| Give notice (row action) | always; disabled with a reason outside a monthly `ACTIVE` contract | opens the notice dialog of screen 5.2 | as there | MSG18 |
 | Group filter (`/o/map`, `/o/incidents`) | the organization has a group | monitoring 02 `?groupId=`, incidents 01 `?groupId=` | none | none |
 
 ## States
@@ -95,6 +96,10 @@ collapsed by default.
 
 ## Mobile, accessibility, live data
 
+- Every device row keeps the same six action slots in the same menu order, under UI standard §8.3.
+  Disabled items remain focusable and expose their reason. Below 1440 px, variant and battery fold
+  beneath the asset tag and state instead of occupying separate columns. All values remain available,
+  the asset tag stays on one line and the Actions column fits at 1280 px without a sideways scroll.
 - At ordinary viewport heights, the page fills the shell content area. The group list and table scroll
   inside their panes, with the title, filters and pagination outside the row scroll area. Below 480 CSS px
   height, the fixed shell bars release and the document can extend vertically so every control remains reachable.

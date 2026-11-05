@@ -8,7 +8,13 @@ afterEach(cleanup);
 
 const items = (onSelect = vi.fn()): MenuItem[] => [
   { key: 'edit', label: 'Edit device', onSelect: () => onSelect('edit') },
-  { key: 'retire', label: 'Retire device', onSelect: () => onSelect('retire'), disabled: true, disabledReason: 'Only an available device can be retired.' },
+  {
+    key: 'retire',
+    label: 'Retire device',
+    onSelect: () => onSelect('retire'),
+    disabled: true,
+    disabledReason: 'Only an available device can be retired.',
+  },
   { key: 'history', label: 'Show history', onSelect: () => onSelect('history') },
 ];
 
@@ -93,11 +99,13 @@ describe('Menu (menu button pattern)', () => {
     const onSelect = vi.fn();
     render(<Menu label="Actions for TL-0042" items={items(onSelect)} />);
     open();
-    const retire = screen.getByRole('menuitem', { name: 'Retire device' });
+    const retire = screen.getByRole('menuitem', {
+      name: 'Retire device',
+      description: 'Only an available device can be retired.',
+    });
     expect(retire.getAttribute('aria-disabled')).toBe('true');
     const reason = document.getElementById(retire.getAttribute('aria-describedby')!);
     expect(reason?.textContent).toBe('Only an available device can be retired.');
-    expect(retire.contains(reason)).toBe(true);
     fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
     expect(document.activeElement).toBe(retire);
     fireEvent.keyDown(retire, { key: 'Enter' });
@@ -140,7 +148,9 @@ describe('Menu (menu button pattern)', () => {
   });
 
   it('shows a header above the items that is no item and takes no focus', () => {
-    render(<Menu label="Actions for TL-0042" items={items()} header={<p>Signed in as Tran Thi B</p>} />);
+    render(
+      <Menu label="Actions for TL-0042" items={items()} header={<p>Signed in as Tran Thi B</p>} />,
+    );
     open();
     const menu = screen.getByRole('menu');
     expect(menu.textContent).toContain('Signed in as Tran Thi B');
@@ -150,7 +160,13 @@ describe('Menu (menu button pattern)', () => {
   });
 
   it('starts the accessible name with the visible trigger text (WCAG 2.5.3)', () => {
-    render(<Menu label="Change status of TL-0042" trigger={<span>Change status</span>} items={items()} />);
+    render(
+      <Menu
+        label="Change status of TL-0042"
+        trigger={<span>Change status</span>}
+        items={items()}
+      />,
+    );
     const button = screen.getByRole('button', { name: 'Change status of TL-0042' });
     expect(button.textContent).toBe('Change status');
   });
@@ -159,9 +175,38 @@ describe('Menu (menu button pattern)', () => {
 // The list stays inside the viewport (re-check of treklink-web#350): a window 800 px high, a list
 // whose items need 600 px.
 describe('Menu placement in the viewport', () => {
+  it('repositions when focusing a disabled item makes its reason widen the menu', () => {
+    vi.stubGlobal('innerWidth', 800);
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      if (this.getAttribute('role') !== 'menu') return 0;
+      return this.querySelector('[id*="-reason-"]:not(.sr-only)') ? 320 : 160;
+    });
+    render(<Menu label="Actions for TL-0042" items={items()} />);
+    const button = screen.getByRole('button', { name: 'Actions for TL-0042' });
+    vi.spyOn(button, 'getBoundingClientRect').mockReturnValue({
+      top: 100,
+      bottom: 140,
+      left: 720,
+      right: 780,
+      width: 60,
+      height: 40,
+      x: 720,
+      y: 100,
+      toJSON: () => ({}),
+    });
+    open();
+    expect(screen.getByRole('menu').style.left).toBe('620px');
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Retire device' }));
+    expect(screen.getByRole('menu').style.left).toBe('460px');
+  });
   const place = (buttonTop: number) => {
     vi.stubGlobal('innerHeight', 800);
-    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (
+      this: HTMLElement,
+    ) {
       return this.getAttribute('role') === 'menu' ? 600 : 0;
     });
     render(<Menu label="Actions for TL-0042" items={items()} />);
@@ -199,7 +244,9 @@ describe('Menu placement in the viewport', () => {
   it('never reaches past the bottom of the window', () => {
     const style = place(400);
     // Below: 800 - 8 - 444 = 348 px; above: 388 px, so it opens above and scrolls.
-    expect(Number.parseFloat(style.top) + Number.parseFloat(style.maxHeight)).toBeLessThanOrEqual(800 - 8);
+    expect(Number.parseFloat(style.top) + Number.parseFloat(style.maxHeight)).toBeLessThanOrEqual(
+      800 - 8,
+    );
     expect(Number.parseFloat(style.top)).toBeGreaterThanOrEqual(8);
   });
 });

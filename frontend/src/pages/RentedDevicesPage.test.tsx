@@ -73,6 +73,84 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('RentedDevicesPage', () => {
+  it.each([
+    {
+      status: 'ACTIVE',
+      planType: 'MONTHLY',
+      fault: null,
+      loss: null,
+      grouped: true,
+      disabled: [],
+    },
+    {
+      status: 'ACTIVE',
+      planType: 'MONTHLY',
+      fault: null,
+      loss: null,
+      grouped: false,
+      disabled: ['Remove from group'],
+    },
+    {
+      status: 'ENDING',
+      planType: 'MONTHLY',
+      fault: 'fault-1',
+      loss: null,
+      grouped: false,
+      disabled: ['Remove from group', 'Report fault', 'Give notice'],
+    },
+    {
+      status: 'CLOSED',
+      planType: 'DAY',
+      fault: null,
+      loss: { id: 'loss-1', code: 'LOSS-0001', state: 'REPORTED' },
+      grouped: false,
+      disabled: ['Remove from group', 'Report fault', 'Label holder', 'Report lost', 'Give notice'],
+    },
+  ] as const)(
+    'keeps all six actions with reasons for an unavailable $status/$planType row',
+    async (scenario) => {
+      const row: RentedDevice = {
+        ...device,
+        contract: { ...device.contract, status: scenario.status, planType: scenario.planType },
+        openFaultReportId: scenario.fault,
+        openLossCase: scenario.loss,
+        group: scenario.grouped ? { id: group.id, name: group.name, parentId: null } : null,
+      };
+      api.mockImplementation(async (path: string) => {
+        if (path === '/groups') return { groups: [group], maxDepth: 3 };
+        if (path.startsWith('/rented-devices?')) return page([row]);
+        if (path.startsWith('/contracts?')) return page([row.contract]);
+        throw new Error(`Unexpected request: ${path}`);
+      });
+      show();
+      fireEvent.click(await screen.findByRole('button', { name: 'Actions for TL-0001' }));
+      const items = screen.getAllByRole('menuitem');
+      const labels = [
+        'Fault history',
+        'Remove from group',
+        'Report fault',
+        'Label holder',
+        'Report lost',
+        'Give notice',
+      ];
+      expect(items).toEqual(labels.map((label) => screen.getByRole('menuitem', { name: label })));
+      for (const label of labels) {
+        const item = screen.getByRole('menuitem', { name: label });
+        const disabled = (scenario.disabled as readonly string[]).includes(label);
+        expect(item.getAttribute('aria-disabled')).toBe(disabled ? 'true' : null);
+        if (disabled) {
+          const reason = document.getElementById(item.getAttribute('aria-describedby')!);
+          expect(reason?.textContent?.trim()).toBeTruthy();
+          fireEvent.click(item);
+          expect(screen.queryByRole('dialog')).toBeNull();
+          expect(screen.getByRole('menu')).toBeTruthy();
+        }
+      }
+      expect(
+        api.mock.calls.every(([, options]) => !options?.method || options.method === 'GET'),
+      ).toBe(true);
+    },
+  );
   it('removes a child group, restores its parent filter and refocuses the surviving tree node', async () => {
     const child: DeviceGroup = { ...group, id: 'child-1', name: 'Radio crew', parentId: group.id };
     let groups = [{ ...group, children: [child] }];
