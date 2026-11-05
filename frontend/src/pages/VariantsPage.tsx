@@ -116,11 +116,8 @@ export const VariantsPage: React.FC = () => {
       after?.();
     } catch (problem) {
       setBusy(false);
-      setError(
-        problem instanceof ApiError && problem.errorCode === 'VARIANT_IN_USE'
-          ? `${problem.message} It is still used by registered devices.`
-          : messageOf(problem),
-      );
+      // The server's VARIANT_IN_USE messages already name the reason (registered devices or prices).
+      setError(messageOf(problem));
       void refresh();
     }
   };
