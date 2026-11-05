@@ -85,6 +85,20 @@ describe('LossCasePage (screen 4.4)', () => {
     expect(screen.queryByRole('button', { name: 'Settle' })).toBeNull();
   });
 
+  it('draws the last position on a small map with the coordinates under it (W20B item 5)', async () => {
+    serve(() => theCase());
+    renderPage();
+    const caption = await screen.findByText('11.55440, 108.53810');
+    expect(caption.tagName).toBe('FIGCAPTION');
+    expect(screen.getByRole('heading', { level: 3, name: 'Last position' })).toBeTruthy();
+  });
+
+  it('says the position is unavailable for a unit that never reported one', async () => {
+    serve(() => theCase({ lastPosition: null }));
+    renderPage();
+    expect(await screen.findByText('Position unavailable')).toBeTruthy();
+  });
+
   it('triages with the suspected theft flag and the police reference, then toasts MSG03', async () => {
     // The server's state: the refetch after the action reads the triaged case.
     let current = theCase();

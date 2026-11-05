@@ -38,6 +38,7 @@ import {
 import { Fact } from '../shared/ui/bits';
 import { invalid } from '../shared/ui/errors';
 import { LINK } from '../shared/ui/styles';
+import { PositionMap } from '../widgets/LiveMapWidget/PositionMap';
 
 const TITLE_ID = 'loss-case-title';
 const MSG03 = 'Saved.';
@@ -443,12 +444,11 @@ export const LossCasePage: React.FC = () => {
             <Fact label="Reported">{formatDateTime(item.reportedAt)}</Fact>
             <Fact label="Device state when reported">{item.stateFromDevice}</Fact>
             <Fact label="Last seen">{item.lastSeenAt ? formatDateTime(item.lastSeenAt) : 'Never heard'}</Fact>
-            <Fact label="Last position">
-              {item.lastPosition
-                ? `${item.lastPosition.lat.toFixed(5)}, ${item.lastPosition.lon.toFixed(5)}`
-                : 'Position unavailable'}
-            </Fact>
           </dl>
+          {/* Screen 4.4: the last known position on a small map with the overlay; the coordinates under
+              it and the last seen time above are its text alternative. */}
+          <h3 className="mb-2 mt-4 text-label uppercase text-ink-muted">Last position</h3>
+          <PositionMap position={item.lastPosition} label={item.device.assetTag} seenAt={item.lastSeenAt} />
         </Card>
 
         <Card aria-labelledby="resolution-title">
