@@ -46,6 +46,7 @@ const record = (overrides: Record<string, unknown> = {}) => ({
 });
 
 let thresholdVnd: number | undefined = 1_000_000;
+const fetchMaintenanceRecords = vi.fn();
 
 // totalPages above 1 when a test sets `pages`, as a list longer than one page of 20 would answer.
 let pages: number | undefined;
@@ -97,6 +98,7 @@ vi.mock('../entities/device/api', async (importOriginal) => ({
   completeMaintenance: (...args: unknown[]) => completeMaintenance(...args),
   decideMaintenance: (...args: unknown[]) => decideMaintenance(...args),
   openMaintenance: (...args: unknown[]) => openMaintenance(...args),
+  fetchMaintenanceRecords: (...args: unknown[]) => fetchMaintenanceRecords(...args),
 }));
 
 const renderPage = (path = '/t/maintenance') =>
@@ -266,6 +268,31 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
     fireEvent.change(dialog.getByLabelText(/Approved amount/), { target: { value: '600000' } });
     fireEvent.click(dialog.getByRole('button', { name: 'Save decision' }));
     expect(await screen.findByText('A different Admin must approve this cost.')).toBeTruthy();
+  });
+
+  it('opens the record a device history row names, from recordId in the navigation state (W20B)', async () => {
+    // devices api-design 15 has no read by id: the page reads the list until the record turns up.
+    fetchMaintenanceRecords.mockImplementation(({ pageNumber }: { pageNumber: number }) =>
+      Promise.resolve({
+        ...page(pageNumber === 1 ? [record()] : [record({ id: 'm-7', description: 'Antenna loose' })], pageNumber),
+        totalPages: 2,
+      }),
+    );
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter initialEntries={[{ pathname: '/t/maintenance', state: { recordId: 'm-7' } }]}>
+          <Routes>
+            <Route path="/t/maintenance" element={<MaintenancePage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    const drawer = await screen.findByRole('dialog', { name: 'Maintenance on TL-0009' });
+    expect(within(drawer).getByText('Antenna loose')).toBeTruthy();
+    expect(fetchMaintenanceRecords.mock.calls.map(([filters]) => filters.pageNumber)).toEqual([1, 2]);
+    // Closed, it stays closed.
+    fireEvent.click(within(drawer).getAllByRole('button', { name: /Close/ })[0]);
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Maintenance on TL-0009' })).toBeNull());
   });
 
   it('opens maintenance preselected from the device detail navigation', async () => {
