@@ -295,8 +295,10 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
   }
 
   const title = scope === 't' ? 'Fleet map' : 'Live map';
+  // A fit page (ui standard §7): the map fills the content area and only the device list scrolls.
+  // Below 1024 px the list sits under the map and scrolls with its header as one region.
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 p-2">
+    <div data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-3 p-2">
       <h1 className="sr-only">{title}</h1>
       {paused && <Alert tone="warning">{MSG32}</Alert>}
       {error && (
@@ -318,12 +320,12 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
         </Alert>
       )}
       <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
-        <div className="relative min-h-[60vh] flex-1 overflow-hidden rounded-panel border border-line lg:min-h-0">
+        <div className="relative min-h-[10rem] flex-1 overflow-hidden rounded-panel border border-line">
           <LiveMapWidget
             markers={markers}
             selectedId={selectedId}
             onLink={(link) => navigate(link.to, { state: link.state })}
-            className="h-full min-h-[60vh] rounded-none border-0 lg:min-h-0"
+            className="h-full rounded-none border-0"
           />
           <MapLegend
             className="absolute bottom-3 left-3 z-[500]"
@@ -332,7 +334,7 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
         </div>
         <aside
           aria-label="Devices"
-          className="flex max-h-[50vh] flex-col overflow-hidden rounded-panel border border-line bg-surface lg:max-h-none lg:w-[22rem]"
+          className="flex max-h-[45%] shrink-0 flex-col overflow-y-auto rounded-panel border border-line bg-surface lg:max-h-none lg:w-[22rem] lg:overflow-hidden"
         >
           <div className="space-y-3 border-b border-line p-4">
             <h2 className="font-display text-body-lg font-extrabold text-ink">{title}</h2>
@@ -355,7 +357,7 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
               />
             </Field>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
             {snapshot.isPending && (
               <div className="space-y-2 p-4" aria-label="Loading the map">
                 <Skeleton className="h-12" />
