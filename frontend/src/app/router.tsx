@@ -37,6 +37,7 @@ import { ReportsPage } from '../pages/ReportsPage';
 import { RolesPage } from '../pages/RolesPage';
 import { SystemHealthPage } from '../pages/SystemHealthPage';
 import { PricesPage } from '../pages/PricesPage';
+import { VariantsPage } from '../pages/VariantsPage';
 import { DamageChargesPage } from '../pages/DamageChargesPage';
 import { ServiceCreditsPage } from '../pages/ServiceCreditsPage';
 import { NoAccessPage } from '../pages/NoAccessPage';
@@ -166,6 +167,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/t/admin/roles" element={<RolesPage />} />
         <Route path="/t/admin/health" element={<SystemHealthPage />} />
         <Route path="/t/admin/prices" element={<PricesPage />} />
+        <Route path="/t/admin/variants" element={<VariantsPage />} />
         <Route path="/t/admin/parameters" element={<ParametersPage />} />
         <Route path="/t/admin/audit" element={<Navigate to="/t/admin/audit/changes" replace />} />
         <Route path="/t/admin/audit/changes" element={<AuditLogPage />} />

@@ -5,9 +5,9 @@
 | Owner | KhoaDD |
 | Task | `specs/frontend/tasks.md` 4.1 |
 | Assigned, due | 2026-10-21, 2026-10-23 |
-| Status | Ready for review |
+| Status | Built (2026-11-05, W20A) |
 | Routes | `/t/admin/variants` (`specs/frontend/design.md` §2) |
-| Roles | TrekLink Admin: list, create, edit, deactivate, delete. TrekLink Staff and organization roles: MSG26 (Staff read variants through the fleet screen 4.2 filters, not here). |
+| Roles | TrekLink Admin: list, create, edit, deactivate, delete (create and edit in a `Dialog`, full screen at 360 px). TrekLink Staff and organization roles: MSG26 (Staff read variants through the fleet screen 4.2 filters, not here). |
 | Use case, FRs, story | UC-13; FR-DEV-04, FR-DEV-17; US-UC13 |
 | Requirements | `specs/devices/requirements.md` REQ-STA-02, REQ-EVT-18, REQ-ERR-10 |
 | Wireframe | ![Hardware variants admin](4-1-hardware-variants-admin.svg) |

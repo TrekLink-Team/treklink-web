@@ -122,9 +122,10 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
 
 ## Phase 4: Fleet
 
-- [ ] 4.1 Hardware variants admin (owner KhoaDD)
+- [x] 4.1 Hardware variants admin (owner KhoaDD)
   - **Do**: devices api-design 01 to 04; service interval with checklist, firmware baseline, depreciation schedule
   - _Story: US-UC13_
+  - **Done** (2026-11-05, KhoaDD under D-078, W20A): `/t/admin/variants` (`VariantsPage`) on `CollectionView`: the icon render, code and name in each row, units, Active or Inactive, capabilities as text, firmware baseline and service; the details pane shows the variant card with the detail render and the spec sheet, then the service plan and the remaining value schedule. New variant and Edit open `VariantFormDialog` (`features/manage-variants`): code (create only), name, the three sensor flags (shown as text with "Fixed while units are registered" when units exist), firmware baseline, service interval with checklist rows, schedule rows, image link and the nine spec fields beside a live card preview; client checks mirror devices design section 11, server errors go under their field (`CONFLICT_UNIQUE`, `SCHEDULE_INVALID`, `CHECKLIST_REQUIRED`, `VARIANT_MEDIA_INVALID`, `VALIDATION_FAILED`), `STALE_VERSION` above the form. Deactivate and Reactivate confirm with the screen's text; Delete shows only for a variant with no unit and confirms naming the code, then focus moves to the heading. Mutations invalidate `['hardware-variants']`. Hooks in `entities/variant/api.ts`. Nav entry built, route registered. Component-tested (9)
 - [x] 4.2 Fleet table, register, intake, `DeviceDetailPage` (owner KhoaDD)
   - **Do**: devices api-design 05 to 10, 16, 23 and monitoring api-design 07; register, intake check (motion field only for motion variants), reset, retire, dispose with the three wipe steps
   - _Story: US-UC11, US-UC12, US-UC44, US-UC53, US-UC62_
