@@ -146,7 +146,9 @@ export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children
             // The action bar stays in the flow at the end of its page, so its height is already part
             // of the scroll height and needs no padding-bottom (treklink-web#348).
             'scroll-pb-[calc(var(--tl-page-actions-h,0px)+0.5rem)] scroll-pt-[calc(var(--tl-page-header-h,0px)+var(--tl-collection-bar-h,0px)+0.5rem)]',
-            // The one vertical scroll region of a page: the document never scrolls (ui standard §7).
+            // Not a scroll region of its own (ui standard §7): every page is a fit page and scrolls only
+            // a nested region. The overflow stays as a fallback, so a page not yet built that way
+            // still reaches its end; the route audit counts any page where #main scrolls as not done.
             fullBleed ? 'overflow-y-auto' : 'overflow-y-auto px-1 md:px-2',
             '[@media(max-height:479.98px)]:overflow-visible',
           )}

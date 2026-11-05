@@ -16,7 +16,8 @@ import {
 import { formatDate, formatDateTime, formatVnd } from '../../shared/lib/format';
 import { Alert, Button, CollectionView, type CollectionField } from '../../shared/ui';
 import { Badge, ErrorState, Fact, Loading } from '../../shared/ui/bits';
-import { PinnedTitle } from '../../shared/ui/PageChrome';
+import { PageScrollBody, PinnedTitle } from '../../shared/ui/PageChrome';
+import { cn } from '../../shared/ui/cn';
 import { TONE_CLASSES } from '../../shared/ui/status';
 import { CARD, LINK } from '../../shared/ui/styles';
 import { CounterPaymentDialog } from './CounterPaymentDialog';
@@ -90,6 +91,19 @@ const LINE_FIELDS: CollectionField<InvoiceLine>[] = [
 // lines render through CollectionView (chapter 06 §9, D-096), searched and filtered in the browser.
 // As a business document it carries the seller and buyer blocks and a totals footer, and prints as
 // the document alone (InvoiceDocument.tsx).
+/**
+ * The invoice body: on the invoice page it is the one scroll region under the pinned number (ui
+ * standard §7); in the billing side panel it is plain content.
+ */
+const InvoiceBody: React.FC<{ page?: boolean; children: React.ReactNode }> = ({ page, children }) =>
+  page ? (
+    <PageScrollBody label="Invoice details" className="flex flex-col gap-4">
+      {children}
+    </PageScrollBody>
+  ) : (
+    <>{children}</>
+  );
+
 export const InvoiceDetailView: React.FC<{
   invoiceId: string;
   contractPath: (contractId: string) => string;
@@ -159,7 +173,10 @@ export const InvoiceDetailView: React.FC<{
     <Badge tone={INVOICE_TONES[data.status]}>{INVOICE_STATUS_LABELS[data.status]}</Badge>
   );
   return (
-    <div className="flex flex-col gap-4">
+    <div
+      data-fit-page={asPageTitle ? '' : undefined}
+      className={cn('flex flex-col gap-4', asPageTitle && 'min-h-0 flex-1')}
+    >
       {/* On its own page the number is the page title, pinned above the summary (ui standard §7). */}
       {asPageTitle && (
         <PinnedTitle>
@@ -171,123 +188,125 @@ export const InvoiceDetailView: React.FC<{
           </div>
         </PinnedTitle>
       )}
-      <div ref={summary} className={CARD}>
-        {!asPageTitle && (
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 ref={heading} tabIndex={-1} className="text-xl font-bold text-ink">
-              {data.number}
-            </h2>
-            {badge}
-          </div>
-        )}
-        {/* Two columns on a phone, so the facts and the main action share the first screen (W21). */}
-        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Fact label="Contract">
-            <Link to={contractPath(data.contract.id)} className={LINK}>
-              {data.contract.code ?? 'Open contract'}
-            </Link>
-          </Fact>
-          <Fact label="Kind">{invoiceKindLabel(data)}</Fact>
-          <Fact label="Issued">{formatDateTime(data.issuedAt)}</Fact>
-          <Fact label="Total">{formatVnd(data.totalVnd)}</Fact>
-          <Fact label="Paid">{formatVnd(data.paidVnd)}</Fact>
-          <Fact label="Still due">{formatVnd(Math.max(due, 0))}</Fact>
-        </dl>
-        {payError && (
-          <Alert tone="error" className="mt-3">
-            {payError}
-          </Alert>
-        )}
-        <div className="mt-4 flex flex-wrap gap-3">
-          {canPayOnline && owing && balance.data && !balance.data.settled && (
+      <InvoiceBody page={asPageTitle}>
+        <div ref={summary} className={CARD}>
+          {!asPageTitle && (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 ref={heading} tabIndex={-1} className="text-xl font-bold text-ink">
+                {data.number}
+              </h2>
+              {badge}
+            </div>
+          )}
+          {/* Two columns on a phone, so the facts and the main action share the first screen (W21). */}
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <Fact label="Contract">
+              <Link to={contractPath(data.contract.id)} className={LINK}>
+                {data.contract.code ?? 'Open contract'}
+              </Link>
+            </Fact>
+            <Fact label="Kind">{invoiceKindLabel(data)}</Fact>
+            <Fact label="Issued">{formatDateTime(data.issuedAt)}</Fact>
+            <Fact label="Total">{formatVnd(data.totalVnd)}</Fact>
+            <Fact label="Paid">{formatVnd(data.paidVnd)}</Fact>
+            <Fact label="Still due">{formatVnd(Math.max(due, 0))}</Fact>
+          </dl>
+          {payError && (
+            <Alert tone="error" className="mt-3">
+              {payError}
+            </Alert>
+          )}
+          <div className="mt-4 flex flex-wrap gap-3">
+            {canPayOnline && owing && balance.data && !balance.data.settled && (
+              <Button
+                variant="primary"
+                className="min-h-11 w-full sm:w-auto"
+                loading={paying}
+                loadingLabel="Preparing QR"
+                onClick={() => void pay()}
+              >
+                Pay with SePay
+              </Button>
+            )}
+            {canRecordCounter && owing && balance.data && !balance.data.settled && (
+              <Button variant="primary" onClick={() => setRecording(true)}>
+                Record counter payment
+              </Button>
+            )}
             <Button
-              variant="primary"
-              className="min-h-11 w-full sm:w-auto"
-              loading={paying}
-              loadingLabel="Preparing QR"
-              onClick={() => void pay()}
+              variant="secondary"
+              icon={<Printer aria-hidden className="h-4 w-4" />}
+              onClick={() => window.print()}
             >
-              Pay with SePay
+              Print invoice
             </Button>
-          )}
-          {canRecordCounter && owing && balance.data && !balance.data.settled && (
-            <Button variant="primary" onClick={() => setRecording(true)}>
-              Record counter payment
-            </Button>
-          )}
-          <Button
-            variant="secondary"
-            icon={<Printer aria-hidden className="h-4 w-4" />}
-            onClick={() => window.print()}
-          >
-            Print invoice
-          </Button>
+          </div>
+          {/* The parties follow the actions: on a phone the facts and Pay come first (W21). */}
+          <div className="mt-4 border-t border-line pt-4">
+            <InvoiceParties invoice={data} />
+          </div>
         </div>
-        {/* The parties follow the actions: on a phone the facts and Pay come first (W21). */}
-        <div className="mt-4 border-t border-line pt-4">
-          <InvoiceParties invoice={data} />
+
+        <div className={CARD}>
+          <h3 className="mb-3 font-bold text-ink">Lines</h3>
+          <CollectionView<InvoiceLine>
+            label={`Lines of ${data.number}`}
+            items={data.lines}
+            itemId={(line) => String(line.seq)}
+            itemName={(line) => `Line ${line.seq}, ${line.description}`}
+            itemTitle={(line) => (
+              <span className="flex flex-col">
+                <span className="font-semibold text-ink">{line.description}</span>
+                <span className="text-caption text-ink-muted">Line {line.seq}</span>
+              </span>
+            )}
+            fields={LINE_FIELDS}
+            noun={{ one: 'line', other: 'lines' }}
+            search={{ label: 'Search lines', placeholder: 'Description or type' }}
+            filters={[
+              { key: '', label: 'Every status' },
+              ...Object.keys(LINE_TONES).map((value) => ({
+                key: value,
+                label: value,
+                test: (line: InvoiceLine) => lineStatus(line) === value,
+              })),
+            ]}
+            details={false}
+            emptyState={{ title: 'This invoice has no lines.' }}
+            noMatch={{ title: 'No lines match these filters.' }}
+          />
+          <InvoiceTotalsFooter invoice={data} className="mt-4 border-t border-line pt-4" />
+          <p className="mt-3 text-xs text-ink-muted">
+            Issued lines are not edited; a correction is added as an adjustment line.
+          </p>
         </div>
-      </div>
 
-      <div className={CARD}>
-        <h3 className="mb-3 font-bold text-ink">Lines</h3>
-        <CollectionView<InvoiceLine>
-          label={`Lines of ${data.number}`}
-          items={data.lines}
-          itemId={(line) => String(line.seq)}
-          itemName={(line) => `Line ${line.seq}, ${line.description}`}
-          itemTitle={(line) => (
-            <span className="flex flex-col">
-              <span className="font-semibold text-ink">{line.description}</span>
-              <span className="text-caption text-ink-muted">Line {line.seq}</span>
-            </span>
+        <div className={CARD}>
+          <h3 className="mb-3 font-bold text-ink">Payments</h3>
+          {data.payments.length === 0 ? (
+            <p className="text-sm text-ink-muted">No payments recorded.</p>
+          ) : (
+            <ul className="flex flex-col gap-2 text-sm">
+              {data.payments.map((payment) => (
+                <li key={payment.id} className="flex flex-wrap justify-between gap-2">
+                  <span>
+                    {payment.reference}, {METHOD_LABELS[payment.method]}
+                    {payment.isSandbox && (
+                      <Badge tone="attention" className="ml-2">
+                        SANDBOX
+                      </Badge>
+                    )}
+                  </span>
+                  <span className="text-right">
+                    {formatVnd(payment.amountVnd)}, {payment.status.toLowerCase()}
+                    {payment.confirmedAt ? `, ${formatDateTime(payment.confirmedAt)}` : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>
           )}
-          fields={LINE_FIELDS}
-          noun={{ one: 'line', other: 'lines' }}
-          search={{ label: 'Search lines', placeholder: 'Description or type' }}
-          filters={[
-            { key: '', label: 'Every status' },
-            ...Object.keys(LINE_TONES).map((value) => ({
-              key: value,
-              label: value,
-              test: (line: InvoiceLine) => lineStatus(line) === value,
-            })),
-          ]}
-          details={false}
-          emptyState={{ title: 'This invoice has no lines.' }}
-          noMatch={{ title: 'No lines match these filters.' }}
-        />
-        <InvoiceTotalsFooter invoice={data} className="mt-4 border-t border-line pt-4" />
-        <p className="mt-3 text-xs text-ink-muted">
-          Issued lines are not edited; a correction is added as an adjustment line.
-        </p>
-      </div>
-
-      <div className={CARD}>
-        <h3 className="mb-3 font-bold text-ink">Payments</h3>
-        {data.payments.length === 0 ? (
-          <p className="text-sm text-ink-muted">No payments recorded.</p>
-        ) : (
-          <ul className="flex flex-col gap-2 text-sm">
-            {data.payments.map((payment) => (
-              <li key={payment.id} className="flex flex-wrap justify-between gap-2">
-                <span>
-                  {payment.reference}, {METHOD_LABELS[payment.method]}
-                  {payment.isSandbox && (
-                    <Badge tone="attention" className="ml-2">
-                      SANDBOX
-                    </Badge>
-                  )}
-                </span>
-                <span className="text-right">
-                  {formatVnd(payment.amountVnd)}, {payment.status.toLowerCase()}
-                  {payment.confirmedAt ? `, ${formatDateTime(payment.confirmedAt)}` : ''}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+        </div>
+      </InvoiceBody>
 
       {recording && <CounterPaymentDialog invoice={data} onClose={() => setRecording(false)} />}
       <InvoicePrintDocument invoice={data} />

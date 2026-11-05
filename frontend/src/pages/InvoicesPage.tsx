@@ -72,7 +72,7 @@ export const InvoicesPage: React.FC = () => {
 export const InvoiceDetailPage: React.FC = () => {
   const { id = '' } = useParams();
   return (
-    <section aria-label="Invoice">
+    <section aria-label="Invoice" data-fit-page="" className="flex min-h-0 flex-1 flex-col">
       <InvoiceDetailView
         invoiceId={id}
         contractPath={(contractId) => `/o/contracts/${contractId}`}

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { PageScrollBody } from '../shared/ui/PageChrome';
 import { Link, useParams } from 'react-router-dom';
 import { usePayment } from '../entities/billing/api';
 import { formatDateTime, formatVnd } from '../shared/lib/format';
@@ -74,7 +75,7 @@ export const PaymentPage: React.FC = () => {
   );
 
   return (
-    <section aria-labelledby="pay-title" className="mx-auto flex max-w-lg flex-col gap-4">
+    <section aria-labelledby="pay-title" data-fit-page="" className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col gap-4">
       <PageHeader
         id="pay-title"
         title="Pay with SePay"
@@ -83,74 +84,76 @@ export const PaymentPage: React.FC = () => {
         className="mb-0"
       />
 
-      {data.status === 'PENDING' && data.vietQr && (
-        <>
-          <Alert tone="info" title={`Expires in ${remaining(data.expiresAt, now)}`}>
-            Scan with your banking app and keep the transfer content exactly as shown. This page
-            updates by itself once the payment arrives.
+      <PageScrollBody label="Payment" className="flex flex-col gap-4">
+        {data.status === 'PENDING' && data.vietQr && (
+          <>
+            <Alert tone="info" title={`Expires in ${remaining(data.expiresAt, now)}`}>
+              Scan with your banking app and keep the transfer content exactly as shown. This page
+              updates by itself once the payment arrives.
+            </Alert>
+            <Card className="flex flex-col items-center gap-4">
+              {qrFailed ? (
+                <Alert tone="warning" title="The QR image could not be loaded." className="w-full">
+                  Transfer the amount to the account below with the transfer content exactly as shown.
+                </Alert>
+              ) : (
+                // Literal white keeps banking-app scanner contrast; a theme surface would turn dark in Volt.
+                <img
+                  src={data.vietQr.imageUrl}
+                  alt={`VietQR for ${formatVnd(data.amountVnd)} with transfer content ${data.vietQr.content}`}
+                  onError={() => setQrFailed(true)}
+                  className="h-64 w-64 rounded-card border border-line bg-[#fff] object-contain"
+                />
+              )}
+              <dl className="grid w-full grid-cols-2 gap-3 text-body">
+                <div>
+                  <dt className="text-body-sm font-semibold text-ink-muted">Amount</dt>
+                  <dd className="text-title-sm text-ink">{formatVnd(data.amountVnd)}</dd>
+                </div>
+                <div>
+                  <dt className="text-body-sm font-semibold text-ink-muted">Transfer content</dt>
+                  <dd className="font-mono text-title-sm text-ink">{data.vietQr.content}</dd>
+                </div>
+                <div>
+                  <dt className="text-body-sm font-semibold text-ink-muted">Account</dt>
+                  <dd className="text-ink">{data.vietQr.bankAccount}</dd>
+                </div>
+              </dl>
+            </Card>
+          </>
+        )}
+        {data.status === 'CONFIRMED' && (
+          <Alert tone="success" title={`Payment of ${formatVnd(data.amountVnd)} received.`}>
+            {data.confirmedAt && `Confirmed ${formatDateTime(data.confirmedAt)}.`}
           </Alert>
-          <Card className="flex flex-col items-center gap-4">
-            {qrFailed ? (
-              <Alert tone="warning" title="The QR image could not be loaded." className="w-full">
-                Transfer the amount to the account below with the transfer content exactly as shown.
-              </Alert>
-            ) : (
-              // Literal white keeps banking-app scanner contrast; a theme surface would turn dark in Volt.
-              <img
-                src={data.vietQr.imageUrl}
-                alt={`VietQR for ${formatVnd(data.amountVnd)} with transfer content ${data.vietQr.content}`}
-                onError={() => setQrFailed(true)}
-                className="h-64 w-64 rounded-card border border-line bg-[#fff] object-contain"
-              />
-            )}
-            <dl className="grid w-full grid-cols-2 gap-3 text-body">
-              <div>
-                <dt className="text-body-sm font-semibold text-ink-muted">Amount</dt>
-                <dd className="text-title-sm text-ink">{formatVnd(data.amountVnd)}</dd>
-              </div>
-              <div>
-                <dt className="text-body-sm font-semibold text-ink-muted">Transfer content</dt>
-                <dd className="font-mono text-title-sm text-ink">{data.vietQr.content}</dd>
-              </div>
-              <div>
-                <dt className="text-body-sm font-semibold text-ink-muted">Account</dt>
-                <dd className="text-ink">{data.vietQr.bankAccount}</dd>
-              </div>
-            </dl>
-          </Card>
-        </>
-      )}
-      {data.status === 'CONFIRMED' && (
-        <Alert tone="success" title={`Payment of ${formatVnd(data.amountVnd)} received.`}>
-          {data.confirmedAt && `Confirmed ${formatDateTime(data.confirmedAt)}.`}
-        </Alert>
-      )}
-      {credited > 0 && (
-        <Alert
-          tone="info"
-          title={`${formatVnd(credited)} arrived for this request and was recorded.`}
-          action={
-            <Link to={back} className={LINK}>
-              See what remains due
-            </Link>
-          }
-        >
-          This transfer was recorded as a separate payment for this request.
-        </Alert>
-      )}
-      {(data.status === 'EXPIRED' || data.status === 'FAILED') && credited === 0 && (
-        <Alert
-          tone="error"
-          title="Payment not completed."
-          action={
-            <Link to={back} className={LINK}>
-              Back to the invoice to try again
-            </Link>
-          }
-        >
-          Nothing was charged. {formatVnd(data.amountVnd)} remains due.
-        </Alert>
-      )}
+        )}
+        {credited > 0 && (
+          <Alert
+            tone="info"
+            title={`${formatVnd(credited)} arrived for this request and was recorded.`}
+            action={
+              <Link to={back} className={LINK}>
+                See what remains due
+              </Link>
+            }
+          >
+            This transfer was recorded as a separate payment for this request.
+          </Alert>
+        )}
+        {(data.status === 'EXPIRED' || data.status === 'FAILED') && credited === 0 && (
+          <Alert
+            tone="error"
+            title="Payment not completed."
+            action={
+              <Link to={back} className={LINK}>
+                Back to the invoice to try again
+              </Link>
+            }
+          >
+            Nothing was charged. {formatVnd(data.amountVnd)} remains due.
+          </Alert>
+        )}
+      </PageScrollBody>
     </section>
   );
 };
