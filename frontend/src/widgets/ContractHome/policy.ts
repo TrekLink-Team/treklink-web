@@ -269,9 +269,13 @@ export const nextStepOf = (
         text: `The return was due${when(contract.returnDueAt) ? ` on ${when(contract.returnDueAt)}` : ''}. ${units(out)} still out.`,
       };
     case 'DEFAULTED':
+      // No claim about the organization: the contract detail carries no organization status, and a
+      // default suspends only an ACTIVE organization when the overdue-and-default job moves the
+      // contract (organizations.service.ts suspendForDefault). The demo seed defaults RC-2026-0003
+      // and keeps ORG-0001 ACTIVE.
       return {
         actor: staff,
-        text: `Recover the ${units(out)} still out or record them lost. The organization is suspended.`,
+        text: `Recover the ${units(out)} still out or record them lost.`,
       };
     case 'RETURNED':
       return {

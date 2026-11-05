@@ -71,4 +71,10 @@ describe('contract lifecycle (rentals design §2)', () => {
       'Request cancelled, the unpaid hold expired',
     );
   });
+
+  // The demo walk of 2026-11-05: RC-2026-0003's history said the organization was suspended while
+  // ORG-0001 was ACTIVE. A transition records the contract's status only, so its line names that alone.
+  it('names a default without claiming the organization is suspended', () => {
+    expect(transitionLine(move('OVERDUE', 'DEFAULTED', '2026-11-04T02:00:00Z'))).toBe('Contract defaulted');
+  });
 });
