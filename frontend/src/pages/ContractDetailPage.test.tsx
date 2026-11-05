@@ -241,8 +241,12 @@ describe('ContractDetailPage', () => {
     };
     renderPage('o', '?tab=devices');
     // Item actions are named after the unit (chapter 06 §9.5, 2.5.3): "Report lost TL-0042".
-    const report = screen.getAllByRole('button', { name: /^Report lost/ });
+    // Report lost keeps its slot on every row (chapter 06 §11.4): the unit that is not out shows it
+    // unavailable, with its reason.
+    const all = screen.getAllByRole('button', { name: /^Report lost/ });
+    const report = all.filter((button) => button.getAttribute('aria-disabled') !== 'true');
     expect(report).toHaveLength(1);
+    expect(all.length - report.length).toBe(1);
     expect(report[0].getAttribute('aria-label')).toBe('Report lost TL-0042');
     fireEvent.click(report[0]);
     expect(screen.getByRole('dialog', { name: 'Report TL-0042 lost' })).toBeTruthy();
@@ -416,7 +420,8 @@ describe('ContractDetailPage', () => {
       blockers: [],
     };
     renderPage('t', '?tab=devices');
-    const requests = screen.getAllByRole('button', { name: /^Request service credit/ });
+    // Unavailable item actions keep their slots, disabled (chapter 06 §11.4).
+    const requests = screen.getAllByRole('button', { name: /^Request service credit/ }).filter((button) => button.getAttribute('aria-disabled') !== 'true');
     expect(requests).toHaveLength(1);
     fireEvent.click(requests[0]);
     expect(

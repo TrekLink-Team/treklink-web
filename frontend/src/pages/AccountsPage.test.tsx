@@ -74,9 +74,11 @@ const serve = (
 
 const inTable = () => within(screen.getByRole('table', { name: 'Accounts' }));
 
-// Item actions are icon buttons named verb plus account (chapter 06 §9.5): "Edit Tran Thi B".
-const menuItem = (name: string, label: string) =>
-  inTable().getByRole('button', { name: `${label} ${name}` });
+// Three action slots share the row's overflow menu, next to Show details (chapter 06 §11.4).
+const menuItem = (name: string, label: string) => {
+  fireEvent.click(inTable().getByRole('button', { name: `More actions for ${name}` }));
+  return screen.getByRole('menuitem', { name: label });
+};
 // The status filter is the Show dropdown of the command bar (chapter 06 §9.3).
 const STATUS_LABEL: Record<string, string> = { '': 'All accounts', true: 'Active', false: 'Deactivated' };
 const setStatus = (value: '' | 'true' | 'false') => {
@@ -346,7 +348,7 @@ describe('AccountsPage (screen 7.1)', () => {
     renderPage();
     await screen.findByRole('table', { name: 'Accounts' });
     expect(inTable().queryByRole('button', { name: 'Edit Pham Van D' })).toBeNull();
-    fireEvent.click(inTable().getByRole('button', { name: 'Reactivate Pham Van D' }));
+    fireEvent.click(menuItem('Pham Van D', 'Reactivate'));
     expect(screen.getByText('Reactivate Pham Van D?')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Reactivate' }));
     await waitFor(() => expect(useToast.getState().message).toBe('Account reactivated'));
@@ -465,14 +467,14 @@ describe('AccountsPage (screen 7.1)', () => {
     expect((screen.getByLabelText('Search accounts') as HTMLInputElement).value).toBe('');
   });
 
-  it('labels the reset button Send reset code and names the account to a screen reader', async () => {
+  it('labels the reset action Send reset code inside the menu named after the account', async () => {
     serve([account(), staff]);
     renderPage();
     await screen.findByRole('table', { name: 'Accounts' });
-    const button = menuItem('Tran Thi B', 'Send reset code');
-    // The tooltip shows the verb on focus; the name adds the account (chapter 06 §9.5, 2.5.3).
-    fireEvent.focus(button);
-    expect(screen.getByRole('tooltip').textContent).toBe('Send reset code');
+    // The overflow menu names the account; its items name the verb (chapter 06 §11.4, 2.5.3).
+    const item = menuItem('Tran Thi B', 'Send reset code');
+    expect(item.textContent).toBe('Send reset code');
+    expect(screen.getByRole('menu', { name: 'More actions for Tran Thi B' })).toBeTruthy();
   });
 
   it('says in the phone hint that a phone cannot be removed', async () => {

@@ -96,7 +96,8 @@ describe('FieldStationsPage (screen 3.5)', () => {
     expect(within(table).getByText('Revoked')).toBeTruthy();
     expect(screen.getByText('1 of 5 active stations, 1 revoked')).toBeTruthy();
     // A revoked row has no Revoke action.
-    expect(within(table).getAllByRole('button', { name: /^Revoke / })).toHaveLength(1);
+    // A revoked station keeps the Revoke slot, unavailable (chapter 06 §11.4).
+    expect(within(table).getAllByRole('button', { name: /^Revoke / }).filter((button) => button.getAttribute('aria-disabled') !== 'true')).toHaveLength(1);
 
     const release = await screen.findByRole('region', { name: 'Field Station software' });
     expect(within(release).getByText('1.2.0')).toBeTruthy();

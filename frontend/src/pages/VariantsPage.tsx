@@ -126,6 +126,7 @@ export const VariantsPage: React.FC = () => {
     { key: 'edit', label: 'Edit', icon: <Pencil />, onSelect: (variant) => setPending({ kind: 'form', variant }) },
     {
       key: 'deactivate',
+      slot: 'active',
       label: 'Deactivate',
       icon: <PowerOff />,
       allowed: (variant) => variant.isActive,
@@ -133,6 +134,7 @@ export const VariantsPage: React.FC = () => {
     },
     {
       key: 'reactivate',
+      slot: 'active',
       label: 'Reactivate',
       icon: <Power />,
       allowed: (variant) => !variant.isActive,

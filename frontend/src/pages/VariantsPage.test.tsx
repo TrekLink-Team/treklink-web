@@ -57,6 +57,11 @@ const renderPage = () =>
   );
 
 const inTable = () => within(screen.getByRole('table', { name: 'Hardware variants' }));
+const rowAction = async (item: string, label: string) => {
+  fireEvent.click(await within(screen.getByRole('table')).findByRole('button', { name: `More actions for ${item}` }));
+  return screen.getByRole('menuitem', { name: label });
+};
+const isUnavailable = (item: HTMLElement) => item.getAttribute('aria-disabled') === 'true';
 const loaded = async () => within(await screen.findByRole('table', { name: 'Hardware variants' }));
 
 beforeEach(() => {
@@ -80,8 +85,11 @@ describe('VariantsPage (screen 4.1)', () => {
     serve([variant(), unused]);
     renderPage();
     await (await loaded()).findByText('treklink-v9');
-    expect(inTable().queryByRole('button', { name: 'Delete treklink-v3' })).toBeNull();
-    expect(inTable().getByRole('button', { name: 'Delete treklink-v9' })).toBeTruthy();
+    // Three action slots share the overflow menu (chapter 06 §11.4); Delete keeps its slot on a variant
+    // with units, unavailable.
+    expect(isUnavailable(await rowAction('treklink-v3', 'Delete'))).toBe(true);
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    expect(isUnavailable(await rowAction('treklink-v9', 'Delete'))).toBe(false);
   });
 
   it('shows the empty state with the New variant button', async () => {
@@ -220,7 +228,8 @@ describe('VariantsPage (screen 4.1)', () => {
       throw new ApiError(409, 'VARIANT_IN_USE', message);
     });
     renderPage();
-    fireEvent.click(await (await loaded()).findByRole('button', { name: 'Delete treklink-v9' }));
+    await loaded();
+    fireEvent.click(await rowAction('treklink-v9', 'Delete'));
     const confirm = within(await screen.findByRole('alertdialog', { name: 'Delete treklink-v9?' }));
     fireEvent.click(confirm.getByRole('button', { name: 'Delete variant' }));
     expect((await confirm.findByText(message)).textContent).toBe(message);
@@ -230,7 +239,8 @@ describe('VariantsPage (screen 4.1)', () => {
   it('deletes an unused variant after a dialog naming its code', async () => {
     serve([unused], () => null);
     renderPage();
-    fireEvent.click(await (await loaded()).findByRole('button', { name: 'Delete treklink-v9' }));
+    await loaded();
+    fireEvent.click(await rowAction('treklink-v9', 'Delete'));
     const confirm = within(await screen.findByRole('alertdialog', { name: 'Delete treklink-v9?' }));
     fireEvent.click(confirm.getByRole('button', { name: 'Delete variant' }));
     await waitFor(() => expect(writes()).toHaveLength(1));

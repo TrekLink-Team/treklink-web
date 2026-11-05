@@ -138,8 +138,10 @@ and the revision of treklink-docs#170.
 
 | Rule | Built in |
 |---|---|
-| The actions column is right-aligned. Slots are fixed per list and fill from the inline end by permanence: Show details is last in tab order at the inline end; next to it, in one fixed slot, the overflow menu when a list has three or more other actions; then the remaining actions. New actions join at the inline start. | `CollectionView` `itemActions` (listed most permanent first) |
-| An action unavailable in an item's current state keeps its slot, disabled with its reason. An action the role never has is absent for the whole list. | `CollectionAction` `unavailableReason`; a page leaves out an action the role lacks |
+| The actions column is right-aligned. Slots are fixed per list and fill from the inline end by permanence: Show details is last in tab order at the inline end; when the list has three or more other action slots, they all sit in one overflow menu ("More actions for TL-0042") in the slot next to it; with one or two, they show as icon buttons to its left, in the page's list order. A page adds a new action at the start of its list, so it joins at the inline start. | `CollectionView` `itemActions` |
+| An action unavailable in an item's current state keeps its slot, disabled with its reason (`unavailableReason`, or "Not available for this {noun} now." when the page gives none). An action no shown item may take, because the role never has it, is absent for the whole list. | `CollectionAction` `allowed`, `unavailableReason` |
+| Two actions that never apply to the same item (Deactivate, Reactivate) share one slot, so the row shows the one its item may take. | `CollectionAction` `slot` |
+| A missing action leaves no gap: the slots are the same on every row of the list. | `CollectionView` |
 
 ### 7.4 Viewport and zoom (chapter 06 §10, revised by treklink-docs#170)
 

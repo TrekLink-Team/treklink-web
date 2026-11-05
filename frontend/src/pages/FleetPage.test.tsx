@@ -286,7 +286,8 @@ describe('FleetPage row actions and bulk (W29, UI standard §2 and §3)', () => 
     expect(screen.getByRole('button', { name: 'Record intake check TL-0001' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Record reset TL-0003' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /change status of TL-000/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: /^Record .*TL-0004/ })).toBeNull();
+    // Unavailable item actions keep their slots, disabled (chapter 06 §11.4).
+    expect(screen.queryAllByRole('button', { name: /^Record .*TL-0004/ }).filter((button) => button.getAttribute('aria-disabled') !== 'true')).toHaveLength(0);
     cleanup();
 
     roles = ['ADMIN'];

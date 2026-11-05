@@ -78,7 +78,8 @@ describe('ApiKeysPage (screen 3.4)', () => {
     expect(within(table).getByText('Revoked')).toBeTruthy();
     expect(screen.getByText('1 of 5 active keys, 1 revoked')).toBeTruthy();
     // Only the active key can be revoked.
-    expect(within(table).getAllByRole('button', { name: /^Revoke / })).toHaveLength(1);
+    // A revoked key keeps the Revoke slot, unavailable (chapter 06 §11.4).
+    expect(within(table).getAllByRole('button', { name: /^Revoke / }).filter((button) => button.getAttribute('aria-disabled') !== 'true')).toHaveLength(1);
     expect((screen.getByRole('button', { name: 'Create API key' }) as HTMLButtonElement).disabled).toBe(false);
     expect(api).toHaveBeenCalledWith(LIST);
   });

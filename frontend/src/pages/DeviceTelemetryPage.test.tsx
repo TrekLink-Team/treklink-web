@@ -226,7 +226,8 @@ describe('DeviceTelemetryPage (screen 9.2)', () => {
 
   it('gives every point shown on the map its own marker id, so the map pans on each click', () => {
     renderPage();
-    const show = () => screen.getAllByRole('button', { name: /^Show on the map, / });
+    // A point without a position keeps the slot, unavailable (chapter 06 §11.4).
+    const show = () => screen.getAllByRole('button', { name: /^Show on the map, / }).filter((button) => button.getAttribute('aria-disabled') !== 'true');
     // The telemetry point without a position has no Show on the map (D-096).
     expect(show()).toHaveLength(2);
     fireEvent.click(show()[0]);
