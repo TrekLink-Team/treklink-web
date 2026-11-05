@@ -51,6 +51,10 @@ import { ReplacementPanel } from './ReplacementPanel';
 
 type Tab = 'checkin' | 'replace' | 'inspection' | 'close';
 
+// The counter steps wrap onto another row instead of scrolling sideways, so at 360 px every step is
+// in view and no fading edge covers a label (W20B item 7, the pattern of the contract home tabs).
+const TABS_WRAP = 'flex-wrap gap-y-1 overflow-x-visible';
+
 // The states that accept a check-in (REQ-STA-01): a running monthly ACTIVE contract does not.
 const RETURNING = ['ENDING', 'RETURN_DUE', 'OVERDUE', 'DEFAULTED'];
 
@@ -464,6 +468,7 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
           idPrefix="return"
           value={tab}
           onChange={setTab}
+          className={TABS_WRAP}
           items={[
             { key: 'checkin', label: 'Check-in', count: out.length },
             ...(contract.status === 'ACTIVE' || contract.status === 'ENDING'
