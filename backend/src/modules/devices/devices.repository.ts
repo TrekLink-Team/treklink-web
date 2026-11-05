@@ -829,6 +829,7 @@ export const VARIANT_SELECT = {
   imageUrl: true,
   specSheet: true,
   isActive: true,
+  version: true,
 } satisfies Prisma.HardwareVariantSelect;
 
 export type VariantRow = Prisma.HardwareVariantGetPayload<{ select: typeof VARIANT_SELECT }>;
