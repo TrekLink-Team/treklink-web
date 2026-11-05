@@ -23,7 +23,7 @@ import { formatDateTime, formatDay, formatVnd } from '../shared/lib/format';
 import { Badge, ErrorState, Field, Loading, PageTitle } from '../shared/ui/bits';
 import { invalid, messageOf } from '../shared/ui/errors';
 import { ConfirmDialog, Dialog } from '../shared/ui/Dialog';
-import { COMPACT_HIDDEN, PageActionBar, StickyPageHeader } from '../shared/ui/PageChrome';
+import { COMPACT_HIDDEN, PageActionBar, StickyPageHeader, PageScrollBody } from '../shared/ui/PageChrome';
 import { useToast } from '../shared/ui/toastStore';
 import {
   ALERT,
@@ -196,6 +196,19 @@ const EmbeddedHeader: React.FC<{ children: React.ReactNode }> = ({ children }) =
  * and its sticky header, and keeps its stepper and its Back and Next bar as they are.
  * `onDone` replaces the counter's done screen there.
  */
+/**
+ * The handover body: on the counter page it is the one scroll region between the pinned stepper and
+ * the action bar (ui standard §7); in the contract home, whose body already scrolls, it is plain.
+ */
+const HandoverBody: React.FC<{ page: boolean; children: React.ReactNode }> = ({ page, children }) =>
+  page ? (
+    <PageScrollBody label="Handover checklist" className="pb-3">
+      {children}
+    </PageScrollBody>
+  ) : (
+    <>{children}</>
+  );
+
 export const CounterPage: React.FC<{
   contractId?: string;
   embedded?: boolean;
@@ -591,7 +604,7 @@ export const CounterPage: React.FC<{
   if (data.status !== 'APPROVED') {
     // Past the handover the same route is screen 5.5: check-in, reset and inspection, close.
     return (
-      <section aria-labelledby="counter-title" className="flex flex-1 flex-col">
+      <section aria-labelledby="counter-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col">
         <ReturnCounter
           contract={data}
           header={
@@ -627,7 +640,8 @@ export const CounterPage: React.FC<{
     <section
       aria-labelledby={embedded ? undefined : 'counter-title'}
       aria-label={embedded ? `Handover of ${data.code}` : undefined}
-      className="flex flex-1 flex-col"
+      data-fit-page={embedded ? undefined : ''}
+      className={embedded ? 'flex flex-1 flex-col' : 'flex min-h-0 flex-1 flex-col'}
     >
       <Header>
         {!embedded && (
@@ -673,424 +687,426 @@ export const CounterPage: React.FC<{
         </ol>
       </Header>
 
-      {beforeStart && (
-        <div role="status" className={`${WARNING} mb-5`}>
-          Handover is possible from {formatDay(data.requestedStartDate)}.
-        </div>
-      )}
-      {stale && (
-        <div role="alert" className={`${ALERT} mb-5 flex items-center justify-between gap-3`}>
-          <span>Someone else changed this. Reload to see the latest.</span>
-          <button
-            type="button"
-            className="font-semibold underline"
-            onClick={() => {
-              setStale(false);
-              void refreshContract();
-            }}
-          >
-            Reload
-          </button>
-        </div>
-      )}
-
-      <div className={CARD}>
-        <h2 ref={heading} tabIndex={-1} className="mb-4 text-lg font-bold text-ink">
-          {step + 1}. {STEPS[step]}
-        </h2>
-
-        {step === 0 && (
-          <div className="flex flex-col gap-4">
-            <form onSubmit={findScanned} className="flex flex-wrap items-end gap-3">
-              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                <label htmlFor="scan" className="text-sm font-semibold text-ink">
-                  Scan or type an asset tag
-                </label>
-                <input
-                  id="scan"
-                  autoFocus
-                  className={INPUT}
-                  value={scan}
-                  onChange={(event) => setScan(event.target.value)}
-                  {...invalid('scan', scanError ?? undefined)}
-                />
-              </div>
-              <button type="submit" className={SECONDARY_BUTTON}>
-                Find
-              </button>
-              <p aria-live="polite" className="w-full text-sm">
-                {scanError ? (
-                  <span id="scan-error" className="text-status-critical-fg">
-                    {scanError}
-                  </span>
-                ) : scanned ? (
-                  `${tagOf(devices.find((device) => device.deviceId === scanned) ?? devices[0])} is on this contract.`
-                ) : null}
-              </p>
-            </form>
-
-            <p className="text-sm text-ink-muted">
-              Write channel key version {keyVersion ?? '…'} to each unit, then record it, read the
-              battery and check the GPS fix.
-            </p>
-            {organization.error && <ErrorState error={organization.error} />}
-
-            <div className="flex flex-col gap-3 rounded-control border border-line p-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <label className={`flex h-11 items-center gap-2 ${LABEL}`}>
-                  <input
-                    type="checkbox"
-                    className="h-5 w-5"
-                    checked={allSelected}
-                    ref={(box) => {
-                      if (box) box.indeterminate = selectedIds.length > 0 && !allSelected;
-                    }}
-                    disabled={bulkRunning}
-                    onChange={(event) =>
-                      setSelected(
-                        event.target.checked ? devices.map((device) => device.deviceId) : [],
-                      )
-                    }
-                  />
-                  Select all units
-                </label>
-                <span className="text-body-sm text-ink-muted">
-                  {selectedIds.length} of {devices.length} selected
-                </span>
-                <button
-                  type="button"
-                  className={SECONDARY_BUTTON}
-                  disabled={
-                    selectedIds.length === 0 ||
-                    bulkRunning ||
-                    busyRow !== null ||
-                    keyVersion === undefined
-                  }
-                  onClick={() => void provisionSelected()}
-                >
-                  {bulkProgress
-                    ? `Recording ${bulkProgress.done + 1} of ${bulkProgress.total}…`
-                    : 'Record provisioning for selected'}
-                </button>
-              </div>
-              <form onSubmit={applyReadings} noValidate className="flex flex-wrap items-end gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="bulk-battery" className={LABEL}>
-                    Battery % for selected
-                  </label>
-                  <input
-                    id="bulk-battery"
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    max={100}
-                    className={`${INPUT} w-32`}
-                    value={bulkBattery}
-                    onChange={(event) => setBulkBattery(event.target.value)}
-                    {...invalid('bulk-battery', bulkError ?? undefined)}
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="bulk-gps" className={LABEL}>
-                    GPS fix for selected
-                  </label>
-                  <select
-                    id="bulk-gps"
-                    className={INPUT}
-                    value={bulkGps}
-                    onChange={(event) => setBulkGps(event.target.value as '' | 'ok' | 'none')}
-                  >
-                    <option value="">Leave as is</option>
-                    <option value="ok">GPS fix</option>
-                    <option value="none">No GPS fix</option>
-                  </select>
-                </div>
-                <button
-                  type="submit"
-                  className={SECONDARY_BUTTON}
-                  disabled={selectedIds.length === 0 || bulkRunning}
-                >
-                  Set readings for selected
-                </button>
-                {bulkError && (
-                  <p id="bulk-battery-error" role="alert" className={`w-full ${ERROR_TEXT}`}>
-                    {bulkError}
-                  </p>
-                )}
-              </form>
-              <p aria-live="polite" className="text-body-sm text-ink">
-                {bulkProgress
-                  ? `Recording provisioning: ${bulkProgress.done} of ${bulkProgress.total} done.`
-                  : bulkNote}
-              </p>
-            </div>
-
-            <ul className="flex flex-col gap-3">
-              {devices.map((device) => {
-                const check = checkOf(device.deviceId);
-                const error = rowErrors[device.deviceId];
-                return (
-                  <li
-                    key={device.deviceId}
-                    className={`rounded-lg border p-4 ${
-                      scanned === device.deviceId
-                        ? 'border-focus bg-chrome'
-                        : error
-                          ? 'border-status-critical-line'
-                          : 'border-line'
-                    }`}
-                  >
-                    <div className="grid items-end gap-3 md:grid-cols-[auto_1fr_auto_120px_auto_auto]">
-                      <label className="flex h-11 items-center">
-                        <input
-                          type="checkbox"
-                          className="h-5 w-5"
-                          aria-label={`Select ${tagOf(device)}`}
-                          checked={selectedIds.includes(device.deviceId)}
-                          disabled={bulkRunning}
-                          onChange={(event) =>
-                            toggleSelected(device.deviceId, event.target.checked)
-                          }
-                        />
-                      </label>
-                      <div>
-                        <p className="font-mono font-semibold text-ink">{tagOf(device)}</p>
-                        <p className="flex flex-wrap items-baseline gap-x-3 text-sm text-ink-muted">
-                          {versionOf(device)
-                            ? `Provisioned v${versionOf(device)}`
-                            : 'Not provisioned yet'}
-                          {versionOf(device) !== undefined && (
-                            <button
-                              type="button"
-                              className={`${LINK} font-semibold`}
-                              aria-label={`Undo provisioning of ${tagOf(device)}`}
-                              disabled={busyRow !== null || bulkRunning}
-                              onClick={() => setUndoing(device)}
-                            >
-                              Undo
-                            </button>
-                          )}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        className={SECONDARY_BUTTON}
-                        disabled={
-                          busyRow === device.deviceId || bulkRunning || keyVersion === undefined
-                        }
-                        onClick={() => void provision(device)}
-                      >
-                        {busyRow === device.deviceId ? 'Recording…' : 'Record provisioning'}
-                      </button>
-                      <div className="flex flex-col gap-1.5">
-                        <label
-                          htmlFor={`battery-${device.deviceId}`}
-                          className="text-sm font-semibold text-ink"
-                        >
-                          Battery %
-                        </label>
-                        <input
-                          id={`battery-${device.deviceId}`}
-                          type="number"
-                          inputMode="numeric"
-                          min={0}
-                          max={100}
-                          className={INPUT}
-                          value={check.battery}
-                          onChange={(event) =>
-                            setCheck(device.deviceId, { battery: event.target.value })
-                          }
-                        />
-                      </div>
-                      <label className="flex h-11 items-center gap-2 text-sm font-semibold text-ink">
-                        <input
-                          type="checkbox"
-                          className="h-5 w-5"
-                          checked={check.gpsFixOk}
-                          onChange={(event) =>
-                            setCheck(device.deviceId, { gpsFixOk: event.target.checked })
-                          }
-                        />
-                        GPS fix
-                      </label>
-                      <button
-                        type="button"
-                        className={DANGER_BUTTON}
-                        disabled={bulkRunning}
-                        onClick={() => setSwapping(device)}
-                      >
-                        Swap
-                      </button>
-                    </div>
-                    {error && (
-                      <p role="alert" className="mt-2 text-sm text-status-critical-fg">
-                        {error}
-                      </p>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+      <HandoverBody page={!embedded}>
+        {beforeStart && (
+          <div role="status" className={`${WARNING} mb-5`}>
+            Handover is possible from {formatDay(data.requestedStartDate)}.
           </div>
         )}
-
-        {step === 1 && (
-          <div className="flex flex-col gap-3" aria-live="polite">
-            {(invoices.isLoading || firstInvoice.isLoading) && <Loading />}
-            {invoices.error && <ErrorState error={invoices.error} />}
-            {firstLine && firstInvoice.data && (
-              <dl className="grid gap-3 text-sm sm:grid-cols-3">
-                <div>
-                  <dt className="font-semibold text-ink-muted">Invoice</dt>
-                  <dd>{firstInvoice.data.number}</dd>
-                </div>
-                <div>
-                  <dt className="font-semibold text-ink-muted">{firstLine.description}</dt>
-                  <dd>
-                    {formatVnd(firstLine.paidVnd)} of {formatVnd(firstLine.amountVnd)} paid
-                  </dd>
-                </div>
-                <div>
-                  <dt className="font-semibold text-ink-muted">Payments</dt>
-                  <dd>
-                    {firstInvoice.data.payments.length === 0
-                      ? 'None yet'
-                      : firstInvoice.data.payments
-                          .map(
-                            (payment) =>
-                              `${payment.method}${payment.isSandbox ? ' (sandbox)' : ''}: ${payment.status}`,
-                          )
-                          .join(', ')}
-                  </dd>
-                </div>
-              </dl>
-            )}
-            {firstPaid ? (
-              <p className="font-semibold text-status-done-fg">The first payment is recorded.</p>
-            ) : (
-              <p role="alert" className="text-sm text-status-critical-fg">
-                {paymentError ?? 'The first payment is not recorded yet.'}
-              </p>
-            )}
-            {firstInvoice.data && !firstPaid && (
-              // Recorded here, not on screen 6.3: leaving the page would drop step 1's checks.
-              <button
-                type="button"
-                className={`${SECONDARY_BUTTON} self-start`}
-                onClick={() => setRecordingPayment(true)}
-              >
-                Record a counter payment
-              </button>
-            )}
-            {recordingPayment && firstInvoice.data && (
-              <CounterPaymentDialog
-                invoice={firstInvoice.data}
-                onClose={() => {
-                  setRecordingPayment(false);
-                  setPaymentError(null);
-                }}
-              />
-            )}
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="flex flex-col gap-3">
-            {preview.isLoading && <Loading label="Rendering the note" />}
-            {preview.error && (
-              <ErrorState error={preview.error} onRetry={() => void preview.refetch()} />
-            )}
-            {previewUrl && (
-              <>
-                <iframe
-                  title="Handover note preview, not signed"
-                  src={previewUrl}
-                  className="h-[480px] w-full rounded-lg border border-line"
-                />
-                <a href={previewUrl} target="_blank" rel="noreferrer" className={`${LINK} text-sm`}>
-                  Open the preview in a new tab
-                </a>
-              </>
-            )}
-          </div>
-        )}
-
-        {step === 3 && (
-          <form
-            id="handover-sign-form"
-            noValidate
-            className="flex flex-col gap-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void submit(false);
-            }}
-          >
-            <Field id="signer" label="Signing Manager" error={formErrors.signer}>
-              <select
-                id="signer"
-                className={INPUT}
-                value={signerId}
-                onChange={(event) => setSignerId(event.target.value)}
-                {...invalid('signer', formErrors.signer)}
-              >
-                <option value="">Choose a Manager</option>
-                {managers.map((member) => (
-                  <option key={member.userId} value={member.userId}>
-                    {member.fullName ?? member.email ?? member.userId}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field
-              id="identity"
-              label="Identity document checked"
-              error={formErrors.identity}
-              hint="Document type and last digits seen, never the full number."
+        {stale && (
+          <div role="alert" className={`${ALERT} mb-5 flex items-center justify-between gap-3`}>
+            <span>Someone else changed this. Reload to see the latest.</span>
+            <button
+              type="button"
+              className="font-semibold underline"
+              onClick={() => {
+                setStale(false);
+                void refreshContract();
+              }}
             >
-              <input
-                id="identity"
-                className={INPUT}
-                maxLength={60}
-                autoComplete="off"
-                value={identity}
-                onChange={(event) => setIdentity(event.target.value)}
-                {...invalid('identity', formErrors.identity)}
-              />
-            </Field>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-semibold text-ink">Signature</span>
-              <SignaturePad
-                id="signature"
-                invalid={Boolean(formErrors.signature)}
-                onChange={setSignature}
-              />
-              {formErrors.signature && (
+              Reload
+            </button>
+          </div>
+        )}
+
+        <div className={CARD}>
+          <h2 ref={heading} tabIndex={-1} className="mb-4 text-lg font-bold text-ink">
+            {step + 1}. {STEPS[step]}
+          </h2>
+
+          {step === 0 && (
+            <div className="flex flex-col gap-4">
+              <form onSubmit={findScanned} className="flex flex-wrap items-end gap-3">
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <label htmlFor="scan" className="text-sm font-semibold text-ink">
+                    Scan or type an asset tag
+                  </label>
+                  <input
+                    id="scan"
+                    autoFocus
+                    className={INPUT}
+                    value={scan}
+                    onChange={(event) => setScan(event.target.value)}
+                    {...invalid('scan', scanError ?? undefined)}
+                  />
+                </div>
+                <button type="submit" className={SECONDARY_BUTTON}>
+                  Find
+                </button>
+                <p aria-live="polite" className="w-full text-sm">
+                  {scanError ? (
+                    <span id="scan-error" className="text-status-critical-fg">
+                      {scanError}
+                    </span>
+                  ) : scanned ? (
+                    `${tagOf(devices.find((device) => device.deviceId === scanned) ?? devices[0])} is on this contract.`
+                  ) : null}
+                </p>
+              </form>
+
+              <p className="text-sm text-ink-muted">
+                Write channel key version {keyVersion ?? '…'} to each unit, then record it, read the
+                battery and check the GPS fix.
+              </p>
+              {organization.error && <ErrorState error={organization.error} />}
+
+              <div className="flex flex-col gap-3 rounded-control border border-line p-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className={`flex h-11 items-center gap-2 ${LABEL}`}>
+                    <input
+                      type="checkbox"
+                      className="h-5 w-5"
+                      checked={allSelected}
+                      ref={(box) => {
+                        if (box) box.indeterminate = selectedIds.length > 0 && !allSelected;
+                      }}
+                      disabled={bulkRunning}
+                      onChange={(event) =>
+                        setSelected(
+                          event.target.checked ? devices.map((device) => device.deviceId) : [],
+                        )
+                      }
+                    />
+                    Select all units
+                  </label>
+                  <span className="text-body-sm text-ink-muted">
+                    {selectedIds.length} of {devices.length} selected
+                  </span>
+                  <button
+                    type="button"
+                    className={SECONDARY_BUTTON}
+                    disabled={
+                      selectedIds.length === 0 ||
+                      bulkRunning ||
+                      busyRow !== null ||
+                      keyVersion === undefined
+                    }
+                    onClick={() => void provisionSelected()}
+                  >
+                    {bulkProgress
+                      ? `Recording ${bulkProgress.done + 1} of ${bulkProgress.total}…`
+                      : 'Record provisioning for selected'}
+                  </button>
+                </div>
+                <form onSubmit={applyReadings} noValidate className="flex flex-wrap items-end gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="bulk-battery" className={LABEL}>
+                      Battery % for selected
+                    </label>
+                    <input
+                      id="bulk-battery"
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      max={100}
+                      className={`${INPUT} w-32`}
+                      value={bulkBattery}
+                      onChange={(event) => setBulkBattery(event.target.value)}
+                      {...invalid('bulk-battery', bulkError ?? undefined)}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="bulk-gps" className={LABEL}>
+                      GPS fix for selected
+                    </label>
+                    <select
+                      id="bulk-gps"
+                      className={INPUT}
+                      value={bulkGps}
+                      onChange={(event) => setBulkGps(event.target.value as '' | 'ok' | 'none')}
+                    >
+                      <option value="">Leave as is</option>
+                      <option value="ok">GPS fix</option>
+                      <option value="none">No GPS fix</option>
+                    </select>
+                  </div>
+                  <button
+                    type="submit"
+                    className={SECONDARY_BUTTON}
+                    disabled={selectedIds.length === 0 || bulkRunning}
+                  >
+                    Set readings for selected
+                  </button>
+                  {bulkError && (
+                    <p id="bulk-battery-error" role="alert" className={`w-full ${ERROR_TEXT}`}>
+                      {bulkError}
+                    </p>
+                  )}
+                </form>
+                <p aria-live="polite" className="text-body-sm text-ink">
+                  {bulkProgress
+                    ? `Recording provisioning: ${bulkProgress.done} of ${bulkProgress.total} done.`
+                    : bulkNote}
+                </p>
+              </div>
+
+              <ul className="flex flex-col gap-3">
+                {devices.map((device) => {
+                  const check = checkOf(device.deviceId);
+                  const error = rowErrors[device.deviceId];
+                  return (
+                    <li
+                      key={device.deviceId}
+                      className={`rounded-lg border p-4 ${
+                        scanned === device.deviceId
+                          ? 'border-focus bg-chrome'
+                          : error
+                            ? 'border-status-critical-line'
+                            : 'border-line'
+                      }`}
+                    >
+                      <div className="grid items-end gap-3 md:grid-cols-[auto_1fr_auto_120px_auto_auto]">
+                        <label className="flex h-11 items-center">
+                          <input
+                            type="checkbox"
+                            className="h-5 w-5"
+                            aria-label={`Select ${tagOf(device)}`}
+                            checked={selectedIds.includes(device.deviceId)}
+                            disabled={bulkRunning}
+                            onChange={(event) =>
+                              toggleSelected(device.deviceId, event.target.checked)
+                            }
+                          />
+                        </label>
+                        <div>
+                          <p className="font-mono font-semibold text-ink">{tagOf(device)}</p>
+                          <p className="flex flex-wrap items-baseline gap-x-3 text-sm text-ink-muted">
+                            {versionOf(device)
+                              ? `Provisioned v${versionOf(device)}`
+                              : 'Not provisioned yet'}
+                            {versionOf(device) !== undefined && (
+                              <button
+                                type="button"
+                                className={`${LINK} font-semibold`}
+                                aria-label={`Undo provisioning of ${tagOf(device)}`}
+                                disabled={busyRow !== null || bulkRunning}
+                                onClick={() => setUndoing(device)}
+                              >
+                                Undo
+                              </button>
+                            )}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className={SECONDARY_BUTTON}
+                          disabled={
+                            busyRow === device.deviceId || bulkRunning || keyVersion === undefined
+                          }
+                          onClick={() => void provision(device)}
+                        >
+                          {busyRow === device.deviceId ? 'Recording…' : 'Record provisioning'}
+                        </button>
+                        <div className="flex flex-col gap-1.5">
+                          <label
+                            htmlFor={`battery-${device.deviceId}`}
+                            className="text-sm font-semibold text-ink"
+                          >
+                            Battery %
+                          </label>
+                          <input
+                            id={`battery-${device.deviceId}`}
+                            type="number"
+                            inputMode="numeric"
+                            min={0}
+                            max={100}
+                            className={INPUT}
+                            value={check.battery}
+                            onChange={(event) =>
+                              setCheck(device.deviceId, { battery: event.target.value })
+                            }
+                          />
+                        </div>
+                        <label className="flex h-11 items-center gap-2 text-sm font-semibold text-ink">
+                          <input
+                            type="checkbox"
+                            className="h-5 w-5"
+                            checked={check.gpsFixOk}
+                            onChange={(event) =>
+                              setCheck(device.deviceId, { gpsFixOk: event.target.checked })
+                            }
+                          />
+                          GPS fix
+                        </label>
+                        <button
+                          type="button"
+                          className={DANGER_BUTTON}
+                          disabled={bulkRunning}
+                          onClick={() => setSwapping(device)}
+                        >
+                          Swap
+                        </button>
+                      </div>
+                      {error && (
+                        <p role="alert" className="mt-2 text-sm text-status-critical-fg">
+                          {error}
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
+          {step === 1 && (
+            <div className="flex flex-col gap-3" aria-live="polite">
+              {(invoices.isLoading || firstInvoice.isLoading) && <Loading />}
+              {invoices.error && <ErrorState error={invoices.error} />}
+              {firstLine && firstInvoice.data && (
+                <dl className="grid gap-3 text-sm sm:grid-cols-3">
+                  <div>
+                    <dt className="font-semibold text-ink-muted">Invoice</dt>
+                    <dd>{firstInvoice.data.number}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold text-ink-muted">{firstLine.description}</dt>
+                    <dd>
+                      {formatVnd(firstLine.paidVnd)} of {formatVnd(firstLine.amountVnd)} paid
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold text-ink-muted">Payments</dt>
+                    <dd>
+                      {firstInvoice.data.payments.length === 0
+                        ? 'None yet'
+                        : firstInvoice.data.payments
+                            .map(
+                              (payment) =>
+                                `${payment.method}${payment.isSandbox ? ' (sandbox)' : ''}: ${payment.status}`,
+                            )
+                            .join(', ')}
+                    </dd>
+                  </div>
+                </dl>
+              )}
+              {firstPaid ? (
+                <p className="font-semibold text-status-done-fg">The first payment is recorded.</p>
+              ) : (
                 <p role="alert" className="text-sm text-status-critical-fg">
-                  {formErrors.signature}
+                  {paymentError ?? 'The first payment is not recorded yet.'}
                 </p>
               )}
-            </div>
-            {lowBattery && (
-              <div role="alert" className={`${WARNING} flex flex-wrap items-center gap-3`}>
-                <span className="flex-1">{lowBattery}</span>
+              {firstInvoice.data && !firstPaid && (
+                // Recorded here, not on screen 6.3: leaving the page would drop step 1's checks.
                 <button
                   type="button"
-                  className="font-semibold underline"
-                  disabled={pending}
-                  onClick={() => void submit(true)}
+                  className={`${SECONDARY_BUTTON} self-start`}
+                  onClick={() => setRecordingPayment(true)}
                 >
-                  Proceed anyway
+                  Record a counter payment
                 </button>
+              )}
+              {recordingPayment && firstInvoice.data && (
+                <CounterPaymentDialog
+                  invoice={firstInvoice.data}
+                  onClose={() => {
+                    setRecordingPayment(false);
+                    setPaymentError(null);
+                  }}
+                />
+              )}
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="flex flex-col gap-3">
+              {preview.isLoading && <Loading label="Rendering the note" />}
+              {preview.error && (
+                <ErrorState error={preview.error} onRetry={() => void preview.refetch()} />
+              )}
+              {previewUrl && (
+                <>
+                  <iframe
+                    title="Handover note preview, not signed"
+                    src={previewUrl}
+                    className="h-[480px] w-full rounded-lg border border-line"
+                  />
+                  <a href={previewUrl} target="_blank" rel="noreferrer" className={`${LINK} text-sm`}>
+                    Open the preview in a new tab
+                  </a>
+                </>
+              )}
+            </div>
+          )}
+
+          {step === 3 && (
+            <form
+              id="handover-sign-form"
+              noValidate
+              className="flex flex-col gap-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submit(false);
+              }}
+            >
+              <Field id="signer" label="Signing Manager" error={formErrors.signer}>
+                <select
+                  id="signer"
+                  className={INPUT}
+                  value={signerId}
+                  onChange={(event) => setSignerId(event.target.value)}
+                  {...invalid('signer', formErrors.signer)}
+                >
+                  <option value="">Choose a Manager</option>
+                  {managers.map((member) => (
+                    <option key={member.userId} value={member.userId}>
+                      {member.fullName ?? member.email ?? member.userId}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field
+                id="identity"
+                label="Identity document checked"
+                error={formErrors.identity}
+                hint="Document type and last digits seen, never the full number."
+              >
+                <input
+                  id="identity"
+                  className={INPUT}
+                  maxLength={60}
+                  autoComplete="off"
+                  value={identity}
+                  onChange={(event) => setIdentity(event.target.value)}
+                  {...invalid('identity', formErrors.identity)}
+                />
+              </Field>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-sm font-semibold text-ink">Signature</span>
+                <SignaturePad
+                  id="signature"
+                  invalid={Boolean(formErrors.signature)}
+                  onChange={setSignature}
+                />
+                {formErrors.signature && (
+                  <p role="alert" className="text-sm text-status-critical-fg">
+                    {formErrors.signature}
+                  </p>
+                )}
               </div>
-            )}
-            {pageError && (
-              <div role="alert" className={ALERT}>
-                {pageError}
-              </div>
-            )}
-          </form>
-        )}
-      </div>
+              {lowBattery && (
+                <div role="alert" className={`${WARNING} flex flex-wrap items-center gap-3`}>
+                  <span className="flex-1">{lowBattery}</span>
+                  <button
+                    type="button"
+                    className="font-semibold underline"
+                    disabled={pending}
+                    onClick={() => void submit(true)}
+                  >
+                    Proceed anyway
+                  </button>
+                </div>
+              )}
+              {pageError && (
+                <div role="alert" className={ALERT}>
+                  {pageError}
+                </div>
+              )}
+            </form>
+          )}
+        </div>
+      </HandoverBody>
 
       <PageActionBar
         label="Handover steps"

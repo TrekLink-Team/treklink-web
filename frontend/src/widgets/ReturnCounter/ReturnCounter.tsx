@@ -34,6 +34,7 @@ import {
   Field,
   Input,
   PageActionBar,
+  PageScrollBody,
   RadioGroup,
   Skeleton,
   StatusBadge,
@@ -460,7 +461,7 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
   ];
 
   return (
-    <div className="flex flex-1 flex-col gap-5">
+    <div className="flex min-h-0 flex-1 flex-col gap-5">
       <StickyPageHeader>
         {header}
         <Tabs<Tab>
@@ -480,203 +481,206 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
         />
       </StickyPageHeader>
 
-      {tab === 'checkin' && (
-        <TabPanel idPrefix="return" tabKey="checkin">
-          <Card>
-            <CardHeader
-              title="Check-in"
-              description={`${out.length} of ${contract.devices.length} devices still out.`}
-            />
-            {!canCheckIn ? (
-              <Alert tone={contract.status === 'ACTIVE' ? 'warning' : 'info'}>
-                {contract.status === 'ACTIVE'
-                  ? 'A running monthly contract cannot return devices. Give notice first.'
-                  : 'No device is out on this contract.'}
-              </Alert>
-            ) : (
-              <div className="flex flex-col gap-4">
-                <form onSubmit={addTag} className="flex flex-wrap items-end gap-3">
-                  <Field
-                    id="scan"
-                    label="Scan or type an asset tag"
-                    error={scanError ?? undefined}
-                    className="min-w-0 flex-1"
-                  >
-                    <Input
+      {/* The step body is the one scroll region between the pinned steps and the action bar (ui standard §7). */}
+      <PageScrollBody label="Counter step" className="flex flex-col gap-5 pb-3">
+        {tab === 'checkin' && (
+          <TabPanel idPrefix="return" tabKey="checkin">
+            <Card>
+              <CardHeader
+                title="Check-in"
+                description={`${out.length} of ${contract.devices.length} devices still out.`}
+              />
+              {!canCheckIn ? (
+                <Alert tone={contract.status === 'ACTIVE' ? 'warning' : 'info'}>
+                  {contract.status === 'ACTIVE'
+                    ? 'A running monthly contract cannot return devices. Give notice first.'
+                    : 'No device is out on this contract.'}
+                </Alert>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <form onSubmit={addTag} className="flex flex-wrap items-end gap-3">
+                    <Field
                       id="scan"
-                      ref={scanRef}
-                      autoFocus
-                      value={scan}
-                      onChange={(event) => setScan(event.target.value)}
-                    />
-                  </Field>
-                  <Button type="submit">Add</Button>
-                </form>
-                <p aria-live="polite" className="text-body-sm text-ink-muted">
-                  {tags.length === 0 ? 'No tag scanned yet.' : `Scanned: ${tags.join(', ')}`}
-                </p>
-              </div>
-            )}
-            {out.length > 0 && (
-              <div className="mt-4 flex flex-col gap-2">
-                <h3 className="text-body-sm font-semibold text-ink">Still out</h3>
-                <p className="text-body-sm text-ink-muted">
-                  A unit that did not come back needs no replacement: report it lost. The contract
-                  closes once each lost unit is settled and the balance is paid.
-                </p>
-                <CollectionView<ContractDevice>
-                  label="Still out"
-                  items={out}
-                  itemId={(device) => device.deviceId}
-                  itemName={tagOf}
-                  itemTitle={(device) => <span className="font-mono font-semibold text-ink">{tagOf(device)}</span>}
-                  fields={[
-                    {
-                      key: 'loss',
-                      label: 'Loss case',
-                      render: (device) => {
-                        const lossCase = lossCaseOf(device.deviceId);
-                        return lossCase ? (
-                          <Link
-                            to={`/t/loss-cases/${lossCase.id}`}
-                            className={`${LINK} inline-flex min-h-6 items-center text-body-sm`}
-                          >
-                            Loss case {lossCase.code} open
-                          </Link>
-                        ) : (
-                          <span className="text-body-sm text-ink-muted">Not reported</span>
-                        );
+                      label="Scan or type an asset tag"
+                      error={scanError ?? undefined}
+                      className="min-w-0 flex-1"
+                    >
+                      <Input
+                        id="scan"
+                        ref={scanRef}
+                        autoFocus
+                        value={scan}
+                        onChange={(event) => setScan(event.target.value)}
+                      />
+                    </Field>
+                    <Button type="submit">Add</Button>
+                  </form>
+                  <p aria-live="polite" className="text-body-sm text-ink-muted">
+                    {tags.length === 0 ? 'No tag scanned yet.' : `Scanned: ${tags.join(', ')}`}
+                  </p>
+                </div>
+              )}
+              {out.length > 0 && (
+                <div className="mt-4 flex flex-col gap-2">
+                  <h3 className="text-body-sm font-semibold text-ink">Still out</h3>
+                  <p className="text-body-sm text-ink-muted">
+                    A unit that did not come back needs no replacement: report it lost. The contract
+                    closes once each lost unit is settled and the balance is paid.
+                  </p>
+                  <CollectionView<ContractDevice>
+                    label="Still out"
+                    items={out}
+                    itemId={(device) => device.deviceId}
+                    itemName={tagOf}
+                    itemTitle={(device) => <span className="font-mono font-semibold text-ink">{tagOf(device)}</span>}
+                    fields={[
+                      {
+                        key: 'loss',
+                        label: 'Loss case',
+                        render: (device) => {
+                          const lossCase = lossCaseOf(device.deviceId);
+                          return lossCase ? (
+                            <Link
+                              to={`/t/loss-cases/${lossCase.id}`}
+                              className={`${LINK} inline-flex min-h-6 items-center text-body-sm`}
+                            >
+                              Loss case {lossCase.code} open
+                            </Link>
+                          ) : (
+                            <span className="text-body-sm text-ink-muted">Not reported</span>
+                          );
+                        },
+                        compact: true,
                       },
-                      compact: true,
-                    },
-                  ]}
-                  noun={{ one: 'device', other: 'devices' }}
-                  itemActions={[
-                    {
-                      key: 'lost',
-                      label: 'Report lost',
-                      icon: <SearchX />,
-                      destructive: true,
-                      allowed: (device) => lossCaseOf(device.deviceId) === null,
-                      onSelect: (device) => setReporting({ deviceId: device.deviceId, assetTag: tagOf(device) }),
-                    },
-                  ]}
-                  views={['list']}
-                  details={false}
-                  hideCommandBar
-                  emptyState={{ title: 'No device is out.' }}
-                />
-              </div>
-            )}
-            {checkIn && (
-              <Alert tone="success" className="mt-4">
-                Check-in complete. {checkIn.returned} of {checkIn.total} devices returned.
-                {checkIn.lateFeeVnd > 0 && ` Late fee: ${formatVnd(checkIn.lateFeeVnd)}.`}
-              </Alert>
-            )}
-          </Card>
-        </TabPanel>
-      )}
-
-      {tab === 'replace' && (
-        <TabPanel idPrefix="return" tabKey="replace">
-          <ReplacementPanel contract={contract} onReplaced={refresh} />
-        </TabPanel>
-      )}
-
-      {tab === 'inspection' && (
-        <TabPanel idPrefix="return" tabKey="inspection">
-          <CollectionView<ContractDevice>
-            label="Returned devices"
-            items={back}
-            itemId={(device) => device.deviceId}
-            itemName={tagOf}
-            itemTitle={(device) => <span className="font-mono font-semibold text-ink">{tagOf(device)}</span>}
-            fields={fields}
-            noun={{ one: 'device', other: 'devices' }}
-            // The reset comes first, then the inspection (devices api-design 10 and 11); an inspected
-            // unit has no action left here.
-            itemActions={[
-              {
-                key: 'reset',
-                label: 'Record reset',
-                icon: <RotateCcw />,
-                allowed: (device) => !isInspected(device) && !isReset(device),
-                onSelect: setResetting,
-              },
-              {
-                key: 'inspect',
-                label: 'Inspect',
-                icon: <ClipboardCheck />,
-                allowed: (device) => !isInspected(device) && isReset(device),
-                onSelect: setInspecting,
-              },
-            ]}
-            filters={[
-              { key: 'all', label: 'All returned devices' },
-              { key: 'todo', label: 'Not inspected', test: (device) => !isInspected(device) },
-              { key: 'done', label: 'Inspected', test: isInspected },
-            ]}
-            details={false}
-            emptyState={{
-              title: 'No device is back yet',
-              description: 'Check devices in first; each then needs a reset and an inspection.',
-            }}
-            noMatch={{ title: 'No returned device matches this filter.' }}
-          />
-        </TabPanel>
-      )}
-
-      {tab === 'close' && (
-        <TabPanel idPrefix="return" tabKey="close">
-          <Card>
-            <CardHeader title="Close the contract" />
-            {balance.data && (
-              <dl className="mb-4 grid gap-3 sm:grid-cols-3">
-                <div>
-                  <dt className="text-body-sm text-ink-muted">Due now</dt>
-                  <dd className="font-semibold">{formatVnd(balance.data.dueNowVnd)}</dd>
+                    ]}
+                    noun={{ one: 'device', other: 'devices' }}
+                    itemActions={[
+                      {
+                        key: 'lost',
+                        label: 'Report lost',
+                        icon: <SearchX />,
+                        destructive: true,
+                        allowed: (device) => lossCaseOf(device.deviceId) === null,
+                        onSelect: (device) => setReporting({ deviceId: device.deviceId, assetTag: tagOf(device) }),
+                      },
+                    ]}
+                    views={['list']}
+                    details={false}
+                    hideCommandBar
+                    emptyState={{ title: 'No device is out.' }}
+                  />
                 </div>
-                <div>
-                  <dt className="text-body-sm text-ink-muted">Due later</dt>
-                  <dd className="font-semibold">{formatVnd(balance.data.dueLaterVnd)}</dd>
-                </div>
-                <div>
-                  <dt className="text-body-sm text-ink-muted">Paid</dt>
-                  <dd className="font-semibold">{formatVnd(balance.data.paidVnd)}</dd>
-                </div>
-              </dl>
-            )}
-            {contract.status === 'CLOSED' ? (
-              <Alert tone="success">This contract is closed.</Alert>
-            ) : closeCheck.isLoading ? (
-              <Skeleton className="h-16" />
-            ) : closeCheck.error ? (
-              <Alert
-                tone="error"
-                action={
-                  <Button size="sm" onClick={() => void closeCheck.refetch()}>
-                    Try again
-                  </Button>
-                }
-              >
-                {messageOf(closeCheck.error)}
-              </Alert>
-            ) : canClose ? (
-              <Alert tone="success">Nothing blocks the close. Close the contract below.</Alert>
-            ) : (
-              closeCheck.data && (
-                <CloseBlockers
-                  check={closeCheck.data}
-                  onReportLost={(blocker) =>
-                    setReporting({ deviceId: blocker.deviceId, assetTag: blocker.assetTag })
+              )}
+              {checkIn && (
+                <Alert tone="success" className="mt-4">
+                  Check-in complete. {checkIn.returned} of {checkIn.total} devices returned.
+                  {checkIn.lateFeeVnd > 0 && ` Late fee: ${formatVnd(checkIn.lateFeeVnd)}.`}
+                </Alert>
+              )}
+            </Card>
+          </TabPanel>
+        )}
+
+        {tab === 'replace' && (
+          <TabPanel idPrefix="return" tabKey="replace">
+            <ReplacementPanel contract={contract} onReplaced={refresh} />
+          </TabPanel>
+        )}
+
+        {tab === 'inspection' && (
+          <TabPanel idPrefix="return" tabKey="inspection">
+            <CollectionView<ContractDevice>
+              label="Returned devices"
+              items={back}
+              itemId={(device) => device.deviceId}
+              itemName={tagOf}
+              itemTitle={(device) => <span className="font-mono font-semibold text-ink">{tagOf(device)}</span>}
+              fields={fields}
+              noun={{ one: 'device', other: 'devices' }}
+              // The reset comes first, then the inspection (devices api-design 10 and 11); an inspected
+              // unit has no action left here.
+              itemActions={[
+                {
+                  key: 'reset',
+                  label: 'Record reset',
+                  icon: <RotateCcw />,
+                  allowed: (device) => !isInspected(device) && !isReset(device),
+                  onSelect: setResetting,
+                },
+                {
+                  key: 'inspect',
+                  label: 'Inspect',
+                  icon: <ClipboardCheck />,
+                  allowed: (device) => !isInspected(device) && isReset(device),
+                  onSelect: setInspecting,
+                },
+              ]}
+              filters={[
+                { key: 'all', label: 'All returned devices' },
+                { key: 'todo', label: 'Not inspected', test: (device) => !isInspected(device) },
+                { key: 'done', label: 'Inspected', test: isInspected },
+              ]}
+              details={false}
+              emptyState={{
+                title: 'No device is back yet',
+                description: 'Check devices in first; each then needs a reset and an inspection.',
+              }}
+              noMatch={{ title: 'No returned device matches this filter.' }}
+            />
+          </TabPanel>
+        )}
+
+        {tab === 'close' && (
+          <TabPanel idPrefix="return" tabKey="close">
+            <Card>
+              <CardHeader title="Close the contract" />
+              {balance.data && (
+                <dl className="mb-4 grid gap-3 sm:grid-cols-3">
+                  <div>
+                    <dt className="text-body-sm text-ink-muted">Due now</dt>
+                    <dd className="font-semibold">{formatVnd(balance.data.dueNowVnd)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-body-sm text-ink-muted">Due later</dt>
+                    <dd className="font-semibold">{formatVnd(balance.data.dueLaterVnd)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-body-sm text-ink-muted">Paid</dt>
+                    <dd className="font-semibold">{formatVnd(balance.data.paidVnd)}</dd>
+                  </div>
+                </dl>
+              )}
+              {contract.status === 'CLOSED' ? (
+                <Alert tone="success">This contract is closed.</Alert>
+              ) : closeCheck.isLoading ? (
+                <Skeleton className="h-16" />
+              ) : closeCheck.error ? (
+                <Alert
+                  tone="error"
+                  action={
+                    <Button size="sm" onClick={() => void closeCheck.refetch()}>
+                      Try again
+                    </Button>
                   }
-                />
-              )
-            )}
-          </Card>
-        </TabPanel>
-      )}
+                >
+                  {messageOf(closeCheck.error)}
+                </Alert>
+              ) : canClose ? (
+                <Alert tone="success">Nothing blocks the close. Close the contract below.</Alert>
+              ) : (
+                closeCheck.data && (
+                  <CloseBlockers
+                    check={closeCheck.data}
+                    onReportLost={(blocker) =>
+                      setReporting({ deviceId: blocker.deviceId, assetTag: blocker.assetTag })
+                    }
+                  />
+                )
+              )}
+            </Card>
+          </TabPanel>
+        )}
+      </PageScrollBody>
 
       {tab === 'checkin' && canCheckIn && (
         <PageActionBar

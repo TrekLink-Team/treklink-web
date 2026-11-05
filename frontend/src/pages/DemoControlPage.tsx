@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { PageScrollBody } from '../shared/ui/PageChrome';
 import {
   demoMessageOf,
   stageScenario,
@@ -95,7 +96,7 @@ export const DemoControlPage: React.FC = () => {
   const titleOf = (id: string) => scenarios.data?.find((s) => s.id === id)?.title ?? id;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-5">
       <PageHeader
         title="Demo control"
         description={
@@ -112,132 +113,134 @@ export const DemoControlPage: React.FC = () => {
         }
       />
 
-      {demoOn && (
-        <>
-          {!local && (
-            <Alert tone="error" title={NOT_LOCAL}>
-              Point DATABASE_URL at a local Postgres and restart the backend. Every action is
-              disabled.
-            </Alert>
-          )}
-          {error && (
-            <Alert tone="error" onDismiss={() => setError(null)}>
-              {error}
-            </Alert>
-          )}
+      <PageScrollBody label="Demo controls" className="flex flex-col gap-5">
+        {demoOn && (
+          <>
+            {!local && (
+              <Alert tone="error" title={NOT_LOCAL}>
+                Point DATABASE_URL at a local Postgres and restart the backend. Every action is
+                disabled.
+              </Alert>
+            )}
+            {error && (
+              <Alert tone="error" onDismiss={() => setError(null)}>
+                {error}
+              </Alert>
+            )}
 
-          {result && (
-            <Card aria-labelledby="demo-result">
-              <h2
-                id="demo-result"
-                ref={resultHeading}
-                tabIndex={-1}
-                className="text-title text-ink focus:outline-none"
-              >
-                Staged: {titleOf(result.scenarioId)}
-              </h2>
-              <p className="mt-1 text-body-sm text-ink-muted">
-                Every other window must sign in again.
-              </p>
-              {result.records.length > 0 && (
-                <ul className="mt-3 flex flex-col gap-1">
-                  {result.records.map((record) => (
-                    <li key={`${record.label}-${record.path}`} className="text-body">
-                      {record.label}:{' '}
-                      <Link to={record.path} className="font-semibold text-brand underline">
-                        {record.code}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {result.firstSteps.length > 0 && (
-                <>
-                  <h3 className="mt-4 text-body font-bold text-ink">First steps</h3>
-                  <ol className="mt-1 list-decimal pl-6 text-body text-ink">
-                    {result.firstSteps.map((step) => (
-                      <li key={step}>{step}</li>
+            {result && (
+              <Card aria-labelledby="demo-result">
+                <h2
+                  id="demo-result"
+                  ref={resultHeading}
+                  tabIndex={-1}
+                  className="text-title text-ink focus:outline-none"
+                >
+                  Staged: {titleOf(result.scenarioId)}
+                </h2>
+                <p className="mt-1 text-body-sm text-ink-muted">
+                  Every other window must sign in again.
+                </p>
+                {result.records.length > 0 && (
+                  <ul className="mt-3 flex flex-col gap-1">
+                    {result.records.map((record) => (
+                      <li key={`${record.label}-${record.path}`} className="text-body">
+                        {record.label}:{' '}
+                        <Link to={record.path} className="font-semibold text-brand underline">
+                          {record.code}
+                        </Link>
+                      </li>
                     ))}
-                  </ol>
-                </>
-              )}
+                  </ul>
+                )}
+                {result.firstSteps.length > 0 && (
+                  <>
+                    <h3 className="mt-4 text-body font-bold text-ink">First steps</h3>
+                    <ol className="mt-1 list-decimal pl-6 text-body text-ink">
+                      {result.firstSteps.map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ol>
+                  </>
+                )}
+              </Card>
+            )}
+
+            <Card aria-labelledby="demo-roles">
+              <CardHeader
+                title="Switch role"
+                id="demo-roles"
+                description="Signs this window in as the seeded account of the role."
+              />
+              <RoleSwitcher disabled={disabled} onError={setError} className="mt-3" />
             </Card>
-          )}
 
-          <Card aria-labelledby="demo-roles">
-            <CardHeader
-              title="Switch role"
-              id="demo-roles"
-              description="Signs this window in as the seeded account of the role."
-            />
-            <RoleSwitcher disabled={disabled} onError={setError} className="mt-3" />
-          </Card>
+            <section aria-labelledby="demo-scenarios" className="flex flex-col gap-3">
+              <h2 id="demo-scenarios" className="text-title text-ink">
+                Scenarios
+              </h2>
+              {scenarios.isPending && <Skeleton className="h-32 w-full" />}
+              {scenarios.error && <Alert tone="error">{messageOf(scenarios.error)}</Alert>}
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {scenarios.data?.map((scenario) => (
+                  <Card key={scenario.id} as="article" aria-labelledby={`scenario-${scenario.id}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 id={`scenario-${scenario.id}`} className="text-body font-bold text-ink">
+                        {scenario.title}
+                      </h3>
+                      <Badge>{scenario.flow}</Badge>
+                    </div>
+                    <p className="mt-2 text-body-sm text-ink-muted">{scenario.summary}</p>
+                    {!scenario.available && scenario.unavailableReason && (
+                      <p className="mt-2 text-body-sm text-status-attention-fg">
+                        {scenario.unavailableReason}
+                      </p>
+                    )}
+                    {staging === scenario.id && (
+                      <p role="status" className="mt-2 text-body-sm text-ink">
+                        Staging. This takes up to a minute.
+                      </p>
+                    )}
+                    <div className="mt-4 flex justify-end">
+                      <Button
+                        id={`stage-${scenario.id}`}
+                        variant="primary"
+                        size="sm"
+                        disabled={disabled || !scenario.available}
+                        loading={staging === scenario.id}
+                        onClick={() => setConfirming(scenario)}
+                      >
+                        Stage
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </section>
+          </>
+        )}
 
-          <section aria-labelledby="demo-scenarios" className="flex flex-col gap-3">
-            <h2 id="demo-scenarios" className="text-title text-ink">
-              Scenarios
-            </h2>
-            {scenarios.isPending && <Skeleton className="h-32 w-full" />}
-            {scenarios.error && <Alert tone="error">{messageOf(scenarios.error)}</Alert>}
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {scenarios.data?.map((scenario) => (
-                <Card key={scenario.id} as="article" aria-labelledby={`scenario-${scenario.id}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <h3 id={`scenario-${scenario.id}`} className="text-body font-bold text-ink">
-                      {scenario.title}
-                    </h3>
-                    <Badge>{scenario.flow}</Badge>
-                  </div>
-                  <p className="mt-2 text-body-sm text-ink-muted">{scenario.summary}</p>
-                  {!scenario.available && scenario.unavailableReason && (
-                    <p className="mt-2 text-body-sm text-status-attention-fg">
-                      {scenario.unavailableReason}
-                    </p>
-                  )}
-                  {staging === scenario.id && (
-                    <p role="status" className="mt-2 text-body-sm text-ink">
-                      Staging. This takes up to a minute.
-                    </p>
-                  )}
-                  <div className="mt-4 flex justify-end">
-                    <Button
-                      id={`stage-${scenario.id}`}
-                      variant="primary"
-                      size="sm"
-                      disabled={disabled || !scenario.available}
-                      loading={staging === scenario.id}
-                      onClick={() => setConfirming(scenario)}
-                    >
-                      Stage
-                    </Button>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </section>
-        </>
-      )}
+        {simulation.data && <FieldSimulationSection simulation={simulation.data} />}
 
-      {simulation.data && <FieldSimulationSection simulation={simulation.data} />}
-
-      {confirming && (
-        <Dialog
-          titleId="demo-stage-confirm"
-          title={`Stage ${confirming.title}?`}
-          description={`This deletes every row in the local database and stages ${confirming.title}. Every other window must sign in again. If the stage fails, the database is left empty: stage again.`}
-          onClose={() => setConfirming(null)}
-          footer={
-            <>
-              <Button onClick={() => setConfirming(null)}>Cancel</Button>
-              <Button variant="danger" onClick={() => void stage(confirming)}>
-                Stage
-              </Button>
-            </>
-          }
-        >
-          {null}
-        </Dialog>
-      )}
+        {confirming && (
+          <Dialog
+            titleId="demo-stage-confirm"
+            title={`Stage ${confirming.title}?`}
+            description={`This deletes every row in the local database and stages ${confirming.title}. Every other window must sign in again. If the stage fails, the database is left empty: stage again.`}
+            onClose={() => setConfirming(null)}
+            footer={
+              <>
+                <Button onClick={() => setConfirming(null)}>Cancel</Button>
+                <Button variant="danger" onClick={() => void stage(confirming)}>
+                  Stage
+                </Button>
+              </>
+            }
+          >
+            {null}
+          </Dialog>
+        )}
+      </PageScrollBody>
     </div>
   );
 };

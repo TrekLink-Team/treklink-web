@@ -15,7 +15,7 @@ import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime, formatDay, formatVnd, todayDay } from '../shared/lib/format';
 import { useDebounced } from '../shared/lib/useDebounced';
 import { Empty, ErrorState, Field, Loading, PageTitle } from '../shared/ui/bits';
-import { PageActionBar, StickyPageHeader } from '../shared/ui/PageChrome';
+import { PageActionBar, StickyPageHeader, PageScrollBody } from '../shared/ui/PageChrome';
 import { VariantPicker } from '../widgets/VariantPicker/VariantPicker';
 import { ConfirmDialog } from '../shared/ui/Dialog';
 import { invalid } from '../shared/ui/errors';
@@ -310,7 +310,7 @@ export const ContractRequestPage: React.FC = () => {
   );
 
   return (
-    <section aria-labelledby="request-title" className="flex flex-1 flex-col">
+    <section aria-labelledby="request-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col">
       <StickyPageHeader>
         <PageTitle
           title="Request a contract"
@@ -343,174 +343,177 @@ export const ContractRequestPage: React.FC = () => {
         </ol>
       </StickyPageHeader>
 
-      {notActive && (
-        <div role="alert" className={`${WARNING} mb-4`}>
-          This cannot be done while it is {organizationStatus}.
-        </div>
-      )}
+      {/* The form body is the one scroll region; the title, the stepper and the action bar stay (ui standard §7). */}
+      <PageScrollBody label="Request form" className="pb-3">
+        {notActive && (
+          <div role="alert" className={`${WARNING} mb-4`}>
+            This cannot be done while it is {organizationStatus}.
+          </div>
+        )}
 
-      <div className="grid gap-5 md:grid-cols-[1fr_320px]">
-        <div className={`${CARD} flex min-w-0 flex-col gap-4`}>
-          <h2 id="request-title" ref={heading} tabIndex={-1} className="text-lg font-bold text-ink">
-            {STEPS[step]}
-          </h2>
-          {errors.form && (
-            <div role="alert" className={ALERT}>
-              {errors.form}
-            </div>
-          )}
+        <div className="grid gap-5 md:grid-cols-[1fr_320px]">
+          <div className={`${CARD} flex min-w-0 flex-col gap-4`}>
+            <h2 id="request-title" ref={heading} tabIndex={-1} className="text-lg font-bold text-ink">
+              {STEPS[step]}
+            </h2>
+            {errors.form && (
+              <div role="alert" className={ALERT}>
+                {errors.form}
+              </div>
+            )}
 
-          {step === 0 && (
-            <>
-              <fieldset className="flex flex-col gap-1.5">
-                <legend className="text-sm font-semibold text-ink">Plan</legend>
-                <div className="flex gap-2">
-                  {(['MONTHLY', 'DAY'] as const).map((type) => (
-                    <label
-                      key={type}
-                      className={`flex h-11 cursor-pointer items-center rounded-lg border px-4 font-semibold transition focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-2 ${
-                        planType === type
-                          ? 'border-accent bg-chrome text-ink'
-                          : 'border-line-strong hover:bg-chrome/60'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="planType"
-                        value={type}
-                        checked={planType === type}
-                        onChange={() => setPlanType(type)}
-                        className="sr-only"
-                      />
-                      {type === 'MONTHLY' ? 'Monthly' : 'Day plan'}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-
-              {planType === 'DAY' && (
-                <Field id="day-plan-days" label="Day plan length" error={errors.dayPlanDays}>
-                  <select
-                    id="day-plan-days"
-                    className={INPUT}
-                    value={dayPlanDays}
-                    onChange={(event) => {
-                      setDayPlanDays(event.target.value ? Number(event.target.value) : '');
-                      clearError('dayPlanDays');
-                    }}
-                    {...invalid('day-plan-days', errors.dayPlanDays)}
-                  >
-                    <option value="">Choose a length</option>
-                    {catalogue.dayPlanLengths.map((length) => (
-                      <option key={length} value={length}>
-                        {length} days
-                      </option>
+            {step === 0 && (
+              <>
+                <fieldset className="flex flex-col gap-1.5">
+                  <legend className="text-sm font-semibold text-ink">Plan</legend>
+                  <div className="flex gap-2">
+                    {(['MONTHLY', 'DAY'] as const).map((type) => (
+                      <label
+                        key={type}
+                        className={`flex h-11 cursor-pointer items-center rounded-lg border px-4 font-semibold transition focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-2 ${
+                          planType === type
+                            ? 'border-accent bg-chrome text-ink'
+                            : 'border-line-strong hover:bg-chrome/60'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="planType"
+                          value={type}
+                          checked={planType === type}
+                          onChange={() => setPlanType(type)}
+                          className="sr-only"
+                        />
+                        {type === 'MONTHLY' ? 'Monthly' : 'Day plan'}
+                      </label>
                     ))}
-                  </select>
+                  </div>
+                </fieldset>
+
+                {planType === 'DAY' && (
+                  <Field id="day-plan-days" label="Day plan length" error={errors.dayPlanDays}>
+                    <select
+                      id="day-plan-days"
+                      className={INPUT}
+                      value={dayPlanDays}
+                      onChange={(event) => {
+                        setDayPlanDays(event.target.value ? Number(event.target.value) : '');
+                        clearError('dayPlanDays');
+                      }}
+                      {...invalid('day-plan-days', errors.dayPlanDays)}
+                    >
+                      <option value="">Choose a length</option>
+                      {catalogue.dayPlanLengths.map((length) => (
+                        <option key={length} value={length}>
+                          {length} days
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                )}
+
+                <VariantPicker
+                  variants={catalogue.variants}
+                  value={variantId}
+                  onChange={(id) => {
+                    setVariantId(id);
+                    clearError('hardwareVariantId');
+                  }}
+                  countOf={countOf}
+                  error={errors.hardwareVariantId}
+                />
+
+                <Field
+                  id="quantity"
+                  label="Quantity"
+                  error={errors.quantity}
+                  hint={`At least ${minOrder} devices.`}
+                >
+                  <input
+                    id="quantity"
+                    type="number"
+                    inputMode="numeric"
+                    min={minOrder}
+                    className={INPUT}
+                    value={quantity}
+                    onChange={(event) => {
+                      setQuantity(event.target.value);
+                      clearError('quantity');
+                    }}
+                    {...invalid('quantity', errors.quantity)}
+                  />
                 </Field>
-              )}
+                {variantId !== '' && (
+                  <div className="-mt-2 flex flex-wrap items-center gap-3 text-sm">
+                    <p aria-live="polite" className="text-ink-muted">
+                      {availability.isError
+                        ? 'Availability could not be read; the request will check it.'
+                        : availableNow === null
+                          ? 'Checking availability…'
+                          : `${availableNow} available now`}
+                    </p>
+                    <button
+                      type="button"
+                      className={LINK}
+                      disabled={availability.isFetching}
+                      onClick={() => void availability.refetch()}
+                    >
+                      {availability.isFetching ? 'Refreshing…' : 'Refresh'}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
 
-              <VariantPicker
-                variants={catalogue.variants}
-                value={variantId}
-                onChange={(id) => {
-                  setVariantId(id);
-                  clearError('hardwareVariantId');
-                }}
-                countOf={countOf}
-                error={errors.hardwareVariantId}
-              />
-
+            {step === 1 && (
               <Field
-                id="quantity"
-                label="Quantity"
-                error={errors.quantity}
-                hint={`At least ${minOrder} devices.`}
+                id="start-date"
+                label="Start date (handover day)"
+                error={errors.requestedStartDate}
               >
                 <input
-                  id="quantity"
-                  type="number"
-                  inputMode="numeric"
-                  min={minOrder}
+                  id="start-date"
+                  type="date"
+                  min={todayDay()}
                   className={INPUT}
-                  value={quantity}
+                  value={startDate}
                   onChange={(event) => {
-                    setQuantity(event.target.value);
-                    clearError('quantity');
+                    setStartDate(event.target.value);
+                    clearError('requestedStartDate');
                   }}
-                  {...invalid('quantity', errors.quantity)}
+                  {...invalid('start-date', errors.requestedStartDate)}
                 />
               </Field>
-              {variantId !== '' && (
-                <div className="-mt-2 flex flex-wrap items-center gap-3 text-sm">
-                  <p aria-live="polite" className="text-ink-muted">
-                    {availability.isError
-                      ? 'Availability could not be read; the request will check it.'
-                      : availableNow === null
-                        ? 'Checking availability…'
-                        : `${availableNow} available now`}
-                  </p>
-                  <button
-                    type="button"
-                    className={LINK}
-                    disabled={availability.isFetching}
-                    onClick={() => void availability.refetch()}
-                  >
-                    {availability.isFetching ? 'Refreshing…' : 'Refresh'}
-                  </button>
+            )}
+
+            {step === 2 && (
+              <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="font-semibold text-ink-muted">Plan</dt>
+                  <dd>{planType === 'DAY' ? `Day plan, ${dayPlanDays} days` : 'Monthly'}</dd>
                 </div>
-              )}
-            </>
-          )}
-
-          {step === 1 && (
-            <Field
-              id="start-date"
-              label="Start date (handover day)"
-              error={errors.requestedStartDate}
-            >
-              <input
-                id="start-date"
-                type="date"
-                min={todayDay()}
-                className={INPUT}
-                value={startDate}
-                onChange={(event) => {
-                  setStartDate(event.target.value);
-                  clearError('requestedStartDate');
-                }}
-                {...invalid('start-date', errors.requestedStartDate)}
-              />
-            </Field>
-          )}
-
-          {step === 2 && (
-            <dl className="grid gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="font-semibold text-ink-muted">Plan</dt>
-                <dd>{planType === 'DAY' ? `Day plan, ${dayPlanDays} days` : 'Monthly'}</dd>
-              </div>
-              <div>
-                <dt className="font-semibold text-ink-muted">Hardware variant</dt>
-                <dd>{variant?.name}</dd>
-              </div>
-              <div>
-                <dt className="font-semibold text-ink-muted">Quantity</dt>
-                <dd>{quantityNumber} devices</dd>
-              </div>
-              <div>
-                <dt className="font-semibold text-ink-muted">Start date</dt>
-                <dd>{startDate && formatDay(startDate)}</dd>
-              </div>
-              <p className="sm:col-span-2 text-ink-muted">
-                Plan, variant and quantity cannot change after the request. Need more devices? Send
-                another request.
-              </p>
-            </dl>
-          )}
+                <div>
+                  <dt className="font-semibold text-ink-muted">Hardware variant</dt>
+                  <dd>{variant?.name}</dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-ink-muted">Quantity</dt>
+                  <dd>{quantityNumber} devices</dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-ink-muted">Start date</dt>
+                  <dd>{startDate && formatDay(startDate)}</dd>
+                </div>
+                <p className="sm:col-span-2 text-ink-muted">
+                  Plan, variant and quantity cannot change after the request. Need more devices? Send
+                  another request.
+                </p>
+              </dl>
+            )}
+          </div>
+          {quotePanel}
         </div>
-        {quotePanel}
-      </div>
+      </PageScrollBody>
       <PageActionBar
         label="Request steps"
         start={
