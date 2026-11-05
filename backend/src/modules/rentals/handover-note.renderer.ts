@@ -556,6 +556,12 @@ const signatures = (doc: PDFKit.PDFDocument, layout: NoteLayout, input: Handover
   const top = doc.y + 4;
   const signed = input.signaturePng !== undefined;
   const manager = input.partyB.manager;
+  // Party A signs electronically: the Staff or Admin account that completes the handover is
+  // authenticated at the counter, so its block carries that account's name and the signing time
+  // where Party B's carries the drawn signature (design §4.1, section 6). The preview stays unsigned.
+  const lessorSignature = signed
+    ? ['Signed electronically by', orNot(input.partyA.name), stamp(input.at)]
+    : undefined;
   const blocks = [
     {
       x: layout.left,
@@ -564,6 +570,7 @@ const signatures = (doc: PDFKit.PDFDocument, layout: NoteLayout, input: Handover
       name: orNot(input.partyA.name),
       role: input.partyA.role,
       image: undefined as Buffer | undefined,
+      statement: lessorSignature,
     },
     {
       x: layout.left + boxWidth + gap,
@@ -572,6 +579,7 @@ const signatures = (doc: PDFKit.PDFDocument, layout: NoteLayout, input: Handover
       name: manager ? manager.fullName : signed ? NOT_RECORDED : 'Chosen at signing',
       role: 'Org Manager',
       image: input.signaturePng,
+      statement: undefined as string[] | undefined,
     },
   ];
   for (const block of blocks) {
@@ -587,6 +595,12 @@ const signatures = (doc: PDFKit.PDFDocument, layout: NoteLayout, input: Handover
         align: 'center',
         valign: 'center',
       });
+    }
+    if (block.statement) {
+      const [lead, signer, time] = block.statement;
+      doc.fontSize(8.5).text(lead, block.x + 8, top + 50, { width: inner, align: 'center' });
+      doc.fontSize(10.5).text(signer, { width: inner, align: 'center' });
+      doc.fontSize(8.5).text(time, { width: inner, align: 'center' });
     }
     doc
       .lineWidth(0.5)
