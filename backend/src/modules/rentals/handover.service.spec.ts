@@ -292,7 +292,7 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
     });
   });
 
-  describe('provision with a key flagged exposed (api-design 09, REQ-ERR-19)', () => {
+  describe('provision with a key flagged exposed (api-design 09, REQ-ERR-20)', () => {
     const exposed = () =>
       new DomainException(
         HttpStatus.CONFLICT,
@@ -405,7 +405,7 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
       expect(emitAfterCommit).not.toHaveBeenCalled();
     });
 
-    it('passes the refusal of an exposed key through, with no key and no audit row (REQ-ERR-19)', async () => {
+    it('passes the refusal of an exposed key through, with no key and no audit row (REQ-ERR-20)', async () => {
       channelKeys.deriveKey.mockRejectedValueOnce(
         new DomainException(
           HttpStatus.CONFLICT,

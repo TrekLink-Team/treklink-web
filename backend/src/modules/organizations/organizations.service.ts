@@ -164,7 +164,7 @@ export class OrganizationsService {
     return version;
   }
 
-  // REQ-ERR-19: the version of the key to write to a unit, from one read of the organization row;
+  // REQ-ERR-20: the version of the key to write to a unit, from one read of the organization row;
   // 409 CHANNEL_KEY_EXPOSED while the key is flagged exposed, 404 when the organization is unknown.
   // Provisioning a unit with the key (rentals api-design 09 and 15) asks this before comparing versions.
   async unexposedKeyVersion(

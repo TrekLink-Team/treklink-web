@@ -61,7 +61,7 @@ export class ChannelKeyService {
         'Organization not found.',
       );
     }
-    // REQ-ERR-19: a key flagged exposed is not issued again before the rotation.
+    // REQ-ERR-20: a key flagged exposed is not issued again before the rotation.
     if (state.channelKeyExposedAt !== null) throw channelKeyExposed();
     const version = state.channelKeyVersion;
     const master = this.config.get('CHANNEL_KEY_MASTER', { infer: true });

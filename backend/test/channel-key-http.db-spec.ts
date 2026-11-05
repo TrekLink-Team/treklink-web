@@ -174,7 +174,7 @@ describe('device docking over HTTP against Postgres (D-082)', () => {
     });
   });
 
-  it('21 and 09: 409 CHANNEL_KEY_EXPOSED while the key is flagged, then the rotated key is issued (REQ-ERR-19)', async () => {
+  it('21 and 09: 409 CHANNEL_KEY_EXPOSED while the key is flagged, then the rotated key is issued (REQ-ERR-20)', async () => {
     const { org, contract, deviceId, nodeNum } = await approved();
     const before = await flow.prisma.organization.findUniqueOrThrow({ where: { id: org.id } });
     await flow.prisma.organization.update({

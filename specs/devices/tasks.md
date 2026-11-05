@@ -167,7 +167,7 @@
 - [x] 7.5 Backend `nodeNum` check and channel-key endpoint (owner TanNB; the draft of 2026-10-30 on a local branch was not used)
   - **Files**: `backend/src/modules/rentals/handover.service.ts`, `handover.controller.ts`, the rentals 03 mapper, `backend/src/modules/organizations/channel-key.service.ts` (`deriveKey`), `backend/src/modules/platform/config/environment-variables.ts`, `backend/.env.example`, tests
   - **Do**: compare the docked `nodeNum` through `DevicesService` before `recordProvisioning` and before issuing the key; 409 `NODE_MISMATCH`; derive the key with `crypto.hkdfSync` from `CHANNEL_KEY_MASTER`; audit row without the key; `Cache-Control: no-store`
-  - _Requirements: REQ-EVT-26, REQ-ERR-12, REQ-ERR-19, REQ-UBI-03_
+  - _Requirements: REQ-EVT-26, REQ-ERR-12, REQ-ERR-20, REQ-UBI-03_
   - **Done 2026-11-04** (treklink-web#335): `HandoverService.provision` checks the docked `nodeNum` (409 `NODE_MISMATCH`, manual fallback audited), `issueChannelKey` and `POST /api/contracts/:id/devices/:deviceId/channel-key`, `ChannelKeyService.deriveKey`, `CHANNEL_KEY_MASTER` (required, at least 32 characters; set it in the deployment secret store before this release), `devices[].nodeNum` on rentals 03. The db-spec `channel-key-http.db-spec.ts` runs in CI only
 - [ ] 7.6 Stage A uplink configuration on `DeviceDetailPage` (owner KhoaDD)
   - **Files**: `frontend/src/features/dock-device/` (`configureUplink`), screen 4.2 action and form, tests beside them

@@ -153,7 +153,7 @@ export class HandoverService {
   // 09, D-021): only the key version is kept. A version other than the organization's current one
   // is 409 KEY_VERSION_MISMATCH; a unit not on the contract 409 DEVICE_NOT_ON_CONTRACT (MSG12). The
   // docked unit's `nodeNum` must equal the device record's (REQ-ERR-12, 409 NODE_MISMATCH, nothing
-  // recorded). A key flagged exposed is not written to a unit (REQ-ERR-19, 409 CHANNEL_KEY_EXPOSED). A
+  // recorded). A key flagged exposed is not written to a unit (REQ-ERR-20, 409 CHANNEL_KEY_EXPOSED). A
   // request without a nodeNum comes from the Enter manually fallback (devices design section 8.6
   // decision 3) and is audited as manual.
   async provision(

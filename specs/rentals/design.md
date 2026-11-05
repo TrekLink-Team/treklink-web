@@ -276,7 +276,7 @@ Events emitted: `contract.requested`, `contract.statusChanged`, `device.handedOv
 | `BALANCE_OUTSTANDING` | 409 |
 | `OPEN_INCIDENTS` | 409 |
 | `KEY_VERSION_MISMATCH` | 409 |
-| `CHANNEL_KEY_EXPOSED` (REQ-ERR-19) | 409 |
+| `CHANNEL_KEY_EXPOSED` (devices REQ-ERR-20) | 409 |
 | `NODE_MISMATCH` | 409 |
 | `RESET_REQUIRED` | 409 |
 | `GROUP_DEPTH_EXCEEDED` (§11) | 409 |

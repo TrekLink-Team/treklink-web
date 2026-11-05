@@ -28,7 +28,7 @@ NOT_ON = (409, "DEVICE_NOT_ON_CONTRACT", "The device is not committed to this co
 NODE_MISMATCH = (409, "NODE_MISMATCH", "The docked unit's nodeNum differs from the device record",
                  "The docked unit is !0004351c, not TL-0042. Nothing was written.")
 
-# REQ-ERR-19: a key flagged exposed is neither issued nor recorded on a unit before the rotation.
+# REQ-ERR-20: a key flagged exposed is neither issued nor recorded on a unit before the rotation.
 KEY_EXPOSED = (409, "CHANNEL_KEY_EXPOSED", "The organization's channel key is flagged exposed",
                "The organization's channel key is exposed. Rotate it before writing it to a unit.")
 
