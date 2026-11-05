@@ -7,6 +7,7 @@ import {
   FirmwareReleaseService,
   MANIFEST_ASSET,
   MAX_IMAGE_BYTES,
+  md5ForVerify,
   parseManifest,
 } from './firmware-release.service';
 
@@ -283,6 +284,14 @@ describe('FirmwareReleaseService (devices task 8.2)', () => {
       ).toBeNull();
       expect(parseManifest({ variants: [] })).toBeNull();
       expect(parseManifest('nope')).toBeNull();
+    });
+  });
+
+  describe('md5ForVerify', () => {
+    it('hashes the image padded to 4 bytes with 0xFF, as esptool-js does before its check', () => {
+      expect(md5ForVerify(APP)).toBe(md5(APP));
+      const odd = Uint8Array.from([1, 2, 3, 4, 5]);
+      expect(md5ForVerify(odd)).toBe(md5(Uint8Array.from([1, 2, 3, 4, 5, 0xff, 0xff, 0xff])));
     });
   });
 });
