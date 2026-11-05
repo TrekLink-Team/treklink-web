@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Printer } from 'lucide-react';
+import { Printer, Receipt } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ApiError } from '../../shared/api/apiClient';
 import {
@@ -250,6 +250,7 @@ export const InvoiceDetailView: React.FC<{
         <div className={CARD}>
           <h3 className="mb-3 font-bold text-ink">Lines</h3>
           <CollectionView<InvoiceLine>
+            icon={<Receipt />}
             label={`Lines of ${data.number}`}
             items={data.lines}
             itemId={(line) => String(line.seq)}

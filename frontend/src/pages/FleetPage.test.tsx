@@ -273,38 +273,38 @@ describe('FleetPage (/t/fleet, screen 4.2)', () => {
     expect(await screen.findByText('No devices registered yet.')).toBeTruthy();
   });
 
-  it('shows each device on one line in the List view, the phone default (chapter 06 §10.5)', async () => {
+  it('shows each device as a Large card: the variant render, the tag, the variant and its fields (W30)', async () => {
     // Three devices: one or two would hide the command bar and its view switch (§9.3).
     devices = [device(), device({ id: 'd-2', assetTag: 'TL-0043' }), device({ id: 'd-3', assetTag: 'TL-0044' })];
     renderPage();
-    fireEvent.click(await screen.findByRole('button', { name: 'View: Details list. Switch to List' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Choose view' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Large cards' }));
     const list = within(screen.getByRole('list', { name: 'Devices' }));
-    expect(list.getByText('TL-0042')).toBeTruthy();
-    const first = within(list.getByText('TL-0042').closest('li') as HTMLElement);
+    const first = within(list.getAllByRole('listitem')[0]);
+    expect(first.getByRole('heading', { level: 3 }).textContent).toBe('TL-0042');
+    expect((first.getByRole('img', { name: 'TrekLink v3 unit' }) as HTMLImageElement).getAttribute('src')).toBe(
+      '/variants/treklink-v3-icon.png',
+    );
+    expect(first.getByText('TrekLink v3')).toBeTruthy();
+    expect(first.getByText('GPS, MQTT')).toBeTruthy();
     expect(first.getByText('96%')).toBeTruthy();
     expect(first.getByText('Available')).toBeTruthy();
   });
 
-  it('labels battery and last seen in the List view, where no column header names them (W20B item 4)', async () => {
+  it('names battery and last seen in the label and value block of a card (W20B item 4, W30)', async () => {
     devices = [
       device({ batteryPct: null, lastSeenAt: null }),
       device({ id: 'd-2', assetTag: 'TL-0043' }),
       device({ id: 'd-3', assetTag: 'TL-0044' }),
     ];
     renderPage();
-    fireEvent.click(await screen.findByRole('button', { name: 'View: Details list. Switch to List' }));
-    const list = within(screen.getByRole('list', { name: 'Devices' }));
-    const first = list.getByText('TL-0042').closest('li') as HTMLElement;
-    expect(first.textContent).toContain('Battery Unknown');
-    expect(first.textContent).toContain('Last seen Never');
-  });
-
-  it('hides the inline labels in a table cell, which has its column header', async () => {
-    renderPage();
-    const table = within(await screen.findByRole('table'));
-    const row = table.getByText('TL-0042').closest('tr') as HTMLElement;
-    const label = within(row).getByText('Battery', { exact: false, selector: 'span' });
-    expect(label.className).toContain('[td_&]:hidden');
+    fireEvent.click(await screen.findByRole('button', { name: 'Choose view' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Large cards' }));
+    const first = within(within(screen.getByRole('list', { name: 'Devices' })).getAllByRole('listitem')[0]);
+    expect(first.getByText('Battery').tagName).toBe('DT');
+    expect(first.getByText('Unknown').tagName).toBe('DD');
+    expect(first.getByText('Last seen').tagName).toBe('DT');
+    expect(first.getByText('Never').tagName).toBe('DD');
   });
 });
 

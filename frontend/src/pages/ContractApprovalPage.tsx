@@ -24,7 +24,7 @@ import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime, formatDay, formatVnd } from '../shared/lib/format';
 import { Badge, ErrorState, Field, PageTitle } from '../shared/ui/bits';
 import { invalid } from '../shared/ui/errors';
-import { Store } from 'lucide-react';
+import { FileText, Store } from 'lucide-react';
 import {
   Alert,
   CollectionView,
@@ -515,6 +515,7 @@ export const ContractApprovalPage: React.FC = () => {
     <section aria-labelledby="queue-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4">
       <PageTitle id="queue-title" title="Contracts" />
       <CollectionView<Contract>
+        icon={<FileText />}
         label="Contracts"
         items={data?.items}
         loading={isLoading}

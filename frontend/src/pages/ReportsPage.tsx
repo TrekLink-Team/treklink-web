@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { BarChart3 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { PageScrollBody } from '../shared/ui/PageChrome';
 import {
@@ -424,6 +425,7 @@ function ReportTable<Row>({
   }));
   return (
     <CollectionView<Row>
+      icon={<BarChart3 />}
       label={caption}
       items={rows}
       itemId={rowId}

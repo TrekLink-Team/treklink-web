@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Activity } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { cn } from '../shared/ui/cn';
 import { fromLocalInput, toLocalInput } from '../entities/audit/model';
@@ -335,6 +336,7 @@ export const AuthEventsPage: React.FC = () => {
         {/* The filter form above queries the server; the events render on CollectionView (chapter 06
             §9, D-096), each titled by its time, with the UTC time on hover. */}
         <CollectionView<AuthEventItem>
+          icon={<Activity />}
           label="Sign-in events"
           items={data?.items}
           loading={events.isPending}
@@ -347,7 +349,6 @@ export const AuthEventsPage: React.FC = () => {
           )}
           fields={fields}
           noun={{ one: 'event', other: 'events' }}
-          views={['details', 'list']}
           pageInfo={pageInfoOf(data ? { ...data, pageSize: AUTH_EVENT_PAGE_SIZE } : undefined)}
           emptyState={{
             title: 'No results match your filters.',

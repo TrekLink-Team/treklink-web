@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Mail, UserCog, UserPlus, UserX } from 'lucide-react';
+import { Mail, UserCog, UserPlus, UserX, Users } from 'lucide-react';
 import { useAuth } from '../app/providers/useAuth';
 import type { Member } from '../entities/organization/api';
 import {
@@ -375,6 +375,7 @@ export const MembersPage: React.FC = () => {
       />
 
       <CollectionView<Member>
+        icon={<Users />}
         label="Members"
         items={members.data}
         loading={members.isLoading}

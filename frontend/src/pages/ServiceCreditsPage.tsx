@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { ReceiptText, Scale } from 'lucide-react';
+import { ReceiptText, Scale, Undo2 } from 'lucide-react';
 import { useAuth } from '../app/providers/useAuth';
 import {
   billingKeys,
@@ -315,6 +315,7 @@ export const ServiceCreditsPage: React.FC = () => {
         <Alert tone="info">Only a TrekLink Admin who did not request a credit decides it.</Alert>
       )}
       <CollectionView<ServiceCredit>
+        icon={<Undo2 />}
         label="Service credits"
         items={credits.data?.items}
         loading={credits.isLoading}

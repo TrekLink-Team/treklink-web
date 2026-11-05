@@ -30,7 +30,7 @@ import { Alert } from '../shared/ui/Alert';
 import { StatusBadge } from '../shared/ui/Badge';
 import { Button } from '../shared/ui/Button';
 import { Pagination } from '../shared/ui/DataTable';
-import { Calculator, CircleCheck, Scale } from 'lucide-react';
+import { Calculator, CircleCheck, Scale, Wrench } from 'lucide-react';
 import {
   CollectionView,
   pageInfoOf,
@@ -808,6 +808,7 @@ const RecordsTable: React.FC<{
   ];
   return (
     <CollectionView<MaintenanceRecord>
+      icon={<Wrench />}
       label={caption}
       items={page?.items}
       loading={loading}

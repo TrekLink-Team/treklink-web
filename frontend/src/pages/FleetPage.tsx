@@ -41,9 +41,10 @@ import type { BulkItem } from '../shared/ui/bulkSequence';
 import { StateChangeDialog, type StateTransition } from '../shared/ui/StateChange';
 import { DisposeDialog, IntakeDialog, ResetDialog } from '../widgets/DeviceActions/DeviceDialogs';
 import { VariantCard } from '../entities/variant/VariantCard';
+import { VariantSubtitle, VariantTile } from '../entities/variant/VariantTile';
 import { VariantImage } from '../entities/variant/VariantImage';
 import { ALERT } from '../shared/ui/styles';
-import { ClipboardCheck, RotateCcw } from 'lucide-react';
+import { ClipboardCheck, Cpu, RotateCcw } from 'lucide-react';
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -281,21 +282,8 @@ type BulkKind = 'reset' | 'retire';
 // The List view, which a phone opens on, shows these values after the title with no column header,
 // where "Unknown" or "Never" alone named nothing (W20B item 4). The label is drawn there only: a table
 // cell has its column header and a card its <dt>, so inside a td or dd it is hidden.
-const InlineLabel: React.FC<{ children: string }> = ({ children }) => (
-  <span className="text-ink-muted [dd_&]:hidden [td_&]:hidden">{children} </span>
-);
-const battery = (device: Device) => (
-  <>
-    <InlineLabel>Battery</InlineLabel>
-    {device.batteryPct !== null ? `${device.batteryPct}%` : 'Unknown'}
-  </>
-);
-const lastSeen = (device: Device) => (
-  <>
-    <InlineLabel>Last seen</InlineLabel>
-    {device.lastSeenAt ? formatDateTime(device.lastSeenAt) : 'Never'}
-  </>
-);
+const battery = (device: Device) => (device.batteryPct !== null ? `${device.batteryPct}%` : 'Unknown');
+const lastSeen = (device: Device) => (device.lastSeenAt ? formatDateTime(device.lastSeenAt) : 'Never');
 const batteryText = (device: Device) =>
   device.batteryPct !== null ? `${device.batteryPct}%` : 'Unknown';
 const lastSeenText = (device: Device) =>
@@ -492,7 +480,10 @@ export const FleetPage: React.FC = () => {
       </ScrollStrip>
 
       <CollectionView<Device>
+        icon={<Cpu />}
         label="Devices"
+        cardImage={(device) => <VariantTile variant={device.hardwareVariant} />}
+        cardSubtitle={(device) => <VariantSubtitle variant={device.hardwareVariant} />}
         items={data?.items}
         loading={isLoading}
         error={error ? <ErrorState error={error} onRetry={() => void refetch()} /> : undefined}

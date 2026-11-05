@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { ClipboardCheck, RotateCcw, SearchX } from 'lucide-react';
+import { ClipboardCheck, Cpu, RotateCcw, SearchX } from 'lucide-react';
 import { damageCodesFor, useBalance, useDamageRates } from '../../entities/billing/api';
 import {
   checkInDevices,
@@ -17,6 +17,7 @@ import {
   type InspectionResult,
 } from '../../entities/contract/api';
 import { NEXT_STEP_LABELS, nextStepPath } from '../../entities/device/api';
+import { VariantSubtitle, VariantTile } from '../../entities/variant/VariantTile';
 import { CloseBlockers } from '../../features/close-contract/CloseBlockers';
 import { CloseContractDialog } from '../../features/close-contract/CloseContractDialog';
 import { ReportLossDialog } from '../../features/report-loss/ReportLossDialog';
@@ -336,6 +337,14 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
     (device) => device.handedOverAt && !device.checkedInAt && !device.lostAt,
   );
   const back = contract.devices.filter((device) => device.checkedInAt);
+  // The Large card of a unit: the contract variant's render and its name and capabilities (W30).
+  const deviceCard = {
+    cardImage: (device: ContractDevice) =>
+      device.hardwareVariant ? <VariantTile variant={device.hardwareVariant} /> : null,
+    cardSubtitle: (device: ContractDevice) =>
+      device.hardwareVariant ? <VariantSubtitle variant={device.hardwareVariant} /> : null,
+    icon: <Cpu />,
+  };
   const isReset = (device: ContractDevice) =>
     Boolean(rows[device.deviceId]?.reset || device.resetAt);
   const isInspected = (device: ContractDevice) =>
@@ -530,6 +539,7 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
                   <CollectionView<ContractDevice>
                     label="Still out"
                     items={out}
+                    {...deviceCard}
                     itemId={(device) => device.deviceId}
                     itemName={tagOf}
                     itemTitle={(device) => <span className="font-mono font-semibold text-ink">{tagOf(device)}</span>}
@@ -564,7 +574,6 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
                         onSelect: (device) => setReporting({ deviceId: device.deviceId, assetTag: tagOf(device) }),
                       },
                     ]}
-                    views={['list']}
                     details={false}
                     hideCommandBar
                     emptyState={{ title: 'No device is out.' }}
@@ -592,6 +601,7 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
             <CollectionView<ContractDevice>
               label="Returned devices"
               items={back}
+              {...deviceCard}
               itemId={(device) => device.deviceId}
               itemName={tagOf}
               itemTitle={(device) => <span className="font-mono font-semibold text-ink">{tagOf(device)}</span>}

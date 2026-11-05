@@ -12,7 +12,7 @@ import {
   type PriceRow,
 } from '../entities/billing/api';
 import { ApiError } from '../shared/api/apiClient';
-import { Pencil } from 'lucide-react';
+import { Pencil, Tags } from 'lucide-react';
 import { formatDateTime, formatVnd } from '../shared/lib/format';
 import {
   Alert,
@@ -439,6 +439,7 @@ export const PricesPage: React.FC = () => {
             }
           />
           <CollectionView<PriceRow>
+            icon={<Tags />}
             label="Monthly price history"
             items={prices.data?.items}
             loading={prices.isLoading}
@@ -494,6 +495,7 @@ export const PricesPage: React.FC = () => {
             }
           />
           <CollectionView<DamageRate>
+            icon={<Tags />}
             label="Damage rates"
             items={rates.data}
             loading={rates.isLoading}

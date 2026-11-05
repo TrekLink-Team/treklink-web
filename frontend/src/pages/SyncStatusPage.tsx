@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Radio } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { PageScrollBody } from '../shared/ui/PageChrome';
 import {
@@ -120,6 +121,7 @@ const SyncAuditSection: React.FC = () => {
         Sync audit
       </h2>
       <CollectionView<SyncAuditRow>
+        icon={<Radio />}
         label="Sync audit records, newest first"
         items={page?.items}
         loading={audit.isLoading}
@@ -275,6 +277,7 @@ export const SyncStatusPage: React.FC = () => {
 
             <h2 className="mb-2 text-title-sm text-ink">Field Stations</h2>
             <CollectionView<SyncStation>
+              icon={<Radio />}
               className="mb-6"
               label="Field Stations"
               items={data.fieldStations}
@@ -289,6 +292,7 @@ export const SyncStatusPage: React.FC = () => {
 
         <h2 className="mb-2 text-title-sm text-ink">Recent field events</h2>
         <CollectionView<FieldEventRow>
+          icon={<Radio />}
           className="mb-6"
           label="Recent field events"
           items={events.data?.items}

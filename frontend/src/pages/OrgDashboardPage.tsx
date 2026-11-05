@@ -358,6 +358,7 @@ export const OrgDashboardPage: React.FC = () => {
               <SourceError error={dueError} onRetry={retryDue} />
             ) : (
               <CollectionView<Invoice>
+                icon={<Receipt />}
                 label="Invoices to pay"
                 items={dueLoading ? undefined : toPay}
                 loading={dueLoading}
@@ -383,6 +384,7 @@ export const OrgDashboardPage: React.FC = () => {
                 <p className="text-body text-ink-muted">No running contract.</p>
               ) : (
                 <CollectionView<NextDate>
+                  icon={<FileText />}
                   label="Next dates"
                   items={upcoming}
                   itemId={(row) => row.contract.id}
@@ -390,7 +392,6 @@ export const OrgDashboardPage: React.FC = () => {
                   itemHref={(row) => `/o/contracts/${row.contract.id}`}
                   fields={dateFields}
                   noun={{ one: 'contract', other: 'contracts' }}
-                  views={['list']}
                   details={false}
                   hideCommandBar
                   emptyState={{ title: 'No running contract.' }}

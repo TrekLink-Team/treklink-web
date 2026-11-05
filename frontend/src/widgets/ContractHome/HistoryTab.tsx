@@ -1,4 +1,5 @@
 import React from 'react';
+import { History } from 'lucide-react';
 import type { ContractTransition } from '../../entities/contract/api';
 import { STATUS_LABELS } from '../../entities/contract/api';
 import { REASON_LABELS, transitionLine } from '../../entities/contract/lifecycle';
@@ -76,6 +77,7 @@ export const HistoryTab: React.FC<{
 
   return (
     <CollectionView<Entry>
+      icon={<History />}
       label={`History of ${code}`}
       items={entries}
       loading={loading}
@@ -85,8 +87,6 @@ export const HistoryTab: React.FC<{
       itemTitle={(step) => <span className="font-semibold text-ink">{transitionLine(step)}</span>}
       fields={fields}
       noun={{ one: 'entry', other: 'entries' }}
-      views={['list', 'details']}
-      defaultView="list"
       search={{ label: 'Search the history' }}
       details={false}
       emptyState={{ title: 'No history yet.' }}

@@ -262,6 +262,7 @@ export const ApiKeysPage: React.FC = () => {
       )}
 
       <CollectionView<ApiKey>
+        icon={<KeyRound />}
         label="API keys"
         items={keys.data?.items}
         loading={keys.isLoading}
