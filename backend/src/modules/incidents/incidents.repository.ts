@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AlertStatus, Incident, IncidentState, Prisma } from '@prisma/client';
+import { ListSort, orderByOf, SortColumns } from '../../common/dto/sorting';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 export type NewIncident = Pick<
@@ -26,6 +27,18 @@ export interface IncidentInsertResult {
 export type DueTimer = 'tierDeadlineAt' | 'statusDueAt' | 'reopenWindowEndsAt';
 
 // Writes require the caller's transaction: routing, history and outbox must commit together.
+// The sortable columns of the incident lists (api-design 01, W26): the code, the state in lifecycle
+// order and the latest event. Device, holder and owner are names; the deadline column mixes two
+// deadlines and is already the default order.
+export const INCIDENT_SORT_FIELDS = ['code', 'state', 'lastEventAt'] as const;
+export type IncidentSortField = (typeof INCIDENT_SORT_FIELDS)[number];
+
+const INCIDENT_SORTS: SortColumns<IncidentSortField, Prisma.IncidentOrderByWithRelationInput> = {
+  code: (order) => ({ code: order }),
+  state: (order) => ({ state: order }),
+  lastEventAt: (order) => ({ lastEventAt: order }),
+};
+
 @Injectable()
 export class IncidentsRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -153,16 +166,23 @@ export class IncidentsRepository {
     });
   }
 
-  // api-design 01 order (D-059 rule 7): most urgent deadline first, nulls last, then newest episode.
+  // api-design 01 order (D-059 rule 7): most urgent deadline first, nulls last, then newest episode,
+  // unless `sort` names an allowed column (W26, leader ruling 2026-11-05).
   async page(
     where: Prisma.IncidentWhereInput,
     skip: number,
     take: number,
+    sort?: ListSort<IncidentSortField>,
   ): Promise<[Incident[], number]> {
     return this.prisma.$transaction([
       this.prisma.incident.findMany({
         where,
-        orderBy: [{ tierDeadlineAt: { sort: 'asc', nulls: 'last' } }, { firstEventAt: 'desc' }],
+        orderBy: orderByOf(
+          sort,
+          INCIDENT_SORTS,
+          [{ tierDeadlineAt: { sort: 'asc', nulls: 'last' } }, { firstEventAt: 'desc' }],
+          (order) => ({ id: order }),
+        ),
         skip,
         take,
       }),

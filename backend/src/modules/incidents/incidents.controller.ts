@@ -15,6 +15,7 @@ import {
   IsBoolean,
   IsDate,
   IsEnum,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -32,6 +33,7 @@ import {
 } from '../../common/decorators/access.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { PagedQueryDto, PagedResult } from '../../common/dto/paging';
+import { SORT_ORDERS, SortOrder } from '../../common/dto/sorting';
 import {
   AlertDeliveryView,
   IncidentDetailView,
@@ -40,6 +42,7 @@ import {
   TransitionView,
 } from './incidents-query.service';
 import { AuthorityReportsService } from './authority-reports.service';
+import { INCIDENT_SORT_FIELDS, IncidentSortField } from './incidents.repository';
 import { IncidentsService, StatusUpdateResult } from './incidents.service';
 import { EpisodeEvent } from './ports/incident-events.port';
 
@@ -69,6 +72,15 @@ export class IncidentListQueryDto extends PagedQueryDto {
   @Type(() => Date)
   @IsDate()
   from?: Date;
+
+  // W26: one column of the allowlist; an unknown field answers 400 VALIDATION_FAILED.
+  @IsOptional()
+  @IsIn(INCIDENT_SORT_FIELDS)
+  sort?: IncidentSortField;
+
+  @IsOptional()
+  @IsIn(SORT_ORDERS)
+  order?: SortOrder;
 }
 
 class VersionDto {
