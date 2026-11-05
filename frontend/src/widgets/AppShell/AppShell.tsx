@@ -95,7 +95,14 @@ export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children
   }, [desktop, setDrawer]);
 
   return (
-    <div className="tl-backdrop relative flex h-dvh flex-col overflow-hidden text-ink">
+    <div
+      className={cn(
+        'tl-backdrop relative flex h-dvh flex-col overflow-hidden text-ink',
+        // 400 % zoom (about 318 by 236 CSS px): the fixed bars release and the document scrolls, as
+        // WCAG 1.4.10 allows; pinned bars would leave the content no room (ui standard §7).
+        '[@media(max-height:479.98px)]:h-auto [@media(max-height:479.98px)]:min-h-dvh [@media(max-height:479.98px)]:overflow-visible',
+      )}
+    >
       <a
         href="#main"
         className="sr-only z-banner rounded-control bg-surface px-4 py-2 font-semibold text-ink focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:inline-flex focus:min-h-11 focus:items-center"
@@ -108,7 +115,12 @@ export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children
       <AppHeader user={user} home={home} />
       <QuickNav groups={groups} />
 
-      <div className="flex min-h-0 flex-1 gap-2.5 p-2.5 pb-[calc(theme(spacing.tabbar)+0.625rem)] md:pb-2.5">
+      <div
+        className={cn(
+          'flex min-h-0 flex-1 gap-2.5 p-2.5 pb-[calc(theme(spacing.tabbar)+0.625rem)] md:pb-2.5',
+          '[@media(max-height:479.98px)]:pb-2.5',
+        )}
+      >
         <div
           className={cn(
             'tl-glass hidden shrink-0 flex-col rounded-panel p-2 md:flex',
@@ -134,7 +146,9 @@ export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children
             // The action bar stays in the flow at the end of its page, so its height is already part
             // of the scroll height and needs no padding-bottom (treklink-web#348).
             'scroll-pb-[calc(var(--tl-page-actions-h,0px)+0.5rem)] scroll-pt-[calc(var(--tl-page-header-h,0px)+var(--tl-collection-bar-h,0px)+0.5rem)]',
+            // The one vertical scroll region of a page: the document never scrolls (ui standard §7).
             fullBleed ? 'overflow-y-auto' : 'overflow-y-auto px-1 md:px-2',
+            '[@media(max-height:479.98px)]:overflow-visible',
           )}
         >
           <div

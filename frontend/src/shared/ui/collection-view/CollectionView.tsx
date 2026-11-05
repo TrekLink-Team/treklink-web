@@ -1276,7 +1276,7 @@ export function CollectionView<T>({
         <div
           ref={setBarNode}
           style={{ top: stickyTop ?? 'var(--tl-page-header-h, 0px)' }}
-          className="sticky z-raised rounded-panel border border-line bg-surface shadow-raise"
+          className="sticky z-raised rounded-panel border border-line bg-surface shadow-raise [@media(max-height:479.98px)]:static"
         >
           <div
             role="group"

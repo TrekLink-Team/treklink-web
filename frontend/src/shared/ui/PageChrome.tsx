@@ -37,6 +37,22 @@ const PageChromeContext = createContext<PageChromeSlot | null>(null);
 
 export const PageChromeProvider = PageChromeContext.Provider;
 
+/** True inside a StickyPageHeader, so a PageHeader there does not wrap itself in a second one. */
+const InStickyHeaderContext = createContext(false);
+
+/**
+ * Pins a page title that its page did not place in a StickyPageHeader (viewport rule, leader
+ * 2026-11-05, ui standard §7): inside the app shell the title wraps itself in one, so no page
+ * title scrolls away. Outside the shell (tests, the auth layout) and inside a StickyPageHeader it
+ * renders the title as it is.
+ */
+export const PinnedTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const slot = useContext(PageChromeContext);
+  const inSticky = useContext(InStickyHeaderContext);
+  if (!slot || inSticky) return <>{children}</>;
+  return <StickyPageHeader>{children}</StickyPageHeader>;
+};
+
 /**
  * The page header region: pass the PageHeader or PageTitle, a back link and the stepper or view tabs
  * as children. It sticks to the top of the content area. A one-pixel sentinel at the top of the
@@ -130,6 +146,8 @@ export const StickyPageHeader: React.FC<{ children: React.ReactNode; className?:
         data-compact={compact ? 'true' : 'false'}
         className={cn(
           'group/chrome sticky top-0 z-raised -mx-1 flex flex-col rounded-panel border px-1 md:-mx-2 md:px-2',
+          // Released at 400 % zoom with the shell's fixed bars (ui standard §7).
+          '[@media(max-height:479.98px)]:static',
           compact
             ? 'tl-glass-strong py-2 shadow-glass [&>*:last-child]:mb-0'
             : 'border-transparent',
@@ -137,7 +155,7 @@ export const StickyPageHeader: React.FC<{ children: React.ReactNode; className?:
         )}
       >
         {slot?.breadcrumb}
-        {children}
+        <InStickyHeaderContext.Provider value>{children}</InStickyHeaderContext.Provider>
       </div>
     </>
   );
@@ -172,6 +190,7 @@ export const PageActionBar: React.FC<{
       data-page-actions=""
       className={cn(
         'tl-glass-strong sticky bottom-0 z-raised -mx-1 flex flex-wrap items-center justify-between gap-3 rounded-panel px-2 pt-2 shadow-glass md:-mx-2 md:px-3',
+        '[@media(max-height:479.98px)]:static',
         'pb-[calc(0.5rem+env(safe-area-inset-bottom))]',
         className,
         // Last, so a caller's margin never removes it: the bar sits at the bottom of short content.
@@ -179,7 +198,9 @@ export const PageActionBar: React.FC<{
       )}
     >
       <div className="flex flex-wrap items-center gap-2">{start}</div>
-      <div className={cn('ml-auto flex flex-wrap items-center justify-end gap-2', stretch && 'flex-1')}>
+      <div
+        className={cn('ml-auto flex flex-wrap items-center justify-end gap-2', stretch && 'flex-1')}
+      >
         {children}
       </div>
     </div>

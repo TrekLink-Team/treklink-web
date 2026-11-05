@@ -17,7 +17,7 @@ export const MobileTabBar: React.FC<{ groups: NavGroup[]; onMore: () => void }> 
   return (
     <nav
       aria-label="Main"
-      className="tl-glass-strong fixed inset-x-0 bottom-0 z-sidebar grid border-x-0 border-b-0 pb-[env(safe-area-inset-bottom)] md:hidden"
+      className="tl-glass-strong fixed inset-x-0 bottom-0 z-sidebar grid [@media(max-height:479.98px)]:static border-x-0 border-b-0 pb-[env(safe-area-inset-bottom)] md:hidden"
       style={{ gridTemplateColumns: `repeat(${entries.length + 1}, minmax(0, 1fr))` }}
     >
       {entries.map((entry) => {

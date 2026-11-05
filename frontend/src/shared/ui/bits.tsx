@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pagination } from './DataTable';
+import { PinnedTitle } from './PageChrome';
 import { messageOf } from './errors';
 import { Skeleton } from './Skeleton';
 import { ALERT, FOCUS } from './styles';
@@ -19,12 +20,19 @@ export const PageTitle: React.FC<{ title: string; action?: React.ReactNode; id?:
   action,
   id,
 }) => (
-  <div className="mb-5 flex flex-wrap items-center justify-between gap-3 group-data-[compact=true]/chrome:mb-2">
-    <h1 id={id} tabIndex={-1} className="text-title-lg text-ink outline-none group-data-[compact=true]/chrome:text-title-sm">
-      {title}
-    </h1>
-    {action}
-  </div>
+  // Pins itself in the app shell like PageHeader (ui standard §7).
+  <PinnedTitle>
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 group-data-[compact=true]/chrome:mb-2">
+      <h1
+        id={id}
+        tabIndex={-1}
+        className="text-title-lg text-ink outline-none group-data-[compact=true]/chrome:text-title-sm"
+      >
+        {title}
+      </h1>
+      {action}
+    </div>
+  </PinnedTitle>
 );
 
 export const Loading: React.FC<{ label?: string }> = ({ label = 'Loading…' }) => (

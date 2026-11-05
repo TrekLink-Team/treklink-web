@@ -44,7 +44,8 @@ export const usePublishedHeight = (
       host.style.setProperty(name, `${node.offsetHeight}px`);
       resized.current?.(node.offsetHeight);
     });
-    observer.observe(node);
+    // The border box: a compact header gains padding and a border without its content box changing.
+    observer.observe(node, { box: 'border-box' });
     return () => {
       observer.disconnect();
       host.style.removeProperty(name);
