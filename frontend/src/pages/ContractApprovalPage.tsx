@@ -527,7 +527,10 @@ export const ContractApprovalPage: React.FC = () => {
         ]}
         transitions={transitions}
         freshItem={freshItem}
-        statusOf={(contract) => STATUS_LABELS[contract.status]}
+        status={{
+          field: 'status',
+          value: (contract) => ({ label: STATUS_LABELS[contract.status], tone: STATUS_TONES[contract.status] }),
+        }}
         search={{
           label: 'Search by contract or organization',
           placeholder: 'Contract code, organization name or code',

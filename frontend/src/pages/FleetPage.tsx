@@ -496,7 +496,7 @@ export const FleetPage: React.FC = () => {
           },
         ]}
         transitions={transitions}
-        statusOf={(device) => DEVICE_STATUS[device.status].label}
+        status={{ field: 'status', value: (device) => DEVICE_STATUS[device.status] }}
         bulkActions={bulkActions}
         search={{ label: 'Search by asset tag or node id', placeholder: 'TL-00 or !a4b1c2d3' }}
         filters={[

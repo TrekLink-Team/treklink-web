@@ -60,7 +60,7 @@ const renderView = (props: Partial<CollectionViewProps<Unit>> = {}) =>
               ]
             : [{ key: 'active', label: 'Mark active', onSelect: vi.fn() }]
         }
-        statusOf={(unit) => unit.status}
+        status={{ field: 'status', value: (unit) => ({ label: unit.status, tone: unit.status === 'Active' ? 'active' : 'ended' }) }}
         bulkActions={[{ key: 'checkin', label: (count) => `Check in ${count} units`, onSelect: checkIn }]}
         search={{ label: 'Search units' }}
         filters={[
@@ -125,7 +125,6 @@ describe('CollectionView', () => {
       'Unit',
       'Status',
       'Battery',
-      'Status change',
       'Actions',
     ]);
     expect(screen.getByRole('group', { name: 'Units of CT-0042: commands' })).toBeTruthy();
@@ -354,7 +353,7 @@ describe('CollectionView', () => {
   it('closes an open menu on Escape before the selection', () => {
     renderView();
     fireEvent.click(box('TL-0001'));
-    fireEvent.click(screen.getByRole('button', { name: 'Status: Active. Change status of TL-0001' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Sort: Default/ }));
     const first = screen.getAllByRole('menuitem')[0];
     fireEvent.keyDown(first, { key: 'Escape' });
     expect(screen.queryByRole('menu')).toBeNull();
@@ -392,7 +391,7 @@ describe('CollectionView', () => {
 
   it('lists only allowed transitions, destructive last after a separator, behind a chevron button', () => {
     renderView();
-    const button = screen.getByRole('button', { name: 'Status: Active. Change status of TL-0001' });
+    const button = screen.getByRole('button', { name: 'Active, change status of TL-0001' });
     expect(button.getAttribute('aria-haspopup')).toBe('menu');
     expect(button.querySelector('[data-menu-chevron]')).toBeTruthy();
     fireEvent.click(button);
@@ -425,7 +424,46 @@ describe('CollectionView', () => {
     fireEvent.click(box('TL-0001'));
     fireEvent.click(box('TL-0003'));
     expect(screen.queryByRole('button', { name: /Change status of 2 units/ })).toBeNull();
-    expect(screen.getByRole('button', { name: /Change status of TL-0001$/ })).toBeTruthy();
+    // The row's badge menu is disabled while a selection exists (§11.3).
+    expect((screen.getByRole('button', { name: /change status of TL-0001$/ }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('makes the status badge the menu button, with no Status change column (§11.3)', () => {
+    renderView({
+      transitions: (unit) =>
+        unit.id === 'a' ? [{ key: 'inactive', label: 'Mark inactive', onSelect: vi.fn() }] : [],
+    });
+    expect(screen.queryByRole('columnheader', { name: 'Status change' })).toBeNull();
+    const badge = screen.getByRole('button', { name: 'Active, change status of TL-0001' });
+    // The visible text is the status; the name starts with it (2.5.3).
+    expect(badge.textContent?.replace('●', '')).toBe('Active');
+    expect(badge.getAttribute('aria-expanded')).toBe('false');
+    expect(badge.querySelector('[data-status-badge="interactive"]')).not.toBeNull();
+    expect(badge.querySelector('[data-menu-chevron]')).not.toBeNull();
+    expect(badge.closest('td')).not.toBeNull();
+    // No allowed transition: a plain badge, no chevron, not a button.
+    expect(screen.queryByRole('button', { name: /change status of TL-0003/ })).toBeNull();
+    const row = screen.getByRole('rowheader', { name: 'TL-0003' }).closest('tr')!;
+    expect(within(row).getByText('Active').closest('button')).toBeNull();
+    expect(row.querySelector('[data-menu-chevron]')).toBeNull();
+  });
+
+  it('opens the badge menu from the keyboard and returns focus to the badge on Escape', () => {
+    renderView();
+    const badge = screen.getByRole('button', { name: 'Active, change status of TL-0001' });
+    badge.focus();
+    fireEvent.keyDown(badge, { key: 'ArrowDown' });
+    expect(badge.getAttribute('aria-expanded')).toBe('true');
+    const items = screen.getAllByRole('menuitem');
+    expect(items.map((item) => item.textContent)).toEqual(['Mark inactive', 'Retire device']);
+    expect(document.activeElement).toBe(items[0]);
+    fireEvent.keyDown(items[0], { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(document.activeElement).toBe(badge);
+    fireEvent.keyDown(badge, { key: 'ArrowUp' });
+    expect(document.activeElement).toBe(screen.getAllByRole('menuitem')[1]);
+    fireEvent.keyDown(document.activeElement!, { key: 'Enter' });
+    expect(retire).toHaveBeenCalledWith([UNITS[0]]);
   });
 
   it('keeps one polite live region from the first render and announces the result count', () => {
@@ -533,6 +571,9 @@ describe('details pane placement (chapter 06 §9.8, §10.8)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Actions for TL-0001' }));
     const items = screen.getAllByRole('menuitem');
     expect(items[0].textContent).toBe('Show details');
+    // The badge menu stays on the row, so the Actions dropdown holds no status items (§11.3).
+    expect(items.map((item) => item.textContent).some((text) => text?.startsWith('Change status'))).toBe(false);
+    expect(screen.getByRole('button', { name: 'Active, change status of TL-0001' })).toBeTruthy();
     fireEvent.click(items[0]);
     const sheet = screen.getByRole('dialog', { name: 'TL-0001' });
     expect(sheet.className).toContain('bottom-0');
