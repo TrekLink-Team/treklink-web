@@ -121,6 +121,29 @@ describe('DemoSimulationController (specs/demo api-design 06 to 10)', () => {
     expect(await errorsOf(UpdateSimulatedNodeDto, { pattern: 'STRAY' })).toEqual([
       'expectedVersion',
     ]);
+    // Design §9.1: a style is optional and one of the eight.
+    expect(
+      await errorsOf(StartSimulatedNodeDto, {
+        deviceId: NODE_ID,
+        trailId: 'ta-nang-phan-dung',
+        pattern: 'WALK',
+        style: 'HIKER',
+      }),
+    ).toEqual([]);
+    expect(
+      await errorsOf(StartSimulatedNodeDto, {
+        deviceId: NODE_ID,
+        trailId: 'ta-nang-phan-dung',
+        pattern: 'WALK',
+        style: 'SPRINTER',
+      }),
+    ).toEqual(['style']);
+    expect(await errorsOf(UpdateSimulatedNodeDto, { expectedVersion: 0, style: 'CAMPER' })).toEqual(
+      [],
+    );
+    expect(await errorsOf(UpdateSimulatedNodeDto, { expectedVersion: 0, style: 'x' })).toEqual([
+      'style',
+    ]);
     expect(await errorsOf(SimulationEventDto, { kind: 'SOS_CANCEL' })).toEqual([]);
     expect(await errorsOf(SimulationEventDto, { kind: 'PANIC' })).toEqual(['kind']);
   });

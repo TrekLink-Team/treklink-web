@@ -105,7 +105,14 @@ describe('DemoControlPage (screen 7.5, D-088)', () => {
   it('shows the field simulation alone while only the simulation answers (the Vercel staging)', () => {
     status = { data: null, isPending: false, error: null };
     simulation = {
-      data: { databaseAllowed: true, trails: [], patterns: ['WALK'], devices: [], nodes: [] },
+      data: {
+        databaseAllowed: true,
+        trails: [],
+        patterns: ['WALK'],
+        styles: ['HIKER'],
+        devices: [],
+        nodes: [],
+      },
       isPending: false,
       error: null,
     };

@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Starts a simulated node for a device on a trail with a pattern. From the next run of the field data simulator (gateway-sync design §2) the node sends one position and one telemetry packet per `gatewaySync.simulatorIntervalSeconds` through the node uplink path, so positions, staleness, incidents and alerts behave as for a real node; every field event it causes is stored with `simulated = true`. A device runs as at most one node at a time.
+Starts a simulated node for a device on a trail with a pattern. From the next run of the field data simulator (gateway-sync design §2) the node sends one position and one telemetry packet per `gatewaySync.simulatorIntervalSeconds` through the node uplink path, so positions, staleness, incidents and alerts behave as for a real node; every field event it causes is stored with `simulated = true`. A device runs as at most one node at a time. The node's style seed is FNV-1a of its asset tag (shifted to fit 31 bits), so a run repeats; without a `style` the seed also picks the style.
 
 ## API Specification
 
@@ -15,7 +15,7 @@ Starts a simulated node for a device on a trail with a pattern. From the next ru
 | --- | --- |
 | POST | /api/demo/simulation/nodes |
 | Permission | TrekLink Admin (`demo.simulate`) |
-| Traces | D-093 amendment, REQ-SIM-02, REQ-SIM-03, REQ-SIM-04, REQ-SIM-07 |
+| Traces | D-093 amendment, REQ-SIM-02, REQ-SIM-03, REQ-SIM-04, REQ-SIM-07, REQ-SIM-09 |
 
 ## Request sample
 
@@ -32,7 +32,8 @@ Starts a simulated node for a device on a trail with a pattern. From the next ru
 | deviceId | Device to simulate | uuid | yes | `0d3f6a2b-...` |
 | trailId | Id of a trail of 06 | string | yes | `ta-nang-phan-dung` |
 | pattern | `WALK`, `STOP`, `STRAY`, `SILENT` or `LOW_BATTERY` | string | yes | `WALK` |
-| speedMetresPerMinute | Walking speed, 10 to 300; default 60 | int | no | `60` |
+| style | A movement style of 06; default the style of the device's asset tag (design §9.1) | string | no | `HIKER` |
+| speedMetresPerMinute | Walking speed of a node with no style, 10 to 300; default 60 | int | no | `60` |
 | startMetres | Distance along the trail to start from, 0 to its length; default 0 | int | no | `0` |
 
 ## Response sample
@@ -51,6 +52,7 @@ Starts a simulated node for a device on a trail with a pattern. From the next ru
     },
     "trailId": "ta-nang-phan-dung",
     "pattern": "WALK",
+    "style": "HIKER",
     "speedMetresPerMinute": 60,
     "status": "RUNNING",
     "sosKind": null,
@@ -79,6 +81,7 @@ Starts a simulated node for a device on a trail with a pattern. From the next ru
 | position | Position the pattern gives at the time of the read (the stop time for a `STOPPED` node) | object | see sample |
 | batteryPct | Battery the pattern gives at the same time, 5 to 100 | int | `99` |
 | lastPacketAt | Last time the device was heard (device projection `lastSeenAt`), or null | datetime | `2026-10-20T03:15:00.000Z` |
+| style | Movement style while the pattern walks (design §9.1), or null for a node started before the styles, which keeps the steady walk at `speedMetresPerMinute` | string | `HIKER` |
 | sosKind | `SOS` or `FALL` while an SOS is active, otherwise null | string | `null` |
 | version | Compare-and-set version for 08 and 09 | int | `0` |
 

@@ -97,8 +97,8 @@ role switcher, and the nav entry "Demo control" shows while either the status (d
 | Shown | Source (api-design file, property) |
 |---|---|
 | Notice "The field simulation runs only on a local database or the Vercel staging." (warning tone), every write disabled | demo 06 `databaseAllowed` false |
-| Nodes table: asset tag with a "Simulated" badge, organization code, trail name, pattern, position (six decimals), battery %, last packet (relative time with the absolute time as its title), SOS state ("SOS since 10:42", "Fall since 10:42" or "None"), status | demo 06 `nodes[]`: `assetTag`, `organization.code`, `trailId` resolved through `trails[]`, `pattern`, `position`, `batteryPct`, `lastPacketAt`, `sosKind`, `sosSince`, `status` |
-| Add node form: device select (asset tag, status, organization; a device with a running node is disabled), trail select (name, region, length in km), pattern select, speed (m/min, default 60) | demo 06 `devices[]`, `trails[]`, `patterns` |
+| Nodes table: asset tag with a "Simulated" badge, organization code, trail name, pattern and movement style stacked in one cell so the row actions stay in view ("Steady pace" for a node started before the styles), position (six decimals), battery %, last packet (relative time with the absolute time as its title), SOS state ("SOS since 10:42", "Fall since 10:42" or "None"), status | demo 06 `nodes[]`: `assetTag`, `organization.code`, `trailId` resolved through `trails[]`, `pattern`, `style`, `position`, `batteryPct`, `lastPacketAt`, `sosKind`, `sosSince`, `status` |
+| Add node form: device select (asset tag, status, organization; a device with a running node is disabled), trail select (name, region, length in km), pattern select, movement style select (first option "From the asset tag", the default, then the eight styles of demo design §9.1; leader ruling 2026-11-06, which replaces the speed input: a style sets its own pace) | demo 06 `devices[]`, `trails[]`, `patterns`, `styles` |
 | Attribution under the table: "Trails © OpenStreetMap contributors, ODbL." with each trail's way ids and read date in a disclosure | demo 06 `trails[].source` |
 
 ### Actions
@@ -107,6 +107,7 @@ role switcher, and the nav entry "Demo control" shows while either the status (d
 |---|---|---|---|
 | **Add node** (form) | demo 07 `POST /api/demo/simulation/nodes` | none | Toast "{assetTag} runs on {trail}." |
 | Row **Pattern** select, then **Apply** | demo 08 `PATCH /api/demo/simulation/nodes/:id` with `expectedVersion` | none | Toast "{assetTag} now {pattern}." |
+| Row **Style** select, then **Apply** (leader ruling 2026-11-06) | demo 08 `PATCH /api/demo/simulation/nodes/:id` with `expectedVersion` and `style` | none | Toast "{assetTag} now moves as {style}." |
 | Row **SOS** | demo 10 `POST .../events` `{ kind: SOS }` | `Dialog` "Send an SOS from {assetTag}? It opens a real incident, marked Simulated, and alerts the on-duty operator." **Send SOS**, **Cancel** | Toast "SOS sent from {assetTag}." |
 | Row **Fall** | demo 10 `{ kind: FALL }` | The same `Dialog` with "a fall SOS" | Toast "Fall SOS sent from {assetTag}." |
 | Row **Cancel SOS** (shown while `sosKind` is set) | demo 10 `{ kind: SOS_CANCEL }` | none | Toast "Beacons stopped. Resolve the incident as for a real device." |

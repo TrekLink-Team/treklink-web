@@ -52,6 +52,7 @@
       },
       "trailId": "ta-nang-phan-dung",
       "pattern": "WALK",
+      "style": "HIKER",
       "speedMetresPerMinute": 60,
       "status": "RUNNING",
       "sosKind": "SOS",

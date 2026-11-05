@@ -29,6 +29,7 @@ const NODE: SimulatedNode = {
   organization: ORG,
   trailId: 'ta-nang-phan-dung',
   pattern: 'WALK',
+  style: 'HIKER',
   speedMetresPerMinute: 60,
   status: 'RUNNING',
   sosKind: null,
@@ -59,6 +60,16 @@ const overview = (patch: Partial<SimulationOverview> = {}): SimulationOverview =
     },
   ],
   patterns: ['WALK', 'STOP', 'STRAY', 'SILENT', 'LOW_BATTERY'],
+  styles: [
+    'JOGGER',
+    'HIKER',
+    'CAMPER',
+    'EXPLORER',
+    'TRAIL_WALKER',
+    'WANDERER',
+    'GROUP_FOLLOWER',
+    'STRAGGLER',
+  ],
   devices: [
     {
       id: 'dev-09',
@@ -137,29 +148,69 @@ describe('FieldSimulationSection (screen 7.5, "Field simulation")', () => {
     expect(screen.getByText('No simulated nodes. Add one below.')).toBeTruthy();
   });
 
-  it('adds a node from the form with the chosen device, trail, pattern and speed', async () => {
+  it('adds a node from the form with the chosen device, trail, pattern and style', async () => {
     startSimulatedNode.mockResolvedValue({ ...NODE, id: 'node-2', assetTag: 'TL-0009' });
     show(overview());
     fireEvent.change(screen.getByLabelText('Pattern'), { target: { value: 'LOW_BATTERY' } });
-    fireEvent.change(screen.getByLabelText('Speed (m/min)'), { target: { value: '80' } });
+    // A style sets its own pace, so the form has no speed (leader ruling 2026-11-06).
+    expect(screen.queryByLabelText('Speed (m/min)')).toBeNull();
+    fireEvent.change(screen.getByLabelText(/^Movement style/), { target: { value: 'CAMPER' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add node' }));
     await waitFor(() =>
       expect(startSimulatedNode).toHaveBeenCalledWith({
         deviceId: 'dev-09',
         trailId: 'ta-nang-phan-dung',
         pattern: 'LOW_BATTERY',
-        speedMetresPerMinute: 80,
+        style: 'CAMPER',
       }),
     );
     const running = screen.getByRole('option', { name: /TL-0010, RENTED, ORG-0001 \(running\)/ });
     expect((running as HTMLOptionElement).disabled).toBe(true);
   });
 
+  it('leaves the style to the asset tag by default', async () => {
+    startSimulatedNode.mockResolvedValue({ ...NODE, id: 'node-2', assetTag: 'TL-0009' });
+    show(overview());
+    expect((screen.getByLabelText(/^Movement style/) as HTMLSelectElement).value).toBe('');
+    fireEvent.click(screen.getByRole('button', { name: 'Add node' }));
+    await waitFor(() =>
+      expect(startSimulatedNode).toHaveBeenCalledWith({
+        deviceId: 'dev-09',
+        trailId: 'ta-nang-phan-dung',
+        pattern: 'WALK',
+      }),
+    );
+  });
+
+  it('applies a new style with the node version', async () => {
+    updateSimulatedNode.mockResolvedValue({ ...NODE, style: 'WANDERER', version: 4 });
+    show(overview());
+    const row = rowOf('TL-0010');
+    const select = within(row).getByLabelText('Style for TL-0010') as HTMLSelectElement;
+    expect(select.value).toBe('HIKER');
+    const apply = within(row).getByRole('button', {
+      name: 'Apply style to TL-0010',
+    }) as HTMLButtonElement;
+    expect(apply.disabled).toBe(true);
+    fireEvent.change(select, { target: { value: 'WANDERER' } });
+    fireEvent.click(apply);
+    await waitFor(() =>
+      expect(updateSimulatedNode).toHaveBeenCalledWith(NODE, { style: 'WANDERER' }),
+    );
+  });
+
+  it('shows "Steady pace" for a node started before the styles', () => {
+    show(overview({ nodes: [{ ...NODE, style: null, status: 'STOPPED' }] }));
+    expect(within(rowOf('TL-0010')).getByText('Steady pace')).toBeTruthy();
+  });
+
   it('applies a new pattern with the node version', async () => {
     updateSimulatedNode.mockResolvedValue({ ...NODE, pattern: 'STRAY', version: 4 });
     show(overview());
     const row = rowOf('TL-0010');
-    const apply = within(row).getByRole('button', { name: 'Apply pattern to TL-0010' }) as HTMLButtonElement;
+    const apply = within(row).getByRole('button', {
+      name: 'Apply pattern to TL-0010',
+    }) as HTMLButtonElement;
     expect(apply.disabled).toBe(true);
     fireEvent.change(within(row).getByLabelText('Pattern for TL-0010'), {
       target: { value: 'STRAY' },
@@ -241,7 +292,9 @@ describe('FieldSimulationSection (screen 7.5, "Field simulation")', () => {
       new ApiError(409, 'INVALID_STATE_TRANSITION', 'This cannot be done while it is STOPPED.'),
     );
     show(overview({ nodes: [{ ...NODE, sosKind: 'SOS', sosSince: '2026-11-06T03:42:00.000Z' }] }));
-    fireEvent.click(within(rowOf('TL-0010')).getByRole('button', { name: 'Cancel SOS on TL-0010' }));
+    fireEvent.click(
+      within(rowOf('TL-0010')).getByRole('button', { name: 'Cancel SOS on TL-0010' }),
+    );
     expect(await screen.findByText('This cannot be done while it is STOPPED.')).toBeTruthy();
   });
 

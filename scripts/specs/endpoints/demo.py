@@ -136,7 +136,8 @@ SIM_NODE_ID = "4b3a2918-0716-4f5e-8d4c-3b2a19080706"
 SIM_NODE = {"id": SIM_NODE_ID, "deviceId": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10", "assetTag": "TL-0010",
             "nodeId": "!de00000a", "organization": {"id": "5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f", "code": "ORG-0001",
                                                      "name": "TrekLink Demo Tours Co., Ltd."},
-            "trailId": "ta-nang-phan-dung", "pattern": "WALK", "speedMetresPerMinute": 60, "status": "RUNNING",
+            "trailId": "ta-nang-phan-dung", "pattern": "WALK", "style": "HIKER", "speedMetresPerMinute": 60,
+            "status": "RUNNING",
             "sosKind": None, "sosSince": None, "position": {"lat": 11.497591, "lon": 108.568646},
             "batteryPct": 99, "lastPacketAt": NOW, "simulated": True, "version": 0, "createdAt": NOW,
             "updatedAt": NOW}
@@ -146,28 +147,32 @@ SIM_NODE_FIELDS = [
     ["position", "Position the pattern gives at the time of the read (the stop time for a `STOPPED` node)", "object", "see sample"],
     ["batteryPct", "Battery the pattern gives at the same time, 5 to 100", "int", "`99`"],
     ["lastPacketAt", "Last time the device was heard (device projection `lastSeenAt`), or null", "datetime", f"`{NOW}`"],
+    ["style", "Movement style while the pattern walks (design §9.1), or null for a node started before the "
+     "styles, which keeps the steady walk at `speedMetresPerMinute`", "string", "`HIKER`"],
     ["sosKind", "`SOS` or `FALL` while an SOS is active, otherwise null", "string", "`null`"],
     ["version", "Compare-and-set version for 08 and 09", "int", "`0`"]]
 
 ENDPOINTS.append(ep(
     "GET", "/api/demo/simulation", "Read the field simulation", SIM_PERMISSION,
     "Lists what the field simulation panel needs: the trails (OpenStreetMap, © OpenStreetMap contributors, ODbL), "
-    "the patterns, the devices that can be simulated and the simulated nodes, running ones first, then the twenty "
+    "the patterns, the movement styles, the devices that can be simulated and the simulated nodes, running ones first, then the twenty "
     "most recently stopped. `databaseAllowed` tells the screen whether the writes 07 to 10 can act on this database. "
     "The route belongs to `DemoSimulationModule`, loaded only when `DEMO_SIMULATION_ENABLED` is `true`; it is "
     "independent of `DEMO_CONTROLS_ENABLED` and is not refused in production, because the Vercel staging runs as "
     "production (D-094).",
-    "D-093 amendment, D-094, REQ-SIM-01, REQ-SIM-08",
+    "D-093 amendment, D-094, REQ-SIM-01, REQ-SIM-08, REQ-SIM-09",
     response={"databaseAllowed": True,
               "trails": [{"id": "ta-nang-phan-dung", "name": "Ta Nang to Phan Dung", "region": "Lam Dong",
                           "lengthMetres": 7200, "pointCount": 63,
                           "source": {"osmWayIds": [1164619760], "readOn": "2026-11-01",
                                      "simplification": "Douglas-Peucker, 10 m, 189 to 63 points"}}],
               "patterns": ["WALK", "STOP", "STRAY", "SILENT", "LOW_BATTERY"],
+              "styles": ["JOGGER", "HIKER", "CAMPER", "EXPLORER", "TRAIL_WALKER", "WANDERER", "GROUP_FOLLOWER", "STRAGGLER"],
               "devices": [{"id": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10", "assetTag": "TL-0010", "nodeId": "!de00000a",
                            "status": "RENTED", "organization": SIM_NODE["organization"], "runningNodeId": SIM_NODE_ID}],
               "nodes": [SIM_NODE]},
     fields=[["databaseAllowed", "The database is on a loopback host or named `treklink_prod` (REQ-SIM-02)", "boolean", "`true`"],
+            ["styles", "The movement styles of design §9.1, in the order the seed picks them", "array", "see sample"],
             ["trails[].lengthMetres", "Length of the simplified line", "int", "`7200`"],
             ["trails[].source", "OpenStreetMap way ids, the date they were read through the Overpass API, the simplification", "object", "see sample"],
             ["devices", "Every device not `DISPOSED`, by asset tag; each has a `nodeNum` (devices schema)", "array", "see sample"],
@@ -185,12 +190,15 @@ ENDPOINTS.append(ep(
     "(gateway-sync design §2) the node sends one position and one telemetry packet per "
     "`gatewaySync.simulatorIntervalSeconds` through the node uplink path, so positions, staleness, incidents and "
     "alerts behave as for a real node; every field event it causes is stored with `simulated = true`. A device "
-    "runs as at most one node at a time.",
-    "D-093 amendment, REQ-SIM-02, REQ-SIM-03, REQ-SIM-04, REQ-SIM-07",
+    "runs as at most one node at a time. The node's style seed is FNV-1a of its asset tag (shifted to fit 31 bits), so a run repeats; "
+    "without a `style` the seed also picks the style.",
+    "D-093 amendment, REQ-SIM-02, REQ-SIM-03, REQ-SIM-04, REQ-SIM-07, REQ-SIM-09",
     body=[["deviceId", "Device to simulate", "uuid", "yes", "`0d3f6a2b-...`"],
           ["trailId", "Id of a trail of 06", "string", "yes", "`ta-nang-phan-dung`"],
           ["pattern", "`WALK`, `STOP`, `STRAY`, `SILENT` or `LOW_BATTERY`", "string", "yes", "`WALK`"],
-          ["speedMetresPerMinute", "Walking speed, 10 to 300; default 60", "int", "no", "`60`"],
+          ["style", "A movement style of 06; default the style of the device's asset tag (design §9.1)",
+           "string", "no", "`HIKER`"],
+          ["speedMetresPerMinute", "Walking speed of a node with no style, 10 to 300; default 60", "int", "no", "`60`"],
           ["startMetres", "Distance along the trail to start from, 0 to its length; default 0", "int", "no", "`0`"]],
     sample={"deviceId": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10", "trailId": "ta-nang-phan-dung", "pattern": "WALK"},
     response=SIM_NODE, fields=SIM_NODE_FIELDS, message="Simulated node started", entity="Simulated node",
@@ -206,12 +214,14 @@ ENDPOINTS.append(ep(
 
 ENDPOINTS.append(ep(
     "PATCH", "/api/demo/simulation/nodes/:id", "Change a simulated node", SIM_PERMISSION,
-    "Changes the pattern, the trail or the speed of a running node. The node is re-anchored where it is now, so the "
+    "Changes the pattern, the style, the trail or the speed of a running node. The node is re-anchored where it is now, so the "
     "move continues from there; a new trail starts at its first point. An active SOS stays active.",
-    "D-093 amendment, REQ-SIM-02, REQ-SIM-04, REQ-SIM-07",
+    "D-093 amendment, REQ-SIM-02, REQ-SIM-04, REQ-SIM-07, REQ-SIM-09",
     path=[["id", "Simulated node id", "uuid", f"`{SIM_NODE_ID}`"]],
     body=[["expectedVersion", "The node's `version` as read", "int", "yes", "`0`"],
           ["pattern", "New pattern", "string", "no", "`STRAY`"],
+          ["style", "New movement style; a `GROUP_FOLLOWER` joins its trail's group at once", "string", "no",
+           "`WANDERER`"],
           ["trailId", "New trail", "string", "no", "`ta-nang-phan-dung`"],
           ["speedMetresPerMinute", "New speed, 10 to 300", "int", "no", "`80`"]],
     sample={"expectedVersion": 0, "pattern": "STRAY"},

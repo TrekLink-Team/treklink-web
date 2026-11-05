@@ -1,4 +1,10 @@
 import { toNodeId } from '../../devices';
+import {
+  STYLE_DRAIN_PER_MINUTE,
+  SimulationStyleName,
+  inShadow,
+  styledPosition,
+} from './field-styles';
 import { SimulatedPacket, simulatedPacket } from './simulated-batch';
 import { Trail, TrailPoint } from './trails';
 
@@ -119,6 +125,9 @@ export interface SimulationAnchor {
   anchorBattery: number;
   direction: number; // 1 or -1
   strayBearing: number | null;
+  // How the node moves while its pattern walks (design §9.1); null keeps the steady walk at the speed.
+  style: SimulationStyleName | null;
+  styleSeed: number;
 }
 
 export interface SimulatedState extends LatLon {
@@ -136,12 +145,38 @@ export const stateAt = (trail: Trail, node: SimulationAnchor, at: Date): Simulat
   const seconds = Math.max(0, (at.getTime() - node.anchorAt.getTime()) / 1000);
   const minutes = seconds / 60;
   const rate =
-    node.pattern === 'LOW_BATTERY' ? LOW_BATTERY_DRAIN_PER_MINUTE : BATTERY_DRAIN_PER_MINUTE;
+    node.pattern === 'LOW_BATTERY'
+      ? LOW_BATTERY_DRAIN_PER_MINUTE
+      : node.style
+        ? STYLE_DRAIN_PER_MINUTE[node.style]
+        : BATTERY_DRAIN_PER_MINUTE;
   const battery = Math.max(
     BATTERY_FLOOR,
     Math.min(node.anchorBattery, node.anchorBattery - rate * minutes),
   );
   const direction = sign(node.direction);
+  if (walks(node.pattern) && node.style) {
+    const position = styledPosition(
+      node.style,
+      node.styleSeed,
+      {
+        pointAt: (metres) => pointAt(trail, metres),
+        bearingAt: (metres) => bearingAt(trail, metres),
+        destination,
+        length: trailLengthMetres(trail),
+      },
+      {
+        anchorMetres: node.anchorMetres,
+        anchorLat: node.anchorLat,
+        anchorLon: node.anchorLon,
+        direction,
+      },
+      seconds,
+      new Date(node.anchorAt.getTime() + seconds * 1000),
+      trail,
+    );
+    return { ...position, battery };
+  }
   if (walks(node.pattern)) {
     const length = trailLengthMetres(trail);
     if (length === 0) return { ...pointAt(trail, 0), metres: 0, direction, battery };
@@ -180,7 +215,13 @@ export const strayBearingAt = (trail: Trail, metres: number, direction: number):
 // The anchor of a node that starts on `trail` at `startMetres`.
 export const startAnchor = (
   trail: Trail,
-  input: { pattern: SimulationPatternName; speedMetresPerMinute: number; startMetres: number },
+  input: {
+    pattern: SimulationPatternName;
+    speedMetresPerMinute: number;
+    startMetres: number;
+    style?: SimulationStyleName | null;
+    styleSeed?: number;
+  },
   at: Date,
 ): SimulationAnchor => {
   const metres = Math.max(0, Math.min(trailLengthMetres(trail), input.startMetres));
@@ -195,6 +236,8 @@ export const startAnchor = (
     anchorBattery: BATTERY_START,
     direction: 1,
     strayBearing: input.pattern === 'STRAY' ? strayBearingAt(trail, metres, 1) : null,
+    style: input.style ?? null,
+    styleSeed: input.styleSeed ?? 0,
   };
 };
 
@@ -205,14 +248,24 @@ export const reanchor = (
   trail: Trail,
   node: SimulationAnchor,
   at: Date,
-  change: { pattern?: SimulationPatternName; speedMetresPerMinute?: number; trail?: Trail },
+  change: {
+    pattern?: SimulationPatternName;
+    speedMetresPerMinute?: number;
+    trail?: Trail;
+    style?: SimulationStyleName;
+  },
 ): SimulationAnchor => {
   const state = stateAt(trail, node, at);
   const pattern = change.pattern ?? node.pattern;
   const speedMetresPerMinute = change.speedMetresPerMinute ?? node.speedMetresPerMinute;
+  const style = change.style ?? node.style;
   if (change.trail && change.trail !== trail) {
     return {
-      ...startAnchor(change.trail, { pattern, speedMetresPerMinute, startMetres: 0 }, at),
+      ...startAnchor(
+        change.trail,
+        { pattern, speedMetresPerMinute, startMetres: 0, style, styleSeed: node.styleSeed },
+        at,
+      ),
       anchorBattery: state.battery,
     };
   }
@@ -227,6 +280,8 @@ export const reanchor = (
     anchorBattery: state.battery,
     direction: state.direction,
     strayBearing: pattern === 'STRAY' ? strayBearingAt(trail, metres, state.direction) : null,
+    style,
+    styleSeed: node.styleSeed,
   };
 };
 
@@ -339,7 +394,12 @@ export const planRun = (
   const seconds = nowSeconds - (nowSeconds % intervalSeconds);
   const packets: SimulatedPacket[] = [];
   const sosActive = node.sosKind !== null && node.sosSince !== null;
-  if (node.pattern !== 'SILENT') {
+  // A walking STRAGGLER in its radio shadow sends nothing, like SILENT (design §9.1).
+  const shadowed =
+    walks(node.pattern) &&
+    node.style === 'STRAGGLER' &&
+    inShadow(node.styleSeed, Math.max(0, seconds - node.anchorAt.getTime() / 1000));
+  if (node.pattern !== 'SILENT' && !shadowed) {
     const state = stateAt(trail, node, new Date(seconds * 1000));
     if (!sosActive) packets.push(positionPacket(sender, seconds, state, 'position'));
     packets.push(telemetryPacket(sender, seconds, state.battery));

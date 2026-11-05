@@ -51,6 +51,7 @@ Stops a running node: the simulator sends nothing more for it, and an active SOS
     },
     "trailId": "ta-nang-phan-dung",
     "pattern": "WALK",
+    "style": "HIKER",
     "speedMetresPerMinute": 60,
     "status": "STOPPED",
     "sosKind": null,
@@ -79,6 +80,7 @@ Stops a running node: the simulator sends nothing more for it, and an active SOS
 | position | Position the pattern gives at the time of the read (the stop time for a `STOPPED` node) | object | see sample |
 | batteryPct | Battery the pattern gives at the same time, 5 to 100 | int | `99` |
 | lastPacketAt | Last time the device was heard (device projection `lastSeenAt`), or null | datetime | `2026-10-20T03:15:00.000Z` |
+| style | Movement style while the pattern walks (design §9.1), or null for a node started before the styles, which keeps the steady walk at `speedMetresPerMinute` | string | `HIKER` |
 | sosKind | `SOS` or `FALL` while an SOS is active, otherwise null | string | `null` |
 | version | Compare-and-set version for 08 and 09 | int | `0` |
 
