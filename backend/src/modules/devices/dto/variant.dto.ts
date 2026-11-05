@@ -85,28 +85,35 @@ export class CreateVariantDto {
 }
 
 // devices api-design 03. The code is fixed after create, so it is not a field here and the whitelist
-// refuses it. `null` on serviceIntervalDays removes the periodic service.
+// refuses it. `null` on serviceIntervalDays removes the periodic service. Every other field may be left
+// out but never sent as null: `@IsOptional()` would let null through to Prisma, which answered 500
+// (review of treklink-web#382), so these validate whenever the key is present.
+const present =
+  (key: keyof UpdateVariantDto) =>
+  (dto: UpdateVariantDto): boolean =>
+    dto[key] !== undefined;
+
 export class UpdateVariantDto {
-  @IsOptional()
+  @ValidateIf(present('name'))
   @Transform(trimmed)
   @IsString()
   @MinLength(1)
   @MaxLength(80)
   name?: string;
 
-  @IsOptional()
+  @ValidateIf(present('hasGps'))
   @IsBoolean()
   hasGps?: boolean;
 
-  @IsOptional()
+  @ValidateIf(present('hasMotionSensor'))
   @IsBoolean()
   hasMotionSensor?: boolean;
 
-  @IsOptional()
+  @ValidateIf(present('mqttCapable'))
   @IsBoolean()
   mqttCapable?: boolean;
 
-  @IsOptional()
+  @ValidateIf(present('firmwareBaseline'))
   @Transform(trimmed)
   @IsString()
   @MinLength(1)
@@ -122,7 +129,7 @@ export class UpdateVariantDto {
   @Max(3650)
   serviceIntervalDays?: number | null;
 
-  @IsOptional()
+  @ValidateIf(present('serviceChecklist'))
   @Transform(trimmedEach)
   @IsArray()
   @ArrayMaxSize(30)
@@ -131,7 +138,7 @@ export class UpdateVariantDto {
   @MaxLength(120, { each: true })
   serviceChecklist?: string[];
 
-  @IsOptional()
+  @ValidateIf(present('isActive'))
   @IsBoolean()
   isActive?: boolean;
 
