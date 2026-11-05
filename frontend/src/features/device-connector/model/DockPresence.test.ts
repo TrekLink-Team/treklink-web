@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Connection, RegistrySnapshot } from './ConnectorRegistry';
 import { DockPresence } from './DockPresence';
 
-// The dock session heartbeat (devices design section 11.8, REQ-EVT-36): open in the counter context,
+// The dock session heartbeat (devices design section 12.8, REQ-EVT-38): open in the counter context,
 // renew every third of the lifetime, end when the unit or the context leaves, and on pagehide.
 
 const connection = (id: number, deviceId: string | null, state: Connection['state'] = 'ready'): Connection => ({

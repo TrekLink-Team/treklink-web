@@ -5,7 +5,7 @@ import type { CounterContext } from './connectorStore';
 import { FLASH_NOT_BUILT } from './actionsFor';
 import { LOCKED_TEXT, NOT_READY_TEXT, hubActionsFor, type HubAction, type HubActionKind } from './hubActions';
 
-// The Actions table of devices design section 11.13 (REQ-EVT-42, REQ-ERR-30).
+// The Actions table of devices design section 12.13 (REQ-EVT-44, REQ-ERR-32).
 
 const CAN = { register: true, operate: true, flash: false };
 const RESET_DUE = { nextStep: { action: 'RESET' as const, contractId: 'c-40' } };
@@ -63,7 +63,7 @@ const RENTED_ON = {
   provisionedKeyVersion: 2,
 };
 
-describe('hubActionsFor (devices design section 11.13)', () => {
+describe('hubActionsFor (devices design section 12.13)', () => {
   it('always lists the six actions in the order of the brief', () => {
     expect(hubActionsFor(connection(null), null, CAN, null, null).map((action) => action.kind)).toEqual([
       'provision',
@@ -81,7 +81,7 @@ describe('hubActionsFor (devices design section 11.13)', () => {
     expect(actions.reboot.available).toBe(true);
   });
 
-  it('names why factory reset is unavailable (REQ-ERR-30)', () => {
+  it('names why factory reset is unavailable (REQ-ERR-32)', () => {
     const reason = (device: Parameters<typeof connection>[0], record: object | null | undefined = RESET_DUE, contract: RecognizedUnit['contract'] = null) =>
       byKind(hubActionsFor(connection(device, contract), null, CAN, record, null)).factoryReset.reason;
     expect(reason(null, null)).toBe('Register this unit first.');
@@ -102,7 +102,7 @@ describe('hubActionsFor (devices design section 11.13)', () => {
     ).toBe('Only TrekLink Staff can do this.');
   });
 
-  it('refuses factory reset for a returned unit whose custody row is still open (REQ-ERR-30)', () => {
+  it('refuses factory reset for a returned unit whose custody row is still open (REQ-ERR-32)', () => {
     const custody = { ...RENTED_ON, status: 'RETURN_DUE' };
     const actions = byKind(hubActionsFor(connection({ status: 'RETURNED' }, custody), null, CAN, RESET_DUE, null));
     expect(actions.factoryReset).toMatchObject({
@@ -124,7 +124,7 @@ describe('hubActionsFor (devices design section 11.13)', () => {
     expect(actions.uplink.available).toBe(true);
   });
 
-  it('runs the section 11.3 actions in the counter context', () => {
+  it('runs the section 12.3 actions in the counter context', () => {
     const actions = byKind(hubActionsFor(connection({ status: 'AVAILABLE' }), counter(), CAN, {}, null));
     expect(actions.swap).toMatchObject({ available: true, unitAction: { kind: 'swap' } });
   });

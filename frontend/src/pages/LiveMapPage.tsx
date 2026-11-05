@@ -67,7 +67,7 @@ interface Row {
   state: UnitState;
 }
 
-// The Staff map's words for a unit held at the counter (devices design section 11.8, REQ-EVT-37).
+// The Staff map's words for a unit held at the counter (devices design section 12.8, REQ-EVT-39).
 const DOCKED_TEXT = 'Docked at the counter';
 
 const statusLine = ({ device, state }: Row): string => {
@@ -342,7 +342,7 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
           />
           <MapLegend
             className="absolute bottom-3 left-3 z-[500]"
-            // The Staff map also shows units docked at the counter (devices design section 11.8).
+            // The Staff map also shows units docked at the counter (devices design section 12.8).
             states={
               scope === 't'
                 ? ['fresh', 'stale', 'unheard', 'docked', 'sos']

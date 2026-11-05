@@ -124,7 +124,7 @@ describe('DevicesService reset and return checks', () => {
       expect(repository.nodeNums).not.toHaveBeenCalled();
     });
 
-    it('records the factory reset of the device hub when the docked node number is the device (design §11.13)', async () => {
+    it('records the factory reset of the device hub when the docked node number is the device (design §12.13)', async () => {
       await service.reset('dev-1', { ...steps, nodeNum: 2763113171 }, 'staff-1', at, tx);
 
       expect(repository.nodeNums).toHaveBeenCalledWith(['dev-1'], tx);

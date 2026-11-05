@@ -5,11 +5,11 @@
 | Owner | KhoaDD |
 | Task | `specs/frontend/tasks.md` 4.7 (devices task 10.13) |
 | Assigned, due | 2026-11-04, brief W18, due 2026-11-06 |
-| Status | Built on brief W18; devices design §11.13 Q8 to Q10 built as option A, pending the leader's ruling |
+| Status | Built on brief W18; devices design §12.13 Q8 to Q10 built as option A, pending the leader's ruling |
 | Routes | `/t/device-hub`, nav entry "Device hub" in the Staff Devices group; the device view of screen 4.6 links here ("Open in the device hub") |
 | Roles | TrekLink Staff and TrekLink Admin. Organization accounts: no route, no nav entry (devices REQ-UBI-07) |
 | Use case, FRs, story | UC-11, UC-14, UC-44; FR-DEV-02, FR-DEV-07, FR-DEV-21; US-UC11, US-UC14 |
-| Requirements | `specs/devices/requirements.md` REQ-UBI-08, REQ-UBI-09, REQ-EVT-42 to REQ-EVT-44, REQ-ERR-11, REQ-ERR-29 to REQ-ERR-31; AC-38 to AC-41 |
+| Requirements | `specs/devices/requirements.md` REQ-UBI-08, REQ-UBI-09, REQ-EVT-44 to REQ-EVT-46, REQ-ERR-11, REQ-ERR-31 to REQ-ERR-33; AC-41 to AC-44 |
 | Wireframe | Not drawn: the layout table below is the reference until the renders of `feat/variant-images` merge |
 
 Scope from the brief: a phone-utility style page. Connect a unit on USB and see one page with everything about it
@@ -28,10 +28,10 @@ registry (screen 4.6): it opens no port of its own.
 
 | Shown | Source (api-design file, property) |
 |---|---|
-| Switcher | the connector registry's open connections (devices design §11.4): asset tag or "Unknown unit {nodeId}", the state as text |
-| Render | `/variants/<hardwareVariant.code>-detail.png`, `alt` "{variant name}, front view"; the labelled slot of REQ-ERR-29 |
+| Switcher | the connector registry's open connections (devices design §12.4): asset tag or "Unknown unit {nodeId}", the state as text |
+| Render | `/variants/<hardwareVariant.code>-detail.png`, `alt` "{variant name}, front view"; the labelled slot of REQ-ERR-31 |
 | Asset tag, variant, status, firmware on record, last seen, key version and organization | devices 30 `device` |
-| Node number, node id, owner names, build environment, reported firmware, hardware model, battery and voltage, region and modem preset, primary channel name | the unit's handshake (devices design §8.2 and §11.13), memory only (REQ-UBI-08) |
+| Node number, node id, owner names, build environment, reported firmware, hardware model, battery and voltage, region and modem preset, primary channel name | the unit's handshake (devices design §8.2 and §12.13), memory only (REQ-UBI-08) |
 | Battery when the unit reports none | devices 30 `device.batteryPct` with "from the server" |
 | Contract and organization | devices 30 `contract.code`, `contract.status`, `contract.organization.code`; "None" |
 | Last reset, next step | devices 07 `lastReset.createdAt`, `nextStep.action` |
@@ -41,9 +41,9 @@ registry (screen 4.6): it opens no port of its own.
 | Control | Shown when | Endpoint | Confirmation | Success message |
 |---|---|---|---|---|
 | Connect a unit | always; disabled without Web Serial | none; the browser's port chooser | the chooser | the unit appears and is selected |
-| Provision | devices design §11.3 offers it (counter context only); otherwise disabled with "Provision from the counter of its contract." and Open its counter for a `RESERVED` unit | rentals 21, 09 | as screen 4.6 | as screen 4.6 |
-| Quick swap | §11.3 offers it; otherwise disabled with "Quick swap runs from a contract's counter." | rentals 32 | as screen 4.6 | as screen 4.6 |
-| Configure uplink | §11.3 offers it; otherwise disabled with the reason | none on the server | the dialog of screen 4.2 | "{assetTag} is configured as an uplink to {broker}." |
+| Provision | devices design §12.3 offers it (counter context only); otherwise disabled with "Provision from the counter of its contract." and Open its counter for a `RESERVED` unit | rentals 21, 09 | as screen 4.6 | as screen 4.6 |
+| Quick swap | §12.3 offers it; otherwise disabled with "Quick swap runs from a contract's counter." | rentals 32 | as screen 4.6 | as screen 4.6 |
+| Configure uplink | §12.3 offers it; otherwise disabled with the reason | none on the server | the dialog of screen 4.2 | "{assetTag} is configured as an uplink to {broker}." |
 | Update firmware | task 8.3 registered its panel; otherwise disabled with "Firmware releases are not published yet" | devices 28, 29 | as screen 4.3 | as screen 4.6 |
 | Reboot | the unit is Ready and no write runs | none on the server | none | toast "{name} restarted." |
 | Factory reset | registered, `RETURNED`, next step `RESET` | devices 10 with `nodeNum` | `Dialog` "Factory reset {assetTag}?": "This wipes from the unit the channel key of {organization}, the owner names, the node database and the Wi-Fi and broker settings. The owner is set back to {assetTag} and the region {region} is written back. The unit restarts twice, and the reset is recorded for this return."; buttons Cancel and Factory reset (danger) | toast "{assetTag} is reset. Inspect it at the counter next." |
@@ -59,8 +59,8 @@ registry (screen 4.6): it opens no port of its own.
 | Unknown unit | Device info shows the unit's values and "Not registered"; Factory reset says "Register this unit first."; the register action of screen 4.6 |
 | Write in progress | The step as text on the unit card ("Writing settings", "Restarting the unit"); every write action disabled with "Another unit is being written." on other units |
 | Reconnect | "Waiting for the unit to be reconnected" with Reconnect and Stop |
-| Factory reset refused (REQ-ERR-30) | The reason as text under the disabled button (devices design §11.13 Errors) |
-| Failure (REQ-ERR-31) | Alert with the failed step; for the factory reset "Nothing was recorded. Dock {assetTag} and run Factory reset again." |
+| Factory reset refused (REQ-ERR-32) | The reason as text under the disabled button (devices design §12.13 Errors) |
+| Failure (REQ-ERR-33) | Alert with the failed step; for the factory reset "Nothing was recorded. Dock {assetTag} and run Factory reset again." |
 | Error `NODE_MISMATCH`, `ALREADY_RESET`, `INVALID_STATE_TRANSITION` (devices 10) | The server's message in the alert; the record is read again |
 | Not found or forbidden | MSG26 |
 
@@ -77,8 +77,8 @@ None of its own; the uplink and swap dialogs are those of screens 4.2 and 4.6.
 
 ## Checklist
 
-- [x] Data: every field names devices 07, 10, 30 or the unit (devices design §11.13)
+- [x] Data: every field names devices 07, 10, 30 or the unit (devices design §12.13)
 - [x] Actions: the six of the brief, each with its availability and reason
-- [x] States: not connected, no Web Serial, every REQ-ERR of §11.13
+- [x] States: not connected, no Web Serial, every REQ-ERR of §12.13
 - [ ] Wireframe: waits for the renders
 - [x] Accessibility: switcher pressed state, focus return, text status

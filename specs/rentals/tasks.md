@@ -265,10 +265,10 @@ REQ-EVT-16, REQ-STA-03, AC-09, AC-10, design §10, billing task 9.1.
   - _Requirements: REQ-EVT-27, REQ-EVT-28, billing REQ-STA-03_
   - **Done** (2026-11-05, KhoaDD under D-078): `EndNowDialog`, the policy entries, the owed note on the Money tab, the Early end credit label, Ending "not reached" on the lifecycle card; checked on a local demo seed in both themes (session file `docs/sessions/2026-11-05-2330-w29-contract-early-end.md`)
 
-## Phase 11: Quick swap for the device connector (devices design §11.6)
+## Phase 11: Quick swap for the device connector (devices design §12.6)
 
-- [x] 11.1 Exchange endpoint (owner KhoaDD, devices task 10.4; devices design §11.12 Q1 and Q2 decided A)
-  - **Files**: `backend/src/modules/rentals/handover.service.ts` (`exchange`), `handover.controller.ts`, `dto/exchange-device.dto.ts`, `ports/device-contracts.provider.ts` (`DEVICE_CONTRACTS` of devices design §11.5, in `RentalsPortsModule`), the error codes `DEVICE_PROVISIONED` in the shared enum, tests
+- [x] 11.1 Exchange endpoint (owner KhoaDD, devices task 10.4; devices design §12.12 Q1 and Q2 decided A)
+  - **Files**: `backend/src/modules/rentals/handover.service.ts` (`exchange`), `handover.controller.ts`, `dto/exchange-device.dto.ts`, `ports/device-contracts.provider.ts` (`DEVICE_CONTRACTS` of devices design §12.5, in `RentalsPortsModule`), the error codes `DEVICE_PROVISIONED` in the shared enum, tests
   - **Do**: api-design 32 `POST /api/contracts/:id/devices/:deviceId/exchange` (`contract.operate`): the contract locked and checked against `expectedVersion`, the refusal order of REQ-ERR-18, `DevicesService.release` with reason `EXCHANGED` and `reserve` with the replacement id in one transaction, a new live row, the version increased, the audit `contract.deviceExchanged`; provide `DEVICE_CONTRACTS.liveContractsOf` for devices api-design 30. Api-design 07 is not changed
   - **Test**: AC-17 on Postgres, including an approval that reserves the docked unit first
   - _Requirements: REQ-EVT-29, REQ-ERR-18, AC-17_

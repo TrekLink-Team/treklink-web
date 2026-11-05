@@ -76,7 +76,7 @@ import { VariantsService } from './variants.service';
       }),
     },
     DevicesComplianceLossCases,
-    // design section 11 (tasks 10.2 and 10.3): the device connector's recognition and dock sessions;
+    // design section 12 (tasks 10.2 and 10.3): the device connector's recognition and dock sessions;
     // DEVICE_CONTRACTS comes from the global RentalsPortsModule.
     DockSessionRepository,
     DeviceConnectorService,

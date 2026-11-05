@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 
-// The contract port of devices design section 11.5 (task 10.2): the device connector recognizes a unit
+// The contract port of devices design section 12.5 (task 10.2): the device connector recognizes a unit
 // by its node number and shows the contract it is on, which `devices` cannot read because `rentals`
 // imports `devices` (`platform` design Figure 3). `rentals` provides the token from its global
 // `RentalsPortsModule`, as it provides CUSTODY_RESOLVER.

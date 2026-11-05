@@ -109,7 +109,7 @@ const docking = vi.hoisted(() => ({
 vi.mock('../features/device-connector/actions/useDocking', () => ({ useDocking: () => docking }));
 
 // The device connector's registry as the counter reads it: the docked unit a mismatch names
-// (devices design section 11.6).
+// (devices design section 12.6).
 const connections = vi.hoisted(() => new Map<number, unknown>());
 vi.mock('../features/device-connector/model/useConnector', () => ({
   useConnector: () => ({ registry: { get: (id: number) => connections.get(id) }, snapshot: { connections: [] } }),
@@ -639,7 +639,7 @@ describe('CounterPage docking (devices design 8.4, D-080, D-082)', () => {
     });
   });
 
-  describe('quick swap after a wrong-unit refusal (devices REQ-EVT-33 to REQ-EVT-35)', () => {
+  describe('quick swap after a wrong-unit refusal (devices REQ-EVT-35 to REQ-EVT-37)', () => {
     const docked = (device: Record<string, unknown>, contractOf: Record<string, unknown> | null = null) =>
       connections.set(7, {
         id: 7,
@@ -660,7 +660,7 @@ describe('CounterPage docking (devices design 8.4, D-080, D-082)', () => {
 
     afterEach(() => connections.clear());
 
-    it('offers to put the docked unit in place of the row, swaps it in and records its provisioning (AC-26)', async () => {
+    it('offers to put the docked unit in place of the row, swaps it in and records its provisioning (AC-29)', async () => {
       docked({});
       mismatch();
       docking.exchangeAndProvision.mockResolvedValue({
@@ -711,7 +711,7 @@ describe('CounterPage docking (devices design 8.4, D-080, D-082)', () => {
       expect(recordProvisioning).not.toHaveBeenCalled();
     });
 
-    it('names why a rented, held or other-variant unit is not offered (REQ-ERR-20, REQ-ERR-21, REQ-ERR-23)', async () => {
+    it('names why a rented, held or other-variant unit is not offered (REQ-ERR-22, REQ-ERR-23, REQ-ERR-25)', async () => {
       docked({ status: 'RENTED' }, { id: 'c-9', code: 'RC-2026-0009' });
       mismatch();
       renderPage();
@@ -730,7 +730,7 @@ describe('CounterPage docking (devices design 8.4, D-080, D-082)', () => {
       );
     });
 
-    it('keeps the swap and asks to dock the new unit again when its provisioning fails (REQ-ERR-19, AC-27)', async () => {
+    it('keeps the swap and asks to dock the new unit again when its provisioning fails (REQ-ERR-21, AC-30)', async () => {
       docked({});
       mismatch();
       docking.exchangeAndProvision.mockResolvedValue({
@@ -782,7 +782,7 @@ describe('CounterPage docking (devices design 8.4, D-080, D-082)', () => {
     expect(recordProvisioning).not.toHaveBeenCalled();
   });
 
-  it('shows the no-response message when the unit answers nothing over USB (REQ-ERR-22)', async () => {
+  it('shows the no-response message when the unit answers nothing over USB (REQ-ERR-24)', async () => {
     docking.dockAndProvision.mockResolvedValue({
       ok: false,
       failure: 'no-response',

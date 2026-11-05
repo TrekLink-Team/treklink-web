@@ -19,7 +19,7 @@ if (!databaseUrl || !process.env.DATABASE_DIRECT_URL) {
   throw new Error('test:db requires explicit DATABASE_URL and DATABASE_DIRECT_URL.');
 }
 
-// The dock sessions of devices design section 11.8 (task 10.3, api-design 31 and 32) on Postgres: open,
+// The dock sessions of devices design section 12.8 (task 10.3, api-design 31 and 32) on Postgres: open,
 // renew, replace, end and expire, with the events the Staff map listens to, and two concurrent opens of
 // one unit leaving one open session. Fixtures carry a fresh run ID and are never deleted.
 describe('DockSessionService on Postgres', () => {

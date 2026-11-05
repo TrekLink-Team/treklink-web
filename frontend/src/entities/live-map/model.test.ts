@@ -251,7 +251,7 @@ describe('live map reducer (screen 9.1)', () => {
   });
 
   // D-092 rule 2 (monitoring REQ-UBI-04, frontend REQ-UBI-10).
-  describe('docked at the counter (devices design section 11.8, the Staff map)', () => {
+  describe('docked at the counter (devices design section 12.8, the Staff map)', () => {
     const COUNTER = { name: 'TrekLink counter', lat: 11.56, lon: 108.54 };
 
     it('marks a listed unit docked and pins it at the counter, and clears it on device.undocked', () => {

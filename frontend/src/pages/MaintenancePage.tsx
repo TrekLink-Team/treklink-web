@@ -858,7 +858,7 @@ const findRecord = async (id: string): Promise<MaintenanceRecord | null> => {
 // /t/maintenance and /t/maintenance/approvals, MaintenancePage and MaintenanceApprovalPage of screen
 // 4.3 (devices api-design 06 and 11 to 15). TrekLink Staff list, open, estimate and complete; Admin
 // also decides pending costs, hidden on a record the viewer estimated (BR-44).
-// The device connector's `maintenance` context (devices design section 11.3). The flash panel of design
+// The device connector's `maintenance` context (devices design section 12.3). The flash panel of design
 // section 9.2 (task 8.3) is not built yet, so the connector shows Update firmware as unavailable.
 const MAINTENANCE_CONTEXT: ConnectorContext = { kind: 'maintenance' };
 

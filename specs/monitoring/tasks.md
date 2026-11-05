@@ -126,7 +126,7 @@
   - **Do**: api-design 09 `GET /api/rented-devices` for the Org Manager; `group` and `holder` on the snapshot units, the organization API devices and the console rows; `groupId` filter on the snapshot and the console with subgroups; forward `device.groupChanged`; unit specs and a db-spec for AC-09 and AC-10 (BM04 traces F-21 to TC-F21-01 and TC-F21-02, both AC-09; TC-F21-03, a loss report reaching Staff, is already covered by `loss-case-notifications.listener.spec.ts`, leader ruling on treklink-web#327)
   - _Requirements: REQ-EVT-09, REQ-UBI-05, AC-09, AC-10_
 
-## Phase 8: Docked units on the Staff map (devices design §11.8)
+## Phase 8: Docked units on the Staff map (devices design §12.8)
 
 - [x] 8.1 `DOCKED` in the snapshot and the docked stream entries (owner KhoaDD, devices task 10.5)
   - **Files**: `backend/src/modules/monitoring/live-map.service.ts`, `stream.listener.ts`, `custody-view.ts`, `ws-live-contract.md` types, tests

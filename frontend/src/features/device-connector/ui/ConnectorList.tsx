@@ -21,7 +21,7 @@ import { RETRYABLE, STATE_TEXT, unitName } from '../model/text';
 import { UnitImage } from './UnitImage';
 
 // The rows of the device connector panel through the shared CollectionView (chapter 06 §9, D-096, devices
-// design section 11.2): the List view, one row per connected unit, its actions as icon buttons with the
+// design section 12.2): the List view, one row per connected unit, its actions as icon buttons with the
 // §9.5 tooltip, and no command bar while two or fewer units are connected (§9.3). The hub's own device
 // view replaces the details pane, so the module's pane is off and Show details opens the device view.
 

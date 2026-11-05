@@ -23,9 +23,9 @@ vi.mock('../../../entities/device/api', () => ({
 }));
 vi.mock('../../../entities/contract/api', () => ({ issueChannelKey: vi.fn(), exchangeDevice: vi.fn() }));
 
-// The device hub page of screen 4.7 (devices design section 11.13) over fake units on fake Web Serial
+// The device hub page of screen 4.7 (devices design section 12.13) over fake units on fake Web Serial
 // ports: the not-connected state, the Device info read from the unit and the server, the six actions
-// with their reasons, the switcher, Reboot and the factory reset (AC-38 to AC-41).
+// with their reasons, the switcher, Reboot and the factory reset (AC-41 to AC-44).
 
 const STAFF: SessionUser = {
   id: 's',
@@ -140,7 +140,7 @@ describe('DeviceHub (screen 4.7)', () => {
     expect(screen.getByText('Docking needs Chrome or Edge on a desktop. Open TrekLink there to connect units.')).toBeTruthy();
   });
 
-  it('shows the unit, its Device info from the unit and the server, and the six actions (AC-38)', async () => {
+  it('shows the unit, its Device info from the unit and the server, and the six actions (AC-41)', async () => {
     install([A]);
     await renderHub();
     await screen.findByRole('heading', { name: 'TL-0042' });
@@ -155,7 +155,7 @@ describe('DeviceHub (screen 4.7)', () => {
     expect(value('Owner')).toBe('TL-0042 (0042)');
     expect(value('Key version')).toBe('v2, ORG-SAPA');
     expect(value('Contract')).toBe('None');
-    // The render slot names the variant when the file is missing (REQ-ERR-29): jsdom loads no image.
+    // The render slot names the variant when the file is missing (REQ-ERR-31): jsdom loads no image.
     expect(screen.getByRole('img', { name: 'TrekLink v3 (GPS, SOS button), front view' })).toBeTruthy();
     const actions = screen.getByRole('region', { name: 'Actions' });
     expect(within(actions).getAllByRole('listitem')).toHaveLength(6);
@@ -180,7 +180,7 @@ describe('DeviceHub (screen 4.7)', () => {
     expect(window.location.href).not.toContain(B.toString(16));
   });
 
-  it('reboots the unit and calls no endpoint (AC-39)', async () => {
+  it('reboots the unit and calls no endpoint (AC-42)', async () => {
     install([A]);
     await renderHub();
     await screen.findByRole('heading', { name: 'TL-0042' });
@@ -193,7 +193,7 @@ describe('DeviceHub (screen 4.7)', () => {
     expect(recordReset).not.toHaveBeenCalled();
   });
 
-  it('confirms, wipes the returned unit and records the reset with the docked node number (AC-40)', async () => {
+  it('confirms, wipes the returned unit and records the reset with the docked node number (AC-43)', async () => {
     install([A]);
     await renderHub();
     await screen.findByRole('heading', { name: 'TL-0042' });
@@ -213,7 +213,7 @@ describe('DeviceHub (screen 4.7)', () => {
     expect(Array.from(units[0].state.psk)).toEqual([1]);
   });
 
-  it('keeps factory reset unavailable with its reason for a unit already reset (AC-41)', async () => {
+  it('keeps factory reset unavailable with its reason for a unit already reset (AC-44)', async () => {
     fetchDevice.mockResolvedValue({ id: 'd-42', lastReset: { createdAt: '2026-11-04T02:00:00.000Z' }, nextStep: { action: 'INSPECT', contractId: 'c-40' } });
     install([A]);
     await renderHub();

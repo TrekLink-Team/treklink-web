@@ -65,7 +65,7 @@ const CHOOSE_TEXT = 'Several units are connected. Choose the unit in the device 
 const settled = (state: ConnectionState) =>
   state !== 'reading' && state !== 'looking-up';
 
-// The connection an action runs on (REQ-EVT-39): the connected unit with the expected node number,
+// The connection an action runs on (REQ-EVT-41): the connected unit with the expected node number,
 // else the only connected unit, else a unit Staff connect now through the chooser. With several units
 // and none expected, Staff choose in the panel.
 const connectionFor = async (
@@ -173,7 +173,7 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
   }, [reconnect]);
 
   // Read from unit on the Register panel (design sections 8.3 and 11.3): the identity the connector
-  // already read, preferring an unknown unit; no second chooser when one is connected (REQ-EVT-31).
+  // already read, preferring an unknown unit; no second chooser when one is connected (REQ-EVT-33).
   const readUnit = async (
     target = 'intake',
     connectionId?: number,
@@ -232,9 +232,9 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
       }
     });
 
-  // Dock and provision on a counter row (REQ-EVT-39): the connected unit with the row's node number,
+  // Dock and provision on a counter row (REQ-EVT-41): the connected unit with the row's node number,
   // or the only connected unit, which a mismatch refuses before anything is written (REQ-ERR-12). The
-  // mismatch carries the connection, so the counter can offer the quick swap (REQ-EVT-35).
+  // mismatch carries the connection, so the counter can offer the quick swap (REQ-EVT-37).
   const dockAndProvision = async (
     target: ProvisionTarget,
     connectionId?: number,
@@ -268,10 +268,10 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
     }
   };
 
-  // The quick swap with hot provisioning (design sections 11.6 and 11.7, REQ-EVT-33, REQ-EVT-34): the
+  // The quick swap with hot provisioning (design sections 11.6 and 11.7, REQ-EVT-35, REQ-EVT-36): the
   // exchange of rentals api-design 32 with the docked node number, then the provisioning of the docked
   // unit on the port the connector already holds. A failure after the exchange leaves it in place and
-  // the unit not provisioned (REQ-ERR-19).
+  // the unit not provisioned (REQ-ERR-21).
   const exchangeAndProvision = async (
     connectionId: number,
     replaced: { contractId: string; deviceId: string; expectedVersion: number },
@@ -350,7 +350,7 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
     }
   };
 
-  // Reboot from the device hub page (devices design section 11.13, REQ-EVT-43): on the unit's held port,
+  // Reboot from the device hub page (devices design section 12.13, REQ-EVT-45): on the unit's held port,
   // under the write lock; nothing goes to the server.
   const reboot = async (connectionId: number): Promise<DockResult<object>> => {
     try {
@@ -379,8 +379,8 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
     }
   };
 
-  // Factory reset of a returned unit from the device hub page (devices design section 11.13,
-  // REQ-EVT-44): the wipe and its read-back under the write lock, then the reset recorded with the
+  // Factory reset of a returned unit from the device hub page (devices design section 12.13,
+  // REQ-EVT-46): the wipe and its read-back under the write lock, then the reset recorded with the
   // docked node number (devices api-design 10). `wiped` tells the page whether the unit was already
   // wiped when the server refused, so it can say the record is what is missing.
   const factoryReset = async (
@@ -400,7 +400,7 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
           connection.unit.nodeId,
         );
       }
-      // The custody check before the wipe (REQ-ERR-30): the recognition is asked again, so a check-in or
+      // The custody check before the wipe (REQ-ERR-32): the recognition is asked again, so a check-in or
       // a handover since the page loaded is seen, and a unit still in custody gets nothing written.
       await registry.refreshRecognition(connectionId);
       const custody = registry.get(connectionId)?.recognized?.contract;

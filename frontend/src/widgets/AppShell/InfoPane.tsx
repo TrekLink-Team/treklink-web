@@ -69,7 +69,7 @@ export const InfoPaneToggle: React.FC = () => {
       aria-label={open ? 'Hide details panel' : 'Show details panel'}
       title={open ? 'Hide details panel' : 'Show details panel'}
       onClick={() => {
-        // One right panel at a time (devices design section 11.12 Q6): the device connector yields.
+        // One right panel at a time (devices design section 12.12 Q6): the device connector yields.
         if (!open) useConnectorStore.getState().setOpen(false);
         setOpen(!open);
       }}

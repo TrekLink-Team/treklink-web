@@ -337,7 +337,7 @@ export interface ChannelKey {
 export const issueChannelKey = (id: string, deviceId: string, nodeNum: number) =>
   post<ChannelKey>(`/contracts/${id}/devices/${deviceId}/channel-key`, { nodeNum });
 
-// The quick swap of the device connector (rentals api-design 32, devices design section 11.6): the docked
+// The quick swap of the device connector (rentals api-design 32, devices design section 12.6): the docked
 // unit takes the place of a reserved unit with no provisioning record, which goes back to AVAILABLE.
 export interface DeviceExchanged {
   released: { deviceId: string; assetTag: string | null; status: 'AVAILABLE' };

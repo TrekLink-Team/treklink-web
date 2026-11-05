@@ -27,9 +27,9 @@ const recognizeUnits = vi.hoisted(() => vi.fn());
 vi.mock('../../../entities/device/api', () => ({ recognizeUnits }));
 vi.mock('../../../entities/contract/api', () => ({ issueChannelKey: vi.fn(), exchangeDevice: vi.fn() }));
 
-// The panel of screen 4.6 over two fake units (devices design section 11.2): rows for a registered and an
+// The panel of screen 4.6 over two fake units (devices design section 12.2): rows for a registered and an
 // unknown unit, registration offered for the unknown one, the device view with the labelled render slot
-// when the render is missing (REQ-ERR-29), and the count on the header button.
+// when the render is missing (REQ-ERR-31), and the count on the header button.
 
 const STAFF: SessionUser = {
   id: 's',
@@ -119,7 +119,7 @@ const renderPanel = () =>
   );
 
 describe('ConnectorPanel (screen 4.6)', () => {
-  it('lists a registered and an unknown unit with the actions each allows (AC-23)', async () => {
+  it('lists a registered and an unknown unit with the actions each allows (AC-26)', async () => {
     renderPanel();
     const { connectorRegistry } = await import('../model/ConnectorRegistry');
     await act(async () => {
@@ -140,7 +140,7 @@ describe('ConnectorPanel (screen 4.6)', () => {
     expect(screen.getByText('Available')).toBeTruthy();
   });
 
-  it('opens the device view with the unit read and the labelled slot when the render is missing (AC-34)', async () => {
+  it('opens the device view with the unit read and the labelled slot when the render is missing (AC-37)', async () => {
     renderPanel();
     const { connectorRegistry } = await import('../model/ConnectorRegistry');
     await act(async () => {
@@ -164,7 +164,7 @@ describe('ConnectorPanel (screen 4.6)', () => {
   });
 });
 
-describe('ConnectorPanel uplink and flash (devices task 10.10, design section 11.7)', () => {
+describe('ConnectorPanel uplink and flash (devices task 10.10, design section 12.7)', () => {
   const start = async () => {
     const { connectorRegistry } = await import('../model/ConnectorRegistry');
     await act(async () => {
@@ -329,7 +329,7 @@ describe('ConnectorPanel row controls (screen 4.6)', () => {
   });
 });
 
-describe('ConnectorPanel on CollectionView (chapter 06 §9, design section 11.2)', () => {
+describe('ConnectorPanel on CollectionView (chapter 06 §9, design section 12.2)', () => {
   it('hides the command bar with two units, shows it with a third, and shows a tooltip on focus', async () => {
     renderPanel();
     const { connectorRegistry } = await import('../model/ConnectorRegistry');

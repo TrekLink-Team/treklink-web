@@ -174,7 +174,7 @@ describe('LiveMapService.snapshot', () => {
     );
   });
 
-  describe('units docked at the counter (monitoring REQ-UBI-06, devices design section 11.8)', () => {
+  describe('units docked at the counter (monitoring REQ-UBI-06, devices design section 12.8)', () => {
     const since = new Date('2026-11-04T02:00:00.000Z');
 
     beforeEach(() => {

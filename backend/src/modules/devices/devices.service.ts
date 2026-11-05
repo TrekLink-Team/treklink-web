@@ -417,7 +417,7 @@ export class DevicesService {
   // One reset per return: a unit already reset since it became RETURNED is 409 ALREADY_RESET. A unit
   // whose contract row is still open is refused until it is checked in (design §2.1). The device hub's
   // factory reset sends the docked node number, which must be the device's (409 NODE_MISMATCH, design
-  // §11.13). Returns the key the unit carried before, for the audit record the controller writes.
+  // §12.13). Returns the key the unit carried before, for the audit record the controller writes.
   async reset(
     deviceId: string,
     request: ResetSteps & { nodeNum?: number },

@@ -25,7 +25,7 @@ import { STATE_TEXT, unitName } from '../model/text';
 import { useConnector } from '../model/useConnector';
 import { UnitImage } from './UnitImage';
 
-// The device hub page (devices design section 11.13, screen 4.7, REQ-EVT-42): one connected unit at a
+// The device hub page (devices design section 12.13, screen 4.7, REQ-EVT-44): one connected unit at a
 // time, its render and state on the left, its Device info and its six actions on the right. A view over
 // the connector's registry: it opens no port of its own, and the unit shown is kept in memory only.
 
@@ -173,7 +173,7 @@ export const DeviceHub: React.FC<{ timings?: DockTimings }> = ({ timings }) => {
   };
 
   // Provision, Quick swap and Update firmware run where they already live: the panel on this unit, which
-  // holds their dialogs and the flash panel of task 8.3 (devices design section 11.7).
+  // holds their dialogs and the flash panel of task 8.3 (devices design section 12.7).
   const onAction = (connection: Connection, action: HubAction) => {
     if (!action.available) return;
     if (action.kind === 'reboot') void runReboot(connection);

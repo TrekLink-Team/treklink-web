@@ -248,7 +248,7 @@ describe('meshtastic-dock', () => {
   });
 });
 
-describe('meshtastic-dock, the device hub page (devices design section 11.13)', () => {
+describe('meshtastic-dock, the device hub page (devices design section 12.13)', () => {
   it('leaves the battery out when the unit has not measured itself yet', async () => {
     const { port } = dock({ batteryLevel: null, voltage: null, channelName: 'TL-ORG' });
     const session = await open(port);

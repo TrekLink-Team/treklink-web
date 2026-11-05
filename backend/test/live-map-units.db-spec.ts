@@ -68,7 +68,7 @@ describe('LiveMapService.snapshot lists every unit of an open contract (AC-08)',
     { fieldStationHealth: () => Promise.resolve([]) } as unknown as OrganizationsService,
     // The real read of the simulated mark (demo design §9), clipped to custody (D-040).
     new FieldEventQueryService(new SyncQueryRepository(prisma), {} as never),
-    // No unit is docked in this suite (devices design section 11.8).
+    // No unit is docked in this suite (devices design section 12.8).
     { dockedWithContracts: () => Promise.resolve([]) } as never,
   );
   const runId = randomUUID();

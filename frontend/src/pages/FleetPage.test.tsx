@@ -456,7 +456,7 @@ describe('FleetPage Register panel, Read from unit (devices design 8.3, D-080)',
     expect(dialog.queryByRole('status')).toBeNull();
   });
 
-  it('opens filled from the connector when "New device: register it?" sent Staff here (REQ-EVT-31, AC-24)', async () => {
+  it('opens filled from the connector when "New device: register it?" sent Staff here (REQ-EVT-33, AC-27)', async () => {
     docking.readUnit.mockResolvedValue(reading());
     const { useConnectorStore } = await import('../features/device-connector/model/connectorStore');
     useConnectorStore.setState({ registerFrom: 7 });

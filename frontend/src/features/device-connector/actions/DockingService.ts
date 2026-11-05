@@ -13,7 +13,7 @@ import {
 // The docking flows of devices design sections 8.3, 8.4 and 8.8 over the one adapter. The service keeps
 // the open session between `readUnit()` and the write that follows it, and closes it when the flow
 // ends, whatever the outcome. It never stores the key it is handed (REQ-UBI-05). The port comes from the
-// device connector's registry (design section 11.2), which alone chooses and enumerates ports.
+// device connector's registry (design section 12.2), which alone chooses and enumerates ports.
 
 export type DockStage = 'reading' | 'getting-key' | 'writing' | 'restarting' | 'reconnect' | 'checking';
 
@@ -32,7 +32,7 @@ export type DockingFailure =
   | 'cancelled'
   // Several units are connected and none is the expected one: Staff choose in the connector.
   | 'choose'
-  // The unit may not take this write now, checked before anything is sent (REQ-ERR-30).
+  // The unit may not take this write now, checked before anything is sent (REQ-ERR-32).
   | 'refused';
 
 export class DockingError extends Error {
@@ -58,7 +58,7 @@ export interface DockHooks {
   // browser's chooser, or null when they gave up.
   reconnect: () => Promise<SerialPort | null>;
   // The port the unit came back on after its restart (the connector's registry knows which ports
-  // belong to other units, design section 11.4 rule 1).
+  // belong to other units, design section 12.4 rule 1).
   findReturned?: ReturnedPortFinder;
 }
 
@@ -182,7 +182,7 @@ export class DockingService {
     }
   }
 
-  // Reboot (devices design section 11.13, REQ-EVT-43): `reboot_seconds`, the restart, and the same node
+  // Reboot (devices design section 12.13, REQ-EVT-45): `reboot_seconds`, the restart, and the same node
   // number again. Nothing is recorded on the server.
   async reboot(expected: { nodeNum: number }, hooks: DockHooks): Promise<void> {
     const session = this.session;
@@ -208,7 +208,7 @@ export class DockingService {
     }
   }
 
-  // Factory reset of a returned unit (devices design section 11.13 steps 2 to 6, REQ-EVT-44):
+  // Factory reset of a returned unit (devices design section 12.13 steps 2 to 6, REQ-EVT-46):
   // `factory_reset_config`, the restart, the owner of the asset tag and the region read before the reset
   // written back in one transaction, the second restart, and the read-back. The caller records the reset.
   async factoryReset(expected: ExpectedUnit, hooks: DockHooks): Promise<{ nodeNum: number }> {

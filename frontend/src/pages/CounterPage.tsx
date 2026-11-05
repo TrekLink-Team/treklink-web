@@ -271,7 +271,7 @@ export const CounterPage: React.FC<{
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [swapping, setSwapping] = useState<ContractDevice | null>(null);
   // The quick swap a wrong-unit refusal offers per row: the connector's connection of the docked unit
-  // (devices REQ-EVT-35, design section 11.6).
+  // (devices REQ-EVT-37, design section 12.6).
   const [offers, setOffers] = useState<Record<string, number>>({});
   const [quickSwap, setQuickSwap] = useState<{ device: ContractDevice; connectionId: number } | null>(
     null,
@@ -327,7 +327,7 @@ export const CounterPage: React.FC<{
 
   useEffect(() => heading.current?.focus(), [step]);
 
-  // The counter context of the device connector (devices design section 11.3): the contract and its
+  // The counter context of the device connector (devices design section 12.3): the contract and its
   // reserved rows, and the counter's own provisioning and quick swap, so a row in the connector panel runs
   // the flow of the counter row. The handlers are read through a ref so the context stays stable.
   const connectorHandlers = useRef<{
@@ -399,8 +399,8 @@ export const CounterPage: React.FC<{
     });
 
   // After a wrong-unit refusal (REQ-ERR-12): offer the quick swap when the docked unit is an AVAILABLE
-  // unit of the contract's variant and the row carries no provisioning record (REQ-EVT-35); otherwise
-  // the reason why it does not qualify (REQ-ERR-20, REQ-ERR-21, REQ-ERR-23, REQ-ERR-24).
+  // unit of the contract's variant and the row carries no provisioning record (REQ-EVT-37); otherwise
+  // the reason why it does not qualify (REQ-ERR-22, REQ-ERR-23, REQ-ERR-25, REQ-ERR-26).
   const swapOfferFor = (device: ContractDevice, connectionId: number | undefined): string | null => {
     const docked = connectionId === undefined ? undefined : registry.get(connectionId);
     const unit = docked?.recognized?.device;
@@ -426,7 +426,7 @@ export const CounterPage: React.FC<{
 
   // The quick swap with hot provisioning (devices design sections 11.6 and 11.7): rentals api-design 32,
   // then the docked unit written and read back on the port the connector holds, then the record. A
-  // failure after the exchange leaves it in place and the new row asks to dock again (REQ-ERR-19). A
+  // failure after the exchange leaves it in place and the new row asks to dock again (REQ-ERR-21). A
   // refused exchange changes nothing and its message is returned for the swap dialog, which stays open
   // (screen 4.6: DEVICE_PROVISIONED, DEVICE_NOT_AVAILABLE, VARIANT_MISMATCH, NODE_MISMATCH, STALE_VERSION).
   const swapIn = async (device: ContractDevice, connectionId: number): Promise<string | null> => {

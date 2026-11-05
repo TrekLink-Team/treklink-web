@@ -1,7 +1,7 @@
 import type { DockSessionView } from '../../../entities/device/api';
 import type { RegistrySnapshot } from './ConnectorRegistry';
 
-// The dock sessions behind the Staff map pin (devices design section 11.8, task 10.11, REQ-EVT-36): while
+// The dock sessions behind the Staff map pin (devices design section 12.8, task 10.11, REQ-EVT-38): while
 // the page context is the counter (decided Q3 A), every registered unit the connector holds has a session,
 // renewed every third of its lifetime; a unit that leaves, or a context that is no longer the counter,
 // ends it, and `pagehide` ends every session with a `keepalive` request so a closing tab still reaches

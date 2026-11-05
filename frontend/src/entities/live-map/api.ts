@@ -6,7 +6,7 @@ import type { IncidentState } from '../../shared/ui/status';
 // The state of a unit on the map (monitoring REQ-UBI-04, D-092 rule 2): heard since its handover and
 // recently, heard since its handover and silent past the threshold, or not heard since its handover;
 // and, on the Staff map only, a unit held at the counter outside any custody interval (monitoring
-// REQ-UBI-06, devices design section 11.8).
+// REQ-UBI-06, devices design section 12.8).
 export type UnitState = 'LIVE' | 'OFFLINE' | 'NOT_HEARD' | 'DOCKED';
 
 // Where a unit not heard since its handover is pinned: the TrekLink counter that handed it over.
@@ -36,7 +36,7 @@ export interface SnapshotDevice {
   /** Null for a `DOCKED` unit on no contract. */
   contractCode: string | null;
   organizationId: string | null;
-  /** The open dock session, TrekLink callers only (devices design section 11.8); absent from an older backend. */
+  /** The open dock session, TrekLink callers only (devices design section 12.8); absent from an older backend. */
   docked?: { since: string; byName: string | null } | null;
   /** The latest field event is simulated (specs/demo design §9); absent from an older backend. */
   simulated?: boolean;

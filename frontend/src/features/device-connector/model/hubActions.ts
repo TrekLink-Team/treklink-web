@@ -4,9 +4,9 @@ import type { Connection } from './ConnectorRegistry';
 import { actionsFor, FLASH_NOT_BUILT, type UnitAction } from './actionsFor';
 import type { ConnectorContext } from './connectorStore';
 
-// The six actions of the device hub page (devices design section 11.13, REQ-EVT-42): always listed, in
+// The six actions of the device hub page (devices design section 12.13, REQ-EVT-44): always listed, in
 // this order, each available or carrying its reason as text. Provision, Quick swap, Configure uplink and
-// Update firmware follow actionsFor (section 11.3), so the page and the panel never disagree; Reboot and
+// Update firmware follow actionsFor (section 12.3), so the page and the panel never disagree; Reboot and
 // Factory reset are the page's own.
 
 export type HubActionKind = 'provision' | 'swap' | 'uplink' | 'flash' | 'reboot' | 'factoryReset';
@@ -17,7 +17,7 @@ export interface HubAction {
   available: boolean;
   // Why it is unavailable, as text; null when available.
   reason: string | null;
-  // The panel action it runs, for the four shared with section 11.3.
+  // The panel action it runs, for the four shared with section 12.3.
   unitAction?: UnitAction;
   // A way forward when unavailable here ("Open its counter").
   link?: { label: string; to: string };
@@ -40,7 +40,7 @@ export const HUB_LABELS: Record<HubActionKind, string> = {
 export const LOCKED_TEXT = 'Another unit is being written.';
 export const NOT_READY_TEXT = 'Wait until the unit is read.';
 
-// A returned unit whose custody row on a contract is still open (REQ-ERR-30).
+// A returned unit whose custody row on a contract is still open (REQ-ERR-32).
 export const custodyText = (tag: string, contractCode: string) =>
   `${tag} is still in custody on ${contractCode}. Check it in on its contract first.`;
 
@@ -122,8 +122,8 @@ export const hubActionsFor = (
   } else if (device.status !== 'RETURNED') {
     resetReason = `Factory reset is for returned units. ${tag} is ${statusLabel(device.status)}.`;
   } else if (contract) {
-    // The recognition's contract is the unit's open custody row (devices design section 11.5): a returned
-    // unit still in custody is refused before anything is written to it (REQ-ERR-30).
+    // The recognition's contract is the unit's open custody row (devices design section 12.5): a returned
+    // unit still in custody is refused before anything is written to it (REQ-ERR-32).
     resetReason = custodyText(tag, contract.code);
   } else if (record === undefined) resetReason = 'Checking the record.';
   else if (record?.nextStep?.action !== 'RESET') resetReason = `${tag} is already reset for this return.`;

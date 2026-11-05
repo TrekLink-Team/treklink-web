@@ -9,13 +9,13 @@ import {
   type UnitReading,
 } from '../../../shared/lib/meshtastic-dock';
 
-// The device connector's registry (devices design section 11.2 and 11.4, task 10.6): one per tab,
+// The device connector's registry (devices design section 12.2 and 12.4, task 10.6): one per tab,
 // outside React, holding one connection per USB port the site may use. It is the only place that
 // enumerates or opens ports; the actions borrow a port from it under one write lock (REQ-UBI-09).
 //
 // A connection keeps the port handle and the unit's identity only (REQ-UBI-08). The handshake session,
 // which carries the channel settings, is closed as soon as the identity is read; a write opens its own
-// session and reads the primary channel again inside its own transaction (design section 11.4 rule 2).
+// session and reads the primary channel again inside its own transaction (design section 12.4 rule 2).
 // Nothing here is written to browser storage, the query cache or the console.
 
 export type ConnectionState =
@@ -67,9 +67,9 @@ export interface RegistryDeps {
   recognize: (nodeNums: readonly number[]) => Promise<RecognizedUnit[]>;
   choose: () => Promise<SerialPort>;
   timings?: DockTimings;
-  // How long an unplugged row stays before it leaves the list (design section 11.4 rule 5).
+  // How long an unplugged row stays before it leaves the list (design section 12.4 rule 5).
   unpluggedMs?: number;
-  // Recognition batches the units that finish their handshake within this window (design section 11.5).
+  // Recognition batches the units that finish their handshake within this window (design section 12.5).
   batchMs?: number;
 }
 
@@ -117,7 +117,7 @@ export class ConnectorRegistry {
 
   getSnapshot = (): RegistrySnapshot => this.snapshot;
 
-  // Opens every granted port without the chooser and follows `connect` and `disconnect` (REQ-EVT-29).
+  // Opens every granted port without the chooser and follows `connect` and `disconnect` (REQ-EVT-31).
   async start(): Promise<void> {
     const api = this.deps.serial();
     if (this.started || !api) return;
@@ -194,7 +194,7 @@ export class ConnectorRegistry {
     return this.connections.find((connection) => connection.id === id);
   }
 
-  // The ready connection of a unit, for an entry point that names its device (REQ-EVT-39).
+  // The ready connection of a unit, for an entry point that names its device (REQ-EVT-41).
   byNodeNum(nodeNum: number | null | undefined): Connection | undefined {
     if (nodeNum === null || nodeNum === undefined) return undefined;
     return this.connections.find(
@@ -202,7 +202,7 @@ export class ConnectorRegistry {
     );
   }
 
-  // The port a unit came back on after the restart of a write (design section 11.4 rule 1): the original
+  // The port a unit came back on after the restart of a write (design section 12.4 rule 1): the original
   // port while it is still granted, else the one granted port with its USB IDs that no other row holds.
   // Two units on the same USB bridge share their IDs, so with several candidates none is taken and the
   // docking asks Staff to reconnect the unit instead of writing to the wrong one.
@@ -304,7 +304,7 @@ export class ConnectorRegistry {
       }
       return;
     }
-    // A unit back from a restart on a new port keeps its row (design section 11.4 rule 1).
+    // A unit back from a restart on a new port keeps its row (design section 12.4 rule 1).
     const twin = this.connections.find(
       (other) => other.id !== id && other.unit?.nodeNum === unit.nodeNum,
     );

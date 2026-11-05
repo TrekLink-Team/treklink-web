@@ -227,7 +227,7 @@ describe('StreamListener', () => {
     });
   });
 
-  describe('device.docked and device.undocked (devices design section 11.8)', () => {
+  describe('device.docked and device.undocked (devices design section 12.8)', () => {
     it('stores both with no organization, so they reach the fleet room only', async () => {
       const since = new Date('2026-11-04T02:00:00.000Z');
 

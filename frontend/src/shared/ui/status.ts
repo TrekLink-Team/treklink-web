@@ -205,7 +205,7 @@ export type MarkerState = 'fresh' | 'attention' | 'stale' | 'unheard' | 'docked'
 
 // `stale` is the offline marker of D-092 rule 2: heard during the contract, silent past the threshold.
 // `unheard` is a unit not heard since its handover, pinned at the counter (MSG41). `docked` is a unit the
-// Staff browser holds at the counter (devices design section 11.8), on the Staff map only.
+// Staff browser holds at the counter (devices design section 12.8), on the Staff map only.
 export const MARKER_LABEL: Record<MarkerState, string> = {
   fresh: 'Live',
   attention: 'Needs attention',

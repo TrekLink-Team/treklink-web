@@ -64,10 +64,10 @@ export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children
   const setDrawer = useShell((state) => state.setDrawer);
   const desktop = useMediaQuery('(min-width: 1024px)');
   const wide = useMediaQuery(DOCKED_QUERY);
-  // The device connector, the Staff device hub (devices design section 11.2, screen 4.6): Staff and Admin
+  // The device connector, the Staff device hub (devices design section 12.2, screen 4.6): Staff and Admin
   // only (REQ-UBI-07). From 1100 px a non-modal aside pushed beside the page, from 600 px a drawer from
   // the right, below that a bottom sheet; only the drawers on full-bleed map routes. One right panel shows
-  // at a time, so the Info pane yields while it is open (design section 11.12 Q6, decided A).
+  // at a time, so the Info pane yields while it is open (design section 12.12 Q6, decided A).
   const staff = user.accountType === 'TREKLINK';
   useStartConnector(staff);
   useDockPresence(staff);

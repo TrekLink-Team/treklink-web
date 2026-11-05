@@ -283,7 +283,7 @@ Events emitted: `contract.requested`, `contract.statusChanged`, `contract.endedE
 | `GROUP_DEPTH_EXCEEDED` (§11) | 409 |
 | `DEVICE_NOT_HELD` (§11) | 409 |
 | `FAULT_ALREADY_REPORTED` (§11) | 409 |
-| `DEVICE_PROVISIONED` (api-design 32, devices design §11.6) | 409 |
+| `DEVICE_PROVISIONED` (api-design 32, devices design §12.6) | 409 |
 | `NODE_MISMATCH` (api-design 09, 21, 30) | 409 |
 | `VARIANT_MISMATCH` (api-design 15, 30) | 409 |
 | `DEVICE_NOT_AVAILABLE` (api-design 04, 15, 30) | 409 |

@@ -291,7 +291,7 @@ describe('ownerFor', () => {
   });
 });
 
-// The device hub page's writes (devices design section 11.13, REQ-EVT-43, REQ-EVT-44, REQ-ERR-31).
+// The device hub page's writes (devices design section 12.13, REQ-EVT-45, REQ-EVT-46, REQ-ERR-33).
 describe('useDocking reboot and factory reset', () => {
   // The one connection the registry holds once its unit is read and looked up.
   const readyConnection = async () => {
@@ -338,7 +338,7 @@ describe('useDocking reboot and factory reset', () => {
     consoleSpies.forEach((spy) => expect(spy).not.toHaveBeenCalled());
   });
 
-  it('writes nothing to another unit and records nothing (REQ-ERR-30)', async () => {
+  it('writes nothing to another unit and records nothing (REQ-ERR-32)', async () => {
     const { unit } = dock({ nodeNum: 0x0004351c });
     const { result } = render();
     const id = await readyConnection();
@@ -351,7 +351,7 @@ describe('useDocking reboot and factory reset', () => {
     expect(recordReset).not.toHaveBeenCalled();
   });
 
-  it('asks the server again before the wipe and writes nothing to a unit still in custody (REQ-ERR-30)', async () => {
+  it('asks the server again before the wipe and writes nothing to a unit still in custody (REQ-ERR-32)', async () => {
     const { unit } = dock();
     const { result } = render();
     const id = await readyConnection();
@@ -399,7 +399,7 @@ describe('useDocking reboot and factory reset', () => {
     expect(recordReset).not.toHaveBeenCalled();
   });
 
-  it('names a read-back that differs and records nothing (REQ-ERR-31)', async () => {
+  it('names a read-back that differs and records nothing (REQ-ERR-33)', async () => {
     const { unit } = dock({}, { loseRegionOnCommit: true });
     const { result } = render();
     const id = await readyConnection();
