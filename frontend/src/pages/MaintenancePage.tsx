@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
 import {
   completeMaintenance,
   decideMaintenance,
   estimateMaintenance,
+  fetchMaintenanceRecords,
   openMaintenance,
   useDevice,
   useDevices,
@@ -821,6 +822,17 @@ const RecordsTable: React.FC<{
   );
 };
 
+// The record a device history row names (screen 4.2, W20B): devices api-design 15 has no read by id,
+// so the pages of the unfiltered list are read in turn until the record turns up; null when it does not.
+const findRecord = async (id: string): Promise<MaintenanceRecord | null> => {
+  for (let pageNumber = 1; ; pageNumber += 1) {
+    const page = await fetchMaintenanceRecords({ pageNumber });
+    const found = page.items.find((record) => record.id === id);
+    if (found) return found;
+    if (pageNumber >= page.totalPages) return null;
+  }
+};
+
 // /t/maintenance and /t/maintenance/approvals, MaintenancePage and MaintenanceApprovalPage of screen
 // 4.3 (devices api-design 06 and 11 to 15). TrekLink Staff list, open, estimate and complete; Admin
 // also decides pending costs, hidden on a record the viewer estimated (BR-44).
@@ -845,6 +857,20 @@ export const MaintenancePage: React.FC = () => {
     (location.state as { deviceId?: string } | null)?.deviceId ?? null,
   );
   const [viewing, setViewing] = useState<MaintenanceRecord | null>(null);
+  // A history row of the device page opens its record here, from `recordId` in the navigation state.
+  const linkedId = (location.state as { recordId?: string } | null)?.recordId ?? null;
+  const linked = useQuery({
+    queryKey: ['maintenance-record', linkedId],
+    queryFn: () => findRecord(linkedId ?? ''),
+    enabled: linkedId !== null,
+  });
+  const [linkedClosed, setLinkedClosed] = useState(false);
+  const shown = viewing ?? (linkedClosed ? null : (linked.data ?? null));
+  // Any other record opened or closed replaces the linked one for good.
+  const view = (record: MaintenanceRecord | null) => {
+    setLinkedClosed(true);
+    setViewing(record);
+  };
   const [estimating, setEstimating] = useState<MaintenanceRecord | null>(null);
   const [completing, setCompleting] = useState<MaintenanceRecord | null>(null);
   const [deciding, setDeciding] = useState<MaintenanceRecord | null>(null);
@@ -907,7 +933,7 @@ export const MaintenancePage: React.FC = () => {
   // STALE_VERSION: Reload refetches and closes the dialog, so the next attempt uses the new version.
   const reload = (close: () => void) => () => {
     close();
-    setViewing(null);
+    view(null);
     void invalidate();
   };
 
@@ -998,7 +1024,7 @@ export const MaintenancePage: React.FC = () => {
           error={records.error}
           onRetry={() => void records.refetch()}
           empty={filtered ? MSG01 : 'No maintenance records yet.'}
-          onOpen={setViewing}
+          onOpen={view}
           actions={[estimateAction, completeAction]}
           filters={[
             { key: '', label: 'Every status' },
@@ -1022,7 +1048,7 @@ export const MaintenancePage: React.FC = () => {
           error={week.error}
           onRetry={() => void week.refetch()}
           empty="Nothing is due this week."
-          onOpen={setViewing}
+          onOpen={view}
           actions={[{ ...completeAction, allowed: undefined }]}
           footer={pagerOf(week.data, setWeekPage)}
         />
@@ -1059,7 +1085,7 @@ export const MaintenancePage: React.FC = () => {
             error={approvals.error}
             onRetry={() => void approvals.refetch()}
             empty="No costs are waiting for a decision."
-            onOpen={setViewing}
+            onOpen={view}
             actions={[
               {
                 key: 'decide',
@@ -1089,12 +1115,12 @@ export const MaintenancePage: React.FC = () => {
         </TabPanel>
       )}
 
-      {viewing && !estimating && !completing && (
+      {shown && !estimating && !completing && (
         <RecordDrawer
-          record={viewing}
-          onClose={() => setViewing(null)}
-          onEstimate={() => setEstimating(viewing)}
-          onComplete={() => setCompleting(viewing)}
+          record={shown}
+          onClose={() => view(null)}
+          onEstimate={() => setEstimating(shown)}
+          onComplete={() => setCompleting(shown)}
         />
       )}
       {picking && (
@@ -1125,7 +1151,7 @@ export const MaintenancePage: React.FC = () => {
           onDone={() => void (async () => {
             const deviceId = estimating.device.id;
             setEstimating(null);
-            setViewing(null);
+            view(null);
             await saved(deviceId);
           })()}
           onCancel={() => setEstimating(null)}
@@ -1137,7 +1163,7 @@ export const MaintenancePage: React.FC = () => {
           record={completing}
           onDone={(record) => void (async () => {
             setCompleting(null);
-            setViewing(null);
+            view(null);
             setCompleted(record);
             await saved(record.device.id);
           })()}
@@ -1178,7 +1204,7 @@ export const MaintenancePage: React.FC = () => {
           onDone={() => void (async () => {
             const deviceId = deciding.device.id;
             setDeciding(null);
-            setViewing(null);
+            view(null);
             await saved(deviceId);
           })()}
           onCancel={() => setDeciding(null)}
