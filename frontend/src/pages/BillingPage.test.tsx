@@ -35,12 +35,16 @@ const invoice: Invoice = {
 
 let invoices: Invoice[] = [];
 const paymentFilters: unknown[] = [];
+const invoiceFilters: unknown[] = [];
 vi.mock('../entities/billing/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../entities/billing/api')>()),
-  useInvoices: () => ({
-    isLoading: false,
-    data: { items: invoices, pageNumber: 1, pageSize: 20, totalCount: invoices.length, totalPages: 1 },
-  }),
+  useInvoices: (_scope: string, filters: unknown) => {
+    invoiceFilters.push(filters);
+    return {
+      isLoading: false,
+      data: { items: invoices, pageNumber: 1, pageSize: 20, totalCount: invoices.length, totalPages: 1 },
+    };
+  },
   usePayments: (filters: unknown) => {
     paymentFilters.push(filters);
     const items = [payment('p-1', 'TL7K2Q9M4D', 'SEPAY'), payment('p-2', 'CASH-0001', 'CASH'), payment('p-3', 'CASH-0002', 'CASH')];
@@ -78,6 +82,24 @@ describe('BillingPage, invoices (screen 6.1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'INV-2026-000004' }));
     expect(screen.getByText('Invoice pane i-1')).toBeTruthy();
     expect(layout()?.className).toContain('xl:grid-cols-[minmax(0,1fr)_440px]');
+  });
+
+  // W26: the headers sort on the server (billing api-design 08); the issue time is the default order.
+  it('sends the header sort to the invoice query from page 1', () => {
+    invoices = [invoice];
+    renderPage();
+    const table = within(screen.getByRole('table', { name: 'Invoices' }));
+    expect(table.getByRole('button', { name: 'Issued' }).closest('th')!.getAttribute('aria-sort')).toBe(
+      'descending',
+    );
+    fireEvent.click(table.getByRole('button', { name: 'Total' }));
+    expect(invoiceFilters.at(-1)).toMatchObject({ pageNumber: 1, sort: 'totalVnd', order: 'asc' });
+    // The default column toggles two directions (chapter 06 §11.2); newest first is the default
+    // order and sends no sort.
+    fireEvent.click(table.getByRole('button', { name: 'Issued' }));
+    expect(invoiceFilters.at(-1)).toMatchObject({ sort: 'issuedAt', order: 'asc' });
+    fireEvent.click(table.getByRole('button', { name: 'Issued' }));
+    expect(invoiceFilters.at(-1)).toEqual({ pageNumber: 1, contractId: undefined });
   });
 });
 

@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../app/providers/useAuth';
 import {
   cancelContract,
+  CONTRACT_SORT_FIELDS,
   contractKeys,
   formatNextDate,
   planLabel,
@@ -15,6 +16,7 @@ import {
   type ContractStatus,
   type PlanType,
 } from '../entities/contract/api';
+import { collectionSortOf, sortParamsOf } from '../shared/api/query';
 import { hasAnyRole } from '../shared/lib/permissions';
 import { matchesText } from '../shared/lib/filter';
 import {
@@ -68,12 +70,13 @@ export const ContractsPage: React.FC = () => {
 
   const fields: CollectionField<Contract>[] = [
     { key: 'plan', label: 'Plan', render: planLabel, compact: true },
-    { key: 'devices', label: 'Devices', align: 'end', render: (contract) => contract.quantity },
+    { key: 'quantity', label: 'Devices', align: 'end', render: (contract) => contract.quantity, sortable: true },
     {
       key: 'status',
       label: 'Status',
       render: (contract) => <Badge tone={STATUS_TONES[contract.status]}>{STATUS_LABELS[contract.status]}</Badge>,
       compact: true,
+      sortable: true,
     },
     { key: 'next', label: 'Next date', render: (contract) => formatNextDate(contract), compact: true },
   ];
@@ -107,13 +110,25 @@ export const ContractsPage: React.FC = () => {
           { key: '', label: 'Every status' },
           ...STATUSES.map((status) => ({ key: status, label: STATUS_LABELS[status] })),
         ]}
-        query={{ search: text, filter: filters.status ?? '', sort: null, groups: { plan: filters.planType ?? '' } }}
+        query={{
+          search: text,
+          filter: filters.status ?? '',
+          sort: collectionSortOf(filters),
+          groups: { plan: filters.planType ?? '' },
+        }}
+        titleSort="code"
         onQueryChange={(next) => {
           setText(next.search);
           const status = (next.filter || undefined) as ContractStatus | undefined;
           const planType = (next.groups?.plan || undefined) as PlanType | undefined;
-          if (status !== filters.status || planType !== filters.planType)
-            setFilters({ status, planType, pageNumber: 1 });
+          const sort = sortParamsOf(next.sort, CONTRACT_SORT_FIELDS);
+          if (
+            status !== filters.status ||
+            planType !== filters.planType ||
+            sort.sort !== filters.sort ||
+            sort.order !== filters.order
+          )
+            setFilters({ status, planType, ...sort, pageNumber: 1 });
         }}
         filterGroups={[
           {

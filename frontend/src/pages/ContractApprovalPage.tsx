@@ -15,7 +15,10 @@ import {
   type Contract,
   type ContractStatus,
   useAvailability,
+  CONTRACT_SORT_FIELDS,
+  type ContractSortField,
 } from '../entities/contract/api';
+import { collectionSortOf, sortParamsOf, type SortParams } from '../shared/api/query';
 import { useVariantName } from '../entities/billing/api';
 import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime, formatDay, formatVnd } from '../shared/lib/format';
@@ -402,6 +405,8 @@ export const ContractApprovalPage: React.FC = () => {
   const [queueKey, setQueueKey] = useState('REQUESTED');
   const [pageNumber, setPageNumber] = useState(1);
   const [text, setText] = useState('');
+  // The header sort on the server (rentals api-design 02, W26); none keeps the newest change first.
+  const [sort, setSort] = useState<SortParams<ContractSortField>>({});
   const status = QUEUES.find((queue) => queue.key === queueKey)?.status;
   // The search runs on the server over the whole queue (rentals api-design 02 `q`, REQ-EVT-26): the
   // contract code, the organization's name or code, once typing has paused for SEARCH_DEBOUNCE_MS.
@@ -410,6 +415,7 @@ export const ContractApprovalPage: React.FC = () => {
     status,
     pageNumber,
     q: q || undefined,
+    ...sort,
   });
   const variantName = useVariantName();
 
@@ -460,12 +466,13 @@ export const ContractApprovalPage: React.FC = () => {
       compact: true,
     },
     {
-      key: 'start',
+      key: 'requestedStartDate',
       label: 'Start',
       render: (contract) => (
         <span className="whitespace-nowrap">{formatDay(contract.requestedStartDate)}</span>
       ),
       hideWithPane: true,
+      sortable: true,
     },
     {
       key: 'status',
@@ -474,6 +481,7 @@ export const ContractApprovalPage: React.FC = () => {
         <Badge tone={STATUS_TONES[contract.status]}>{STATUS_LABELS[contract.status]}</Badge>
       ),
       compact: true,
+      sortable: true,
     },
   ];
 
@@ -536,7 +544,8 @@ export const ContractApprovalPage: React.FC = () => {
           placeholder: 'Contract code, organization name or code',
         }}
         filters={QUEUES.map((queue) => ({ key: queue.key, label: queue.label }))}
-        query={{ search: text, filter: queueKey, sort: null }}
+        query={{ search: text, filter: queueKey, sort: collectionSortOf(sort) }}
+        titleSort="code"
         // The default queue (Requested) narrows the list, so the bar stays even for one or two rows.
         hideCommandBar={false}
         onQueryChange={(next) => {
@@ -546,6 +555,11 @@ export const ContractApprovalPage: React.FC = () => {
           }
           if (next.filter !== queueKey) {
             setQueueKey(next.filter);
+            setPageNumber(1);
+          }
+          const nextSort = sortParamsOf(next.sort, CONTRACT_SORT_FIELDS);
+          if (nextSort.sort !== sort.sort || nextSort.order !== sort.order) {
+            setSort(nextSort);
             setPageNumber(1);
           }
         }}

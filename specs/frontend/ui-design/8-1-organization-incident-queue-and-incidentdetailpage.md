@@ -43,7 +43,7 @@ Paths are inside unwrapped `result`; list rows start at `items[]`.
 | Outcome | API 02 `outcomeNote`. A labelled "Outcome" fact in the summary card, full width, plain text with line breaks preserved, shown only when non-null (after Report outcome, until a reopen clears it). Nothing is shown while the incident is unresolved. |
 | Episode evidence | [API 13](../../incidents/api-design/13-get-incidents-id-events.md): `eventId` as key, `kind`, `observedAt`, `latitude`, `longitude`, oldest first. Coordinates remain text; Open map navigates to `/o/map` (task 9.1). |
 | Manager-only alert log | [API 14](../../incidents/api-design/14-get-incidents-id-alerts.md): `tier`, `recipient`, `channel`, `status`, `attempts`, optional `sentAt`, `lastError`. Operators neither request nor render it. Failed delivery does not mean failed transition. |
-| Pager and ordering | API 01 `pageNumber`, `pageSize`, `totalCount`, `totalPages`. Start at 20 within platform `MAX_PAGE_SIZE`. Keep `tierDeadlineAt` ascending, nulls last, then `firstEventAt` newest first. D-059 rule 7 deliberately provides no sort parameter; do not add client sort controls. |
+| Pager and ordering | API 01 `pageNumber`, `pageSize`, `totalCount`, `totalPages`. Start at 20 within platform `MAX_PAGE_SIZE`. Default order `tierDeadlineAt` ascending, nulls last, then `firstEventAt` newest first (D-059 rule 7). Since W26 (leader ruling 2026-11-05) the Incident (code), State and Latest event headers ask the server for another order (`sort`, `order`); a third click returns to the default. No client sort. |
 
 ## Actions
 

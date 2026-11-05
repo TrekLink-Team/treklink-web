@@ -5,7 +5,10 @@ import {
   useFleetIncidents,
   type Incident,
   type FleetIncidentFilters,
+  INCIDENT_SORT_FIELDS,
+  type IncidentSortField,
 } from '../entities/incident/api';
+import { collectionSortOf, sortParamsOf, type SortParams } from '../shared/api/query';
 import { isReportable } from '../entities/incident/authorityReports';
 import { IncidentFlags, StateBadges } from '../entities/incident/ui';
 import { AuthorityReportsPanel, ReportDialog } from '../widgets/AuthorityReports/AuthorityReports';
@@ -45,7 +48,8 @@ const holderOf = (incident: Incident) => incident.device.holder?.name ?? 'No hol
 type Tab = 'queue' | 'reports';
 
 // /t/incidents, StaffIncidentsPage of screen 8.2: the unrouted and escalated queue with inline
-// detail (api-design 01 and 02). Rows keep the server order (D-059 rule 7). Escalation is
+// detail (api-design 01 and 02). Rows keep the server order (D-059 rule 7) until a header asks the
+// server for another (W26: code, state, latest event). Escalation is
 // automatic; Staff do not manually create or escalate incidents here. The Authority reports tab is
 // screen 8.3 (api-design 08 to 11).
 export const StaffIncidentsPage: React.FC = () => {
@@ -54,6 +58,8 @@ export const StaffIncidentsPage: React.FC = () => {
   const [scope, setScope] = useState(SCOPES[0]);
   const [pageNumber, setPageNumber] = useState(1);
   const [filters, setFilters] = useState<FleetIncidentFilters>({});
+  // The header sort, apart from the filter dialog's device and date so a filter change keeps it.
+  const [sort, setSort] = useState<SortParams<IncidentSortField>>({});
   const [filtering, setFiltering] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
@@ -66,7 +72,7 @@ export const StaffIncidentsPage: React.FC = () => {
   const { data, isLoading, error, refetch, isFetching } = useFleetIncidents(
     scope.states,
     pageNumber,
-    filters,
+    { ...filters, ...sort },
   );
 
   const open = (incident: Incident, falseAlarm = false) => {
@@ -109,11 +115,13 @@ export const StaffIncidentsPage: React.FC = () => {
       label: 'State',
       render: (incident) => <StateBadges incident={incident} />,
       compact: true,
+      sortable: true,
     },
     {
-      key: 'latest',
+      key: 'lastEventAt',
       label: 'Latest event',
       render: (incident) => formatDateTime(incident.lastEventAt),
+      sortable: true,
     },
   ];
   return (
@@ -217,9 +225,11 @@ export const StaffIncidentsPage: React.FC = () => {
                   extra: (incident) => <IncidentFlags incident={incident} />,
                 }}
                 filters={SCOPES.map((option) => ({ key: option.id, label: option.label }))}
-                query={{ search: '', filter: scope.id, sort: null }}
+                query={{ search: '', filter: scope.id, sort: collectionSortOf(sort) }}
+                titleSort="code"
                 onQueryChange={(next) => {
                   setScope(SCOPES.find((option) => option.id === next.filter) ?? SCOPES[0]);
+                  setSort(sortParamsOf(next.sort, INCIDENT_SORT_FIELDS));
                   setPageNumber(1);
                 }}
                 hideCommandBar={false}

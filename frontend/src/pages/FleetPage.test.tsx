@@ -68,12 +68,12 @@ const page = (items: unknown[]) => ({
 });
 
 let devices: unknown[] = [device()];
-const seenFilters: { status?: string[] }[] = [];
+const seenFilters: { status?: string[]; sort?: string; order?: string; pageNumber?: number }[] = [];
 
 vi.mock('../entities/device/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../entities/device/api')>()),
   useVariants: () => ({ data: [VARIANT] }),
-  useDevices: (filters: { status?: string[] }) => {
+  useDevices: (filters: (typeof seenFilters)[number]) => {
     seenFilters.push(filters);
     return { data: page(devices), isLoading: false, error: null, refetch: vi.fn() };
   },
@@ -215,6 +215,52 @@ describe('FleetPage (/t/fleet, screen 4.2)', () => {
     expect(lastStatus()).toEqual(['MAINTENANCE']);
     const chips = within(screen.getByRole('group', { name: 'Filter by status' }));
     expect(chips.getByRole('button', { name: /Maintenance/ }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  // W26: the headers sort on the server (devices api-design 06); the asset tag is the default order.
+  it('sends the header sort to the fleet query and keeps it in the address', async () => {
+    renderPage();
+    const table = within(await screen.findByRole('table'));
+    const last = () => seenFilters[seenFilters.length - 1];
+    expect(last()).not.toHaveProperty('sort');
+    expect(table.getByRole('button', { name: 'Device' }).closest('th')!.getAttribute('aria-sort')).toBe(
+      'ascending',
+    );
+    fireEvent.click(table.getByRole('button', { name: 'Last seen' }));
+    await waitFor(() => expect(last()).toMatchObject({ sort: 'lastSeenAt', order: 'asc', pageNumber: 1 }));
+    fireEvent.click(table.getByRole('button', { name: 'Last seen' }));
+    await waitFor(() => expect(last()).toMatchObject({ sort: 'lastSeenAt', order: 'desc' }));
+    // The third click returns to the default order, the asset tag, which sends no sort.
+    fireEvent.click(table.getByRole('button', { name: 'Last seen' }));
+    await waitFor(() => expect(last()).not.toHaveProperty('sort'));
+    fireEvent.click(table.getByRole('button', { name: 'Device' }));
+    await waitFor(() => expect(last()).toMatchObject({ sort: 'assetTag', order: 'desc' }));
+    fireEvent.click(table.getByRole('button', { name: 'Device' }));
+    await waitFor(() => expect(last()).not.toHaveProperty('sort'));
+  });
+
+  it('reads the sort from the address and ignores a field off the allowlist', async () => {
+    renderPage('/t/fleet?sort=batteryPct&order=desc');
+    const table = within(await screen.findByRole('table'));
+    expect(seenFilters[seenFilters.length - 1]).toMatchObject({ sort: 'batteryPct', order: 'desc' });
+    expect(table.getByRole('button', { name: 'Battery' }).closest('th')!.getAttribute('aria-sort')).toBe(
+      'descending',
+    );
+    cleanup();
+    seenFilters.length = 0;
+    renderPage('/t/fleet?sort=firmwareVersion');
+    await screen.findByRole('table');
+    expect(seenFilters[seenFilters.length - 1]).not.toHaveProperty('sort');
+  });
+
+  it('marks exactly the allowlisted columns sortable', async () => {
+    renderPage();
+    const table = within(await screen.findByRole('table'));
+    const sortable = table
+      .getAllByRole('columnheader')
+      .filter((header) => header.querySelector('button[type="button"]') && header.querySelector('[data-sort-icon]'))
+      .map((header) => header.textContent);
+    expect(sortable).toEqual(['Device', 'Node id', 'Status', 'Battery', 'Last seen', 'Service due']);
   });
 
   it('shows the first-run empty state, and MSG01 once a filter is set', async () => {

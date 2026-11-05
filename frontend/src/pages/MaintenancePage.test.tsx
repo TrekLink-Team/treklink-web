@@ -64,8 +64,14 @@ let records: unknown[] = [record()];
 let approvals: unknown[] = [];
 let weekRecords: unknown[] = [];
 let devicesOut: unknown[] = [];
-const recordFilters: { status?: string[]; reason?: string[]; dueBefore?: string; pageNumber?: number }[] =
-  [];
+const recordFilters: {
+  status?: string[];
+  reason?: string[];
+  dueBefore?: string;
+  pageNumber?: number;
+  sort?: string;
+  order?: string;
+}[] = [];
 const deviceFilters: { status?: string[]; q?: string }[] = [];
 
 vi.mock('../entities/device/api', async (importOriginal) => ({
@@ -500,6 +506,33 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
     await waitFor(() =>
       expect(recordFilters).toContainEqual(expect.objectContaining({ status: ['PENDING_APPROVAL'], pageNumber: 2 })),
     );
+  });
+
+  // W26: the device, status and expected headers sort on the server (devices api-design 15).
+  it('sends the header sort to the record query from page 1, each list on its own', async () => {
+    pages = 2;
+    renderPage();
+    const records = await table();
+    const allRecords = () =>
+      recordFilters.filter((filters) => !filters.dueBefore && !filters.status?.includes('PENDING_APPROVAL'));
+    fireEvent.click(
+      within(screen.getByRole('tabpanel', { name: /Records/ })).getByRole('button', { name: 'Next page' }),
+    );
+    await waitFor(() => expect(allRecords().at(-1)).toMatchObject({ pageNumber: 2 }));
+    fireEvent.click(records.getByRole('button', { name: 'Record' }));
+    await waitFor(() => expect(allRecords().at(-1)).toMatchObject({ pageNumber: 1, sort: 'assetTag', order: 'asc' }));
+    // The expected date is the default order: it toggles, and soonest first sends no sort.
+    fireEvent.click(records.getByRole('button', { name: 'Expected' }));
+    await waitFor(() => expect(allRecords().at(-1)).toMatchObject({ sort: 'expectedAt', order: 'desc' }));
+    fireEvent.click(records.getByRole('button', { name: 'Expected' }));
+    await waitFor(() => expect(allRecords().at(-1)).not.toHaveProperty('sort'));
+    const sortable = records
+      .getAllByRole('columnheader')
+      .filter((cell) => cell.querySelector('[data-sort-icon]'))
+      .map((cell) => cell.textContent);
+    expect(sortable).toEqual(['Record', 'Status', 'Expected']);
+    // The week's list keeps its default order.
+    expect(recordFilters.filter((filters) => filters.dueBefore).at(-1)).not.toHaveProperty('sort');
   });
 
   it('keeps the pager when the list shrinks below the page the user is on', async () => {

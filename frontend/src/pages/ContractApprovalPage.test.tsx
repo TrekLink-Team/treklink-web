@@ -105,6 +105,32 @@ describe('ContractApprovalPage', () => {
     }
   });
 
+  // W26: the headers sort on the server (rentals api-design 02) and return to page 1.
+  it('sends the header sort to the queue query from page 1', () => {
+    totalPages = 3;
+    try {
+      renderPage();
+      fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+      const table = within(screen.getByRole('table', { name: 'Contracts' }));
+      fireEvent.click(table.getByRole('button', { name: 'Start' }));
+      expect(listReads.at(-1)).toMatchObject({
+        status: 'REQUESTED',
+        pageNumber: 1,
+        sort: 'requestedStartDate',
+        order: 'asc',
+      });
+      fireEvent.click(table.getByRole('button', { name: 'Start' }));
+      expect(listReads.at(-1)).toMatchObject({ sort: 'requestedStartDate', order: 'desc' });
+      const sortable = table
+        .getAllByRole('columnheader')
+        .filter((cell) => cell.querySelector('[data-sort-icon]'))
+        .map((cell) => cell.textContent);
+      expect(sortable).toEqual(['Contract', 'Start', 'Status']);
+    } finally {
+      totalPages = 1;
+    }
+  });
+
   it('names the variant by its display name in the queue and the request panel', async () => {
     renderPage();
     expect((await screen.findAllByText('TrekLink v3 x 5')).length).toBeGreaterThan(0);

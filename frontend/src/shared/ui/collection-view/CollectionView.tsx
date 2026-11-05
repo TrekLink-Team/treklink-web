@@ -139,6 +139,11 @@ export interface CollectionViewProps<T> {
    * that header toggles only its two directions (chapter 06 §11.2). A `null` query sort means it.
    */
   defaultSort?: CollectionSort;
+  /**
+   * The sort key of the title column (the asset tag, code or number): its header then sorts like a
+   * sortable field, under the noun as its label, and the client-side sort reads `itemName` (W26).
+   */
+  titleSort?: string;
   onQueryChange?: (query: CollectionQuery) => void;
   pageInfo?: CollectionPageInfo;
   loading?: boolean;
@@ -186,6 +191,7 @@ export function CollectionView<T>({
   filterGroups,
   query: controlledQuery,
   defaultSort,
+  titleSort,
   onQueryChange,
   pageInfo,
   loading,
@@ -288,8 +294,10 @@ export function CollectionView<T>({
     );
     const sort = query.sort ?? defaultSort ?? null;
     const field = sort ? fields.find((each) => each.key === sort.key) : undefined;
-    if (!sort || !field) return searched;
-    const value = (item: T) => field.sortValue?.(item) ?? field.text?.(item) ?? '';
+    const byTitle = sort !== null && titleSort !== undefined && sort.key === titleSort;
+    if (!sort || (!field && !byTitle)) return searched;
+    const value = (item: T) =>
+      byTitle ? itemName(item) : (field?.sortValue?.(item) ?? field?.text?.(item) ?? '');
     const factor = sort.direction === 'asc' ? 1 : -1;
     return [...searched].sort((a, b) => {
       const left = value(a);
@@ -303,7 +311,7 @@ export function CollectionView<T>({
           : String(left).localeCompare(String(right), undefined, { numeric: true })) * factor
       );
     });
-  }, [items, serverSide, filters, filterGroups, query, defaultSort, fields, itemName]);
+  }, [items, serverSide, filters, filterGroups, query, defaultSort, titleSort, fields, itemName]);
 
   const ids = useMemo(() => visible.map(itemId), [visible, itemId]);
   const byId = useMemo(() => new Map(visible.map((item) => [itemId(item), item])), [visible, itemId]);
@@ -374,11 +382,18 @@ export function CollectionView<T>({
   const clearSelection = () => applySelection(EMPTY_SELECTION);
 
   const filterOf = (key: string) => filters?.find((each) => each.key === key);
+  const titleLabel = noun.one.charAt(0).toUpperCase() + noun.one.slice(1);
+  // The columns a user may sort on: the title when it carries a sort key, then the sortable fields.
+  const sortColumns = [
+    ...(titleSort !== undefined ? [{ key: titleSort, label: titleLabel }] : []),
+    ...fields.filter((field) => field.sortable).map(({ key, label }) => ({ key, label })),
+  ];
+  const sortLabelOf = (key: string) => sortColumns.find((column) => column.key === key)?.label;
   const sortName = (given: CollectionSort | null) => {
     const sort = given ?? defaultSort ?? null;
-    const field = sort ? fields.find((each) => each.key === sort.key) : undefined;
-    return field && sort
-      ? `${field.label}, ${sort.direction === 'asc' ? 'ascending' : 'descending'}`
+    const label = sort ? sortLabelOf(sort.key) : undefined;
+    return label && sort
+      ? `${label}, ${sort.direction === 'asc' ? 'ascending' : 'descending'}`
       : 'Default order';
   };
 
@@ -756,12 +771,11 @@ export function CollectionView<T>({
       })),
     ),
   ];
-  const sortable = fields.filter((field) => field.sortable);
   const activeSort = query.sort ?? defaultSort ?? null;
   // The Sort dropdown offers the orders the headers cycle through, for the phone and card views
   // (§11.2): each column's two directions, and the default order when it is not a column.
   const defaultItem: MenuItem[] =
-    sortable.length > 0 && !defaultSort
+    sortColumns.length > 0 && !defaultSort
       ? [
           {
             key: 'sort-default',
@@ -770,7 +784,7 @@ export function CollectionView<T>({
           },
         ]
       : [];
-  const sortItems: MenuItem[] = [...defaultItem, ...sortable.flatMap((field) =>
+  const sortItems: MenuItem[] = [...defaultItem, ...sortColumns.flatMap((field) =>
     (['asc', 'desc'] as const).map((direction) => {
       const current = activeSort?.key === field.key && activeSort.direction === direction;
       return {
@@ -791,9 +805,7 @@ export function CollectionView<T>({
           `${group.label}: ${group.options.find((option) => option.key === groupValue(group))?.label ?? groupValue(group)}`,
       ),
   ].join(', ')}, ${resultCount}`;
-  const sortShort = activeSort
-    ? (fields.find((field) => field.key === activeSort.key)?.label ?? 'Default')
-    : 'Default';
+  const sortShort = activeSort ? (sortLabelOf(activeSort.key) ?? 'Default') : 'Default';
   const sortText = `Sort: ${sortShort}`;
 
   const viewIndex = views.indexOf(view);
@@ -929,7 +941,7 @@ export function CollectionView<T>({
           items={filterItems}
         />
       )}
-      {sortable.length > 0 && (
+      {sortColumns.length > 0 && (
         <Menu
           label={`${sortText}. ${sortName(query.sort)}. Change sort`}
           trigger={<span>{sortText}</span>}
@@ -1053,8 +1065,12 @@ export function CollectionView<T>({
                   <span className="sr-only">Selection</span>
                 </th>
               )}
-              <th scope="col" className="px-3 py-2 text-label uppercase text-ink-muted" aria-sort={ariaSort('__title')}>
-                {noun.one.charAt(0).toUpperCase() + noun.one.slice(1)}
+              <th
+                scope="col"
+                className="px-3 py-2 text-label uppercase text-ink-muted"
+                aria-sort={titleSort !== undefined ? ariaSort(titleSort) : undefined}
+              >
+                {titleSort !== undefined ? sortButton(titleSort, titleLabel) : titleLabel}
               </th>
               {tableFields.map((field) => (
                 <th
@@ -1067,31 +1083,7 @@ export function CollectionView<T>({
                     narrowHide(field),
                   )}
                 >
-                  {field.sortable ? (
-                    <button
-                      type="button"
-                      onClick={() => changeQuery({ sort: nextSort(query.sort, field.key, defaultSort) })}
-                      className={cn(
-                        'inline-flex min-h-8 items-center gap-1 rounded-sm uppercase hover:text-ink',
-                        FOCUS,
-                        activeSort?.key === field.key && 'text-ink',
-                        field.align === 'end' && 'flex-row-reverse',
-                      )}
-                    >
-                      {field.label}
-                      {activeSort?.key === field.key ? (
-                        activeSort.direction === 'asc' ? (
-                          <ArrowUp aria-hidden="true" data-sort-icon="asc" className="h-4 w-4" />
-                        ) : (
-                          <ArrowDown aria-hidden="true" data-sort-icon="desc" className="h-4 w-4" />
-                        )
-                      ) : (
-                        <ChevronsUpDown aria-hidden="true" data-sort-icon="none" className="h-4 w-4" />
-                      )}
-                    </button>
-                  ) : (
-                    field.label
-                  )}
+                  {field.sortable ? sortButton(field.key, field.label, field.align === 'end') : field.label}
                 </th>
               ))}
               {statusColumn && (
@@ -1152,6 +1144,33 @@ export function CollectionView<T>({
       </div>
     </div>
   );
+
+  // The header button of a sortable column: the cycle of chapter 06 §11.2 with its direction icon.
+  function sortButton(key: string, text: string, alignEnd = false) {
+    return (
+      <button
+        type="button"
+        onClick={() => changeQuery({ sort: nextSort(query.sort, key, defaultSort) })}
+        className={cn(
+          'inline-flex min-h-8 items-center gap-1 rounded-sm uppercase hover:text-ink',
+          FOCUS,
+          activeSort?.key === key && 'text-ink',
+          alignEnd && 'flex-row-reverse',
+        )}
+      >
+        {text}
+        {activeSort?.key === key ? (
+          activeSort.direction === 'asc' ? (
+            <ArrowUp aria-hidden="true" data-sort-icon="asc" className="h-4 w-4" />
+          ) : (
+            <ArrowDown aria-hidden="true" data-sort-icon="desc" className="h-4 w-4" />
+          )
+        ) : (
+          <ChevronsUpDown aria-hidden="true" data-sort-icon="none" className="h-4 w-4" />
+        )}
+      </button>
+    );
+  }
 
   function ariaSort(key: string): 'ascending' | 'descending' | undefined {
     return ariaSortOf(activeSort, key);

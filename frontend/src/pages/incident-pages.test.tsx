@@ -208,6 +208,31 @@ describe('IncidentsPage (/o/incidents, screen 8.1)', () => {
     await waitFor(() => expect(api.mock.calls.length).toBeGreaterThan(calls));
   });
 
+  // W26: the headers sort on the server (api-design 01); without a sort the urgency order stays.
+  it('sends the header sort to the list, returns to page 1, and ends on the default order', async () => {
+    api.mockResolvedValue({ ...page([view()]), totalPages: 2, totalCount: 30 });
+    renderAt('/o/incidents');
+    await screen.findAllByText('INC-2026-000001');
+    expect(lastGet()).not.toContain('sort=');
+    fireEvent.click(await screen.findByRole('button', { name: 'Next page' }));
+    await waitFor(() => expect(lastGet()).toContain('pageNumber=2'));
+    const header = async (name: string) =>
+      within(await screen.findByRole('table')).getByRole('button', { name });
+    fireEvent.click(await header('Latest event'));
+    await waitFor(() => expect(lastGet()).toContain('sort=lastEventAt&order=asc&pageNumber=1'));
+    fireEvent.click(await header('Latest event'));
+    await waitFor(() => expect(lastGet()).toContain('sort=lastEventAt&order=desc'));
+    fireEvent.click(await header('Latest event'));
+    await waitFor(() => expect(lastGet()).toBe('/incidents?pageSize=20&open=true&pageNumber=1'));
+    fireEvent.click(await header('Incident'));
+    await waitFor(() => expect(lastGet()).toContain('sort=code&order=asc'));
+    const sortable = within(await screen.findByRole('table'))
+      .getAllByRole('columnheader')
+      .filter((cell) => cell.querySelector('[data-sort-icon]'))
+      .map((cell) => cell.textContent);
+    expect(sortable).toEqual(['Incident', 'State', 'Latest event']);
+  });
+
   it('shows the empty states, unfiltered and filtered', async () => {
     api.mockResolvedValue(page([]));
     renderAt('/o/incidents');

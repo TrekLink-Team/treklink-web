@@ -79,6 +79,26 @@ describe('ContractsPage (/o/contracts, screen 5.2)', () => {
     expect(screen.getByRole('button', { name: /^Show: Approved, Plan: Day plan, 3/ })).toBeTruthy();
   });
 
+  // W26: the headers sort on the server (rentals api-design 02) and return to page 1.
+  it('sends the header sort to the list query, keeping the filters', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /^Show: Every status/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Approved' }));
+    fireEvent.click(table().getByRole('button', { name: 'Devices' }));
+    expect(filtersSeen.at(-1)).toEqual({ status: 'APPROVED', sort: 'quantity', order: 'asc', pageNumber: 1 });
+    fireEvent.click(table().getByRole('button', { name: 'Devices' }));
+    expect(filtersSeen.at(-1)).toMatchObject({ sort: 'quantity', order: 'desc' });
+    fireEvent.click(table().getByRole('button', { name: 'Devices' }));
+    expect(filtersSeen.at(-1)).toEqual({ status: 'APPROVED', pageNumber: 1 });
+    fireEvent.click(table().getByRole('button', { name: 'Contract' }));
+    expect(filtersSeen.at(-1)).toMatchObject({ sort: 'code', order: 'asc' });
+    const sortable = table()
+      .getAllByRole('columnheader')
+      .filter((cell) => cell.querySelector('[data-sort-icon]'))
+      .map((cell) => cell.textContent);
+    expect(sortable).toEqual(['Contract', 'Devices', 'Status']);
+  });
+
   it('gives an Org Operator no row action', () => {
     roles = ['ORG_OPERATOR'];
     renderPage();

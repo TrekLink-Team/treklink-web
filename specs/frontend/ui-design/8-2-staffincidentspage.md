@@ -41,7 +41,7 @@ List paths are relative to API 01 `result.items[]`; detail paths to API 02 `resu
 | Transition trail | [API 12](../../incidents/api-design/12-get-incidents-id-transitions.md): `seq`, `fromState`, `toState`, `actor`, `reason`, `createdAt`. Keep sequence order. |
 | Episode evidence | [API 13](../../incidents/api-design/13-get-incidents-id-events.md): `eventId` key, `kind`, `observedAt`, `latitude`, `longitude`, oldest first. Text coordinates; Fleet map uses `/t/map`. |
 | Alert delivery evidence | [API 14](../../incidents/api-design/14-get-incidents-id-alerts.md): `tier`, `recipient`, `channel`, `attempts`, `status`, optional `sentAt`, `lastError`. Retry failure never blocks an incident action. |
-| Pager and ordering | API 01 `pageNumber`, `pageSize`, `totalCount`, `totalPages`. Total belongs to active filters. Keep `tierDeadlineAt` ascending with nulls last, then `firstEventAt` newest first (D-059 rule 7). There is no sort parameter or client sort control. |
+| Pager and ordering | API 01 `pageNumber`, `pageSize`, `totalCount`, `totalPages`. Total belongs to active filters. Default order `tierDeadlineAt` ascending with nulls last, then `firstEventAt` newest first (D-059 rule 7). Since W26 (leader ruling 2026-11-05) the Incident (code), State and Latest event headers ask the server for another order (`sort`, `order`); the scope and filters keep it. No client sort. |
 | Reopen window after false alarm | API 07 `reopenWindowEndsAt`; do not calculate a configured window if the GET omits it. |
 
 ## Actions

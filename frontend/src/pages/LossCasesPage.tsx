@@ -10,7 +10,10 @@ import {
   type LossCase,
   type LossCaseState,
   type LossScope,
+  LOSS_CASE_SORT_FIELDS,
+  type LossCaseSortField,
 } from '../entities/loss-case/api';
+import { collectionSortOf, sortParamsOf, type SortParams } from '../shared/api/query';
 import { formatDateTime, formatVnd } from '../shared/lib/format';
 import {
   CollectionView,
@@ -23,6 +26,9 @@ import {
 import { ErrorState } from '../shared/ui/bits';
 import { LINK } from '../shared/ui/styles';
 
+// The report time, newest first, is the default order (devices api-design 18).
+const DEFAULT_SORT = { key: 'reportedAt', direction: 'desc' } as const;
+
 const chargeText = (item: LossCase) =>
   item.state === 'SETTLED' && item.decision
     ? `${DECISION_LABEL[item.decision]}${item.chargeVnd !== null ? `, ${formatVnd(item.chargeVnd)}` : ''}`
@@ -31,26 +37,36 @@ const chargeText = (item: LossCase) =>
 // /t/loss-cases and /o/loss-cases, screen 4.4 (devices api-design 18; UC-49, UC-60) on CollectionView
 // (chapter 06 §9, D-096). TrekLink Staff and Admin see every case with its organization and custody and
 // open it; the Org Manager sees the organization's cases read only, with the decision and charge once
-// settled, never the theft fields. The state is the Show filter on the server.
+// settled, never the theft fields. The state is the Show filter on the server; the code, device, state
+// and reported headers sort on the server (W26), the report time newest first by default.
 export const LossCasesPage: React.FC<{ scope: LossScope }> = ({ scope }) => {
   const [state, setState] = useState<LossCaseState | ''>('');
   const [pageNumber, setPageNumber] = useState(1);
-  const cases = useLossCases(scope, state === '' ? undefined : state, pageNumber);
+  const [sort, setSort] = useState<SortParams<LossCaseSortField>>({});
+  const cases = useLossCases(scope, state === '' ? undefined : state, pageNumber, sort);
   const trekLink = scope === 't';
 
   const fields: CollectionField<LossCase>[] = [
     {
-      key: 'device',
+      key: 'assetTag',
       label: 'Device',
       render: (item) => <span className="font-mono">{item.device.assetTag}</span>,
       compact: true,
+      sortable: true,
     },
-    { key: 'state', label: 'State', render: (item) => <StatusBadge entry={LOSS_CASE_STATE[item.state]} />, compact: true },
     {
-      key: 'reported',
+      key: 'state',
+      label: 'State',
+      render: (item) => <StatusBadge entry={LOSS_CASE_STATE[item.state]} />,
+      compact: true,
+      sortable: true,
+    },
+    {
+      key: 'reportedAt',
       label: 'Reported',
       render: (item) => <span className="whitespace-nowrap">{formatDateTime(item.reportedAt)}</span>,
       hideWithPane: true,
+      sortable: true,
     },
     ...(trekLink
       ? ([
@@ -99,9 +115,12 @@ export const LossCasesPage: React.FC<{ scope: LossScope }> = ({ scope }) => {
           { key: '', label: 'All states' },
           ...LOSS_CASE_STATES.map((key) => ({ key, label: LOSS_CASE_STATE[key].label })),
         ]}
-        query={{ search: '', filter: state, sort: null }}
+        query={{ search: '', filter: state, sort: collectionSortOf(sort) }}
+        titleSort="code"
+        defaultSort={DEFAULT_SORT}
         onQueryChange={(next) => {
           setState(next.filter as LossCaseState | '');
+          setSort(sortParamsOf(next.sort, LOSS_CASE_SORT_FIELDS, DEFAULT_SORT));
           setPageNumber(1);
         }}
         pageInfo={pageInfoOf(cases.data)}

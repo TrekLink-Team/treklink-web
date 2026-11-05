@@ -1,7 +1,7 @@
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/apiClient';
 import type { DeviceStatus } from '../../shared/ui/status';
-import { queryString, type Page } from '../../shared/api/query';
+import { queryString, type Page, type SortParams } from '../../shared/api/query';
 
 // Devices, hardware variants and maintenance records as devices api-design 01, 05 to 16 and
 // monitoring api-design 07 return them (screens 4.2 and 4.3).
@@ -164,7 +164,18 @@ export const fetchVariants = (includeInactive = false) =>
 export const useVariants = (includeInactive = false) =>
   useQuery({ queryKey: [...deviceKeys.variants, includeInactive], queryFn: () => fetchVariants(includeInactive) });
 
-export interface DeviceFilters {
+// devices api-design 06 `sort` allowlist (W26); the default order is the asset tag, ascending.
+export const DEVICE_SORT_FIELDS = [
+  'assetTag',
+  'nodeId',
+  'status',
+  'batteryPct',
+  'lastSeenAt',
+  'serviceDueAt',
+] as const;
+export type DeviceSortField = (typeof DEVICE_SORT_FIELDS)[number];
+
+export interface DeviceFilters extends SortParams<DeviceSortField> {
   status?: DeviceStatus[];
   hardwareVariantId?: string;
   q?: string;
@@ -180,6 +191,8 @@ export const fetchDevices = (filters: DeviceFilters) => {
   (filters.status ?? []).forEach((status) => query.append('status', status));
   if (filters.hardwareVariantId) query.set('hardwareVariantId', filters.hardwareVariantId);
   if (filters.q) query.set('q', filters.q);
+  if (filters.sort) query.set('sort', filters.sort);
+  if (filters.sort && filters.order) query.set('order', filters.order);
   return apiClient<Page<Device>>(`/devices?${query.toString()}`);
 };
 
@@ -276,7 +289,11 @@ export const disposeDevice = (
   expectedVersion: number,
 ) => post<Device>(`/devices/${id}/dispose`, { ...steps, method, expectedVersion });
 
-export interface MaintenanceFilters {
+// devices api-design 15 `sort` allowlist (W26); the default order is the expected date, ascending.
+export const MAINTENANCE_SORT_FIELDS = ['expectedAt', 'assetTag', 'status'] as const;
+export type MaintenanceSortField = (typeof MAINTENANCE_SORT_FIELDS)[number];
+
+export interface MaintenanceFilters extends SortParams<MaintenanceSortField> {
   status?: MaintenanceStatus[];
   reason?: MaintenanceReason[];
   dueBefore?: string;
@@ -293,6 +310,8 @@ export const fetchMaintenanceRecords = (filters: MaintenanceFilters) => {
   (filters.status ?? []).forEach((status) => query.append('status', status));
   (filters.reason ?? []).forEach((reason) => query.append('reason', reason));
   if (filters.dueBefore) query.set('dueBefore', filters.dueBefore);
+  if (filters.sort) query.set('sort', filters.sort);
+  if (filters.sort && filters.order) query.set('order', filters.order);
   return apiClient<MaintenanceRecordPage>(`/maintenance-records?${query.toString()}`);
 };
 

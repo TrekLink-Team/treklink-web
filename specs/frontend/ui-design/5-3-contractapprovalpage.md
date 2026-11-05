@@ -95,7 +95,9 @@ tables above disagree, this section wins.
   `RETURNED`, Open counter; any other, none. Reject and Cancel are `StateChangeDialog` alert dialogs
   with the required reason the Manager sees and the row's `expectedVersion` (rentals api-design 05
   and 06; Staff and Admin cancel through `contract.operate`).
-- No bulk: each approval needs its own appointment. The API does not sort; Pagination shows the range.
+- No bulk: each approval needs its own appointment. Pagination shows the range.
+- The queue sorts on the server (rentals api-design 02, W26): Contract (code), Start and Status. Without a
+  sort the newest status change comes first; Organization, Plan and Variant x qty do not sort.
 
 ## Queue on CollectionView (D-096, 2026-11-04)
 
