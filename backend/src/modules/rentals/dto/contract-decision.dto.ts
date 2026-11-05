@@ -18,6 +18,8 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { PagedQueryDto } from '../../../common/dto/paging';
+import { SORT_ORDERS, SortOrder } from '../../../common/dto/sorting';
+import { CONTRACT_SORT_FIELDS, ContractSortField } from '../contracts.repository';
 
 // rentals api-design 02.
 export class ContractQueryDto extends PagedQueryDto {
@@ -39,6 +41,15 @@ export class ContractQueryDto extends PagedQueryDto {
   @IsString()
   @MaxLength(100)
   q?: string;
+
+  // W26: one column of the allowlist; an unknown field answers 400 VALIDATION_FAILED.
+  @IsOptional()
+  @IsIn(CONTRACT_SORT_FIELDS)
+  sort?: ContractSortField;
+
+  @IsOptional()
+  @IsIn(SORT_ORDERS)
+  order?: SortOrder;
 }
 
 // rentals api-design 04. Without an explicit choice, the server picks the longest-unchanged units.

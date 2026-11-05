@@ -1,3 +1,5 @@
+import { validateQuery } from '../../common/pipes/app-validation.pipe';
+import { ContractQueryDto } from './dto/contract-decision.dto';
 import { ConfigService } from '@nestjs/config';
 import { ContractStatus } from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
@@ -79,6 +81,8 @@ describe('ContractReadsService', () => {
       { organizationId: 'org-1', status: ContractStatus.REQUESTED, planType: undefined },
       0,
       20,
+      undefined,
+      undefined,
     );
     expect(page.items[0]).toMatchObject({ organization: ORG, variantCode: 'treklink-v3' });
   });
@@ -89,12 +93,16 @@ describe('ContractReadsService', () => {
       expect.objectContaining({ organizationId: 'org-2' }),
       0,
       20,
+      undefined,
+      undefined,
     );
     await service.page({ organizationId: 'org-2' }, MANAGER);
     expect(contracts.page).toHaveBeenLastCalledWith(
       expect.objectContaining({ organizationId: 'org-1' }),
       0,
       20,
+      undefined,
+      undefined,
     );
   });
 
@@ -110,6 +118,8 @@ describe('ContractReadsService', () => {
       },
       0,
       20,
+      undefined,
+      undefined,
     );
 
     // A member's token scope stays: q never widens the list to another organization.
@@ -121,6 +131,8 @@ describe('ContractReadsService', () => {
       }),
       0,
       20,
+      undefined,
+      undefined,
     );
   });
 
@@ -131,6 +143,35 @@ describe('ContractReadsService', () => {
     expect(
       contracts.page.mock.calls.map(([filter]) => (filter as { search?: unknown }).search),
     ).toEqual([undefined, undefined]);
+  });
+
+  // W26: the contract lists sort on the server by one allowed column (api-design 02).
+  it('passes the requested sort to the page, ascending by default', async () => {
+    await service.page({ sort: 'requestedStartDate', order: 'desc' }, STAFF);
+    expect((contracts.page.mock.calls as unknown[][]).at(-1)?.[4]).toEqual({
+      field: 'requestedStartDate',
+      order: 'desc',
+    });
+    await service.page({ sort: 'code' }, STAFF);
+    expect((contracts.page.mock.calls as unknown[][]).at(-1)?.[4]).toEqual({
+      field: 'code',
+      order: 'asc',
+    });
+    await service.page({}, STAFF);
+    expect((contracts.page.mock.calls as unknown[][]).at(-1)?.[4]).toBeUndefined();
+    await expect(service.page({ order: 'desc' }, STAFF)).rejects.toMatchObject({
+      errorCode: 'VALIDATION_FAILED',
+    });
+  });
+
+  it('refuses a sort field off the allowlist with 400 VALIDATION_FAILED (W26)', async () => {
+    await expect(
+      validateQuery(ContractQueryDto, { sort: 'quantity', order: 'desc' }),
+    ).resolves.toMatchObject({ sort: 'quantity', order: 'desc' });
+    await expect(validateQuery(ContractQueryDto, { sort: 'organization' })).rejects.toMatchObject({
+      errorCode: 'VALIDATION_FAILED',
+      status: 400,
+    });
   });
 
   it("answers 404 for another organization's contract and serves Staff any contract", async () => {
