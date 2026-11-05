@@ -36,6 +36,7 @@ viewer's timezone, and at most 4 steps of at most 6 fields per flow.
   - **Do**: replace MapLibre with Leaflet; remove `maplibre-gl`; tiles and attribution from `GET /api/map/config`; an overlay `LayerGroup` with the two archipelago labels, always on top, not removable; markers with text alternatives; MSG33 when tiles fail, lists stay live
   - **Test**: AC-03 at each zoom where the archipelagos show
   - _Requirements: REQ-UBI-06, REQ-EVT-04, AC-03, FR-MON-01, FR-MON-09, BR-30, D-031_
+  - **2026-11-05 (KhoaDD under D-078, task W22)**: `HIDDEN_BASEMAP_IDS` in `shared/config/map.ts` keeps OpenTopoMap and Stadia out of the switcher on every host, and `initialBasemap` opens on the first basemap offered when the default is hidden; tests in `map.test.ts` and `LiveMapWidget.test.tsx`.
 - [x] 1.4 `socketClient` and the global alert banner (owner LongNN)
   - **Files**: the existing `shared/socket/socketClient.ts`, `app/AlertBanner.tsx`
   - **Do**: one socket to `/live` (`ws-live-contract.md`); last cursor in `sessionStorage`; MSG32 while reconnecting, cleared on `replay.done`; `incident.alert` shows the red pulsing MSG31 banner on every page with one-tap acknowledge until acknowledged or taken (MSG27); stream entries invalidate the matching query keys

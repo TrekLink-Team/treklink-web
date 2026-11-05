@@ -115,7 +115,9 @@ state that leaves the lists working. Tiles go from the browser to the chosen bas
 User-Agent and Referer; nothing prefetches tiles (D-031 tile policy). A basemap entry may carry
 `localOnly: true` for a provider that serves keyless tiles to a loopback host only (Stadia answered 401 on
 the Vercel production, 2026-11-01); the server validates it as a boolean and the client hides that entry
-on any other host.
+on any other host. The client also hides OpenTopoMap and Stadia on every host (2026-11-05): their tiles print
+"South China Sea" at zoom 5 to 7 and "北部湾" on the Gulf of Tonkin, outside the overlay masks. Their entries
+stay in `monitoring.mapBasemaps` so they return once those labels are masked.
 
 ---
 
