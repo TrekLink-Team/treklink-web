@@ -64,7 +64,7 @@ organization, read from `DeviceRelease`, is marked `late` and is not plotted as 
 | `GET /api/telemetry/devices` | `rentals.visibleDevices` (with each unit's `handedOverAt`), `devices.projections` (with `lastPositionAt`), `incidents.openByDevices`, `gatewaySync.simulatedDevices` (from the handover, D-040), the max `seq` |
 | `GET /api/telemetry/devices/:id/history` | `rentals.rentalPeriods` (organization callers), `devices.assetTags` (Staff and Admin), `gatewaySync.historyPoints` |
 | `GET /api/rented-devices` (api-design 09, the console of UC-66, REQ-EVT-09) | `rentals.visibleDevices` (with each unit's group, holder and open fault report, rentals design §11.4), `devices.projections` through `custodyView` (organization view), `devices` variant codes and open loss cases; filters applied after the custody view, so a row's `state` filter matches the map |
-| `GET /api/devices/:id/history` | `devices.trail`, `rentals.contractsOfDevice`, `incidents.incidentsOfDevice` |
+| `GET /api/devices/:id/history` | `devices.trail`, `rentals.contractsOfDevice`, `organizations.labelsOf`, `incidents.incidentsOfDevice`, `accounts.contactCard` |
 | `GET /api/reports/:kind` | `rentals.utilization`, `billing.revenue`, `rentals` overdue and lost lists, `incidents.responseTimes` |
 | `GET /api/system-health` | `HealthService`, `gatewaySync.stats`, `organizations` station health, `incidents.alertDeliveryStats` |
 
@@ -170,7 +170,7 @@ classDiagram
         +snapshot(query, caller) SnapshotDto
     }
     class TelemetryHistoryController {
-        +history(id, query, caller, ability) HistoryDto
+        +get(id, query, caller, ability) HistoryDto
     }
     class DeviceHistoryController {
         +list(id, query) PagedResult
@@ -196,7 +196,7 @@ classDiagram
         +csv(history) string
     }
     class DeviceHistoryService {
-        +history(id, skip, take) DeviceHistoryItem[]
+        +history(id, skip, take) Tuple~DeviceHistoryItem[], number~
     }
     class StreamService {
         +append(entry, tx) StreamEvent
@@ -326,28 +326,51 @@ sequenceDiagram
     participant G as FieldEventQueryService
     participant DB as Postgres
     Op->>P: open a device's track for a date range
+    activate P
     P->>C: GET /api/telemetry/devices/{id}/history
+    activate C
     C->>S: history(id, query, caller, ability)
-    S->>S: scopeOf(caller, ability), 403 when the caller may not read
-    S->>Pm: get('monitoring.historyMaxRangeDays')
-    Pm-->>S: maxDays
-    alt the range is reversed or longer than maxDays
-        S-->>C: 400 VALIDATION_FAILED
-        C-->>P: 400 envelope, the server message shown
-    else the range is valid
-        alt an organization caller
-            S->>Rt: rentalPeriods(deviceId, organizationId)
-            Rt-->>S: periods, none answers 404
-        else TrekLink Staff or Admin
-            S->>D: assetTags([deviceId])
-            D-->>S: tag, an unknown device answers 404
+    activate S
+    alt the caller may not read the history (scopeOf)
+        S-->>C: 403 FORBIDDEN
+        C-->>P: 403 envelope, MSG26 shown
+    else the caller may read it
+        S->>Pm: get('monitoring.historyMaxRangeDays')
+        activate Pm
+        Pm-->>S: maxDays
+        deactivate Pm
+        alt the range is reversed or longer than maxDays
+            S-->>C: 400 VALIDATION_FAILED
+            C-->>P: 400 envelope, the server message shown
+        else the range is valid
+            alt an organization caller
+                S->>Rt: rentalPeriods(deviceId, organizationId)
+                activate Rt
+                Rt-->>S: the periods, none when it never rented the device
+                deactivate Rt
+            else TrekLink Staff or Admin
+                S->>D: assetTags([deviceId])
+                activate D
+                D-->>S: the tag, none for an unknown device
+                deactivate D
+            end
+            alt the device is not found (no period, or no tag)
+                S-->>C: 404 NOT_FOUND
+                C-->>P: 404 envelope, MSG26 shown
+            else the device is found
+                S->>G: historyPoints({ deviceId, organizationId, from, to, kinds })
+                activate G
+                G->>DB: SELECT field_events in the range, plotted only, oldest first
+                G-->>S: points, truncated
+                deactivate G
+                S-->>C: positions and telemetry attributed to the caller
+                C-->>P: 200 envelope, track drawn
+            end
         end
-        S->>G: historyPoints(deviceId, organizationId, from, to, kinds)
-        G->>DB: SELECT field_events in the range, plotted only, oldest first
-        G-->>S: points, truncated
-        S-->>C: positions and telemetry attributed to the caller
-        C-->>P: 200 envelope, track drawn
     end
+    deactivate S
+    deactivate C
+    deactivate P
 ```
 
 ***Figure 6***: UC-40 Query Device History, served by attribution (FR-MON-07, BR-36).
