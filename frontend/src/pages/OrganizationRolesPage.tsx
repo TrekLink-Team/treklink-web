@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { PageScrollBody } from '../shared/ui/PageChrome';
 import { useAuth } from '../app/providers/useAuth';
 import { ME_KEY } from '../features/account-menu/api';
 import {
@@ -240,8 +241,8 @@ export const OrganizationRolesPage: React.FC = () => {
       ref={pageRef}
       tabIndex={-1}
       aria-labelledby="org-roles-title"
-      // A fit page while the grid shows: the grid scrolls inside itself (ui standard §7).
-      data-fit-page={wide ? '' : undefined}
+      // A fit page: the grid scrolls inside itself, and below its width the body does (ui standard §7).
+      data-fit-page=""
       className="flex min-h-0 flex-1 flex-col gap-4 outline-none"
     >
       <PageHeader
@@ -318,7 +319,8 @@ export const OrganizationRolesPage: React.FC = () => {
           }
         />
       ) : (
-        <div className="flex flex-col gap-4">
+        // Below the grid width the role picker and its permissions scroll as one body (ui standard §7).
+        <PageScrollBody label="Role permissions" className="flex flex-col gap-4">
           <div>
             <label
               htmlFor="org-roles-select"
@@ -389,7 +391,7 @@ export const OrganizationRolesPage: React.FC = () => {
               ))}
             </div>
           </Card>
-        </div>
+        </PageScrollBody>
       )}
 
       {confirming && (
