@@ -97,3 +97,15 @@ Added by KhoaDD. The sign-in events of screen 7.3 keep their filter form, which 
 in the address. The events below it render through `CollectionView` (chapter 06 §9): each is titled by its
 time with the UTC time on hover, the security signals keep their badge, and Filter by this account stays in
 its row. The details pane replaces the phone card.
+
+## Row action target size (W21, 2026-11-05)
+
+Checked by KhoaDD under D-078 (W15 open item, WCAG 2.5.8). Admin on the demo seed with 45 extra sign-ins
+(3 pages), at 1280, 900 and 360 px in light and dark, axe `target-size` run at every 29 px of scroll. At
+rest each row action (the Details button, the phone Actions menu) is a 40 by 40 px target, above the 24 px
+minimum, and no position near the sticky pager fails. axe reports a target "partially obscured" only
+while a row slides under the sticky command bar at the top of the list: at 1280 px the bar's Details pane
+button and at 360 px its View switch sit above the row's action, leaving a strip of 8 to 15 px visible
+until the row scrolls clear. The target keeps its size; the overlap is the sticky bar of every
+`CollectionView` list (chapter 06 §9), and keyboard focus is already kept clear of it (`useFocusClearOf`,
+W15: no focused control hidden under a sticky bar). No change on this page.
