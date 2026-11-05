@@ -39,6 +39,12 @@ import { Fact } from '../shared/ui/bits';
 import { invalid } from '../shared/ui/errors';
 import { LINK } from '../shared/ui/styles';
 import { PositionMap } from '../widgets/LiveMapWidget/PositionMap';
+import { DEVICE_STATUS, type DeviceStatus } from '../shared/ui/status';
+
+// The device state the case was reported from, as the device badges word it (shared/ui/status.ts, the
+// labels the backend history mirrors in devices/device-status-labels.ts); an unknown value shows as sent.
+const deviceStateLabel = (state: string): string =>
+  DEVICE_STATUS[state as DeviceStatus]?.label ?? state;
 
 const TITLE_ID = 'loss-case-title';
 const MSG03 = 'Saved.';
@@ -442,7 +448,7 @@ export const LossCasePage: React.FC = () => {
           <p className="whitespace-pre-line text-body text-ink">{item.description}</p>
           <dl className="mt-4 grid gap-3 sm:grid-cols-2">
             <Fact label="Reported">{formatDateTime(item.reportedAt)}</Fact>
-            <Fact label="Device state when reported">{item.stateFromDevice}</Fact>
+            <Fact label="Device state when reported">{deviceStateLabel(item.stateFromDevice)}</Fact>
             <Fact label="Last seen">{item.lastSeenAt ? formatDateTime(item.lastSeenAt) : 'Never heard'}</Fact>
           </dl>
           {/* Screen 4.4: the last known position on a small map with the overlay; the coordinates under
