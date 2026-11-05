@@ -124,6 +124,11 @@ export enum ErrorCode {
   VENDOR_REQUIRED = 'VENDOR_REQUIRED',
   CHECKLIST_INCOMPLETE = 'CHECKLIST_INCOMPLETE',
   FIRMWARE_VERSION_REQUIRED = 'FIRMWARE_VERSION_REQUIRED',
+  // Firmware releases (devices api-design 28 and 29, design section 9.1, REQ-ERR-17): all 502, the fault is
+  // the release source or its image, never the caller.
+  FIRMWARE_SOURCE_UNAVAILABLE = 'FIRMWARE_SOURCE_UNAVAILABLE',
+  FIRMWARE_IMAGE_INVALID = 'FIRMWARE_IMAGE_INVALID',
+  FIRMWARE_IMAGE_TOO_LARGE = 'FIRMWARE_IMAGE_TOO_LARGE',
   // Disposal (devices api-design 23, BR-42).
   WIPE_INCOMPLETE = 'WIPE_INCOMPLETE',
   // Loss cases (devices api-design 17, REQ-ERR-05, BR-37): one open case per device.

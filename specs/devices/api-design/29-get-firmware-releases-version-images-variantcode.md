@@ -42,6 +42,7 @@ No body.
     "version": "2.7.26-treklink.2",
     "variantCode": "treklink-v3",
     "kind": "APP",
+    "chip": "ESP32",
     "offset": 65536,
     "sizeBytes": 2031616,
     "sha256": "9f2c...e41a",
