@@ -1,4 +1,4 @@
-from ._common import (USER_ID, ORG_ID, DEVICE_ID, VARIANT_ID, VARIANT_SUMMARY, CONTRACT_ID, NOW, ep, paged, PAGE_QUERY,
+from ._common import (USER_ID, ORG_ID, DEVICE_ID, VARIANT_ID, VARIANT_SUMMARY, CONTRACT_ID, NOW, ep, paged, sort_query, PAGE_QUERY,
                       state_409, STALE)
 
 VARIANT = {"id": VARIANT_ID, "code": "treklink-v3", "name": "TrekLink v3 (GPS, SOS button)", "hasGps": True,
@@ -138,7 +138,9 @@ ENDPOINTS = [
        "UC-38, UC-54, FR-AUTH-11",
        query=[["status", "DeviceStatus, repeatable", "enum", "no", "`AVAILABLE`"],
               ["hardwareVariantId", "Variant", "uuid", "no", f"`{VARIANT_ID}`"],
-              ["q", "Asset tag contains, ignoring case; `%` and `_` are literal characters", "string", "no", "`TL-00`"]] + PAGE_QUERY,
+              ["q", "Asset tag contains, ignoring case; `%` and `_` are literal characters", "string", "no", "`TL-00`"]]
+             + sort_query(["assetTag", "nodeId", "status", "batteryPct", "lastSeenAt", "serviceDueAt"],
+                          "`assetTag` ascending") + PAGE_QUERY,
        fields=[["hardwareVariant", "The shared variant summary of design section 10 (`id`, `code`, `name`, `imageUrl`, "
                 "`specSheet`, `hasGps`, `hasMotionSensor`, `mqttCapable`, `firmwareBaseline`), the same shape on every unit payload, so the "
                 "variant card needs no second read and an Org Operator, who cannot read api-design 01, still sees it", "object",
@@ -327,7 +329,9 @@ ENDPOINTS = [
        "UC-52, UC-64, UC-65, FR-DEV-18, FR-DEV-20",
        query=[["status", "OPEN, PENDING_APPROVAL, COMPLETED or UNREPAIRABLE, repeatable", "enum", "no", "`PENDING_APPROVAL`"],
               ["reason", "Reason, repeatable", "enum", "no", "`SCHEDULED`"],
-              ["dueBefore", "Records expected to complete on or before this date", "date", "no", "`2026-10-26`"]] + PAGE_QUERY,
+              ["dueBefore", "Records expected to complete on or before this date", "date", "no", "`2026-10-26`"]]
+             + sort_query(["expectedAt", "assetTag", "status"],
+                          "`expectedAt` ascending, then the oldest opened first") + PAGE_QUERY,
        response={**paged(MREC, 6), "approvalThresholdVnd": 1000000},
        steps=["Read records, on expectedAt when dueBefore is given",
               "Read devices.maintenanceApprovalThresholdVnd"],
@@ -373,7 +377,8 @@ ENDPOINTS = [
     ep("GET", "/api/loss-cases", "List loss cases", "TrekLink Staff, TrekLink Admin; Org Manager: own organization",
        "Lists loss cases by state; an Org Manager sees the cases of its organization's rented devices only, "
        "and its answer omits `suspectedTheft` and `policeReference` (leader ruling 2026-10-31).",
-       "UC-49, UC-60", query=PAGE_QUERY + [["state", "Filter by state", "string", "no", "`SEARCHING`"]],
+       "UC-49, UC-60", query=PAGE_QUERY + [["state", "Filter by state", "string", "no", "`SEARCHING`"]]
+       + sort_query(["reportedAt", "code", "assetTag", "state"], "`reportedAt` newest first, then `code` descending"),
        response=paged(LOSS), steps=["Read loss_cases scoped to the caller"],
        controller="LossCasesController", service="LossCaseService", call="list(query, caller)",
        seq=["Svc->>DB: SELECT loss_cases"]),

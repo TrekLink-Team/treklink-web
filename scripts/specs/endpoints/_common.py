@@ -34,6 +34,21 @@ PAGE_QUERY = [["pageNumber", "1-based page", "int", "no", "`1`"],
               ["pageSize", "Items per page, at most MAX_PAGE_SIZE", "int", "no", "`20`"]]
 
 
+def sort_query(fields, default):
+    """The `sort` and `order` query rows of a list that sorts on the server (chapter 06 §11.2, W26).
+
+    `fields` is the allowlist, the columns of the screen that have a meaningful order; `default` names
+    the order when `sort` is omitted, which stays the list's documented order. Ties break on `id` in
+    the same direction, so a page never repeats or skips a row.
+    """
+    names = ", ".join(f"`{f}`" for f in fields)
+    return [["sort", f"Sort field, one of {names}; any other value answers 400 `VALIDATION_FAILED`. "
+                     f"Omitted: {default}. Ties break on `id`; a null value sorts last in either direction",
+             "enum", "no", f"`{fields[0]}`"],
+            ["order", "`asc` (the default with `sort`) or `desc`; without `sort` it answers 400 "
+                      "`VALIDATION_FAILED`", "enum", "no", "`desc`"]]
+
+
 def state_409(entity, msg_state="{state}"):
     return (409, "INVALID_STATE_TRANSITION", f"The {entity} is not in a state that allows this",
             f"This cannot be done while it is {msg_state}.")

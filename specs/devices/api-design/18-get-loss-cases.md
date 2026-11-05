@@ -24,6 +24,8 @@ Lists loss cases by state; an Org Manager sees the cases of its organization's r
 | pageNumber | 1-based page | int | no | `1` |
 | pageSize | Items per page, at most MAX_PAGE_SIZE | int | no | `20` |
 | state | Filter by state | string | no | `SEARCHING` |
+| sort | Sort field, one of `reportedAt`, `code`, `assetTag`, `state`; any other value answers 400 `VALIDATION_FAILED`. Omitted: `reportedAt` newest first, then `code` descending. Ties break on `id`; a null value sorts last in either direction | enum | no | `reportedAt` |
+| order | `asc` (the default with `sort`) or `desc`; without `sort` it answers 400 `VALIDATION_FAILED` | enum | no | `desc` |
 
 ## Request sample
 

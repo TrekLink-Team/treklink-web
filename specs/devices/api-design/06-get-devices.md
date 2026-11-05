@@ -24,6 +24,8 @@ Lists the fleet. Organization members see their rented devices through the live 
 | status | DeviceStatus, repeatable | enum | no | `AVAILABLE` |
 | hardwareVariantId | Variant | uuid | no | `a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d` |
 | q | Asset tag contains, ignoring case; `%` and `_` are literal characters | string | no | `TL-00` |
+| sort | Sort field, one of `assetTag`, `nodeId`, `status`, `batteryPct`, `lastSeenAt`, `serviceDueAt`; any other value answers 400 `VALIDATION_FAILED`. Omitted: `assetTag` ascending. Ties break on `id`; a null value sorts last in either direction | enum | no | `assetTag` |
+| order | `asc` (the default with `sort`) or `desc`; without `sort` it answers 400 `VALIDATION_FAILED` | enum | no | `desc` |
 | pageNumber | 1-based page | int | no | `1` |
 | pageSize | Items per page, at most MAX_PAGE_SIZE | int | no | `20` |
 

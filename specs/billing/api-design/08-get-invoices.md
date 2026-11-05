@@ -24,6 +24,8 @@ Lists invoices with their status and amounts; members see only their organizatio
 | contractId | Contract | uuid | no | `c0ffee00-1234-4abc-9def-001122334455` |
 | status | InvoiceStatus | enum | no | `ISSUED` |
 | overdue | Only invoices with a line past due | bool | no | `true` |
+| sort | Sort field, one of `issuedAt`, `number`, `status`, `totalVnd`, `paidVnd`; any other value answers 400 `VALIDATION_FAILED`. Omitted: `issuedAt` newest first, then `number` descending. Ties break on `id`; a null value sorts last in either direction | enum | no | `issuedAt` |
+| order | `asc` (the default with `sort`) or `desc`; without `sort` it answers 400 `VALIDATION_FAILED` | enum | no | `desc` |
 | pageNumber | 1-based page | int | no | `1` |
 | pageSize | Items per page, at most MAX_PAGE_SIZE | int | no | `20` |
 

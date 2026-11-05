@@ -25,6 +25,8 @@ Lists contracts. The Staff approval queue is `status=REQUESTED`; the handover qu
 | organizationId | TrekLink staff only | uuid | no | `5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f` |
 | planType | Plan | enum | no | `DAY` |
 | q | Contract code, organization legal name or organization code contains, ignoring case; trimmed, at most 100 characters, an empty value is no filter | string | no | `acme` |
+| sort | Sort field, one of `code`, `status`, `quantity`, `requestedStartDate`; any other value answers 400 `VALIDATION_FAILED`. Omitted: the newest status change first, then `code` descending. Ties break on `id`; a null value sorts last in either direction | enum | no | `code` |
+| order | `asc` (the default with `sort`) or `desc`; without `sort` it answers 400 `VALIDATION_FAILED` | enum | no | `desc` |
 | pageNumber | 1-based page | int | no | `1` |
 | pageSize | Items per page, at most MAX_PAGE_SIZE | int | no | `20` |
 
