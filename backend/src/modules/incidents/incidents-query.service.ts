@@ -228,14 +228,19 @@ export class IncidentsQueryService {
 
   // The code, the owner's name, the last position and the stale mark of one incident, for the entry
   // the live stream writes when it changes (design §5, task 2.1); null for an unknown id. No scoping:
-  // the stream routes the entry to the incident's own organization and the fleet.
-  async liveFieldsOf(incidentId: string): Promise<IncidentLiveFields | null> {
+  // the stream routes the entry to the incident's own organization and the fleet. `ownerId` is the one
+  // the change event carries, so the name always belongs to the owner the entry names, even when a later
+  // transition has already committed another owner on the row.
+  async liveFieldsOf(
+    incidentId: string,
+    ownerId: string | null,
+  ): Promise<IncidentLiveFields | null> {
     const row = await this.repository.findById(incidentId);
     if (!row) return null;
-    const names = await this.organizations.memberNames(row.ownerId ? [row.ownerId] : []);
+    const names = await this.organizations.memberNames(ownerId ? [ownerId] : []);
     return {
       code: row.code,
-      ownerName: row.ownerId ? (names.get(row.ownerId) ?? null) : null,
+      ownerName: ownerId ? (names.get(ownerId) ?? null) : null,
       lastPosition:
         row.lastLatitude !== null && row.lastLongitude !== null
           ? { lat: row.lastLatitude, lon: row.lastLongitude }
