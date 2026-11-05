@@ -138,8 +138,18 @@ ENDPOINTS = [
        seq=["Svc->>DB: SELECT invoices WHERE scope"]),
 
     ep("GET", "/api/invoices/:id", "Invoice detail", "Org Manager: own; TrekLink Staff, TrekLink Admin",
-       "Returns the immutable, itemized invoice with its dated lines and payments.", "UC-45, UC-55, FR-BILL-06",
-       path=[INV_PATH], response={**INVOICE, "payments": [{**PAYMENT, "status": "CONFIRMED", "confirmedAt": NOW}]},
+       "Returns the immutable, itemized invoice with its dated lines and payments, and the two parties of "
+       "the business document (screen 6.1): `organization` carries the buyer's registered legal name, tax code "
+       "and address (null when the directory cannot name it), and `seller` TrekLink's from the "
+       "`COMPANY_LEGAL_NAME`, `COMPANY_TAX_CODE`, `COMPANY_ADDRESS` and `COMPANY_HOTLINE` configuration. "
+       "The list (08) keeps the organization code only.", "UC-45, UC-55, FR-BILL-06",
+       path=[INV_PATH], response={**INVOICE,
+                                  "organization": {**INVOICE["organization"], "legalName": "Fansipan Trekking JSC",
+                                                   "taxCode": "0109876543", "address": "Sa Pa, Lao Cai"},
+                                  "seller": {"legalName": "TrekLink Technology Company Limited",
+                                             "taxCode": "0312345678", "address": "Ho Chi Minh City, Vietnam",
+                                             "hotline": "1900 1234"},
+                                  "payments": [{**PAYMENT, "status": "CONFIRMED", "confirmedAt": NOW}]},
        entity="Invoice", steps=["Read within scope"], controller="InvoicesController", service="InvoicesService",
        call="get(id, caller)", seq=["Svc->>DB: SELECT invoice, lines, payments"]),
 

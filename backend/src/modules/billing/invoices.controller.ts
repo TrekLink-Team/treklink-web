@@ -37,20 +37,32 @@ export const toPaymentView = (payment: PaymentRow) => ({
   confirmedAt: payment.confirmedAt,
 });
 
-const toInvoiceDetailView = (detail: InvoiceDetail) => ({
-  ...toInvoiceView(detail),
-  lines: detail.row.lines.map((line) => ({
-    seq: line.seq,
-    type: line.type,
-    description: line.description,
-    quantity: line.quantity,
-    unitVnd: vnd(line.unitVnd),
-    amountVnd: vnd(line.amountVnd),
-    dueAt: line.dueAt,
-    paidVnd: vnd(line.paidVnd),
-  })),
-  payments: detail.payments.map(toPaymentView),
-});
+// The detail adds the document blocks of screen 6.1: the buyer's registered identity on
+// `organization` and TrekLink's on `seller`. A buyer the directory cannot name reads as nulls.
+export const toInvoiceDetailView = (detail: InvoiceDetail) => {
+  const invoice = toInvoiceView(detail);
+  return {
+    ...invoice,
+    organization: {
+      ...invoice.organization,
+      legalName: detail.buyer?.legalName ?? null,
+      taxCode: detail.buyer?.taxCode ?? null,
+      address: detail.buyer?.address ?? null,
+    },
+    seller: detail.seller,
+    lines: detail.row.lines.map((line) => ({
+      seq: line.seq,
+      type: line.type,
+      description: line.description,
+      quantity: line.quantity,
+      unitVnd: vnd(line.unitVnd),
+      amountVnd: vnd(line.amountVnd),
+      dueAt: line.dueAt,
+      paidVnd: vnd(line.paidVnd),
+    })),
+    payments: detail.payments.map(toPaymentView),
+  };
+};
 
 // Invoices, payments and the contract balance (billing task 5.1 part, api-design 08, 09, 10, 13,
 // 14). Org Manager reads its own organization's rows (`invoice.read.own`); TrekLink Staff and Admin

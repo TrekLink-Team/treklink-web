@@ -37,6 +37,7 @@ export {
   CONTRACT_DIRECTORY,
   type ContractDirectory,
   type ContractLabel,
+  type InvoiceBuyer,
 } from './ports/contract-directory.port';
 export {
   CREDIT_BASIS,

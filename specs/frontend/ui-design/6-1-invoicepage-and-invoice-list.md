@@ -22,6 +22,9 @@ Scope from the task: billing api-design 08, 09; lines with due dates and status
 | List paging | billing 08 `pageNumber`, `pageSize`, `totalCount`, `totalPages` |
 | Organization (TrekLink list and detail only) | billing 08 `items[].organization.code`; billing 09 `organization.code` |
 | Detail header | billing 09 `number`, `status`, `kind`, `term.seq`, `contract.code`, `issuedAt`, `totalVnd`, `paidVnd` |
+| Seller block (detail and print) | billing 09 `seller.legalName`, `taxCode`, `address`, `hotline` (the backend's `COMPANY_*` configuration) |
+| Buyer block (detail and print) | billing 09 `organization.legalName`, `taxCode`, `address`, `code`; a null field reads "Not recorded", a null legal name falls back to the code |
+| Totals footer (detail and print), derived on the client | Subtotal: the sum of billing 09 `lines[].amountVnd` above zero; Credits and adjustments: the sum below zero, shown only when not zero; Total `totalVnd`; Amount paid `paidVnd`; Balance due `totalVnd` minus `paidVnd`, never below zero. No VAT row: the billing spec has no VAT |
 | Lines: number, type, description, quantity, unit, amount, due date, paid | billing 09 `lines[].seq`, `type`, `description`, `quantity`, `unitVnd`, `amountVnd`, `dueAt`, `paidVnd` |
 | Line status, derived on the client; the first matching rule wins | 1. Paid when `paidVnd` equals `amountVnd`; 2. Overdue when `dueAt` is before today; 3. Due now when `dueAt` is today; 4. Due later |
 | Payments: reference, method, amount, status, sandbox label, confirmed | billing 09 `payments[].id`, `reference`, `method`, `amountVnd`, `status`, `isSandbox`, `confirmedAt` |
@@ -36,6 +39,7 @@ Scope from the task: billing api-design 08, 09; lines with due dates and status
 | Open the waiting payment (payment row, and after `PAYMENT_PENDING`) | Org Manager, a `PENDING` SePay payment on the invoice | navigation to `/o/pay/:paymentId` with billing 09 `payments[].id` of that payment (screen 6.2) | none | none |
 | Record counter payment (detail) | TrekLink Staff or Admin, an unpaid line | opens the form of screen 6.3 for this invoice | none | none |
 | Contract link | always | navigation to the contract (screen 5.2) | none | none |
+| Print invoice (detail, secondary) | always | the browser's print dialog with the print layout below | none | none |
 
 ## States
 
@@ -121,3 +125,18 @@ The line type reads as its English label, never the enum code (chapter 06 §8.3;
 `SERVICE_CREDIT` Service credit (`INVOICE_LINE_TYPE_LABELS` in `entities/billing/api.ts`). The line search
 reads the label. A test reads `InvoiceLineType` from the Prisma schema, so a new backend value without a
 label fails it.
+
+## Invoice as a business document (W21, 2026-11-05)
+
+Added by KhoaDD under D-078 (UI audit of 2026-11-05, W15 open item). The detail carries a seller block
+(TrekLink, from billing 09 `seller`) beside a buyer block (the organization's registered legal name, tax
+code and address, billing 09 `organization`), stacked below 640 px, and a totals footer under the lines
+(Data above). The seller is backend configuration, never a literal in the client; billing reads it from
+the same `COMPANY_*` variables the handover note prints as Party A.
+
+Print layout: Print invoice, or the browser's own print command, prints the invoice alone as a document
+on A4: letterhead (seller legal name and address, "Invoice" and the number), issued date, contract, kind
+and status, the two parties, the lines as a plain table (number, description, type, quantity, unit
+price, due date, amount), the totals footer, the payments and the hotline. The application chrome, the
+command bars and the buttons do not print, and printing always uses the light theme. The print copy
+is a hidden portal on `<body>` (`InvoicePrintDocument`), so it is not in the accessibility tree on screen.

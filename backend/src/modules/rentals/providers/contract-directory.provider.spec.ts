@@ -20,6 +20,7 @@ describe('RentalsContractDirectory (CONTRACT_DIRECTORY, billing design §4)', ()
     };
     organizations = {
       labelsOf: jest.fn().mockResolvedValue(new Map([['o-1', { code: 'ORG-0001' }]])),
+      handoverParty: jest.fn(),
     };
     directory = new RentalsContractDirectory(
       contracts as unknown as ContractsRepository,
@@ -54,5 +55,27 @@ describe('RentalsContractDirectory (CONTRACT_DIRECTORY, billing design §4)', ()
 
     await expect(directory.variantsOf([])).resolves.toEqual(new Map());
     expect(contracts.variantsOf).toHaveBeenCalledTimes(1);
+  });
+
+  it('answers the buyer block of an invoice from the organization party, null when unknown', async () => {
+    organizations.handoverParty.mockResolvedValueOnce({
+      id: 'o-1',
+      code: 'ORG-0001',
+      legalName: 'Fansipan Trekking JSC',
+      taxCode: '0109876543',
+      address: 'Sa Pa, Lao Cai',
+      masterContractRef: 'MC-1',
+      ndaSigned: true,
+      softwareLicenceSigned: true,
+    });
+    await expect(directory.buyerOf('o-1')).resolves.toEqual({
+      legalName: 'Fansipan Trekking JSC',
+      taxCode: '0109876543',
+      address: 'Sa Pa, Lao Cai',
+    });
+    expect(organizations.handoverParty).toHaveBeenCalledWith('o-1');
+
+    organizations.handoverParty.mockResolvedValueOnce(null);
+    await expect(directory.buyerOf('o-x')).resolves.toBeNull();
   });
 });
