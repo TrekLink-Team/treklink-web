@@ -23,7 +23,7 @@ test was found, "Verified elsewhere" points to the module that owns the proof.
 | Backend lint and typecheck | Verified, zero errors | `tsc --noEmit` exit 0; eslint exit 0 with one old warning (`backend/test/incidents.e2e-spec.ts:313`, unused `_omitted`). Not a zero-warning claim. |
 | Module boundaries | Verified | `check-module-boundaries.js`: 581 files, 57 owned models, 10 modules in an acyclic graph. |
 | Frontend gates | Verified | `tsc --noEmit` exit 0; eslint exit 0 with one old warning (`CounterPaymentDialog.tsx:15`); vitest 119 files, 1348 tests pass; `npm run build` exit 0. |
-| api-design 01 to 32 against the catalog | Verified | `build_api_design.py organizations` regenerates all files with no content difference (line endings only). This proves the catalog equals the files. It does not prove the files equal the code: see gap 7. 33 is a proposal and is not built (see the gaps). |
+| api-design 01 to 32 against the catalog | Verified | `build_api_design.py organizations` regenerates all files with no content difference (line endings only). This proves the catalog equals the files. It does not prove the files equal the code. On 2026-11-05 I compared the error rows of api-design 08 to 11 and 13 to 19 with the code (gap 7); the other 21 files were not compared. 33 is a proposal and is not built (see the gaps). |
 | Playwright journeys | Unchecked | `frontend/e2e/mf-01a-onboarding.spec.ts` (steps 1 to 8) and `mf-01-request-to-handover.spec.ts` exist. No Playwright job is in `ci.yml` at this base and Playwright is not installed on the audit machine, so no run exists. |
 
 ## Requirements
@@ -108,12 +108,15 @@ screens exists at this base (see the Playwright row), so 5.1 is recorded as part
 4. **AC-11 wording.** Closed in this change: the criterion now names the rotation (treklink-web#366).
 5. **Playwright.** The MF-01 and MF-01a journeys have never run at this base and cover AC-01.
 6. **Performance row.** No measurement of the API key lookup.
-7. **Documentation drift raised earlier and not re-checked here** (tasks.md 2.4, 2.5, 2.6): api-design 11
-   samples `actor` as a role label while the code answers the account name or `SYSTEM`; api-design 14,
-   15 and 17 to 19 omit some 409 and 400 rows the code answers. They were raised to the leader on
-   2026-10-30 and are not counted as verified or as closed.
+7. **Documentation drift raised earlier (tasks.md 2.4, 2.5, 2.6): settled.** api-design 11 once sampled
+   `actor` as a role label and 14, 15 and 17 to 19 once omitted 409 and 400 rows. On 2026-11-05 I read the
+   current files against the throw sites of the status, members and shifts services: the rows match (11 files:
+   08 to 11 and 13 to 19). The first version of this record repeated the older notes of `tasks.md` without
+   opening the files; that was wrong. Limit: a malformed id in the path (`ParseUUIDPipe`, 400) is not listed on
+   any endpoint without a body or query, because the generator adds the 400 row only for a body or a query;
+   this is the same in all 32 files and was not changed. The other 21 files were not compared.
 
 The suite including the `*.db-spec.ts` files is green in CI on the audit base, but the parent task 6.1
-also requires `api-design/*.md` matching behaviour, and gap 7 says it does not yet. Tasks 2.4, 2.5, 2.6,
-2.7, 4.2, 4.3, 5.1 and 6.1 stay open with a dated line each; 11 of 19 are ticked. No Jira story is
+also requires `api-design/*.md` matching behaviour, and only 11 of the 32 files were compared with the
+code. Tasks 2.4, 2.7, 4.2, 4.3, 5.1 and 6.1 stay open with a dated line each; 13 of 19 are ticked. No Jira story is
 changed by this record.
