@@ -68,7 +68,7 @@ test was found, "Verified elsewhere" points to the module that owns the proof.
 | AC-02 | Verified | Onboarding spec "refuses to approve an organization not yet verified with 409 NOT_VERIFIED (MSG21)". |
 | AC-03 | Verified | `members.service.spec.ts` and `members.db-spec.ts` rows of REQ-ERR-03. |
 | AC-04 | Verified | `roster.db-spec.ts` "refuses an overlapping shift with 409 SHIFT_OVERLAP and accepts one that only touches". |
-| AC-05 | Partly | A created key resolves and a revoked one stops (`api-keys.db-spec.ts` "resolves a live key by hash and records its use once a minute", "stops resolving a revoked key ..."); a key reads a marked route with 200 and an unknown key is 401 (`route-guards.e2e-spec.ts`). No single test creates a key, calls `GET /api/telemetry/devices` with it, revokes it and calls again; `tasks.md` 2.7 already says so. |
+| AC-05 | Verified (after the audit base) | At the audit base the pieces were tested apart (`api-keys.db-spec.ts` "resolves a live key by hash and records its use once a minute", "stops resolving a revoked key ..."; `route-guards.e2e-spec.ts`). The whole path is now one test, `test/org-api-http.db-spec.ts` "works with a created key and returns 401 after the key is revoked (AC-05)" (NgocLong216, `dev` 85088c22, after the audit base; its CI run is green with `test:db`; I read the test and did not run it). |
 | AC-06 | Verified elsewhere | `broker-hooks.db-spec.ts` "accepts a new station with its secret and refuses it at its next connection once revoked" (gateway-sync 4.2). |
 | AC-07 | Partly | The contract request refusal is Verified (`contracts-http.db-spec.ts` 01, with a `SUSPENDED` organization). No test routes an SOS from a device of a `SUSPENDED` organization to its primary: neither `tiersAt` nor the incidents routing read the organization status, so the behaviour follows by construction, but TC-32 has no test of its own. |
 | AC-08 | Verified | `field-station-release.service.spec.ts` "reads release.json and gives the version and one download per file with its SHA-256", "gives null instead of failing for the list of stations, and tells outdated by the release"; `field-stations.service.spec.ts` "lists the stations with the health, the limit and the outdated flag". |
@@ -104,7 +104,7 @@ screens exists at this base (see the Playwright row), so 5.1 is recorded as part
 
 1. **API 33 and REQ-EVT-14, REQ-STA-03 read, AC-12.** Not built; already tracked by treklink-web#304.
 2. **TC-32 / AC-07.** No test that an SOS from a device of a `SUSPENDED` organization reaches its primary.
-3. **AC-05 over HTTP.** No single end to end test with `GET /api/telemetry/devices`.
+3. **AC-05 over HTTP.** Closed after the audit base by `dev` 85088c22 (treklink-web#365).
 4. **AC-11 wording.** Closed in this change: the criterion now names the rotation (treklink-web#366).
 5. **Playwright.** The MF-01 and MF-01a journeys have never run at this base and cover AC-01.
 6. **Performance row.** No measurement of the API key lookup.
@@ -118,5 +118,5 @@ screens exists at this base (see the Playwright row), so 5.1 is recorded as part
 
 The suite including the `*.db-spec.ts` files is green in CI on the audit base, but the parent task 6.1
 also requires `api-design/*.md` matching behaviour, and only 11 of the 32 files were compared with the
-code. Tasks 2.4, 2.7, 4.2, 4.3, 5.1 and 6.1 stay open with a dated line each; 13 of 19 are ticked. No Jira story is
+code. Tasks 2.4, 4.2, 4.3, 5.1 and 6.1 stay open with a dated line each; 14 of 19 are ticked. No Jira story is
 changed by this record.
