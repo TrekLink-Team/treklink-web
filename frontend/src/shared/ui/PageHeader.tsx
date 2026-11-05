@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from './cn';
+import { PinnedTitle } from './PageChrome';
 
 export interface Crumb {
   label: string;
@@ -10,7 +11,10 @@ export interface Crumb {
 }
 
 /** The trail above a page title. On a phone only the parent shows, as a back link. */
-export const Breadcrumb: React.FC<{ items: Crumb[]; className?: string }> = ({ items, className }) => {
+export const Breadcrumb: React.FC<{ items: Crumb[]; className?: string }> = ({
+  items,
+  className,
+}) => {
   if (items.length === 0) return null;
   const parent = [...items].reverse().find((item) => item.to);
   return (
@@ -34,7 +38,10 @@ export const Breadcrumb: React.FC<{ items: Crumb[]; className?: string }> = ({ i
                   {item.label}
                 </Link>
               ) : (
-                <span aria-current={last ? 'page' : undefined} className={cn(last && 'font-semibold text-ink')}>
+                <span
+                  aria-current={last ? 'page' : undefined}
+                  className={cn(last && 'font-semibold text-ink')}
+                >
                   {item.label}
                 </span>
               )}
@@ -64,7 +71,8 @@ export interface PageHeaderProps {
 
 /**
  * Breadcrumb, title and the primary action. One per page, first in the content area. Inside a
- * StickyPageHeader it shrinks while compact: a smaller title, no description.
+ * StickyPageHeader it shrinks while compact: a smaller title, no description. In the app shell it
+ * pins itself in one when the page has not placed it in one (`PinnedTitle`, ui standard §7).
  */
 export const PageHeader: React.FC<PageHeaderProps> = ({
   title,
@@ -76,29 +84,37 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   actions,
   className,
 }) => (
-  <header
-    className={cn(
-      'mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 group-data-[compact=true]/chrome:mb-2 group-data-[compact=true]/chrome:gap-y-1',
-      className,
-    )}
-  >
-    <div className="flex min-w-0 flex-col gap-1">
-      {breadcrumb && <Breadcrumb items={breadcrumb} />}
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h1 id={id} tabIndex={-1} className="text-title-lg text-ink outline-none group-data-[compact=true]/chrome:text-title-sm">
-          {title}
-        </h1>
-        {meta && <span className="text-body text-ink-muted">{meta}</span>}
-      </div>
-      {description && (
-        <p className="max-w-measure text-body text-ink-muted group-data-[compact=true]/chrome:hidden">{description}</p>
+  <PinnedTitle>
+    <header
+      className={cn(
+        'mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 group-data-[compact=true]/chrome:mb-2 group-data-[compact=true]/chrome:gap-y-1',
+        className,
       )}
-    </div>
-    {(actions || primaryAction) && (
-      <div className="flex flex-wrap items-center gap-2">
-        {actions}
-        {primaryAction}
+    >
+      <div className="flex min-w-0 flex-col gap-1">
+        {breadcrumb && <Breadcrumb items={breadcrumb} />}
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h1
+            id={id}
+            tabIndex={-1}
+            className="text-title-lg text-ink outline-none group-data-[compact=true]/chrome:text-title-sm"
+          >
+            {title}
+          </h1>
+          {meta && <span className="text-body text-ink-muted">{meta}</span>}
+        </div>
+        {description && (
+          <p className="max-w-measure text-body text-ink-muted group-data-[compact=true]/chrome:hidden">
+            {description}
+          </p>
+        )}
       </div>
-    )}
-  </header>
+      {(actions || primaryAction) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {actions}
+          {primaryAction}
+        </div>
+      )}
+    </header>
+  </PinnedTitle>
 );

@@ -10,6 +10,7 @@ import {
   StickyPageHeader,
 } from './PageChrome';
 import { PageHeader } from './PageHeader';
+import { PageTitle } from './bits';
 
 // jsdom has no IntersectionObserver: this one records the options and lets a test move the sentinel.
 type Observed = {
@@ -109,14 +110,14 @@ describe('StickyPageHeader (leader rule of 2026-10-30)', () => {
     // header is measured, the page must not get shorter, or the browser clamps scrollTop back under
     // the threshold and the last rows can never be scrolled clear of the action bar.
     const marginsWhileMeasuringCompact: string[] = [];
-    const spy = vi
-      .spyOn(HTMLElement.prototype, 'offsetHeight', 'get')
-      .mockImplementation(function (this: HTMLElement) {
-        if (!this.hasAttribute('data-compact')) return 0;
-        const compact = this.getAttribute('data-compact') === 'true';
-        if (compact) marginsWhileMeasuringCompact.push(this.style.marginBottom);
-        return compact ? 102 : 158;
-      });
+    const spy = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      if (!this.hasAttribute('data-compact')) return 0;
+      const compact = this.getAttribute('data-compact') === 'true';
+      if (compact) marginsWhileMeasuringCompact.push(this.style.marginBottom);
+      return compact ? 102 : 158;
+    });
     render(
       <StickyPageHeader>
         <PageHeader title="Counter handover" description="ORG-0007, monthly plan" />
@@ -298,5 +299,49 @@ describe('Dialog with a footer (leader rule of 2026-10-30)', () => {
     expect(
       body.contains(screen.getByRole('heading', { name: 'Complete maintenance for TL-0042' })),
     ).toBe(false);
+  });
+});
+
+describe('Pinned page title (viewport rule, leader 2026-11-05)', () => {
+  const slot = {
+    breadcrumb: <nav aria-label="Breadcrumb">Fleet</nav>,
+    claim: () => () => undefined,
+  };
+
+  it('pins a PageHeader the page did not place in a StickyPageHeader, inside the shell', () => {
+    render(
+      <PageChromeProvider value={slot}>
+        <PageHeader title="Fleet" />
+      </PageChromeProvider>,
+    );
+    expect(regionOf().className).toContain('sticky');
+    expect(
+      within(regionOf() as HTMLElement).getByRole('navigation', { name: 'Breadcrumb' }),
+    ).toBeTruthy();
+  });
+
+  it('pins a PageTitle the same way', () => {
+    render(
+      <PageChromeProvider value={slot}>
+        <PageTitle title="Incidents" />
+      </PageChromeProvider>,
+    );
+    expect(regionOf().className).toContain('sticky');
+  });
+
+  it('never wraps a header twice inside a StickyPageHeader', () => {
+    const { container } = render(
+      <PageChromeProvider value={slot}>
+        <StickyPageHeader>
+          <PageHeader title="Counter handover" />
+        </StickyPageHeader>
+      </PageChromeProvider>,
+    );
+    expect(container.querySelectorAll('[data-compact]')).toHaveLength(1);
+  });
+
+  it('leaves the title as it is outside the shell', () => {
+    const { container } = render(<PageHeader title="Sign in" />);
+    expect(container.querySelector('[data-compact]')).toBeNull();
   });
 });
