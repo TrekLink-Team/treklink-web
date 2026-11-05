@@ -214,6 +214,19 @@ describe('VariantsPage (screen 4.1)', () => {
     expect(bodyOf(0)).toEqual({ isActive: false, expectedVersion: 3 });
   });
 
+  it('shows the VARIANT_IN_USE message as the server words it, once', async () => {
+    const message = 'treklink-v9 has registered devices or prices. Deactivate it instead.';
+    serve([unused], () => {
+      throw new ApiError(409, 'VARIANT_IN_USE', message);
+    });
+    renderPage();
+    fireEvent.click(await (await loaded()).findByRole('button', { name: 'Delete treklink-v9' }));
+    const confirm = within(await screen.findByRole('alertdialog', { name: 'Delete treklink-v9?' }));
+    fireEvent.click(confirm.getByRole('button', { name: 'Delete variant' }));
+    expect((await confirm.findByText(message)).textContent).toBe(message);
+    expect(confirm.queryByText(/still used by registered devices/)).toBeNull();
+  });
+
   it('deletes an unused variant after a dialog naming its code', async () => {
     serve([unused], () => null);
     renderPage();
