@@ -124,6 +124,11 @@ export enum ErrorCode {
   WIPE_INCOMPLETE = 'WIPE_INCOMPLETE',
   // Loss cases (devices api-design 17, REQ-ERR-05, BR-37): one open case per device.
   LOSS_CASE_OPEN = 'LOSS_CASE_OPEN',
+  // Hardware variants (devices api-design 02 to 04, REQ-STA-02, REQ-ERR-10, REQ-ERR-18, REQ-ERR-19).
+  VARIANT_IN_USE = 'VARIANT_IN_USE',
+  SCHEDULE_INVALID = 'SCHEDULE_INVALID',
+  CHECKLIST_REQUIRED = 'CHECKLIST_REQUIRED',
+  VARIANT_MEDIA_INVALID = 'VARIANT_MEDIA_INVALID',
 
   // demo (specs/demo/design.md §7, D-088): the local demo control panel.
   DEMO_DISABLED = 'DEMO_DISABLED',

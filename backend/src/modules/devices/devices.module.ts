@@ -20,25 +20,40 @@ import {
   LossOrganizationActions,
 } from './ports/loss-organization-actions.port';
 import { DevicesComplianceLossCases } from './providers/compliance-loss-case.provider';
+import { StockTakeService } from './stock-take.service';
+import { StockTakesController } from './stock-takes.controller';
+import { StockTakesRepository } from './stock-takes.repository';
 import { VariantsController } from './variants.controller';
+import { VariantsRepository } from './variants.repository';
+import { VariantsService } from './variants.service';
 
 // Hardware variants, devices and their lifecycle (specs/devices/design.md). Built so far: the
 // projection side ingestion needs (tasks 1.1 and 2.5), the reservation reads of rentals, the fleet,
 // detail and availability endpoints, the return side of MF-05 (markReturned, reset, inspection), the
-// registration, intake check and maintenance records (tasks 2.2 and 2.8 parts), the variant list and
-// the LOSS_CASE_LISTENERS port (task 1.4), and loss cases (task 2.7) with the `devices.lossSearch`
-// job. Variant editing and stock-take join with the rest of tasks 2.x and 4.1. `organizations` gives
+// registration, intake check and maintenance records (tasks 2.2 and 2.8 parts), the variant catalog
+// with its Admin writes (task 2.1), the stock-take (task 2.6), the LOSS_CASE_LISTENERS port (task 1.4),
+// and loss cases (task 2.7) with the `devices.lossSearch` job. `organizations` gives
 // the label of the organization whose key a unit carries (Figure 3 edge devices --> organizations).
 // CUSTODY_RESOLVER comes from the global RentalsPortsModule (rentals task 1.3).
 @Module({
   imports: [PlatformModule, OrganizationsModule],
-  controllers: [DevicesController, MaintenanceController, VariantsController, LossCasesController],
+  controllers: [
+    DevicesController,
+    MaintenanceController,
+    VariantsController,
+    LossCasesController,
+    StockTakesController,
+  ],
   providers: [
     DevicesRepository,
     DevicesService,
     MaintenanceRepository,
     MaintenanceService,
     IntakeService,
+    VariantsRepository,
+    VariantsService,
+    StockTakesRepository,
+    StockTakeService,
     // task 1.4: the one array billing and rentals add their listeners to (ports/loss-case-listener.port.ts).
     { provide: LOSS_CASE_LISTENERS, useFactory: (): LossCaseListener[] => [] },
     LossCaseNotifier,
