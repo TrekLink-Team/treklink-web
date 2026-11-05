@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Lists incidents with state filters. Organization members see their organization's incidents; TrekLink staff see every incident, and `state=UNROUTED,ESCALATED` is their queue. Rows come most urgent first: `tierDeadlineAt` ascending with nulls last, then `firstEventAt` newest first. There is no sort parameter (D-059 rule 7).
+Lists incidents with state filters. Organization members see their organization's incidents; TrekLink staff see every incident, and `state=UNROUTED,ESCALATED` is their queue. Rows come most urgent first: `tierDeadlineAt` ascending with nulls last, then `firstEventAt` newest first (D-059 rule 7). `sort` reorders the list by one column of the screen when a user asks for it; without `sort` the order stays the most urgent first (leader ruling 2026-11-05, chapter 06 §11.2).
 
 ## API Specification
 
@@ -26,6 +26,8 @@ Lists incidents with state filters. Organization members see their organization'
 | deviceId | Device | uuid | no | `0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10` |
 | groupId | Organization members: the devices in this group or its subgroups now (rentals design §11, FR-MON-11) | uuid | no | `g-1` |
 | from | createdAt lower bound | datetime | no | `...` |
+| sort | Sort field, one of `code`, `state`, `lastEventAt`; any other value answers 400 `VALIDATION_FAILED`. Omitted: `tierDeadlineAt` ascending with nulls last, then `firstEventAt` newest first. Ties break on `id`; a null value sorts last in either direction | enum | no | `code` |
+| order | `asc` (the default with `sort`) or `desc`; without `sort` it answers 400 `VALIDATION_FAILED` | enum | no | `desc` |
 | pageNumber | 1-based page | int | no | `1` |
 | pageSize | Items per page, at most MAX_PAGE_SIZE | int | no | `20` |
 

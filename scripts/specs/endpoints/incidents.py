@@ -1,4 +1,4 @@
-from ._common import (USER_ID, ORG_ID, DEVICE_ID, CONTRACT_ID, INCIDENT_ID, NOW, ep, paged, PAGE_QUERY,
+from ._common import (USER_ID, ORG_ID, DEVICE_ID, CONTRACT_ID, INCIDENT_ID, NOW, ep, paged, sort_query, PAGE_QUERY,
                       state_409, STALE)
 
 INC = {"id": INCIDENT_ID, "code": "INC-2026-000045", "device": {"id": DEVICE_ID, "assetTag": "TL-0042",
@@ -58,14 +58,17 @@ ENDPOINTS = [
     ep("GET", "/api/incidents", "List incidents", "Org Manager, Org Operator: own; TrekLink Staff, TrekLink Admin",
        "Lists incidents with state filters. Organization members see their organization's incidents; "
        "TrekLink staff see every incident, and `state=UNROUTED,ESCALATED` is their queue. Rows come most "
-       "urgent first: `tierDeadlineAt` ascending with nulls last, then `firstEventAt` newest first. There is no "
-       "sort parameter (D-059 rule 7).",
+       "urgent first: `tierDeadlineAt` ascending with nulls last, then `firstEventAt` newest first (D-059 rule 7). "
+       "`sort` reorders the list by one column of the screen when a user asks for it; without `sort` the "
+       "order stays the most urgent first (leader ruling 2026-11-05, chapter 06 §11.2).",
        "UC-29, UC-32, FR-AUTH-11",
        query=[["state", "IncidentState, repeatable", "enum", "no", "`NOTIFY_PRIMARY`"],
               ["open", "Every state except CLOSED", "bool", "no", "`true`"],
               ["deviceId", "Device", "uuid", "no", f"`{DEVICE_ID}`"],
               ["groupId", "Organization members: the devices in this group or its subgroups now (rentals design §11, FR-MON-11)", "uuid", "no", "`g-1`"],
-              ["from", "createdAt lower bound", "datetime", "no", "`...`"]] + PAGE_QUERY,
+              ["from", "createdAt lower bound", "datetime", "no", "`...`"]]
+             + sort_query(["code", "state", "lastEventAt"],
+                          "`tierDeadlineAt` ascending with nulls last, then `firstEventAt` newest first") + PAGE_QUERY,
        response=paged(INC, 2), steps=["Apply scope", "Read incidents by tierDeadlineAt ascending, nulls last, then firstEventAt newest first"],
        controller="IncidentsController", service="IncidentsQueryService", call="list(query, caller)",
        seq=["Svc->>DB: SELECT incidents WHERE scope"]),

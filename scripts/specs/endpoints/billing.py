@@ -1,4 +1,4 @@
-from ._common import (USER_ID, ORG_ID, DEVICE_ID, VARIANT_ID, CONTRACT_ID, INVOICE_ID, INCIDENT_ID, NOW, ep, paged,
+from ._common import (USER_ID, ORG_ID, DEVICE_ID, VARIANT_ID, CONTRACT_ID, INVOICE_ID, INCIDENT_ID, NOW, ep, paged, sort_query,
                       PAGE_QUERY, state_409, STALE)
 
 INVOICE = {"id": INVOICE_ID, "number": "INV-2026-000123", "organization": {"id": ORG_ID, "code": "ORG-0007"},
@@ -132,7 +132,9 @@ ENDPOINTS = [
        "Lists invoices with their status and amounts; members see only their organization's (FR-AUTH-11).",
        "UC-55, FR-AUTH-11, FR-BILL-06",
        query=[["contractId", "Contract", "uuid", "no", f"`{CONTRACT_ID}`"], ["status", "InvoiceStatus", "enum", "no", "`ISSUED`"],
-              ["overdue", "Only invoices with a line past due", "bool", "no", "`true`"]] + PAGE_QUERY,
+              ["overdue", "Only invoices with a line past due", "bool", "no", "`true`"]]
+             + sort_query(["issuedAt", "number", "status", "totalVnd", "paidVnd"],
+                          "`issuedAt` newest first, then `number` descending") + PAGE_QUERY,
        response=paged({k: INVOICE[k] for k in INVOICE if k != "lines"}, 2), steps=["Apply scope", "Read invoices"],
        controller="InvoicesController", service="InvoicesService", call="list(query, caller)",
        seq=["Svc->>DB: SELECT invoices WHERE scope"]),

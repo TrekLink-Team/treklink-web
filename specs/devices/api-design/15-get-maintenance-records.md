@@ -24,6 +24,8 @@ Lists records by status and reason, for the week's service list (FR-DEV-18) and 
 | status | OPEN, PENDING_APPROVAL, COMPLETED or UNREPAIRABLE, repeatable | enum | no | `PENDING_APPROVAL` |
 | reason | Reason, repeatable | enum | no | `SCHEDULED` |
 | dueBefore | Records expected to complete on or before this date | date | no | `2026-10-26` |
+| sort | Sort field, one of `expectedAt`, `assetTag`, `status`; any other value answers 400 `VALIDATION_FAILED`. Omitted: `expectedAt` ascending, then the oldest opened first. Ties break on `id`; a null value sorts last in either direction | enum | no | `expectedAt` |
+| order | `asc` (the default with `sort`) or `desc`; without `sort` it answers 400 `VALIDATION_FAILED` | enum | no | `desc` |
 | pageNumber | 1-based page | int | no | `1` |
 | pageSize | Items per page, at most MAX_PAGE_SIZE | int | no | `20` |
 

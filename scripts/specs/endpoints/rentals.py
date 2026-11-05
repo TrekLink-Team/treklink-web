@@ -1,4 +1,4 @@
-from ._common import (USER_ID, ORG_ID, DEVICE_ID, VARIANT_ID, VARIANT_SUMMARY, CONTRACT_ID, NOW, ep, paged, PAGE_QUERY,
+from ._common import (USER_ID, ORG_ID, DEVICE_ID, VARIANT_ID, VARIANT_SUMMARY, CONTRACT_ID, NOW, ep, paged, sort_query, PAGE_QUERY,
                       state_409, STALE)
 
 CONTRACT = {"id": CONTRACT_ID, "code": "RC-2026-0042", "organization": {"id": ORG_ID, "code": "ORG-0007",
@@ -96,7 +96,8 @@ ENDPOINTS = [
               ["planType", "Plan", "enum", "no", "`DAY`"],
               ["q", "Contract code, organization legal name or organization code contains, ignoring case; "
                     "trimmed, at most 100 characters, an empty value is no filter", "string", "no", "`acme`"]]
-             + PAGE_QUERY,
+             + sort_query(["code", "status", "quantity", "requestedStartDate"],
+                          "the newest status change first, then `code` descending") + PAGE_QUERY,
        response=paged(CONTRACT, 3),
        steps=["Apply scope", "With q, find the organizations whose name or code matches", "Read contracts"],
        controller="ContractsController", service="ContractsService", call="list(query, caller)",
