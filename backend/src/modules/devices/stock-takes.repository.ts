@@ -1,15 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { DeviceStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { CountedDevice } from './stock-take-classify';
 
 type Client = Prisma.TransactionClient | PrismaService;
 
-export interface CountedDevice {
-  id: string;
-  assetTag: string;
-  status: DeviceStatus;
-  lastSeenAt: Date | null;
-}
+export type { CountedDevice } from './stock-take-classify';
 
 const STOCK_TAKE_SELECT = {
   id: true,
