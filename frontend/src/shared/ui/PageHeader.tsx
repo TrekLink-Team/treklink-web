@@ -87,7 +87,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   <PinnedTitle>
     <header
       className={cn(
-        'mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 group-data-[compact=true]/chrome:mb-2 group-data-[compact=true]/chrome:gap-y-1',
+        'mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 group-data-[compact=true]/chrome:mb-2 group-data-[compact=true]/chrome:gap-y-1 [@media(min-height:480px)_and_(max-height:640px)]:mb-2',
         className,
       )}
     >
@@ -103,10 +103,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           </h1>
           {meta && <span className="text-body text-ink-muted">{meta}</span>}
         </div>
-        {/* On a short screen (under 640 CSS px high, above the 400 % zoom release) the description
+        {/* On a short screen (640 CSS px high or less, above the 400 % zoom release) the description
             gives its room to the list or the record (ui standard §7). */}
         {description && (
-          <p className="max-w-measure text-body text-ink-muted group-data-[compact=true]/chrome:hidden [@media(min-height:480px)_and_(max-height:639.98px)]:hidden">
+          <p className="max-w-measure text-body text-ink-muted group-data-[compact=true]/chrome:hidden [@media(min-height:480px)_and_(max-height:640px)]:hidden">
             {description}
           </p>
         )}

@@ -40,10 +40,11 @@ const status = (name) => ({
 const fitPageVariants = plugin(({ addVariant }) => {
   addVariant('cv-fill-root', '[data-fit-page] > &');
   addVariant('cv-fill', '[data-fit-page] > [data-cv] &');
-  // A screen with room for a block above a list (from 1280 by 800 CSS px). Below it, a filter card
-  // or an information card above a list folds into a disclosure, so the list keeps its room
-  // (ui standard §7, leader 2026-11-05).
-  addVariant('roomy', '@media (min-width: 1280px) and (min-height: 800px)');
+  // A screen with room for a block above a list (from 1280 by 900 CSS px). Below it, a filter card
+  // or an information card above a list folds into a disclosure, so the list keeps at least one full
+  // row (ui standard §7, leader 2026-11-05; at 1280 by 800 the open sign-in filters left 21 px of a
+  // 53 px row, review of treklink-web#397).
+  addVariant('roomy', '@media (min-width: 1280px) and (min-height: 900px)');
 });
 
 /** @type {import('tailwindcss').Config} */

@@ -54,7 +54,7 @@ const ReleaseCard: React.FC<{ organizationId: string }> = ({ organizationId }) =
   const release = useFieldStationRelease(organizationId);
   const unpublished =
     release.error instanceof ApiError && release.error.errorCode === 'RELEASE_UNAVAILABLE';
-  // Below 1280 by 800 CSS px the card folds into a disclosure, so the station list under it keeps
+  // Below 1280 by 900 CSS px the card folds into a disclosure, so the station list under it keeps
   // its room in the fit page (ui standard §7, leader 2026-11-05).
   const [open, setOpen] = useState(false);
   const summary = release.data

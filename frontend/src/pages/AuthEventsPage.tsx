@@ -175,7 +175,7 @@ export const AuthEventsPage: React.FC = () => {
   const pageNumber = pageOf(params);
   const events = useAuthEvents(filters, pageNumber);
   const organizations = useOrganizations(undefined);
-  // Below 1280 by 800 CSS px the filters sit behind a disclosure (screen 7.3), so the list keeps its
+  // Below 1280 by 900 CSS px the filters sit behind a disclosure (screen 7.3), so the list keeps its
   // room in the fit page (ui standard §7).
   const [filtersOpen, setFiltersOpen] = useState(false);
   // After Apply, focus moves to the result count, which a polite live region announces.
@@ -253,25 +253,50 @@ export const AuthEventsPage: React.FC = () => {
   const data = events.data;
   return (
     <AuditTabs>
-      <section aria-labelledby="auth-events-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4 [@media(min-height:480px)_and_(max-height:639.98px)]:gap-2">
+      <section aria-labelledby="auth-events-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4 [@media(min-height:480px)_and_(max-height:640px)]:gap-2">
         <PageHeader
           id="auth-events-title"
           title="Sign-in events"
           description="Every sign-in, refresh, reset and lock, newest first. No password is ever stored here."
         />
-        <Card aria-labelledby="auth-events-filters" className="p-2 roomy:p-5">
-          <div className="hidden roomy:block">
-            <CardHeader title="Filters" id="auth-events-filters" />
-          </div>
+        {/* The count row leads: on a short screen it also holds the Filters toggle, so the folded
+            filters take no band of their own and the list keeps a full row (review of #397). */}
+        <div className="flex items-center gap-2">
           <Button
             variant="secondary"
-            className={cn('w-full roomy:hidden', filtersOpen && 'mb-2')}
+            size="sm"
+            className="shrink-0 roomy:hidden"
             aria-expanded={filtersOpen}
             aria-controls="auth-events-filter-bar"
             onClick={() => setFiltersOpen((now) => !now)}
           >
             {hasFilters(filters) ? 'Filters (on)' : 'Filters'}
           </Button>
+          <p
+            ref={countRef}
+            tabIndex={-1}
+            aria-live="polite"
+            className="min-w-0 flex-1 text-body-sm text-ink-muted outline-none focus-visible:outline-2 focus-visible:outline-focus"
+          >
+            {data ? `${data.totalCount} ${data.totalCount === 1 ? 'event' : 'events'}` : ''}
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            loading={events.isFetching}
+            onClick={() => void events.refetch()}
+          >
+            Refresh
+          </Button>
+        </div>
+
+        <Card
+          aria-labelledby="auth-events-filters"
+          className={cn('p-2 roomy:p-5', !filtersOpen && 'hidden roomy:block')}
+        >
+          <div className="hidden roomy:block">
+            <CardHeader title="Filters" id="auth-events-filters" />
+          </div>
           <div
             id="auth-events-filter-bar"
             // Open on a short screen, the filters scroll inside themselves so the list keeps its room.
@@ -306,24 +331,6 @@ export const AuthEventsPage: React.FC = () => {
           </Alert>
         )}
 
-        <div className="flex items-center justify-between gap-2">
-          <p
-            ref={countRef}
-            tabIndex={-1}
-            aria-live="polite"
-            className="text-body-sm text-ink-muted outline-none focus-visible:outline-2 focus-visible:outline-focus"
-          >
-            {data ? `${data.totalCount} ${data.totalCount === 1 ? 'event' : 'events'}` : ''}
-          </p>
-          <Button
-            variant="ghost"
-            size="sm"
-            loading={events.isFetching}
-            onClick={() => void events.refetch()}
-          >
-            Refresh
-          </Button>
-        </div>
 
         {/* The filter form above queries the server; the events render on CollectionView (chapter 06
             §9, D-096), each titled by its time, with the UTC time on hover. */}

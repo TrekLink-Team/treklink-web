@@ -370,3 +370,12 @@
     display: none !important;
   }
 }
+
+/* A fit page on a short screen (640 CSS px high or less, above the 400 % zoom release) closes its
+   gaps to 8 px, so its list keeps at least one full row (ui standard §7, review of
+   treklink-web#397). */
+@media (min-height: 480px) and (max-height: 640px) {
+  [data-fit-page] {
+    row-gap: 0.5rem;
+  }
+}
