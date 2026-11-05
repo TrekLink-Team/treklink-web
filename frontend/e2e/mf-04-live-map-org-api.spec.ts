@@ -26,7 +26,7 @@ test('MF-04 steps 1 to 3: the Operator live map, search and the sovereignty over
   await expect(list.getByRole('button', { name: /^TL-0010 .*Pham Van F / })).toBeVisible();
 
   // Step 3: the overlay labels are map markers the server lists (REQ-UBI-02, D-031); they are drawn at
-  // every zoom. Zoom out as the presenter does, then read the credit and the three basemaps.
+  // every zoom. Zoom out as the presenter does, then read the credit.
   await expect(page.getByText('Quần đảo Hoàng Sa (Việt Nam)')).toBeAttached();
   await expect(page.getByText('Quần đảo Trường Sa (Việt Nam)')).toBeAttached();
   const zoomOut = page.getByRole('button', { name: 'Zoom out' });
@@ -34,14 +34,13 @@ test('MF-04 steps 1 to 3: the Operator live map, search and the sovereignty over
   await expect(page.getByText('Quần đảo Hoàng Sa (Việt Nam)')).toBeVisible();
   await expect(page.locator('.leaflet-control-attribution')).toContainText('Leaflet');
   await expect(page.locator('.leaflet-control-attribution')).toContainText('Tiles © Esri and the GIS user community');
-  const layers = page.locator('.leaflet-control-layers');
-  for (const name of ['Topographic (OpenTopoMap)', 'Terrain (Stadia)', 'Topographic (Esri)']) {
-    await expect(layers.getByText(name)).toBeVisible();
+  // OpenTopoMap and Stadia print foreign names for Vietnamese waters outside the overlay masks, so the
+  // client hides them (task W22, HIDDEN_BASEMAP_IDS). The seed then leaves Esri alone, and a single
+  // basemap draws no layer control.
+  for (const name of ['Topographic (OpenTopoMap)', 'Terrain (Stadia)']) {
+    await expect(page.getByText(name)).toHaveCount(0);
   }
-  await expect(layers.getByRole('radio', { name: 'Topographic (Esri)' })).toBeChecked();
-  await layers.getByText('Terrain (Stadia)').click();
-  await expect(layers.getByRole('radio', { name: 'Terrain (Stadia)' })).toBeChecked();
-  await expect(page.getByText('Quần đảo Hoàng Sa (Việt Nam)')).toBeVisible();
+  await expect(page.locator('.leaflet-control-layers')).toHaveCount(0);
 });
 
 test('MF-04 step 4: Staff filter the fleet map by organization', async ({ page }) => {
