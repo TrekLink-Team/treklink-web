@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import {
   FIELD_POSITION,
@@ -6,6 +6,7 @@ import {
   type FieldPositionEvent,
   type FieldTelemetryEvent,
 } from '../gateway-sync';
+import { IncidentsQueryService } from '../incidents';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import {
   DEVICE_CHECKED_IN,
@@ -52,10 +53,13 @@ export class StreamListener {
   // check-in and read through from the `device_releases` table, which pruning the stream never touches.
   private readonly releases = new Map<string, Date | null>();
 
+  private readonly logger = new Logger(StreamListener.name);
+
   constructor(
     private readonly stream: StreamService,
     private readonly repository: StreamRepository,
     private readonly parameters: ParameterService,
+    private readonly incidents: IncidentsQueryService,
   ) {}
 
   @OnEvent(FIELD_POSITION)
@@ -86,6 +90,14 @@ export class StreamListener {
 
   @OnEvent(INCIDENT_CHANGED)
   async onIncidentChanged(event: IncidentChangedEvent): Promise<void> {
+    // The code, the owner's name, the last position and the stale mark come from the committed
+    // incident, so a client places the marker and shows "Open incident INC-..." from the entry alone.
+    // A read that fails must not lose the entry: it then goes out as before and the client reloads
+    // the snapshot (frontend `needsSnapshot`).
+    const live = await this.incidents.liveFieldsOf(event.incidentId).catch((error: unknown) => {
+      this.logger.warn(`incident ${event.incidentId} not enriched: ${String(error)}`);
+      return null;
+    });
     await this.stream.publish({
       organizationId: event.organizationId,
       type: 'incident.changed',
@@ -97,6 +109,7 @@ export class StreamListener {
         state: event.state,
         tier: event.tier,
         ownerId: event.ownerId,
+        ...live,
       },
     });
   }

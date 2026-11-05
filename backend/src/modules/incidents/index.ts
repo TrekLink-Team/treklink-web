@@ -16,6 +16,7 @@ export { type ResponseTimeRow } from './response-times';
 export {
   IncidentsQueryService,
   type AlertDeliveryStats,
+  type IncidentLiveFields,
   type IncidentOfDevice,
   type OpenIncidentRef,
 } from './incidents-query.service';

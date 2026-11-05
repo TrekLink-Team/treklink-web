@@ -59,6 +59,15 @@ export interface IncidentOfDevice {
   }[];
 }
 
+// What the live stream adds to an `incident.changed` entry (monitoring task 2.1, ws-live-contract):
+// the fields the in-process event does not carry, as of the committed incident.
+export interface IncidentLiveFields {
+  code: string;
+  ownerName: string | null;
+  lastPosition: { lat: number; lon: number } | null;
+  stale: boolean;
+}
+
 export interface AlertDeliveryStats {
   pending: number;
   failed: number;
@@ -215,6 +224,24 @@ export class IncidentsQueryService {
       openedAt: row.firstEventAt,
       transitions: row.transitions.map(({ createdAt, ...step }) => ({ ...step, at: createdAt })),
     }));
+  }
+
+  // The code, the owner's name, the last position and the stale mark of one incident, for the entry
+  // the live stream writes when it changes (design §5, task 2.1); null for an unknown id. No scoping:
+  // the stream routes the entry to the incident's own organization and the fleet.
+  async liveFieldsOf(incidentId: string): Promise<IncidentLiveFields | null> {
+    const row = await this.repository.findById(incidentId);
+    if (!row) return null;
+    const names = await this.organizations.memberNames(row.ownerId ? [row.ownerId] : []);
+    return {
+      code: row.code,
+      ownerName: row.ownerId ? (names.get(row.ownerId) ?? null) : null,
+      lastPosition:
+        row.lastLatitude !== null && row.lastLongitude !== null
+          ? { lat: row.lastLatitude, lon: row.lastLongitude }
+          : null,
+      stale: row.stale,
+    };
   }
 
   // The alert outbox on the system health page (design §5, api-design 06): rows still waiting to be sent

@@ -1,3 +1,5 @@
+import { Logger } from '@nestjs/common';
+import { IncidentsQueryService } from '../incidents';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { StreamListener } from './stream.listener';
 import { StreamRepository } from './stream.repository';
@@ -10,6 +12,7 @@ describe('StreamListener', () => {
   let published: Record<string, unknown>[];
   let stream: { publish: jest.Mock };
   let repository: { latestRelease: jest.Mock; recordRelease: jest.Mock };
+  let incidents: { liveFieldsOf: jest.Mock };
   let interval: number;
   let listener: StreamListener;
 
@@ -28,10 +31,12 @@ describe('StreamListener', () => {
     };
     interval = 1000;
     const parameters = { get: jest.fn(() => Promise.resolve(interval)) };
+    incidents = { liveFieldsOf: jest.fn().mockResolvedValue(null) };
     listener = new StreamListener(
       stream as unknown as StreamService,
       repository as unknown as StreamRepository,
       parameters as unknown as ParameterService,
+      incidents as unknown as IncidentsQueryService,
     );
   });
 
@@ -290,6 +295,55 @@ describe('StreamListener', () => {
           payload: { incidentId: 'inc-1', state: 'ACKNOWLEDGED', tier: 'PRIMARY', ownerId: 'u-1' },
         },
       ]);
+    });
+
+    it('adds the code, the owner name, the last position and the stale mark of the committed incident', async () => {
+      incidents.liveFieldsOf.mockResolvedValue({
+        code: 'INC-2026-000045',
+        ownerName: 'Pham Van D',
+        lastPosition: { lat: 11.56, lon: 108.55 },
+        stale: false,
+      });
+      await listener.onIncidentChanged({
+        incidentId: 'inc-1',
+        deviceId: 'dev-1',
+        organizationId: 'org-a',
+        state: 'ACKNOWLEDGED',
+        tier: 'PRIMARY',
+        ownerId: 'u-1',
+      });
+      expect(incidents.liveFieldsOf).toHaveBeenCalledWith('inc-1');
+      expect(published[0].payload).toEqual({
+        incidentId: 'inc-1',
+        state: 'ACKNOWLEDGED',
+        tier: 'PRIMARY',
+        ownerId: 'u-1',
+        code: 'INC-2026-000045',
+        ownerName: 'Pham Van D',
+        lastPosition: { lat: 11.56, lon: 108.55 },
+        stale: false,
+      });
+    });
+
+    it('still publishes the entry, as before, when the incident cannot be read', async () => {
+      const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      incidents.liveFieldsOf.mockRejectedValue(new Error('connection lost'));
+      await listener.onIncidentChanged({
+        incidentId: 'inc-1',
+        deviceId: 'dev-1',
+        organizationId: 'org-a',
+        state: 'ACKNOWLEDGED',
+        tier: 'PRIMARY',
+        ownerId: 'u-1',
+      });
+      expect(published[0].payload).toEqual({
+        incidentId: 'inc-1',
+        state: 'ACKNOWLEDGED',
+        tier: 'PRIMARY',
+        ownerId: 'u-1',
+      });
+      expect(warn).toHaveBeenCalledTimes(1);
+      warn.mockRestore();
     });
 
     it('publishes an event that names no device with a null device id', async () => {
