@@ -15,6 +15,14 @@ import { useConnectorStore } from '../model/connectorStore';
 import { ConnectorButton } from './ConnectorButton';
 import { ConnectorAside, ConnectorPanelBody } from './ConnectorPanel';
 
+// A row's actions besides Show details sit in its overflow menu (chapter 06 §11.4, dev #398 and #399):
+// open the menu, then take the item by its label.
+const rowAction = (label: string, unit: string) => {
+  fireEvent.click(screen.getByRole('button', { name: `More actions for ${unit}` }));
+  return screen.getByRole('menuitem', { name: label });
+};
+const closeMenu = () => fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+
 const recognizeUnits = vi.hoisted(() => vi.fn());
 vi.mock('../../../entities/device/api', () => ({ recognizeUnits }));
 vi.mock('../../../entities/contract/api', () => ({ issueChannelKey: vi.fn(), exchangeDevice: vi.fn() }));
@@ -125,8 +133,10 @@ describe('ConnectorPanel (screen 4.6)', () => {
     // The count is drawn from data-count, so the visible text stays inside the name (WCAG 2.5.3).
     expect(devices.querySelector('[data-count]')?.getAttribute('data-count')).toBe('2');
     expect(devices.textContent).toBe('Devices');
-    expect(screen.getByRole('button', { name: `New device: register it? Unknown unit !${B.toString(16)}` })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Configure uplink TL-0042' })).toBeTruthy();
+    expect(rowAction('New device: register it?', `Unknown unit !${B.toString(16)}`)).toBeTruthy();
+    closeMenu();
+    expect(rowAction('Configure uplink', 'TL-0042')).toBeTruthy();
+    closeMenu();
     expect(screen.getByText('Available')).toBeTruthy();
   });
 
@@ -136,9 +146,9 @@ describe('ConnectorPanel (screen 4.6)', () => {
     await act(async () => {
       await connectorRegistry(recognizeUnits, { handshakeMs: 600, writeMs: 500, restartDelayMs: 40, restartDeadlineMs: 300, retryMs: 20 }).start();
     });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Show details TL-0042' })).toBeTruthy(), { timeout: 4000 });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Show details of TL-0042' })).toBeTruthy(), { timeout: 4000 });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show details TL-0042' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show details of TL-0042' }));
 
     const heading = screen.getByRole('heading', { name: 'TL-0042' });
     expect(document.activeElement).toBe(heading);
@@ -183,11 +193,12 @@ describe('ConnectorPanel uplink and flash (devices task 10.10, design section 11
     };
     renderPanel();
     await start();
-    const button = screen.getByRole('button', { name: 'Update firmware TL-0042' }) as HTMLButtonElement;
+    const button = rowAction('Update firmware', 'TL-0042');
     // Unavailable with its reason: in the tooltip and the description, and as text on the row (§9.8).
     expect(button.getAttribute('aria-disabled')).toBe('true');
     expect(screen.getAllByText('Firmware releases are not published yet').length).toBeGreaterThan(0);
     expect(button.getAttribute('aria-describedby')).toBeTruthy();
+    closeMenu();
 
     const seen: { record?: string; locked?: boolean; runs: number } = { runs: 0 };
     const FakeFlash: React.FC<import('../model/connectorStore').FlashPanelProps> = ({ device, withPort }) => {
@@ -202,7 +213,7 @@ describe('ConnectorPanel uplink and flash (devices task 10.10, design section 11
       return <p>Flash panel for {device.assetTag}</p>;
     };
     act(() => useConnectorStore.getState().registerFlashPanel(FakeFlash));
-    const enabled = screen.getByRole('button', { name: 'Update firmware TL-0042' }) as HTMLButtonElement;
+    const enabled = rowAction('Update firmware', 'TL-0042');
     expect(enabled.getAttribute('aria-disabled')).toBeNull();
     expect(screen.queryByText('Firmware releases are not published yet')).toBeNull();
     fireEvent.click(enabled);
@@ -228,12 +239,12 @@ describe('ConnectorPanel row controls (screen 4.6)', () => {
   it('asks before Forget and keeps the unit on Keep it', async () => {
     renderPanel();
     await start();
-    fireEvent.click(screen.getByRole('button', { name: 'Forget TL-0042' }));
+    fireEvent.click(rowAction('Forget', 'TL-0042'));
     const dialog = within(screen.getByRole('dialog', { name: 'Forget TL-0042?' }));
     expect(dialog.getByText('The browser asks again before it can connect to this unit.')).toBeTruthy();
     fireEvent.click(dialog.getByRole('button', { name: 'Keep it' }));
     expect(screen.getByRole('heading', { name: 'TL-0042' })).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Forget TL-0042' }));
+    fireEvent.click(rowAction('Forget', 'TL-0042'));
     fireEvent.click(screen.getByRole('button', { name: 'Forget' }));
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'TL-0042' })).toBeNull());
   });
@@ -241,9 +252,9 @@ describe('ConnectorPanel row controls (screen 4.6)', () => {
   it('returns focus to the row after Back from the device view', async () => {
     renderPanel();
     await start();
-    fireEvent.click(screen.getByRole('button', { name: 'Show details TL-0042' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show details of TL-0042' }));
     fireEvent.click(screen.getByRole('button', { name: 'Back to the list' }));
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show details TL-0042' })));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show details of TL-0042' })));
   });
 
   it('returns focus to the row actions after Back on a phone, where the row has no Show details button', async () => {
@@ -257,7 +268,7 @@ describe('ConnectorPanel row controls (screen 4.6)', () => {
       renderPanel();
       await start();
       const actions = await screen.findByRole('button', { name: 'Actions for TL-0042' }, { timeout: 4000 });
-      expect(screen.queryByRole('button', { name: 'Show details TL-0042' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Show details of TL-0042' })).toBeNull();
       fireEvent.click(actions);
       fireEvent.click(screen.getByRole('menuitem', { name: 'Show details' }));
       fireEvent.click(screen.getByRole('button', { name: 'Back to the list' }));
@@ -302,12 +313,13 @@ describe('ConnectorPanel row controls (screen 4.6)', () => {
         });
       });
     });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Reconnect TL-0042' })).toBeTruthy());
-    fireEvent.click(screen.getByRole('button', { name: 'Reconnect TL-0042' }));
+    await waitFor(() => expect(rowAction('Reconnect', 'TL-0042').getAttribute('aria-disabled')).toBeNull());
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Reconnect' }));
     expect(reconnect).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Stop waiting for TL-0042' }));
+    fireEvent.click(rowAction('Stop waiting for', 'TL-0042'));
     expect(stop).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('button', { name: 'Configure uplink TL-0043' }).getAttribute('aria-disabled')).toBe('true');
+    expect(rowAction('Configure uplink', 'TL-0043').getAttribute('aria-disabled')).toBe('true');
+    closeMenu();
     expect(screen.getAllByText('Another unit is being written.').length).toBeGreaterThan(0);
     await act(async () => {
       registry.offerReconnect(null);
@@ -328,9 +340,9 @@ describe('ConnectorPanel on CollectionView (chapter 06 §9, design section 11.2)
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Unknown unit' })).toBeTruthy(), { timeout: 4000 });
     expect(screen.queryByLabelText('Search connected units')).toBeNull();
 
-    const action = screen.getByRole('button', { name: 'Configure uplink TL-0042' });
+    const action = screen.getByRole('button', { name: 'Show details of TL-0042' });
     act(() => action.focus());
-    expect(screen.getByRole('tooltip').textContent).toContain('Configure uplink');
+    expect(screen.getByRole('tooltip').textContent).toContain('Show details');
 
     const serial = navigator.serial as unknown as FakeSerial;
     const third = new FakeUnit(unitState({ nodeNum: 0xa4b1c2f6 }), {}, serial);
@@ -363,7 +375,9 @@ describe('ConnectorPanel 4.6 gaps (swap refusal, skeleton, phone render)', () =>
     await act(async () => {
       await connectorRegistry(recognizeUnits).start();
     });
-    fireEvent.click(await screen.findByRole('button', { name: 'Put on this contract TL-0042' }, { timeout: 4000 }));
+    await screen.findByRole('button', { name: 'More actions for TL-0042' }, { timeout: 4000 });
+    await waitFor(() => expect(rowAction('Put on this contract', 'TL-0042').getAttribute('aria-disabled')).toBeNull());
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Put on this contract' }));
     const dialog = within(screen.getByRole('dialog', { name: 'Put TL-0042 on RC-2026-0042?' }));
     fireEvent.click(dialog.getByRole('button', { name: 'Swap and provision' }));
     await waitFor(() =>
@@ -385,10 +399,10 @@ describe('ConnectorPanel 4.6 gaps (swap refusal, skeleton, phone render)', () =>
     });
     expect(await screen.findByRole('heading', { name: 'Unit being read' }, { timeout: 4000 })).toBeTruthy();
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Show details TL-0042' })).toBeTruthy(), {
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Show details of TL-0042' })).toBeTruthy(), {
       timeout: 4000,
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Show details TL-0042' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show details of TL-0042' }));
     const render = screen.getByRole('img', { name: 'TrekLink v3 (GPS, SOS button), front view' });
     expect(render.className).toContain('h-40');
     expect(render.className).toContain('min-[600px]:h-60');
