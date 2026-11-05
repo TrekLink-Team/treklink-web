@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import {
   ArrowDown,
   ArrowUp,
-  ArrowUpDown,
+  ChevronsUpDown,
   Info,
   LayoutGrid,
   List as ListIcon,
@@ -22,6 +22,7 @@ import { useEdgeNode, useFocusClearOf, usePublishedHeight } from '../stickyEdges
 import { ScrollHintOverlay } from '../ScrollHints';
 import { useScrollHints } from '../useScrollHints';
 import { Skeleton } from '../Skeleton';
+import { ariaSortOf, nextSort } from '../sortCycle';
 import { FOCUS, LINK } from '../styles';
 import { DetailsPane, StatusMenu, type PanePlacement } from './DetailsPane';
 import { usePaneHost } from './paneHostContext';
@@ -126,6 +127,11 @@ export interface CollectionViewProps<T> {
   filterGroups?: CollectionFilterGroup<T>[];
   /** A controlled query. With `onQueryChange` the page filters, searches and sorts on the server. */
   query?: CollectionQuery;
+  /**
+   * The list's default order when it is a column (the sync ledger by received time, newest first):
+   * that header toggles only its two directions (chapter 06 §11.2). A `null` query sort means it.
+   */
+  defaultSort?: CollectionSort;
   onQueryChange?: (query: CollectionQuery) => void;
   pageInfo?: CollectionPageInfo;
   loading?: boolean;
@@ -172,6 +178,7 @@ export function CollectionView<T>({
   filters,
   filterGroups,
   query: controlledQuery,
+  defaultSort,
   onQueryChange,
   pageInfo,
   loading,
@@ -262,7 +269,7 @@ export function CollectionView<T>({
             .toLowerCase()
             .includes(needle)),
     );
-    const sort = query.sort;
+    const sort = query.sort ?? defaultSort ?? null;
     const field = sort ? fields.find((each) => each.key === sort.key) : undefined;
     if (!sort || !field) return searched;
     const value = (item: T) => field.sortValue?.(item) ?? field.text?.(item) ?? '';
@@ -279,7 +286,7 @@ export function CollectionView<T>({
           : String(left).localeCompare(String(right), undefined, { numeric: true })) * factor
       );
     });
-  }, [items, serverSide, filters, filterGroups, query, fields, itemName]);
+  }, [items, serverSide, filters, filterGroups, query, defaultSort, fields, itemName]);
 
   const ids = useMemo(() => visible.map(itemId), [visible, itemId]);
   const byId = useMemo(() => new Map(visible.map((item) => [itemId(item), item])), [visible, itemId]);
@@ -350,7 +357,8 @@ export function CollectionView<T>({
   const clearSelection = () => applySelection(EMPTY_SELECTION);
 
   const filterOf = (key: string) => filters?.find((each) => each.key === key);
-  const sortName = (sort: CollectionSort | null) => {
+  const sortName = (given: CollectionSort | null) => {
+    const sort = given ?? defaultSort ?? null;
     const field = sort ? fields.find((each) => each.key === sort.key) : undefined;
     return field && sort
       ? `${field.label}, ${sort.direction === 'asc' ? 'ascending' : 'descending'}`
@@ -652,16 +660,29 @@ export function CollectionView<T>({
     ),
   ];
   const sortable = fields.filter((field) => field.sortable);
-  const sortItems: MenuItem[] = sortable.flatMap((field) =>
+  const activeSort = query.sort ?? defaultSort ?? null;
+  // The Sort dropdown offers the orders the headers cycle through, for the phone and card views
+  // (§11.2): each column's two directions, and the default order when it is not a column.
+  const defaultItem: MenuItem[] =
+    sortable.length > 0 && !defaultSort
+      ? [
+          {
+            key: 'sort-default',
+            label: `Default order${query.sort === null ? ' (current)' : ''}`,
+            onSelect: () => changeQuery({ sort: null }),
+          },
+        ]
+      : [];
+  const sortItems: MenuItem[] = [...defaultItem, ...sortable.flatMap((field) =>
     (['asc', 'desc'] as const).map((direction) => {
-      const current = query.sort?.key === field.key && query.sort.direction === direction;
+      const current = activeSort?.key === field.key && activeSort.direction === direction;
       return {
         key: `sort-${field.key}-${direction}`,
         label: `${field.label}, ${direction === 'asc' ? 'ascending' : 'descending'}${current ? ' (current)' : ''}`,
         onSelect: () => changeQuery({ sort: { key: field.key, direction } }),
       };
     }),
-  );
+  )];
   const currentFilter = filterOf(query.filter);
   const resultCount = pageInfo?.total ?? visible.length;
   const showText = `Show: ${[
@@ -673,8 +694,8 @@ export function CollectionView<T>({
           `${group.label}: ${group.options.find((option) => option.key === groupValue(group))?.label ?? groupValue(group)}`,
       ),
   ].join(', ')}, ${resultCount}`;
-  const sortShort = query.sort
-    ? (fields.find((field) => field.key === query.sort?.key)?.label ?? 'Default')
+  const sortShort = activeSort
+    ? (fields.find((field) => field.key === activeSort.key)?.label ?? 'Default')
     : 'Default';
   const sortText = `Sort: ${sortShort}`;
 
@@ -946,30 +967,23 @@ export function CollectionView<T>({
                   {field.sortable ? (
                     <button
                       type="button"
-                      onClick={() =>
-                        changeQuery({
-                          sort: {
-                            key: field.key,
-                            direction:
-                              query.sort?.key === field.key && query.sort.direction === 'asc' ? 'desc' : 'asc',
-                          },
-                        })
-                      }
+                      onClick={() => changeQuery({ sort: nextSort(query.sort, field.key, defaultSort) })}
                       className={cn(
-                        'inline-flex min-h-6 items-center gap-1 rounded-sm uppercase hover:text-ink',
+                        'inline-flex min-h-8 items-center gap-1 rounded-sm uppercase hover:text-ink',
                         FOCUS,
-                        query.sort?.key === field.key && 'text-ink',
+                        activeSort?.key === field.key && 'text-ink',
+                        field.align === 'end' && 'flex-row-reverse',
                       )}
                     >
                       {field.label}
-                      {query.sort?.key === field.key ? (
-                        query.sort.direction === 'asc' ? (
-                          <ArrowUp aria-hidden="true" className="h-3.5 w-3.5" />
+                      {activeSort?.key === field.key ? (
+                        activeSort.direction === 'asc' ? (
+                          <ArrowUp aria-hidden="true" data-sort-icon="asc" className="h-4 w-4" />
                         ) : (
-                          <ArrowDown aria-hidden="true" className="h-3.5 w-3.5" />
+                          <ArrowDown aria-hidden="true" data-sort-icon="desc" className="h-4 w-4" />
                         )
                       ) : (
-                        <ArrowUpDown aria-hidden="true" className="h-3.5 w-3.5" />
+                        <ChevronsUpDown aria-hidden="true" data-sort-icon="none" className="h-4 w-4" />
                       )}
                     </button>
                   ) : (
@@ -1037,8 +1051,7 @@ export function CollectionView<T>({
   );
 
   function ariaSort(key: string): 'ascending' | 'descending' | undefined {
-    if (query.sort?.key !== key) return undefined;
-    return query.sort.direction === 'asc' ? 'ascending' : 'descending';
+    return ariaSortOf(activeSort, key);
   }
 
   const compactFields = fields.filter((field) => field.compact);

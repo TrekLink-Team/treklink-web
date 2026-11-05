@@ -414,9 +414,13 @@ export const OrganizationReviewPage: React.FC = () => {
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: organizationKeys.all });
 
+  // The list loads one page of up to 100; its columns sort on the client only while that page holds
+  // the whole result, because the endpoint takes no sort (chapter 06 §11.2).
+  const wholeList =
+    organizations.data !== undefined && organizations.data.totalCount <= organizations.data.items.length;
   const fields: CollectionField<OrganizationReview>[] = [
-    { key: 'name', label: 'Organization', render: (item) => item.legalName, text: (item) => `${item.legalName} ${item.taxCode}`, compact: true },
-    { key: 'registered', label: 'Registered', render: (item) => formatDateTime(item.createdAt), hideWithPane: true },
+    { key: 'name', label: 'Organization', render: (item) => item.legalName, text: (item) => `${item.legalName} ${item.taxCode}`, sortValue: (item) => item.legalName, sortable: wholeList, compact: true },
+    { key: 'registered', label: 'Registered', render: (item) => formatDateTime(item.createdAt), sortValue: (item) => item.createdAt, sortable: wholeList, hideWithPane: true },
     { key: 'verified', label: 'Verified', render: (item) => (item.verifiedAt ? 'Yes' : 'Not yet') },
     { key: 'status', label: 'Status', render: (item) => <StatusBadge entry={ORGANIZATION_STATUS[item.status]} />, compact: true },
   ];

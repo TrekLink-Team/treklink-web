@@ -286,6 +286,57 @@ describe('CollectionView', () => {
     expect(status.getAttribute('aria-sort')).toBeNull();
   });
 
+  it('cycles a header through ascending, descending and the default order, and announces each (§11.2)', () => {
+    renderView();
+    const button = () => screen.getByRole('button', { name: 'Battery' });
+    const header = button().closest('th')!;
+    const order = () => screen.getAllByRole('rowheader').map((cell) => cell.textContent);
+    expect(header.querySelector('[data-sort-icon="none"]')).not.toBeNull();
+    fireEvent.click(button());
+    expect(header.querySelector('[data-sort-icon="asc"]')).not.toBeNull();
+    fireEvent.click(button());
+    expect(order()).toEqual(['TL-0004', 'TL-0001', 'TL-0003', 'TL-0002']);
+    fireEvent.click(button());
+    expect(header.getAttribute('aria-sort')).toBeNull();
+    expect(header.querySelector('[data-sort-icon="none"]')).not.toBeNull();
+    expect(order()).toEqual(['TL-0001', 'TL-0002', 'TL-0003', 'TL-0004']);
+    expect(live().textContent).toContain('Sorted by Default order');
+  });
+
+  it('toggles only the two directions of the column that is the default order', () => {
+    const onQueryChange = vi.fn();
+    renderView({
+      query: { search: '', filter: 'all', sort: null },
+      defaultSort: { key: 'battery', direction: 'desc' },
+      onQueryChange,
+    });
+    const header = screen.getByRole('button', { name: 'Battery' }).closest('th')!;
+    expect(header.getAttribute('aria-sort')).toBe('descending');
+    fireEvent.click(screen.getByRole('button', { name: 'Battery' }));
+    expect(onQueryChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sort: { key: 'battery', direction: 'asc' } }),
+    );
+    cleanup();
+    renderView({
+      query: { search: '', filter: 'all', sort: { key: 'battery', direction: 'asc' } },
+      defaultSort: { key: 'battery', direction: 'desc' },
+      onQueryChange,
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Battery' }));
+    expect(onQueryChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sort: { key: 'battery', direction: 'desc' } }),
+    );
+  });
+
+  it('offers the same orders in the Sort dropdown, with the default order', () => {
+    renderView();
+    fireEvent.click(screen.getByRole('button', { name: /^Sort: Default/ }));
+    const items = screen.getAllByRole('menuitem').map((item) => item.textContent);
+    expect(items).toEqual(['Default order (current)', 'Battery, ascending', 'Battery, descending']);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Battery, descending' }));
+    expect(screen.getByRole('button', { name: 'Battery' }).closest('th')!.getAttribute('aria-sort')).toBe('descending');
+  });
+
   it('clears the selection on Escape, but closes an open tooltip first', () => {
     renderView();
     fireEvent.click(box('TL-0001'));

@@ -1,12 +1,13 @@
 import React, { useId, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, MoreHorizontal, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronsUpDown, ChevronRight, MoreHorizontal, X } from 'lucide-react';
 import { Button } from './Button';
 import { cn } from './cn';
 import { EmptyState, type EmptyStateProps } from './EmptyState';
 import { lockedWhileSelecting } from './lockedWhileSelecting';
 import { Menu, type MenuItem } from './Menu';
 import { Skeleton } from './Skeleton';
+import { ariaSortOf, nextSort } from './sortCycle';
 import { FOCUS } from './styles';
 
 export type SortDirection = 'asc' | 'desc';
@@ -62,8 +63,11 @@ export interface DataTableProps<Row, K extends string = string> {
   /** Shown instead of the table: an ErrorState from bits.tsx, for example. */
   error?: React.ReactNode;
   empty: EmptyStateProps;
-  sort?: SortState<K>;
-  onSortChange?: (sort: SortState<K>) => void;
+  sort?: SortState<K> | null;
+  /** The list's default order when it is a column: that header toggles only its two directions. */
+  defaultSort?: SortState<K>;
+  /** The next sort of the header cycle (chapter 06 §11.2); null returns to the default order. */
+  onSortChange?: (sort: SortState<K> | null) => void;
   /**
    * Row selection. The set lives in the page, so it survives paging and filtering; the table never
    * drops an id that is not on the current page.
@@ -170,7 +174,8 @@ export function DataTable<Row, K extends string = string>({
   loading,
   error,
   empty,
-  sort,
+  sort: givenSort,
+  defaultSort,
   onSortChange,
   selectedIds,
   onSelectionChange,
@@ -235,10 +240,11 @@ export function DataTable<Row, K extends string = string>({
     change(new Set());
   };
 
+  const sort = givenSort ?? defaultSort ?? null;
   const sortBy = (key: K) => {
     if (!onSortChange) return;
-    const direction: SortDirection = sort?.key === key && sort.direction === 'asc' ? 'desc' : 'asc';
-    onSortChange({ key, direction });
+    const next = nextSort(givenSort, key, defaultSort);
+    onSortChange(next ? { key: next.key, direction: next.direction } : null);
   };
 
   // A pointer click anywhere on a row opens it, as a shortcut for the link or button in the
@@ -431,7 +437,7 @@ export function DataTable<Row, K extends string = string>({
               )}
               {columns.map((column) => {
                 const active = sort?.key === column.key;
-                const ariaSort = active ? (sort!.direction === 'asc' ? 'ascending' : 'descending') : undefined;
+                const ariaSort = ariaSortOf(sort, column.key);
                 return (
                   <th
                     key={column.key}
@@ -459,7 +465,7 @@ export function DataTable<Row, K extends string = string>({
                             <ArrowDown aria-hidden="true" className="h-3.5 w-3.5" />
                           )
                         ) : (
-                          <ArrowUpDown aria-hidden="true" className="h-3.5 w-3.5 opacity-60" />
+                          <ChevronsUpDown aria-hidden="true" className="h-3.5 w-3.5" />
                         )}
                       </button>
                     ) : (
