@@ -73,7 +73,8 @@ export type InvoiceLineType =
   | 'DAMAGE'
   | 'LOSS'
   | 'ADJUSTMENT'
-  | 'SERVICE_CREDIT';
+  | 'SERVICE_CREDIT'
+  | 'EARLY_END_CREDIT';
 
 export interface InvoiceLine {
   seq: number;
@@ -158,6 +159,9 @@ export interface Balance {
   // Damage charges still waiting for an Admin (UC-48); listed apart, `settled` covers the lines.
   pendingDamageCharges: PendingDamageCharge[];
   settled: boolean;
+  // What credits leave over once every line is paid, refunded outside TrekLink (billing REQ-STA-03,
+  // D-097 rule 3). Absent from a server older than the field.
+  owedToOrganizationVnd?: number;
 }
 
 // billing api-design 08 `sort` allowlist (W26); the default order is the issue time, newest first.
@@ -378,6 +382,7 @@ export const INVOICE_LINE_TYPE_LABELS: Record<InvoiceLineType, string> = {
   LOSS: 'Loss charge',
   ADJUSTMENT: 'Adjustment',
   SERVICE_CREDIT: 'Service credit',
+  EARLY_END_CREDIT: 'Early end credit',
 };
 
 /** The label of a line type; a value this build does not know yet shows its code rather than nothing. */

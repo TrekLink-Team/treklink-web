@@ -183,6 +183,7 @@ export const contractKeys = {
   detail: (id: string) => ['contract', id] as const,
   // Under the detail key, so every invalidation of the detail refetches it too.
   closeCheck: (id: string) => ['contract', id, 'close-check'] as const,
+  endPreview: (id: string) => ['contract', id, 'end-preview'] as const,
   balance: (id: string) => ['contract-balance', id] as const,
   transitions: (id: string) => ['contract-transitions', id] as const,
 };
@@ -212,6 +213,40 @@ export const cancelContract = (id: string, reason: string, expectedVersion: numb
 // rentals api-design 12: notice on an ACTIVE monthly contract (MSG18).
 export const giveNotice = (id: string, expectedVersion: number) =>
   post<Contract & { dueAtEndVnd: number }>(`/contracts/${id}/notice`, { expectedVersion });
+
+// rentals api-design 31 (D-097): what End now would do this minute; nothing is computed here.
+export interface EndPreview {
+  contractId: string;
+  code: string;
+  planType: PlanType;
+  endsAt: string;
+  term: { seq: number; startsAt: string; endsAt: string } | null;
+  termFeeVnd: number;
+  termDays: number;
+  usedDays: number;
+  unusedDays: number;
+  creditVnd: number;
+  outstandingVnd: number;
+  owedToOrganizationVnd: number;
+}
+
+export const fetchEndPreview = (id: string) =>
+  apiClient<EndPreview>(`/contracts/${id}/end-preview`);
+
+// rentals api-design 30 (D-097): End now, for Staff and the own Org Manager.
+export interface EarlyEnd {
+  endedAt: string;
+  reason: string;
+  creditVnd: number;
+  usedDays: number;
+  unusedDays: number;
+  termDays: number;
+  outstandingVnd: number;
+  owedToOrganizationVnd: number;
+}
+
+export const endContract = (id: string, reason: string, expectedVersion: number) =>
+  post<Contract & { earlyEnd: EarlyEnd }>(`/contracts/${id}/end`, { reason, expectedVersion });
 
 export interface HolderInput {
   name: string | null;

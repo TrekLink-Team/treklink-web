@@ -566,6 +566,57 @@ describe('ContractDetailPage', () => {
       expect(screen.getByRole('dialog')).toBeTruthy();
     });
 
+    // D-097: End contract now is the last item of More actions, behind its confirmation dialog.
+    it('offers Staff End contract now last in More actions on an active contract, behind a dialog', async () => {
+      contract = { ...baseContract, status: 'ACTIVE', handedOverAt: '2026-10-30T09:00:00Z' };
+      billing = {
+        '/contracts/c-1/end-preview': {
+          contractId: 'c-1',
+          code: 'RC-2026-0004',
+          planType: 'MONTHLY',
+          endsAt: '2026-11-06T03:00:00Z',
+          term: { seq: 1, startsAt: '2026-10-30T02:00:00Z', endsAt: '2026-11-30T02:00:00Z' },
+          termFeeVnd: 2_250_000,
+          termDays: 31,
+          usedDays: 8,
+          unusedDays: 23,
+          creditVnd: 1_669_355,
+          outstandingVnd: 0,
+          owedToOrganizationVnd: 1_669_355,
+        },
+      };
+      renderPage('t');
+      fireEvent.click(within(actionRow()).getByRole('button', { name: 'More actions' }));
+      const menu = screen.getByRole('menu');
+      expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+        'Open the counter',
+        'End contract now',
+      ]);
+      expect(within(menu).getByRole('separator')).toBeTruthy();
+      fireEvent.click(within(menu).getByRole('menuitem', { name: 'End contract now' }));
+      const dialog = screen.getByRole('alertdialog', { name: 'End RC-2026-0004 now?' });
+      expect(await within(dialog).findByText(/23 unused days of term 1 \(31 days\)/)).toBeTruthy();
+      expect(within(dialog).getByText(/TrekLink then owes Acme Trek/)).toBeTruthy();
+    });
+
+    it('tells the Org Manager on the Money tab what TrekLink owes the organization', () => {
+      roles = ['ORG_MANAGER'];
+      contract = { ...baseContract, status: 'RETURN_DUE', handedOverAt: '2026-10-30T09:00:00Z' };
+      balance = {
+        contractId: 'c-1',
+        dueNowVnd: 0,
+        dueLaterVnd: 0,
+        paidVnd: 2_250_000,
+        pendingDamageCharges: [],
+        settled: true,
+        owedToOrganizationVnd: 720_000,
+      };
+      renderPage('o', '?tab=money');
+      expect(
+        screen.getByText(/TrekLink owes your organization .*720.000 VND\. It is refunded outside TrekLink\./),
+      ).toBeTruthy();
+    });
+
     it('shows the history with readable labels', () => {
       history = [
         { fromStatus: null, toStatus: 'REQUESTED', actor: 'Linh', reason: null, createdAt: '2026-10-28T02:00:00Z' },

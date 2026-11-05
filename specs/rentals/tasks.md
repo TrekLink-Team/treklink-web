@@ -260,6 +260,7 @@ REQ-EVT-16, REQ-STA-03, AC-09, AC-10, design §10, billing task 9.1.
   - **Do**: End now, check-in of every unit to `RETURNED`, the credit line on the closing invoice, the payment of the rest, the close
   - _Requirements: AC-15_
   - **Done** (2026-11-05, KhoaDD under D-078): four cases on a local Postgres 16, including the HTTP refusals (404 other organization, 403 Org Operator, 400 blank reason, 409 stale and wrong state)
-- [ ] 10.4 Screen: End contract now on the contract home (owner KhoaDD under D-078, screen 5.2)
+- [x] 10.4 Screen: End contract now on the contract home (owner KhoaDD under D-078, screen 5.2)
   - **Files**: `frontend/src/widgets/ContractActions/EndNowDialog.tsx`, `widgets/ContractHome/policy.ts`, `pages/ContractDetailPage.tsx`, `entities/contract/api.ts`, the money tab's owed note
   - _Requirements: REQ-EVT-27, REQ-EVT-28, billing REQ-STA-03_
+  - **Done** (2026-11-05, KhoaDD under D-078): `EndNowDialog`, the policy entries, the owed note on the Money tab, the Early end credit label, Ending "not reached" on the lifecycle card; checked on a local demo seed in both themes (session file `docs/sessions/2026-11-05-2330-w29-contract-early-end.md`)
