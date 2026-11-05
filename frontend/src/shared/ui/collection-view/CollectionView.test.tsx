@@ -774,6 +774,14 @@ describe('command bar placement (chapter 06 §9.3, §11.1, W30)', () => {
     expect(bar().parentElement).toBe(section);
     expect(bar().className).toMatch(/shrink-0/);
   });
+
+  it('lets a wide table scroll inside its own box instead of widening the list (W30)', () => {
+    const { container } = renderView();
+    const section = container.querySelector('[data-cv]')!;
+    expect(section.className).toMatch(/(^|\s)min-w-0(\s|$)/);
+    expect(container.querySelector('[data-cv-view="details"]')!.className).toMatch(/(^|\s)min-w-0(\s|$)/);
+    expect(screen.getByRole('table').parentElement!.className).toMatch(/overflow-x-auto/);
+  });
 });
 
 describe('details pane placement (chapter 06 §9.8, §10.8)', () => {

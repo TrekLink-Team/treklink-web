@@ -33,7 +33,7 @@ export const DeviceRef: React.FC<Props> = ({
       <Link
         to={deviceHomePath(scope, deviceId)}
         state={{ assetTag }}
-        className={`${LINK} font-mono font-medium`}
+        className={`${LINK} inline-flex min-h-6 items-center font-mono font-medium`}
       >
         {assetTag ?? deviceId}
       </Link>
