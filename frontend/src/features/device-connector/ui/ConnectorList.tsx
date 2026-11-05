@@ -4,7 +4,6 @@ import {
   ArrowLeftRight,
   Download,
   ExternalLink,
-  Info,
   KeyRound,
   Plug,
   Radio,
@@ -183,14 +182,9 @@ export const ConnectorList: React.FC<Props> = ({
     },
   });
 
+  // Show details is CollectionView's own slot at the inline end (chapter 06 §11.4, onShowDetails); a unit
+  // still being read opens its device view with the fields it has, marked Not read.
   const itemActions: CollectionAction<Connection>[] = [
-    {
-      key: 'show',
-      label: 'Show details',
-      icon: <Info />,
-      allowed: (connection) => connection.unit !== null && connection.recognized !== null,
-      onSelect: (connection) => onShow(connection.id),
-    },
     kindAction('register', 'New device: register it?', <UserPlus />, 'register', false),
     kindAction('provision', 'Provision', <KeyRound />, 'provision', true),
     kindAction('swap', 'Put on this contract', <ArrowLeftRight />, 'swap', true),
@@ -263,6 +257,7 @@ export const ConnectorList: React.FC<Props> = ({
       fields={fields}
       noun={{ one: 'unit', other: 'units' }}
       itemActions={itemActions}
+      onShowDetails={(connection) => onShow(connection.id)}
       views={['list']}
       defaultView="list"
       details={false}
