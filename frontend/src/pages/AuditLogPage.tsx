@@ -72,9 +72,11 @@ const FilterBar: React.FC<{
   applied: AuditFilters;
   actorLabel?: string;
   organizations: OrganizationReview[];
+  /** The errors of filters taken from the address, shown at once under their fields. */
+  initialErrors: { actorId?: string; to?: string };
   onApply: (filters: AuditFilters) => void;
   onClear: () => void;
-}> = ({ applied, actorLabel, organizations, onApply, onClear }) => {
+}> = ({ applied, actorLabel, organizations, initialErrors, onApply, onClear }) => {
   const [actorId, setActorId] = useState(applied.actorId ?? '');
   const [organizationId, setOrganizationId] = useState(applied.organizationId ?? '');
   const [subjectType, setSubjectType] = useState(applied.subjectType ?? '');
@@ -82,7 +84,7 @@ const FilterBar: React.FC<{
   const [action, setAction] = useState(applied.action ?? '');
   const [from, setFrom] = useState(toLocalInput(applied.from));
   const [to, setTo] = useState(toLocalInput(applied.to));
-  const [errors, setErrors] = useState<{ actorId?: string; to?: string }>({});
+  const [errors, setErrors] = useState<{ actorId?: string; to?: string }>(initialErrors);
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -199,7 +201,14 @@ export const AuditLogPage: React.FC = () => {
   const [params, setParams] = useSearchParams();
   const filters = useMemo(() => filtersOf(params), [params]);
   const pageNumber = pageOf(params);
-  const logs = useAuditLogs(filters, pageNumber);
+  // Filters from the address that fail the form's check (a hand-edited actor id) are not sent: the
+  // field says what to fix instead of a banner naming the query parameter (W21).
+  const addressErrors = useMemo(() => filterErrors(filters), [filters]);
+  const addressValid = Object.keys(addressErrors).length === 0;
+  const logs = useAuditLogs(filters, pageNumber, addressValid);
+  // Below 640 px the filters sit behind a Filters button, so the entries start on the first screen
+  // (screen 7.4, 360 px layout); they open by themselves when a filter needs fixing.
+  const [filtersOpen, setFiltersOpen] = useState(!addressValid);
   const organizations = useOrganizations(undefined);
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
 
@@ -242,7 +251,7 @@ export const AuditLogPage: React.FC = () => {
           <div className="py-1.5">
             <button
               type="button"
-              className={LINK}
+              className={`${LINK} inline-flex min-h-6 items-center`}
               aria-label={`Filter by actor ${row.actor.fullName}`}
               onClick={() => apply({ ...filters, actorId: row.actor?.id })}
             >
@@ -286,7 +295,7 @@ export const AuditLogPage: React.FC = () => {
           <div className="py-1.5">
             <button
               type="button"
-              className={LINK}
+              className={`${LINK} inline-flex min-h-6 items-center`}
               aria-expanded={expanded}
               aria-label={`${expanded ? 'Hide' : 'Show'} before and after of ${row.action} at ${withSeconds(row.createdAt)}`}
               onClick={() => toggle(row.id)}
@@ -325,15 +334,32 @@ export const AuditLogPage: React.FC = () => {
           description="Who changed what, newest first. Secrets are replaced before they are stored."
         />
         <Card aria-labelledby="audit-filters">
-          <CardHeader title="Filters" id="audit-filters" />
-          <FilterBar
-            key={params.toString()}
-            applied={filters}
-            actorLabel={actorLabel}
-            organizations={organizationList}
-            onApply={apply}
-            onClear={() => setParams(new URLSearchParams())}
-          />
+          <div className="hidden sm:block">
+            <CardHeader title="Filters" id="audit-filters" />
+          </div>
+          <Button
+            variant="secondary"
+            className="w-full sm:hidden"
+            aria-expanded={filtersOpen || !addressValid}
+            aria-controls="audit-filter-bar"
+            onClick={() => setFiltersOpen((now) => !now)}
+          >
+            {hasFilters(filters) ? 'Filters (on)' : 'Filters'}
+          </Button>
+          <div
+            id="audit-filter-bar"
+            className={filtersOpen || !addressValid ? 'mt-4 block sm:mt-0' : 'hidden sm:block'}
+          >
+            <FilterBar
+              key={params.toString()}
+              applied={filters}
+              actorLabel={actorLabel}
+              organizations={organizationList}
+              initialErrors={addressErrors}
+              onApply={apply}
+              onClear={() => setParams(new URLSearchParams())}
+            />
+          </div>
         </Card>
 
         {failure && (
@@ -355,8 +381,8 @@ export const AuditLogPage: React.FC = () => {
             §9, D-096), with the before and after in the details pane as well as in its column. */}
         <CollectionView<AuditLogItem>
           label="Audit log"
-          items={data?.items}
-          loading={logs.isPending}
+          items={addressValid ? data?.items : []}
+          loading={addressValid && logs.isPending}
           itemId={(row) => row.id}
           itemName={(row) => `${row.action} at ${withSeconds(row.createdAt)}`}
           itemTitle={(row) => <span className="font-mono font-semibold text-ink">{row.action}</span>}

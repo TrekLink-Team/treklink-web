@@ -42,9 +42,11 @@ export const fetchAuditLogs = (filters: AuditFilters, pageNumber: number) =>
     `/audit-logs${queryString({ ...filters, pageNumber, pageSize: AUDIT_PAGE_SIZE })}`,
   );
 
-export const useAuditLogs = (filters: AuditFilters, pageNumber: number) =>
+// `enabled` false holds the read while the filters from the address fail the form's own check.
+export const useAuditLogs = (filters: AuditFilters, pageNumber: number, enabled = true) =>
   useQuery({
     queryKey: auditKeys.list(filters, pageNumber),
     queryFn: () => fetchAuditLogs(filters, pageNumber),
     retry: false,
+    enabled,
   });

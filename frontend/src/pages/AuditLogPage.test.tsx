@@ -9,7 +9,7 @@ import { AuditLogPage } from './AuditLogPage';
 
 const ACTOR = '3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f';
 const refetch = vi.fn();
-const calls: { filters: AuditFilters; page: number }[] = [];
+const calls: { filters: AuditFilters; page: number; enabled?: boolean }[] = [];
 let state: {
   data?: { items: AuditLogItem[]; pageNumber: number; totalPages: number; totalCount: number };
   isPending: boolean;
@@ -18,8 +18,8 @@ let state: {
 
 vi.mock('../entities/audit/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../entities/audit/api')>()),
-  useAuditLogs: (filters: AuditFilters, page: number) => {
-    calls.push({ filters, page });
+  useAuditLogs: (filters: AuditFilters, page: number, enabled?: boolean) => {
+    calls.push({ filters, page, enabled });
     return { ...state, refetch };
   },
 }));
@@ -99,7 +99,7 @@ describe('AuditLogPage (screen 7.4, change log)', () => {
     expect(table().getByText('RentalContract')).toBeTruthy();
     expect(table().getByText('c0ffee00-1234')).toBeTruthy();
     expect(table().getByText('req-8f2a')).toBeTruthy();
-    expect(lastCall()).toEqual({ filters: {}, page: 1 });
+    expect(lastCall()).toMatchObject({ filters: {}, page: 1 });
   });
 
   it('shows SYSTEM for an action with no actor and the id for an unknown organization', () => {
@@ -149,6 +149,10 @@ describe('AuditLogPage (screen 7.4, change log)', () => {
 
   it('blocks an actor id from the address that is not a UUID and an end before the start, and sends nothing', () => {
     renderPage('?actorId=staff-a');
+    // The address's actor id fails the form's check: the field says so and nothing is read (W21).
+    expect(screen.getByText('Choose an actor from the list.')).toBeTruthy();
+    expect(calls.every((call) => call.enabled === false)).toBe(true);
+    expect(screen.getByText('No results match your filters.')).toBeTruthy();
     calls.length = 0;
     fireEvent.change(screen.getByLabelText('From'), { target: { value: '2026-10-21T08:00' } });
     fireEvent.change(screen.getByLabelText('To'), { target: { value: '2026-10-20T08:00' } });
@@ -221,7 +225,7 @@ describe('AuditLogPage (screen 7.4, change log)', () => {
     renderPage('?action=contract.');
     fireEvent.click(screen.getByRole('button', { name: /next/i }));
     expect(screen.getByTestId('search').textContent).toBe('?action=contract.&page=2');
-    expect(lastCall()).toEqual({ filters: { action: 'contract.' }, page: 2 });
+    expect(lastCall()).toMatchObject({ filters: { action: 'contract.' }, page: 2 });
   });
 
   it('says no result matches, and offers Clear filters only when a filter is set', () => {
@@ -251,6 +255,16 @@ describe('AuditLogPage (screen 7.4, change log)', () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(refetch).toHaveBeenCalled();
+  });
+
+  it('keeps the filters behind a Filters button on a phone, and reads with valid filters', () => {
+    renderPage();
+    const toggle = screen.getByRole('button', { name: 'Filters' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(document.getElementById('audit-filter-bar')!.className).toContain('hidden sm:block');
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(lastCall().enabled).toBe(true);
   });
 
   it('shows MSG26 alone for a refused role', () => {
