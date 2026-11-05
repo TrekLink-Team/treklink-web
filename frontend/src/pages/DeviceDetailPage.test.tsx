@@ -48,6 +48,8 @@ const device = (overrides: Record<string, unknown> = {}) => ({
 });
 
 let currentDevice = device();
+type HistoryPage = { items: unknown[]; pageNumber: number; pageSize: number; totalCount: number; totalPages: number };
+let historyPages: (page: number) => HistoryPage = () => ({ items: [], pageNumber: 1, pageSize: 20, totalCount: 0, totalPages: 0 });
 let currentRoles = ['STAFF'];
 
 // The small position map asks for the map config; the device tests read the coordinates under it.
@@ -63,7 +65,7 @@ vi.mock('../app/providers/useAuth', () => ({
 vi.mock('../entities/device/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../entities/device/api')>()),
   useDevice: () => ({ data: currentDevice, isLoading: false, error: null, refetch: vi.fn() }),
-  useDeviceHistory: () => ({ data: { items: [], pageNumber: 1, pageSize: 20, totalCount: 0, totalPages: 0 } }),
+  useDeviceHistory: (_id: string, page: number) => ({ data: historyPages(page) }),
   recordIntakeCheck: (...args: unknown[]) => recordIntakeCheck(...args),
   recordReset: (...args: unknown[]) => recordReset(...args),
   retireDevice: (...args: unknown[]) => retireDevice(...args),
@@ -101,6 +103,7 @@ beforeEach(() => {
   editFirmware.mockReset();
   currentRoles = ['STAFF'];
   currentDevice = device();
+  historyPages = () => ({ items: [], pageNumber: 1, pageSize: 20, totalCount: 0, totalPages: 0 });
 });
 afterEach(cleanup);
 
@@ -133,6 +136,58 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     renderPage();
     const section = await screen.findByRole('region', { name: 'Last position' });
     expect(within(section).getByText('Position unavailable')).toBeTruthy();
+  });
+
+  it('links each history row to what it names and leaves the rest as text (W20B item 2)', async () => {
+    const row = (summary: string, refType: string | null, refId: string | null) => ({
+      at: '2026-10-20T03:15:00.000Z',
+      kind: 'STATE',
+      summary,
+      actor: 'SYSTEM',
+      refType,
+      refId,
+    });
+    historyPages = () => ({
+      items: [
+        row('Handed over on RC-2026-0001 (ORG-0001)', 'CONTRACT', 'c-1'),
+        row('From Rented to Lost (Loss reported)', 'LOSS_CASE', 'l-1'),
+        row('Incident INC-2026-000001 opened (Detected)', 'INCIDENT', 'i-1'),
+        row('Maintenance opened: Staff reported', 'MAINTENANCE', 'm-1'),
+        row('From Returned to Available (Inspection pass)', 'INSPECTION', 'in-1'),
+      ],
+      pageNumber: 1,
+      pageSize: 20,
+      totalCount: 5,
+      totalPages: 1,
+    });
+    renderPage();
+    const history = await screen.findByRole('region', { name: 'History' });
+    const href = (name: string) => within(history).getByRole('link', { name }).getAttribute('href');
+    expect(href('Handed over on RC-2026-0001 (ORG-0001)')).toBe('/t/contracts/c-1');
+    expect(href('From Rented to Lost (Loss reported)')).toBe('/t/loss-cases/l-1');
+    expect(href('Incident INC-2026-000001 opened (Detected)')).toBe('/t/incidents');
+    expect(href('Maintenance opened: Staff reported')).toBe('/t/maintenance');
+    expect(within(history).queryByRole('link', { name: 'From Returned to Available (Inspection pass)' })).toBeNull();
+    expect(within(history).getByText('From Returned to Available (Inspection pass)')).toBeTruthy();
+    // One page only: no pager.
+    expect(within(history).queryByRole('navigation', { name: 'Pages' })).toBeNull();
+  });
+
+  it('pages the history 20 rows at a time', async () => {
+    historyPages = (page) => ({
+      items: [
+        { at: '2026-10-20T03:15:00.000Z', kind: 'INTAKE', summary: `Row on page ${page}`, actor: 'SYSTEM', refType: null, refId: null },
+      ],
+      pageNumber: page,
+      pageSize: 20,
+      totalCount: 25,
+      totalPages: 2,
+    });
+    renderPage();
+    const history = await screen.findByRole('region', { name: 'History' });
+    expect(within(history).getByText('Row on page 1')).toBeTruthy();
+    fireEvent.click(within(history).getByRole('button', { name: 'Next page' }));
+    expect(await within(history).findByText('Row on page 2')).toBeTruthy();
   });
 
   it('shows the detail render of the variant on the device page (devices design section 10)', async () => {

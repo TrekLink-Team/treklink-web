@@ -218,7 +218,7 @@ ENDPOINTS = [
        "in the order of their moves.", "UC-53, UC-58, FR-DEV-11",
        path=[["id", "Device id", "uuid", f"`{DEVICE_ID}`"]],
        query=[["pageNumber", "1-based page", "int", "no", "`1`"], ["pageSize", "Items per page", "int", "no", "`20`"]],
-       response=paged({"at": NOW, "kind": "STATE", "summary": "RETURNED to AVAILABLE", "actor": "Tran Thi B",
+       response=paged({"at": NOW, "kind": "STATE", "summary": "From Returned to Available (Inspection pass)", "actor": "Tran Thi B",
                        "refType": "INSPECTION", "refId": "in-1"}, 37),
        entity="Device", steps=["Merge the device's own trail with contracts and incidents"],
        # Drawn from device-history.controller.ts and device-history.service.ts (review of #347, #372).

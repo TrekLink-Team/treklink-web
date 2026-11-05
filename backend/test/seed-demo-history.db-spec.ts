@@ -81,9 +81,9 @@ describe('demo seed device history order', () => {
     ['TL-0019', 'RC-2026-0003'],
   ])('reads %s of %s in lifecycle order', async (assetTag, contractCode) => {
     expect(await oldestFirst(assetTag)).toEqual([
-      'Registered to IN_INTAKE (Registered)',
+      'Registered as In intake',
       'Intake check passed',
-      'IN_INTAKE to AVAILABLE (Intake passed)',
+      'From In intake to Available (Intake passed)',
       `Reserved for ${contractCode} (ORG-0001)`,
       'Provisioned with key version 1',
       `Handed over on ${contractCode} (ORG-0001)`,
