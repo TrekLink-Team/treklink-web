@@ -159,6 +159,9 @@ jobs:
           secret="$(openssl rand -hex 32)"
           echo "::add-mask::${secret}"
           echo "JWT_ACCESS_SECRET=${secret}" >> "$GITHUB_ENV"
+          master="$(openssl rand -hex 32)"
+          echo "::add-mask::${master}"
+          echo "CHANNEL_KEY_MASTER=${master}" >> "$GITHUB_ENV"
       - name: Prisma generate and migrate
         run: |
           npm --prefix backend run prisma:generate
