@@ -72,6 +72,7 @@ describe('navigation table (specs/frontend/design.md §2)', () => {
       '/t/admin/roles',
       '/t/admin/parameters',
       '/t/admin/prices',
+      '/t/admin/variants',
       '/t/admin/health',
       '/t/admin/audit/changes',
       '/t/admin/audit/sign-ins',
