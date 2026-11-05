@@ -90,15 +90,19 @@ export const InvoiceTotalsFooter: React.FC<{ invoice: InvoiceDetail; className?:
 const usePrintInLightTheme = () => {
   useEffect(() => {
     const root = document.documentElement;
-    let previous: string | undefined;
+    // The theme to restore, or null while not printing. A second `beforeprint` before `afterprint`
+    // (the browser's own around a print it was already asked for) keeps the first saved theme.
+    let saved: { theme: string | undefined } | null = null;
     const before = () => {
-      previous = root.dataset.theme;
+      if (saved !== null) return;
+      saved = { theme: root.dataset.theme };
       root.dataset.theme = 'light';
     };
     const after = () => {
-      if (previous === undefined) delete root.dataset.theme;
-      else root.dataset.theme = previous;
-      previous = undefined;
+      if (saved === null) return;
+      if (saved.theme === undefined) delete root.dataset.theme;
+      else root.dataset.theme = saved.theme;
+      saved = null;
     };
     window.addEventListener('beforeprint', before);
     window.addEventListener('afterprint', after);

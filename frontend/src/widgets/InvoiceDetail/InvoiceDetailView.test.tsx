@@ -262,4 +262,16 @@ describe('InvoiceDetailView as a business document (screen 6.1, W21)', () => {
     delete document.documentElement.dataset.theme;
     vi.unstubAllGlobals();
   });
+
+  it('restores the theme once when the browser nests its own print events inside a print', () => {
+    document.documentElement.dataset.theme = 'dark';
+    renderView();
+    window.dispatchEvent(new Event('beforeprint'));
+    window.dispatchEvent(new Event('beforeprint'));
+    expect(document.documentElement.dataset.theme).toBe('light');
+    window.dispatchEvent(new Event('afterprint'));
+    window.dispatchEvent(new Event('afterprint'));
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    delete document.documentElement.dataset.theme;
+  });
 });
