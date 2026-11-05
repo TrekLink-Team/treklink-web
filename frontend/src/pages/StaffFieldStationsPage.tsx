@@ -125,9 +125,9 @@ export const StaffFieldStationsPage: React.FC = () => {
       <Toolbar
         label="Field station filters"
         start={
-          <label className="flex items-center gap-2 text-body-sm font-semibold text-ink">
+          <label className="flex min-w-0 items-center gap-2 text-body-sm font-semibold text-ink">
             Organization
-            <span className="w-64">
+            <span className="w-64 min-w-0 max-w-full">
               <Select value={organizationId} onChange={(event) => setOrganizationId(event.target.value)}>
                 <option value="">All organizations</option>
                 {listed.map((organization) => (
