@@ -1,3 +1,5 @@
+import plugin from 'tailwindcss/plugin';
+
 /**
  * TrekLink System for Tailwind CSS 3.4 (docs/design-system.md).
  *
@@ -25,6 +27,19 @@ const status = (name) => ({
   line: v(`status-${name}-line`),
   strong: v(`status-${name}-strong`),
   on: v(`status-${name}-on-strong`),
+});
+
+/**
+ * Variants of the fit page (viewport rule, ui standard §7): a page root marked `data-fit-page`
+ * takes exactly the content area. `cv-fill-root:` styles a CollectionView that is a direct child of
+ * that root, and `cv-fill:` an element inside such a CollectionView, so the list fills what is left
+ * and its item box is the one scroll region. A CollectionView anywhere else keeps its natural height.
+ *
+ * @type {import('tailwindcss').Config['plugins'][number]}
+ */
+const fitPageVariants = plugin(({ addVariant }) => {
+  addVariant('cv-fill-root', '[data-fit-page] > &');
+  addVariant('cv-fill', '[data-fit-page] > [data-cv] &');
 });
 
 /** @type {import('tailwindcss').Config} */
@@ -138,5 +153,5 @@ export default {
       transitionDuration: { tl: '200ms' },
     },
   },
-  plugins: [],
+  plugins: [fitPageVariants],
 };
