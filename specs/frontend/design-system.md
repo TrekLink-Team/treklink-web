@@ -219,7 +219,7 @@ internal z-index of up to 1000 never rises over the shell.
 | 1280 px and up | Sidebar 232 px, collapsible to the 64 px rail (remembered) | Info pane docked, 340 px | |
 | 1024 to 1279 px | Sidebar, collapsible | Info opens as a sheet over the body | |
 | 768 to 1023 px | Icon rail; full drawer from the menu button | Sheet | |
-| Below 768 px (360 px design width) | Drawer from the menu button or More | Sheet | Bottom tab bar with up to four modules and More |
+| Below 768 px (360 px design width) | Drawer from the menu button or More | Sheet | Bottom tab bar with up to four modules and More; a label of the form "X and Y" shows X there and keeps the full label as the link's name (W20B, 2026-11-05) |
 
 Map routes (`fullBleed` in the nav table) drop the content padding and never show the Info pane;
 `MapWorkspace` puts the incident queue beside the map from 1024 px and below it on smaller screens.
