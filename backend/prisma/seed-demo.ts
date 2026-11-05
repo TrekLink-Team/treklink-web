@@ -16,6 +16,7 @@
 //   - one UNROUTED incident on TL-0001, a device in no custody, so TrekLink Staff can walk the
 //     authority report of UC-35 (report, then case closed) from /t/incidents (D-078, 2026-11-01 demo)
 //   - one Field Station of ORG-0001, `fs-org-0001-1`, for the MF-02 sync status page
+//   - one finished stock-take by Demo Staff, so the past list of screen 4.5 has a row (W20A)
 //   - one DEFAULTED monthly contract, RC-2026-0003, on one RENTED device, TL-0019, so the contract
 //     authority report of incidents api-design 10 can be walked from /t/incidents (D-078); it carries
 //     its first-term TERM invoice, holding fee paid and term balance unpaid, so the contract page
@@ -60,6 +61,8 @@ import { existsSync } from 'node:fs';
 // numbering exactly. A prisma/ script importing src/ already has precedent in demo-term-end.ts.
 import { invoiceNumberYear, invoiceStatusOf } from '../src/modules/billing/invoices.repository';
 import { holdingFeeVnd, termFeeVnd } from '../src/modules/billing/money';
+// The stock-take rule of devices design section 11, so the seeded count reads as the service would write it.
+import { classify as classifyStockTake } from '../src/modules/devices/stock-take-classify';
 
 type Tx = Prisma.TransactionClient;
 
@@ -1259,6 +1262,41 @@ export async function seedDemo(
         created.push(`field station ${FIELD_STATION_USERNAME}`);
       }
       // --- end MF-02 sync status chain ----------------------------------------------------------------
+
+      // --- Finished stock-take (W20A, devices design section 11, screen 4.5) --------------------------
+      // One past count by Demo Staff a day ago, so the past list of /t/stock-take has a row: every
+      // AVAILABLE unit scanned except TL-0020, plus the unregistered tag TL-9001. Classified with the
+      // service's own rule against the units as they stand. Written only while no stock-take exists.
+      if ((await tx.stockTake.count()) === 0) {
+        const takenAt = addDays(now, -1);
+        const seenHours = Number(await parameterValue(tx, 'devices.stockTakeSeenHours'));
+        const counted = await tx.device.findMany({
+          where: { status: { notIn: [DeviceStatus.RETIRED, DeviceStatus.DISPOSED] } },
+          select: { id: true, assetTag: true, status: true, lastSeenAt: true },
+          orderBy: { assetTag: 'asc' },
+        });
+        const scannedTags = [
+          ...counted
+            .filter((d) => d.status === DeviceStatus.AVAILABLE && d.assetTag !== 'TL-0020')
+            .map((d) => d.assetTag.toUpperCase()),
+          'TL-9001',
+        ];
+        const result = classifyStockTake(
+          counted,
+          scannedTags,
+          new Date(takenAt.getTime() - seenHours * 3_600_000),
+        );
+        await tx.stockTake.create({
+          data: {
+            scannedTags,
+            result: result as unknown as Prisma.InputJsonValue,
+            takenById: staff,
+            createdAt: takenAt,
+          },
+        });
+        created.push('stock-take');
+      }
+      // --- end finished stock-take --------------------------------------------------------------------
 
       return created;
     },
