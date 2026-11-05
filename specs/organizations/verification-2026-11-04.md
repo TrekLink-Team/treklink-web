@@ -4,8 +4,8 @@ Audit base: `dev` ac99628af1831e2aa7558e0bad317fe5e4eb04ad. Its CI run
 [41771163720](https://github.com/TrekLink-Team/treklink-web/actions/runs/41771163720) finished with
 success for Backend (NestJS), Frontend (React) and Gateway Bridge. The backend job runs `test:db`
 (`.github/workflows/ci.yml`, "Backend database integration tests"), so the `*.db-spec.ts` evidence below
-is the result of that run on this exact commit and was not re-run on the audit machine (no Postgres
-here). This record changes no production code. It maps the 41 criteria of
+is the result of that run on this exact commit. I did not run it on the audit machine (no Postgres
+here); the reviewer ran the db-specs locally on 2026-11-04 and reports 48 suites and 266 tests passing. This record changes no production code. It maps the 41 criteria of
 `specs/organizations/requirements.md` (29 REQ and 12 AC) to code and tests, and it follows the format of
 `specs/incidents/verification-2026-11-02.md`.
 
@@ -23,7 +23,7 @@ test was found, "Verified elsewhere" points to the module that owns the proof.
 | Backend lint and typecheck | Verified, zero errors | `tsc --noEmit` exit 0; eslint exit 0 with one old warning (`backend/test/incidents.e2e-spec.ts:313`, unused `_omitted`). Not a zero-warning claim. |
 | Module boundaries | Verified | `check-module-boundaries.js`: 581 files, 57 owned models, 10 modules in an acyclic graph. |
 | Frontend gates | Verified | `tsc --noEmit` exit 0; eslint exit 0 with one old warning (`CounterPaymentDialog.tsx:15`); vitest 119 files, 1348 tests pass; `npm run build` exit 0. |
-| api-design 01 to 32 against the catalog | Verified | `build_api_design.py organizations` regenerates all files with no content difference (line endings only). 33 is a proposal and is not built (see the gaps). |
+| api-design 01 to 32 against the catalog | Verified | `build_api_design.py organizations` regenerates all files with no content difference (line endings only). This proves the catalog equals the files. It does not prove the files equal the code: see gap 7. 33 is a proposal and is not built (see the gaps). |
 | Playwright journeys | Unchecked | `frontend/e2e/mf-01a-onboarding.spec.ts` (steps 1 to 8) and `mf-01-request-to-handover.spec.ts` exist. No Playwright job is in `ci.yml` at this base and Playwright is not installed on the audit machine, so no run exists. |
 
 ## Requirements
@@ -74,7 +74,7 @@ test was found, "Verified elsewhere" points to the module that owns the proof.
 | AC-08 | Verified | `field-station-release.service.spec.ts` "reads release.json and gives the version and one download per file with its SHA-256", "gives null instead of failing for the list of stations, and tells outdated by the release"; `field-stations.service.spec.ts` "lists the stations with the health, the limit and the outdated flag". |
 | AC-09 | Verified | Onboarding spec "refuses a contract without %s with 400 CONTRACT_TERMS_MISSING and stores nothing". |
 | AC-10 | Verified | `compliance-cases.db-spec.ts` "refuses closing a suspected theft case without a police reference", "locks a case, appends an action and closes it once"; service spec POLICE_REFERENCE_REQUIRED rows. |
-| AC-11 | Partly | Triage sets the flag and the Managers are told (`loss-cases.db-spec.ts`, `loss-cases.service.spec.ts`, `key-exposed.notifier.spec.ts`). The criterion says the next counter re-provisioning at a new key version clears it; the code clears it in the rotation (`ChannelKeyService.rotate`, `channel-key.service.spec.ts`), and provisioning does not clear it. REQ-EVT-13 says rotation, so the AC wording is out of date. |
+| AC-11 | Verified | Triage sets the flag and the Managers are told (`loss-cases.db-spec.ts`, `loss-cases.service.spec.ts`, `key-exposed.notifier.spec.ts`); the rotation clears it and raises the version (`ChannelKeyService.rotate`, `channel-key.service.spec.ts`). The criterion said re-provisioning; it now says the rotation, as REQ-EVT-13 does (treklink-web#366). |
 | AC-12 | Gap | Needs API 33 (REQ-EVT-14). The role save gate of REQ-STA-03 exists in `auth`. |
 
 ## Non-functional rows
@@ -83,6 +83,13 @@ test was found, "Verified elsewhere" points to the module that owns the proof.
 | --- | --- | --- |
 | Cross-organization denial: every route of this module | Verified for `:id` routes a Manager may call | `organizations.e2e-spec.ts` "tenant isolation: another organization is 404". Staff and Admin routes: see REQ-ERR-05. |
 | API key lookup by hash at most 5 ms p95 | Unchecked | The unique index exists and `api-keys.db-spec.ts` covers the lookup, but no timing measurement exists. |
+
+## Controllers (task 4.1)
+
+| Check | Result | Evidence and limit |
+| --- | --- | --- |
+| Every route has a policy | Verified | The nine controllers declare 32 routes. Each has `@CheckPolicies` except `POST /api/organizations/register`, which is `@Public()`. `route-guards.e2e-spec.ts` "declares a policy on every mutating route, except the listed public and token-only ones" and "gives every route a guard marking, so none relies on the fail-closed default" fail when one is missing. |
+| The ability on each route is the right one | Partly | I read the ability named on each of the 32 routes (for example `suspend` on `Organization` for suspend and reactivate, `decide` for approve, reject and close, `rotateKey` for the rotation). I did not compare each with the permission column of its api-design file, and the role grants live in the `auth` seed, which I did not re-read. |
 
 ## Frontend (task 5.1)
 
@@ -98,7 +105,7 @@ screens exists at this base (see the Playwright row), so 5.1 is recorded as part
 1. **API 33 and REQ-EVT-14, REQ-STA-03 read, AC-12.** Not built; already tracked by treklink-web#304.
 2. **TC-32 / AC-07.** No test that an SOS from a device of a `SUSPENDED` organization reaches its primary.
 3. **AC-05 over HTTP.** No single end to end test with `GET /api/telemetry/devices`.
-4. **AC-11 wording.** The criterion names re-provisioning; the behaviour is the rotation. A spec edit.
+4. **AC-11 wording.** Closed in this change: the criterion now names the rotation (treklink-web#366).
 5. **Playwright.** The MF-01 and MF-01a journeys have never run at this base and cover AC-01.
 6. **Performance row.** No measurement of the API key lookup.
 7. **Documentation drift raised earlier and not re-checked here** (tasks.md 2.4, 2.5, 2.6): api-design 11
@@ -106,6 +113,7 @@ screens exists at this base (see the Playwright row), so 5.1 is recorded as part
    15 and 17 to 19 omit some 409 and 400 rows the code answers. They were raised to the leader on
    2026-10-30 and are not counted as verified or as closed.
 
-The parent task 6.1 is checked, because the whole suite including the `*.db-spec.ts` files is green in
-CI on the audit base. Tasks 2.4, 2.7, 4.2, 4.3 and 5.1 stay open with a dated line each. No Jira story is
+The suite including the `*.db-spec.ts` files is green in CI on the audit base, but the parent task 6.1
+also requires `api-design/*.md` matching behaviour, and gap 7 says it does not yet. Tasks 2.4, 2.5, 2.6,
+2.7, 4.2, 4.3, 5.1 and 6.1 stay open with a dated line each; 11 of 19 are ticked. No Jira story is
 changed by this record.

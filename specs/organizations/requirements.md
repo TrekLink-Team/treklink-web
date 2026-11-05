@@ -112,7 +112,7 @@ Environment: `FIELD_STATION_RELEASE_DIR`, a directory holding `release.json` (`v
 - **AC-08**: A station that reports version 1.1.0 while `release.json` says 1.2.0 is listed `outdated: true` to its Manager and to TrekLink Staff; the release endpoint returns 1.2.0 with its SHA-256. (FR-EVT-18)
 - **AC-09**: A verification with `ndaSigned` false returns 400 and the organization stays unverified. (BR-43)
 - **AC-10**: A suspected-theft case cannot close without a police reference; with one, it closes and its suspension action is listed with actor and time. (E05-11)
-- **AC-11**: Triage of a renter-custody loss sets `channelKeyExposedAt` and notifies the Manager; the next counter re-provisioning at a new key version clears it. (D-045)
+- **AC-11**: Triage of a renter-custody loss sets `channelKeyExposedAt` and notifies the Manager; the next key rotation (api-design 27) clears it and raises the key version. (D-045)
 - **AC-12** (proposal): An Admin reads `GET /api/organizations/{id}/roles` of organization B and gets 200 with the roles of B; an Org Operator of A gets 403; an unknown id gets 404; a Manager of A saves a role while A is `SUSPENDED` and gets 409 `ORGANIZATION_NOT_ACTIVE`.
 
 ---
