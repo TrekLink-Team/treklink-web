@@ -39,6 +39,21 @@ After the fixes: 0 axe violations in all 20 views, no horizontal overflow, an ou
 no focused control under a sticky bar. The only target under 24 px is the inline "Leaflet" credit link
 (inline in text, an exception of 2.5.8).
 
+## The picker on the demo seed (review of #391)
+
+The seeded `monitoring.mapBasemaps` holds OpenTopoMap, Stadia and Esri (`scripts/specs/catalog.py`
+`BASEMAPS`, migrations `20261027090000` to `20261101130000`). With the first two hidden, Esri is the only
+entry, and the widget draws a layer control only for two or more basemaps (`LiveMapWidget.tsx`,
+`basemaps.length > 1`). So on the demo seed and the Vercel staging the picker never shows, and its 44 px rows
+cannot be seen in the app. They were seen only in the walk above, with a second basemap injected into the
+config response.
+
+OpenStreetMap is not kept as a second entry: screen 9.1 does not list it, and it is not in the seed list.
+Migration `20261030220000_map_drop_osm_standard` removed it on 2026-10-30 (dry run defect 11) because its
+tiles print the PRC district names 西沙区 and 南沙区 over the archipelagos, and the W22 tile check also saw
+PRC boundary lines around both. No client filter removes it; it is absent from the server list. Re-adding it
+needs a new forward migration and a ruling on D-031, raised to the leader.
+
 Left for the leader (not in this task's files):
 
 - At 320 px the Staff tab bar cuts "Fleet map", "Contracts" and "Invoices" with an ellipsis (`MobileTabBar.tsx`).
