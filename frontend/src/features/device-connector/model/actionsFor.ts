@@ -1,7 +1,7 @@
 import type { Connection } from './ConnectorRegistry';
 import type { ConnectorContext, CounterRow } from './connectorStore';
 
-// The actions a connected unit allows on this page (devices design section 11.3, REQ-EVT-32): one pure
+// The actions a connected unit allows on this page (devices design section 12.3, REQ-EVT-34): one pure
 // function over the unit's recognition and the page context, so every row and the device view agree.
 // A unit with no action carries the reason as text.
 

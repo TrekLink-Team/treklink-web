@@ -2,7 +2,7 @@ import type React from 'react';
 import { create } from 'zustand';
 import type { ConnectionState } from './ConnectorRegistry';
 
-// The page context a page gives the device connector (devices design section 11.3). Only the counter
+// The page context a page gives the device connector (devices design section 12.3). Only the counter
 // carries data: the contract and its reserved rows, so the panel can offer provisioning and the quick
 // swap. The counter page passes its actions too, so a row in the panel runs the same flow as the
 // counter row.
@@ -24,7 +24,7 @@ export interface CounterContext {
   rows: CounterRow[];
   // Provisions the reserved row whose unit is the connection (design section 8.4).
   provision: (connectionId: number, row: CounterRow) => Promise<void>;
-  // Puts the connected unit on the contract in place of `row`, then provisions it (design section 11.6).
+  // Puts the connected unit on the contract in place of `row`, then provisions it (design section 12.6).
   // Answers the server's refusal when the exchange itself was refused, so the swap dialog shows it and
   // stays open (screen 4.6); null once the exchange went through, whatever the provisioning did.
   swapIn: (connectionId: number, row: CounterRow) => Promise<string | null>;
@@ -37,7 +37,7 @@ export type ConnectorContext =
   | { kind: 'maintenance' }
   | { kind: 'fleet' };
 
-// What an entry point asked for when it opened the connector (REQ-EVT-39).
+// What an entry point asked for when it opened the connector (REQ-EVT-41).
 export interface ConnectorFocus {
   action: 'provision' | 'register' | 'uplink' | 'flash' | 'view';
   assetTag?: string;
@@ -46,7 +46,7 @@ export interface ConnectorFocus {
 
 // The firmware flash panel of devices design section 9.2 (task 8.3) plugs into the hub here: the hub
 // shows Update firmware disabled with its reason until a panel registers, then opens the panel with the
-// unit and a way to borrow its port under the hub's one write lock (REQ-EVT-41, REQ-UBI-09).
+// unit and a way to borrow its port under the hub's one write lock (REQ-EVT-43, REQ-UBI-09).
 export interface FlashPanelProps {
   device: {
     id: string;
@@ -55,7 +55,7 @@ export interface FlashPanelProps {
     variantCode: string;
     maintenanceRecordId: string;
   };
-  // Runs the flash on the unit's port; the hub reads the unit again afterwards (design section 11.7).
+  // Runs the flash on the unit's port; the hub reads the unit again afterwards (design section 12.7).
   withPort: <T>(
     work: (port: SerialPort, stage: (state: ConnectionState) => void) => Promise<T>,
   ) => Promise<T>;
@@ -70,10 +70,10 @@ interface ConnectorState {
   viewing: number | null;
   focus: ConnectorFocus | null;
   context: ConnectorContext | null;
-  // A unit read by the connector that the Register panel takes over (REQ-EVT-31).
+  // A unit read by the connector that the Register panel takes over (REQ-EVT-33).
   registerFrom: number | null;
   flashPanel: FlashPanel | null;
-  // The connection the device hub page shows (devices design section 11.13), kept in memory only: no
+  // The connection the device hub page shows (devices design section 12.13), kept in memory only: no
   // node number goes into the address bar (REQ-UBI-08).
   hubUnit: number | null;
   setOpen: (open: boolean) => void;

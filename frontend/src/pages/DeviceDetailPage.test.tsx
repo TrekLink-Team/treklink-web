@@ -478,7 +478,7 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     currentDevice = device({ status: 'AVAILABLE', keyVersion: 2 });
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Configure uplink' }));
-    // The dialog lives in the device connector now (devices design section 11.7): the button opens the
+    // The dialog lives in the device connector now (devices design section 12.7): the button opens the
     // hub focused on this unit's uplink.
     expect(useConnectorStore.getState()).toMatchObject({
       open: true,

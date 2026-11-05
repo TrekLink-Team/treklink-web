@@ -205,7 +205,7 @@ ENDPOINTS = [
        "Records the reset of a `RETURNED` device: channel key removed, node database cleared, owner name "
        "cleared. All three must be true. Required before the inspection, which `rentals` records on the "
        "return (FR-DEV-07, BR-28). One reset per return: a unit reset since it became `RETURNED` is refused "
-       "(demo smoke defect 4, 2026-10-30). The factory reset of the device hub (design §11.13) sends the "
+       "(demo smoke defect 4, 2026-10-30). The factory reset of the device hub (design §12.13) sends the "
        "docked `nodeNum`, which must be the device's. Every reset writes the audit record `device.reset` "
        "after commit, with the method `DOCKED` when `nodeNum` is sent and `MANUAL` otherwise. The body has "
        "no `expectedVersion` on purpose: the device row is locked `FOR UPDATE` and a second reset of the "
@@ -569,11 +569,11 @@ ENDPOINTS = [
        call="image(version, variantCode, kind)",
        seq=["Svc->>Svc: release manifest", "Svc->>Svc: download asset, sha256 compare"]),
 
-    # The device connector (design §11, the leader's brief and scope addition of 2026-11-04). Appended so 01 to 29
+    # The device connector (design §12, the leader's brief and scope addition of 2026-11-04). Appended so 01 to 29
     # keep the numbers cited elsewhere.
     ep("GET", "/api/devices/by-node", "Recognize connected units", "TrekLink Staff, TrekLink Admin",
        "Recognizes the units plugged into the Staff computer by the `nodeNum` each one reported over Web Serial "
-       "(design §11.5). One answer row per requested number, in the request's order: `device` is null for a number "
+       "(design §12.5). One answer row per requested number, in the request's order: `device` is null for a number "
        "never registered, which the connector offers for registration; otherwise the device summary of api-design "
        "07 with its open maintenance record, `contract` the unit's live contract row (from the rentals port "
        "`DEVICE_CONTRACTS`) or null, and `docked` its open dock session (api-design 31) or null. The key is never "
@@ -601,11 +601,11 @@ ENDPOINTS = [
             "Svc->>DB: SELECT device_dock_sessions WHERE endedAt IS NULL"]),
 
     ep("PUT", "/api/devices/:id/dock", "Open or renew a dock session", "TrekLink Staff, TrekLink Admin",
-       "Tells the server the Staff browser holds this unit's port (design §11.8), so the Staff live map pins it at "
-       "`monitoring.counterLocation` with \"Docked at the counter\" (REQ-EVT-36, REQ-EVT-37). The connector sends it "
+       "Tells the server the Staff browser holds this unit's port (design §12.8), so the Staff live map pins it at "
+       "`monitoring.counterLocation` with \"Docked at the counter\" (REQ-EVT-38, REQ-EVT-39). The connector sends it "
        "when it starts holding the unit and again every third of `devices.dockPresenceTtlSeconds`. A session the "
        "caller opened is renewed; one another caller opened is ended `REPLACED` and a new one opened. The docked "
-       "`nodeNum` must equal the device record (REQ-ERR-27). Organization accounts get 403 (REQ-UBI-07). Permission `device.operate`.",
+       "`nodeNum` must equal the device record (REQ-ERR-29). Organization accounts get 403 (REQ-UBI-07). Permission `device.operate`.",
        "UC-14, FR-MON-02, D-080, D-092",
        path=[DEV_PATH],
        body=[["nodeNum", "The nodeNum read from the docked unit", "int", "yes", "`2763113171`"]],
@@ -624,7 +624,7 @@ ENDPOINTS = [
 
     ep("DELETE", "/api/devices/:id/dock", "End a dock session", "TrekLink Staff, TrekLink Admin",
        "Ends the open dock session of the unit when the connector releases its port, the unit is unplugged or the "
-       "tab closes (sent with `keepalive`), so the Staff map drops the pin (design §11.8). Any TrekLink Staff or "
+       "tab closes (sent with `keepalive`), so the Staff map drops the pin (design §12.8). Any TrekLink Staff or "
        "Admin caller may end the open session, whoever opened it: counters change hands, and a stale session must "
        "be clearable (leader ruling on treklink-web#351). Ending a session that is already over, or that does not "
        "exist, answers success with `result` null. A session never ended this way expires through the "

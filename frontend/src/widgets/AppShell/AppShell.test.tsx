@@ -68,7 +68,7 @@ describe('AppShell (specs/frontend/design.md §2)', () => {
     expect(banner.compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('shows no device connector to an organization account (devices REQ-UBI-07, AC-25)', () => {
+  it('shows no device connector to an organization account (devices REQ-UBI-07, AC-28)', () => {
     show('/o/contracts');
     expect(screen.queryByRole('button', { name: /^Devices, / })).toBeNull();
   });

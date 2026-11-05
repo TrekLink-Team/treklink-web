@@ -39,7 +39,7 @@ export interface RecognizedUnit {
   docked: DockedView | null;
 }
 
-// An open session for the Staff live map (monitoring api-design 02, design section 11.8).
+// An open session for the Staff live map (monitoring api-design 02, design section 12.8).
 export interface DockedUnit {
   deviceId: string;
   since: Date;
@@ -53,7 +53,7 @@ export interface DockedUnitWithContract extends DockedUnit {
 
 const SECOND_MS = 1000;
 
-// The device connector's reads (devices design section 11.5 and 11.8, tasks 10.2 and 10.3): recognition of
+// The device connector's reads (devices design section 12.5 and 12.8, tasks 10.2 and 10.3): recognition of
 // the units plugged into a Staff computer and the open dock sessions the Staff map pins at the counter.
 @Injectable()
 export class DeviceConnectorService {

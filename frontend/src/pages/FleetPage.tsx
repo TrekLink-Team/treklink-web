@@ -92,7 +92,7 @@ const EMPTY_FORM: RegisterForm = {
 // the variant's baseline the first time a variant is chosen. Read from unit (devices design 8.3) fills
 // the node number and the variant from a docked unit and shows the firmware it reports; typing stays
 // possible, and uniqueness is still the server's (REQ-ERR-01).
-// The device connector's contexts of this page (devices design section 11.3): `intake` while the Register
+// The device connector's contexts of this page (devices design section 12.3): `intake` while the Register
 // panel is open, `fleet` otherwise.
 const INTAKE: ConnectorContext = { kind: 'intake' };
 const FLEET: ConnectorContext = { kind: 'fleet' };
@@ -100,7 +100,7 @@ const FLEET: ConnectorContext = { kind: 'fleet' };
 const RegisterDialog: React.FC<{
   onDone: (device: Device) => void;
   onCancel: () => void;
-  // The connector's connection "New device: register it?" came from (REQ-EVT-31).
+  // The connector's connection "New device: register it?" came from (REQ-EVT-33).
   fromConnection?: number | null;
 }> = ({ onDone, onCancel, fromConnection = null }) => {
   const { data: variants } = useVariants();
@@ -137,7 +137,7 @@ const RegisterDialog: React.FC<{
   };
 
   // "New device: register it?" in the connector fills the panel from that unit, with no chooser
-  // (REQ-EVT-31); once the variants are known so the variant can be preselected.
+  // (REQ-EVT-33); once the variants are known so the variant can be preselected.
   const filledFrom = useRef<number | null>(null);
   useEffect(() => {
     if (fromConnection === null || filledFrom.current === fromConnection || !variants) return;
@@ -391,7 +391,7 @@ export const FleetPage: React.FC = () => {
   const setRegisterFrom = useConnectorStore((state) => state.setRegisterFrom);
   const { registry } = useConnector();
   useConnectorContext(registering || params.get('register') === '1' ? INTAKE : FLEET);
-  // The connector's "New device: register it?" lands here with `?register=1` (REQ-EVT-31); closing the
+  // The connector's "New device: register it?" lands here with `?register=1` (REQ-EVT-33); closing the
   // panel drops the parameter.
   const registerOpen = registering || params.get('register') === '1';
   const closeRegister = () => {

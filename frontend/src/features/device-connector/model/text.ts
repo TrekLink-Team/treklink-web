@@ -24,5 +24,5 @@ export const unitName = (connection: Connection): string =>
   connection.recognized?.device?.assetTag ?? `Unknown unit ${connection.unit?.nodeId ?? ''}`.trim();
 
 
-// The upright product renders by convention (devices design section 11.12 Q5, decided A).
+// The upright product renders by convention (devices design section 12.12 Q5, decided A).
 export const renderPath = (code: string, kind: 'detail' | 'icon') => `/variants/${code}-${kind}.png`;

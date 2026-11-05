@@ -17,7 +17,7 @@ import {
   type RegistrySnapshot,
 } from './ConnectorRegistry';
 
-// The device connector's registry over the wire-level fake units (devices design section 11.4, task
+// The device connector's registry over the wire-level fake units (devices design section 12.4, task
 // 10.6): several units at once, replug without the chooser, the rows a unit that answers nothing or a
 // busy port gets, the one write lock, and a unit back from a restart on a new port keeping its row.
 
@@ -86,7 +86,7 @@ describe('ConnectorRegistry', () => {
     Reflect.deleteProperty(window.navigator, 'serial');
   });
 
-  it('lists every granted unit without the chooser and asks the server once for both (AC-22)', async () => {
+  it('lists every granted unit without the chooser and asks the server once for both (AC-25)', async () => {
     unitAt(serial, A);
     unitAt(serial, B);
 
@@ -120,7 +120,7 @@ describe('ConnectorRegistry', () => {
     expect(serial.requestCount).toBe(0);
   });
 
-  it('shows the no-response text for a unit that answers nothing and asks the server nothing (AC-30)', async () => {
+  it('shows the no-response text for a unit that answers nothing and asks the server nothing (AC-33)', async () => {
     unitAt(serial, A, { silent: true });
 
     await registry.start();
@@ -192,7 +192,7 @@ describe('ConnectorRegistry', () => {
   });
 });
 
-describe('ConnectorRegistry.returnedPort (design section 11.4 rule 1, review of the docking slice)', () => {
+describe('ConnectorRegistry.returnedPort (design section 12.4 rule 1, review of the docking slice)', () => {
   const TIMINGS_FAST: DockTimings = { handshakeMs: 600, writeMs: 500, restartDelayMs: 40, restartDeadlineMs: 300, retryMs: 20 };
 
   it('takes the original port, else the one port with its USB IDs that no other row holds', async () => {

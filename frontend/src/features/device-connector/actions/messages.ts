@@ -4,8 +4,8 @@ import { NO_RESPONSE_TEXT } from '../model/ConnectorRegistry';
 // The wording of screens 5.4 and 4.2 for a docking that did not succeed. Null means nothing to show
 // (Staff closed the browser's port chooser).
 
-// REQ-ERR-22 (formerly REQ-ERR-14), design section 8.6 decision 4: a unit that answers nothing over USB.
-// The text names the firmware, not the variant (design section 11.4 rule 6).
+// REQ-ERR-24 (formerly REQ-ERR-14), design section 8.6 decision 4: a unit that answers nothing over USB.
+// The text names the firmware, not the variant (design section 12.4 rule 6).
 export { NO_RESPONSE_TEXT as NO_RESPONSE_MESSAGE } from '../model/ConnectorRegistry';
 
 export interface DockingFailureInfo {
@@ -59,7 +59,7 @@ export const uplinkDockMessage = (
   return `${assetTag} is not configured as an uplink: ${clause(reason)}.`;
 };
 
-// The device hub page's Reboot (devices design section 11.13, REQ-ERR-31).
+// The device hub page's Reboot (devices design section 12.13, REQ-ERR-33).
 export const rebootMessage = ({ failure, reason }: DockingFailureInfo, name: string): string | null => {
   if (failure === 'cancelled') return null;
   if (failure === 'no-response') return NO_RESPONSE_TEXT;
@@ -67,7 +67,7 @@ export const rebootMessage = ({ failure, reason }: DockingFailureInfo, name: str
   return `${name} did not restart cleanly: ${clause(reason)}.`;
 };
 
-// The device hub page's Factory reset (devices design section 11.13 Errors, REQ-ERR-30, REQ-ERR-31).
+// The device hub page's Factory reset (devices design section 12.13 Errors, REQ-ERR-32, REQ-ERR-33).
 // `wiped` is true when the unit was wiped and only the server's record is missing.
 export const factoryResetMessage = (
   { failure, reason, wiped }: DockingFailureInfo & { wiped: boolean },

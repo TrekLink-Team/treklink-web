@@ -26,8 +26,8 @@ export interface DockSessionView {
 
 const SECOND_MS = 1000;
 
-// The dock sessions behind the Staff map pin of a unit held at the counter (devices design section 11.8,
-// task 10.3, REQ-EVT-36, REQ-EVT-37). The device row is locked first, so two requests for one unit run
+// The dock sessions behind the Staff map pin of a unit held at the counter (devices design section 12.8,
+// task 10.3, REQ-EVT-38, REQ-EVT-39). The device row is locked first, so two requests for one unit run
 // one after the other and the partial unique index never fires on a race.
 @Injectable()
 export class DockSessionService {
@@ -41,7 +41,7 @@ export class DockSessionService {
 
   // devices api-design 31: opens a session, or renews the caller's own unexpired one. A session someone
   // else opened, or one past its time, ends (`REPLACED` or `EXPIRED`) and a new one opens. The node
-  // number read from the unit must be the device's (REQ-ERR-27).
+  // number read from the unit must be the device's (REQ-ERR-29).
   async dock(
     deviceId: string,
     nodeNum: bigint,

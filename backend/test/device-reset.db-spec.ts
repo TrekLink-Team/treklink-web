@@ -121,7 +121,7 @@ describe('DevicesService.reset and returnChecks on Postgres', () => {
     await expect(prisma.deviceReset.count({ where: { deviceId } })).resolves.toBe(1);
   });
 
-  it('checks the docked node number of the device hub factory reset against the row (design §11.13)', async () => {
+  it('checks the docked node number of the device hub factory reset against the row (design §12.13)', async () => {
     const returnedAt = new Date('2026-10-30T03:00:00.000Z');
     const deviceId = await returnedDevice(returnedAt);
     const { nodeNum } = await prisma.device.findUniqueOrThrow({ where: { id: deviceId } });

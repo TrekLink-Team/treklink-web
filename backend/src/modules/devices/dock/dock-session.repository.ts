@@ -19,7 +19,7 @@ export type DockSessionRow = Prisma.DeviceDockSessionGetPayload<{
   select: typeof DOCK_SESSION_SELECT;
 }>;
 
-// The dock sessions of devices design section 11.8: a Staff browser holding a unit's port at the
+// The dock sessions of devices design section 12.8: a Staff browser holding a unit's port at the
 // counter. One open session per device, kept by the partial unique index of the migration.
 @Injectable()
 export class DockSessionRepository {

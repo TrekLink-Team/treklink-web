@@ -3,10 +3,10 @@ import { Cpu } from 'lucide-react';
 import { cn } from '../../../shared/ui/cn';
 import { renderPath } from '../model/text';
 
-// The upright product render of a variant (devices design section 11.2, decided Q5 A): by convention
+// The upright product render of a variant (devices design section 12.2, decided Q5 A): by convention
 // `/variants/<code>-detail.png` in the device view and `/variants/<code>-icon.png` in rows. The files are
 // made separately; until one exists, or when it fails to load, the labelled empty slot shows the variant
-// name (REQ-ERR-29).
+// name (REQ-ERR-31).
 
 interface Props {
   code: string | null;

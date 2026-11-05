@@ -264,7 +264,7 @@ export const recordIntakeCheck = (
 ) => post<{ check: { passed: boolean }; device: Device }>(`/devices/${id}/intake-checks`, dto);
 
 // devices api-design 10: the three steps are always true (the button stays disabled otherwise). The
-// device hub's factory reset sends the docked node number (devices design section 11.13).
+// device hub's factory reset sends the docked node number (devices design section 12.13).
 export const recordReset = (id: string, nodeNum?: number) =>
   post<Device>(`/devices/${id}/reset`, {
     keyRemoved: true,
@@ -376,7 +376,7 @@ export const weekEnd = (now: Date = new Date()): string => {
   return end.toISOString().slice(0, 10);
 };
 
-// The device connector (devices design section 11, api-design 30 to 32).
+// The device connector (devices design section 12, api-design 30 to 32).
 
 // One answer row of devices api-design 30: `device` is null for a node number never registered.
 export interface RecognizedUnit {

@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Records the reset of a `RETURNED` device: channel key removed, node database cleared, owner name cleared. All three must be true. Required before the inspection, which `rentals` records on the return (FR-DEV-07, BR-28). One reset per return: a unit reset since it became `RETURNED` is refused (demo smoke defect 4, 2026-10-30). The factory reset of the device hub (design §11.13) sends the docked `nodeNum`, which must be the device's. Every reset writes the audit record `device.reset` after commit, with the method `DOCKED` when `nodeNum` is sent and `MANUAL` otherwise. The body has no `expectedVersion` on purpose: the device row is locked `FOR UPDATE` and a second reset of the same return is 409 `ALREADY_RESET`, so a stale caller cannot record twice.
+Records the reset of a `RETURNED` device: channel key removed, node database cleared, owner name cleared. All three must be true. Required before the inspection, which `rentals` records on the return (FR-DEV-07, BR-28). One reset per return: a unit reset since it became `RETURNED` is refused (demo smoke defect 4, 2026-10-30). The factory reset of the device hub (design §12.13) sends the docked `nodeNum`, which must be the device's. Every reset writes the audit record `device.reset` after commit, with the method `DOCKED` when `nodeNum` is sent and `MANUAL` otherwise. The body has no `expectedVersion` on purpose: the device row is locked `FOR UPDATE` and a second reset of the same return is 409 `ALREADY_RESET`, so a stale caller cannot record twice.
 
 ## API Specification
 

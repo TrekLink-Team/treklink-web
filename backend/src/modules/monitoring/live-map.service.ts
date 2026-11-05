@@ -43,7 +43,7 @@ export interface MapConfigDto {
 
 // The state of a unit on the map (REQ-UBI-04, D-092 rule 2), the custody rule of `custodyView`, and
 // `DOCKED` for a unit held at the counter outside any custody interval, shown to TrekLink callers only
-// (monitoring REQ-UBI-06, devices design section 11.8).
+// (monitoring REQ-UBI-06, devices design section 12.8).
 export type SnapshotDeviceState = UnitState | 'DOCKED';
 
 // The TrekLink counter where a unit not heard since its handover was last known to be
@@ -147,7 +147,7 @@ export class LiveMapService {
     if (!isNumber(stationStaleSeconds))
       this.refuse('monitoring.fieldStationStaleSeconds', 'a number');
     const counterLocation = this.counterLocation(counter);
-    // Units held at the counter (devices design section 11.8): TrekLink callers only, and for a Staff
+    // Units held at the counter (devices design section 12.8): TrekLink callers only, and for a Staff
     // view of one organization only that organization's units (REQ-STA-05, D-092 rule 2 unchanged).
     const docked = clipped
       ? new Map<string, DockedUnitWithContract>()

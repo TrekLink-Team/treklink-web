@@ -199,7 +199,7 @@ export const DeviceDetailPage: React.FC = () => {
   const [disposing, setDisposing] = useState(false);
   const [reportingLoss, setReportingLoss] = useState(false);
   const phone = !useMediaQuery('(min-width: 600px)', true);
-  // The device connector's `device` context (devices design section 11.3), and whether the hub holds this
+  // The device connector's `device` context (devices design section 12.3), and whether the hub holds this
   // device's unit now (screen 4.2, device connector entry points).
   const connectorContext = useMemo<ConnectorContext>(() => ({ kind: 'device', deviceId: id }), [id]);
   useConnectorContext(connectorContext);
@@ -296,8 +296,8 @@ export const DeviceDetailPage: React.FC = () => {
     ...(canDispose
       ? [{ key: 'dispose', label: 'Dispose', tone: 'danger' as const, onSelect: () => setDisposing(true) }]
       : []),
-    // Configure uplink runs in the device connector, on the unit it holds (devices design section 11.7,
-    // REQ-EVT-39, REQ-EVT-40): the hub opens its dialog once the unit is connected.
+    // Configure uplink runs in the device connector, on the unit it holds (devices design section 12.7,
+    // REQ-EVT-41, REQ-EVT-42): the hub opens its dialog once the unit is connected.
     ...(canConfigureUplink
       ? [
           {

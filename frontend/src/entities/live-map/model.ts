@@ -103,7 +103,7 @@ export const applyEntry = (state: LiveMapState, entry: LiveEntry): LiveMapState 
         holder: name === null ? null : { name },
       }));
     }
-    // A unit held at the counter (devices design section 11.8): the Staff map pins it there while the
+    // A unit held at the counter (devices design section 12.8): the Staff map pins it there while the
     // session is open. A docked unit the map does not list yet comes with the snapshot (`needsSnapshot`).
     case 'device.docked': {
       const since = asString(payload.since);

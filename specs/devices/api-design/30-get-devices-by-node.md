@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Recognizes the units plugged into the Staff computer by the `nodeNum` each one reported over Web Serial (design §11.5). One answer row per requested number, in the request's order: `device` is null for a number never registered, which the connector offers for registration; otherwise the device summary of api-design 07 with its open maintenance record, `contract` the unit's live contract row (from the rentals port `DEVICE_CONTRACTS`) or null, and `docked` its open dock session (api-design 31) or null. The key is never returned, only its version and organization (REQ-UBI-03). Permission `device.read`.
+Recognizes the units plugged into the Staff computer by the `nodeNum` each one reported over Web Serial (design §12.5). One answer row per requested number, in the request's order: `device` is null for a number never registered, which the connector offers for registration; otherwise the device summary of api-design 07 with its open maintenance record, `contract` the unit's live contract row (from the rentals port `DEVICE_CONTRACTS`) or null, and `docked` its open dock session (api-design 31) or null. The key is never returned, only its version and organization (REQ-UBI-03). Permission `device.read`.
 
 ## API Specification
 

@@ -2,12 +2,12 @@ import { AccountType, DeviceStatus } from '@prisma/client';
 import { HandoverService } from '../src/modules/rentals/handover.service';
 import { compileRentalFlow, RentalFlow } from './db-rental-flow';
 
-// The device connector over HTTP against Postgres (devices design section 11, devices api-design 30 to
+// The device connector over HTTP against Postgres (devices design section 12, devices api-design 30 to
 // 32, rentals api-design 32): recognition of a reserved unit with its contract, the dock session routes,
 // the quick swap with each refusal of rentals REQ-ERR-18, and organization accounts kept out
 // (REQ-UBI-07). The whole application with real guards, policies and services. Run only through
 // test:db against a migrated disposable database.
-describe('device connector over HTTP against Postgres (devices design section 11)', () => {
+describe('device connector over HTTP against Postgres (devices design section 12)', () => {
   let flow: RentalFlow;
 
   beforeAll(async () => {

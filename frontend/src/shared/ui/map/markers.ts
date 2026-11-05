@@ -5,7 +5,7 @@ import { MARKER_LABEL, type MarkerState } from '../status';
 // state as well as colour: a circle when live, a dashed circle when offline (with the last-seen time
 // beside it), a pin with the chip "Not heard since handover" for a unit not heard since its handover
 // (D-092 rule 2), a double-bordered pin with "Docked at the counter" for a unit the Staff browser holds
-// (devices design section 11.8), a pulsing diamond for SOS. Markers keep their colours in both themes because the
+// (devices design section 12.8), a pulsing diamond for SOS. Markers keep their colours in both themes because the
 // basemap tiles are light in both.
 
 export interface MarkerOptions {
@@ -94,7 +94,7 @@ export const markerIcon = (options: MarkerOptions): L.DivIcon => {
     html: body,
     className: 'tl-marker-hit',
     iconSize: [MARKER_TARGET_PX, MARKER_TARGET_PX],
-    // The docked pin (devices design section 11.8) is drawn as the unheard pin, so it shares its anchor.
+    // The docked pin (devices design section 12.8) is drawn as the unheard pin, so it shares its anchor.
     iconAnchor: [
       centre,
       options.state === 'unheard' || options.state === 'docked' ? centre + PIN_POINT_PX : centre,

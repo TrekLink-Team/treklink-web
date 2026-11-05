@@ -124,7 +124,7 @@ export class ResetDto {
   @IsBoolean()
   ownerCleared!: boolean;
 
-  // The docked unit's node number, sent by the device hub's factory reset (design §11.13); it must be
+  // The docked unit's node number, sent by the device hub's factory reset (design §12.13); it must be
   // the device's (409 NODE_MISMATCH). Absent on the counter's manual reset.
   @IsOptional()
   @IsInt()
@@ -186,7 +186,7 @@ export class DevicesController {
   }
 
   // The audit record `device.reset` goes out after commit for every reset, with the method DOCKED when
-  // the device hub sent the docked node number and MANUAL otherwise (design §11.13).
+  // the device hub sent the docked node number and MANUAL otherwise (design §12.13).
   @Post(':id/reset')
   @CheckPolicies((ability) => ability.can('operate', 'Device'))
   @ResponseMessage('Reset recorded')
@@ -224,7 +224,7 @@ export class DevicesController {
     return this.devices.availability(query.hardwareVariantId);
   }
 
-  // devices api-design 30 (task 10.2, design section 11.5): the device connector recognizes the units
+  // devices api-design 30 (task 10.2, design section 12.5): the device connector recognizes the units
   // plugged into a Staff computer by node number (`device.read`). Declared before `:id`.
   @Get('by-node')
   @CheckPolicies((ability) => ability.can('read', 'Device'))
@@ -252,7 +252,7 @@ export class DevicesController {
     return this.devices.detail(id);
   }
 
-  // devices api-design 31 (task 10.3, design section 11.8): the device connector opens or renews the
+  // devices api-design 31 (task 10.3, design section 12.8): the device connector opens or renews the
   // dock session of a unit it holds at the counter (`device.operate`).
   @Put(':id/dock')
   @CheckPolicies((ability) => ability.can('operate', 'Device'))

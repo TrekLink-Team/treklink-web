@@ -5,14 +5,14 @@
 | Owner | KhoaDD |
 | Task | `specs/frontend/tasks.md` 4.6 (devices tasks 10.6 to 10.11) |
 | Assigned, due | 2026-11-04, after the contract home UI (brief item 5) |
-| Status | Approved 2026-11-04 (devices design §11.12 decided, option A each) |
+| Status | Approved 2026-11-04 (devices design §12.12 decided, option A each) |
 | Routes | No route of its own: a shell panel opened from the header button "Devices" on every TrekLink Staff page (`specs/frontend/design.md` §2), and by the entry points of screens 4.2, 4.3 and 5.4. On the full-bleed map routes it opens only as a `Drawer` |
 | Roles | TrekLink Staff and TrekLink Admin: the whole panel, actions filtered by their abilities (Admin adds nothing here). Organization accounts: no button, no panel; the endpoints answer 403 (devices REQ-UBI-07) |
 | Use case, FRs, story | UC-11, UC-14, UC-20, UC-38; FR-DEV-02, FR-DEV-05, FR-DEV-21, FR-CON-05, FR-MON-02; US-UC11, US-UC14, US-UC20 |
-| Requirements | `specs/devices/requirements.md` REQ-UBI-07 to REQ-UBI-10, REQ-EVT-29 to REQ-EVT-41, REQ-STA-05, REQ-STA-06, REQ-ERR-11, REQ-ERR-19 to REQ-ERR-29; AC-22 to AC-37 |
+| Requirements | `specs/devices/requirements.md` REQ-UBI-07 to REQ-UBI-10, REQ-EVT-31 to REQ-EVT-43, REQ-STA-05, REQ-STA-06, REQ-ERR-11, REQ-ERR-21 to REQ-ERR-31; AC-25 to AC-40 |
 | Wireframe | Not drawn yet: drawn when the variant renders (`/variants/<code>-detail.png`, `-icon.png`) arrive |
 
-Scope from the task: the device hub of devices design §11, "connect a unit and see what you can do with it":
+Scope from the task: the device hub of devices design §12, "connect a unit and see what you can do with it":
 every connected unit as one row, recognition by `nodeNum`, register on connect, provisioning with the quick swap
 and hot provisioning at the counter, Configure uplink, the device view with the unit's info and its product
 render, and Update firmware. Every page's docking control opens this panel instead of docking on its own
@@ -22,7 +22,7 @@ render, and Update firmware. Every page's docking control opens this panel inste
 
 | Width | Placement (chapter 06 §10.8) |
 |---|---|
-| 1100 px and up | Non-modal `aside` pushed beside the page, 360 px wide; focus moves to its heading "Connected units"; Escape or Close closes it. While it is open the Info pane closes (devices design §11.12 Q6, decided A) |
+| 1100 px and up | Non-modal `aside` pushed beside the page, 360 px wide; focus moves to its heading "Connected units"; Escape or Close closes it. While it is open the Info pane closes (devices design §12.12 Q6, decided A) |
 | 600 to 1099 px | Design system `Drawer` from the right over the page, focus trapped, returned to the opener on close |
 | Below 600 px | The same `Drawer` as a bottom sheet |
 
@@ -34,12 +34,12 @@ view render 240 px.
 
 | Shown | Source (api-design file, property) |
 |---|---|
-| Header button count "Devices (n)" | the connector registry: open connections (devices design §11.4) |
+| Header button count "Devices (n)" | the connector registry: open connections (devices design §12.4) |
 | Row image | `/variants/<hardwareVariant.code>-icon.png` (Q5 A); the generic unit icon for an unknown unit |
 | Row title, subtitle | devices 30 `device.assetTag`, `device.hardwareVariant.name`; the node id from the unit; "Unknown unit" and the build environment when `device` is null |
 | Row status | devices 30 `device.status` as text; "Not registered" for an unknown unit |
 | Row contract | devices 30 `contract.code`, `contract.status` |
-| Row connection state | the registry's state as text (Figure 18 of devices design §11.4) |
+| Row connection state | the registry's state as text (Figure 18 of devices design §12.4) |
 | Device view render | `/variants/<code>-detail.png`, `alt` "{variant name}, front view" |
 | Device view, from the unit | node id, `nodeNum`, owner long and short names, build environment, reported firmware version (devices design §8.2, held in memory only, REQ-UBI-08) |
 | Device view, from the server | devices 30 `device.assetTag`, `hardwareVariant` (the variant card of §10), `status`, `firmwareVersion`, `batteryPct`, `lastSeenAt`, `serviceDueAt`, `keyVersion`, `keyOrganization`, `openMaintenance` |
@@ -49,7 +49,7 @@ view render 240 px.
 
 ## Actions
 
-Each row shows Show device view first (Info icon, §9.5), then only the actions devices design §11.3 allows for that
+Each row shows Show device view first (Info icon, §9.5), then only the actions devices design §12.3 allows for that
 unit on this page; a row with none states the reason as text. Icon buttons carry the §9.5 tooltip; below 600 px
 they collapse into one Actions menu.
 
@@ -61,10 +61,10 @@ they collapse into one Actions menu.
 | Provision for {contractCode} (row) | counter context, unit `RESERVED` to this contract, not at the current key version | rentals 21, then rentals 09 (devices design §8.4) | none | "Provisioned v{n}" on the row and on the counter row |
 | Put {dockedTag} on {contractCode} in place of {reservedTag} (row) | counter context, unit `AVAILABLE`, contract variant, a reserved unit with no provisioning record | rentals 32, then rentals 21 and 09 on the held port | dialog "Put {dockedTag} on {contractCode}?": "{reservedTag} goes back to Available. {dockedTag} is reserved and provisioned now. Price and quantity do not change."; a select of the reserved units with no provisioning record, the first preselected (Q7 A); buttons Cancel and Swap and provision | toast "{dockedTag} replaces {reservedTag} on {contractCode}." then "Provisioned v{n}" |
 | Configure uplink (row and device view) | registered, not `RETIRED` or `DISPOSED`, provisioned for an organization | none on the server; Web Serial (devices design §8.8) | the form of screen 4.2 in a `Dialog`; "The unit restarts once to apply the settings." | "{assetTag} is configured as an uplink to {broker}." |
-| Update firmware (row and device view; disabled with the text "Firmware releases are not published yet" until task 8.3 registers its panel, devices design §11.7) | `MAINTENANCE` with an `OPEN` `FIRMWARE_UPDATE` record | devices 28 and 29, then the flash of devices design §9.2 on the handed-over port | the release picker of screen 4.3 and "The unit restarts after the write." | "Firmware {version} written and verified." and the row reads the unit again |
-| Open in the device hub (device view) | always | navigation to `/t/device-hub` with this unit selected (screen 4.7, devices design §11.13) | none | the hub page shows the unit |
+| Update firmware (row and device view; disabled with the text "Firmware releases are not published yet" until task 8.3 registers its panel, devices design §12.7) | `MAINTENANCE` with an `OPEN` `FIRMWARE_UPDATE` record | devices 28 and 29, then the flash of devices design §9.2 on the handed-over port | the release picker of screen 4.3 and "The unit restarts after the write." | "Firmware {version} written and verified." and the row reads the unit again |
+| Open in the device hub (device view) | always | navigation to `/t/device-hub` with this unit selected (screen 4.7, devices design §12.13) | none | the hub page shows the unit |
 | Record intake check (row) | `IN_INTAKE` | navigation to `/t/devices/:id` | none | none |
-| Open its counter, Open its contract, Open device page (row) | per devices design §11.3 | navigation | none | none |
+| Open its counter, Open its contract, Open device page (row) | per devices design §12.3 | navigation | none | none |
 | Retry (row) | `NoResponse`, `Busy`, `NotChecked` | the same step again | none | the row moves on |
 | Reconnect (row) | the unit did not come back after a restart | the browser's port chooser | the chooser | the row resumes at Checking |
 | Forget (row menu) | any row | none on the server; `SerialPort.forget()` where the browser has it | "Forget {assetTag or node id}? The browser asks again before it can connect to this unit." | the row leaves the list |
@@ -76,17 +76,17 @@ they collapse into one Actions menu.
 | Loading | Each new row shows "Reading the unit" with a skeleton for the title, then "Checking with the server" |
 | Empty | "No units connected. Plug a unit in with its USB cable, then choose Connect a unit." with Connect a unit |
 | No Web Serial (REQ-ERR-11) | "Docking needs Chrome or Edge on a desktop. Open TrekLink there to connect units."; Connect a unit disabled |
-| No response over USB (REQ-ERR-22) | "No response over USB. This unit's firmware has no USB console; update it or enter the node number manually." with Retry |
-| Port in use (REQ-ERR-25) | "In use by another tab or app." with Retry |
-| Lookup failed (REQ-ERR-26) | "Not checked: the server did not answer." with Retry; no other action |
+| No response over USB (REQ-ERR-24) | "No response over USB. This unit's firmware has no USB console; update it or enter the node number manually." with Retry |
+| Port in use (REQ-ERR-27) | "In use by another tab or app." with Retry |
+| Lookup failed (REQ-ERR-28) | "Not checked: the server did not answer." with Retry; no other action |
 | Writing, restarting, checking | The row names the step ("Writing settings", "Restarting the unit", "Checking"); every other row's write actions are disabled with "Another unit is being written." (REQ-STA-06) |
 | Wrong unit for the action | "The connected unit is {nodeId}, not {assetTag}. Nothing was written." |
-| On another contract (REQ-ERR-20) | "{assetTag} is reserved to {contractCode}." and Open its counter |
-| Rented (REQ-ERR-21) | "{assetTag} is rented on {contractCode}. Check it in at the return counter." with the link |
-| Variant mismatch (REQ-ERR-23) | "{assetTag} is {variant}; {contractCode} rents {contractVariant}." |
-| Port lost after a quick swap (REQ-ERR-19) | The failed step, then "Dock {assetTag} again before handover."; the swap stands |
+| On another contract (REQ-ERR-22) | "{assetTag} is reserved to {contractCode}." and Open its counter |
+| Rented (REQ-ERR-23) | "{assetTag} is rented on {contractCode}. Check it in at the return counter." with the link |
+| Variant mismatch (REQ-ERR-25) | "{assetTag} is {variant}; {contractCode} rents {contractVariant}." |
+| Port lost after a quick swap (REQ-ERR-21) | The failed step, then "Dock {assetTag} again before handover."; the swap stands |
 | Unplugged | "Unplugged" for 10 seconds, then the row leaves the list |
-| Render missing (REQ-ERR-29) | The labelled empty slot with the variant name |
+| Render missing (REQ-ERR-31) | The labelled empty slot with the variant name |
 | Error `DEVICE_PROVISIONED` (409, rentals 32) | The server's message in the swap dialog; the select reloads the reserved units |
 | Error `DEVICE_NOT_AVAILABLE`, `VARIANT_MISMATCH`, `NODE_MISMATCH` (409, rentals 32) | The server's message on the row; the row is checked again (devices 30) |
 | Error `STALE_VERSION` (409, rentals 32) | MSG36 in the dialog with Reload; the counter reloads the contract |
@@ -116,7 +116,7 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 
 - [x] Placement follows §10.8; tooltips §9.5; the rows' sideways strips §10.6
 - [x] Data: every field names devices 30, rentals 09, 21, 30, organizations 03 or the unit (devices design §8.2)
-- [x] Actions: per unit and page as devices design §11.3, each with its confirmation
+- [x] Actions: per unit and page as devices design §12.3, each with its confirmation
 - [x] States: every REQ-ERR of the connector and every error code of rentals 32
 - [ ] Wireframe: waits for the renders
 - [x] Accessibility: live region, focus return, text status

@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Tells the server the Staff browser holds this unit's port (design §11.8), so the Staff live map pins it at `monitoring.counterLocation` with "Docked at the counter" (REQ-EVT-36, REQ-EVT-37). The connector sends it when it starts holding the unit and again every third of `devices.dockPresenceTtlSeconds`. A session the caller opened is renewed; one another caller opened is ended `REPLACED` and a new one opened. The docked `nodeNum` must equal the device record (REQ-ERR-27). Organization accounts get 403 (REQ-UBI-07). Permission `device.operate`.
+Tells the server the Staff browser holds this unit's port (design §12.8), so the Staff live map pins it at `monitoring.counterLocation` with "Docked at the counter" (REQ-EVT-38, REQ-EVT-39). The connector sends it when it starts holding the unit and again every third of `devices.dockPresenceTtlSeconds`. A session the caller opened is renewed; one another caller opened is ended `REPLACED` and a new one opened. The docked `nodeNum` must equal the device record (REQ-ERR-29). Organization accounts get 403 (REQ-UBI-07). Permission `device.operate`.
 
 ## API Specification
 

@@ -104,7 +104,7 @@ const markerIcon = (marker: MapMarker): L.DivIcon =>
     label: marker.title,
     name: textOf(marker),
     // A unit not heard since handover carries its label on the map (MSG41, D-092 rule 2), and so does a
-    // unit docked at the counter (devices design section 11.8).
+    // unit docked at the counter (devices design section 12.8).
     showChip: marker.status === 'unheard' || marker.status === 'docked',
   });
 

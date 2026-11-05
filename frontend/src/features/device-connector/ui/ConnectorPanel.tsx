@@ -24,7 +24,7 @@ import { UnitImage } from './UnitImage';
 import { ConnectorList } from './ConnectorList';
 import { STATE_TEXT, unitName } from '../model/text';
 
-// The device connector panel, the Staff device hub (devices design section 11.2, screen 4.6): the rows of
+// The device connector panel, the Staff device hub (devices design section 12.2, screen 4.6): the rows of
 // the connected units through the shared CollectionView (ConnectorList), and the device view of one unit,
 // whose actions are labelled buttons.
 
@@ -86,7 +86,7 @@ const ActionControl: React.FC<
   );
 };
 
-// The quick swap's confirmation (screen 4.6 Actions, design section 11.6): the reserved unit to replace,
+// The quick swap's confirmation (screen 4.6 Actions, design section 12.6): the reserved unit to replace,
 // the first not provisioned preselected (decided Q7 A).
 const SwapDialog: React.FC<{
   dockedTag: string;
@@ -161,7 +161,7 @@ const DetailList: React.FC<{ items: [string, React.ReactNode][] }> = ({ items })
 
 const when = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString() : 'Never');
 
-// The device view of one unit (design section 11.2, REQ-EVT-38): the upright render, what the unit
+// The device view of one unit (design section 12.2, REQ-EVT-40): the upright render, what the unit
 // reports, the server's record and its contract, and every action as a labelled button.
 export const DeviceView: React.FC<
   { connection: Connection; reason: string | null; actions: UnitAction[]; onBack: () => void } & ActionHandlers
@@ -259,7 +259,7 @@ export const DeviceView: React.FC<
   );
 };
 
-// Renders the flash panel task 8.3 registered (design section 11.7). A registered component, not one
+// Renders the flash panel task 8.3 registered (design section 12.7). A registered component, not one
 // made during the panel's render.
 const FlashSlot: React.FC<{ panel: FlashPanel; props: FlashPanelProps }> = ({ panel, props }) =>
   React.createElement(panel, props);
@@ -344,7 +344,7 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
     focus?.assetTag && !snapshot.connections.some((connection) => connection.unit?.nodeNum === focus.nodeNum)
       ? focus.assetTag
       : null;
-  // Configure uplink from the device page opens the hub on its unit (REQ-EVT-39, REQ-EVT-40): once that
+  // Configure uplink from the device page opens the hub on its unit (REQ-EVT-41, REQ-EVT-42): once that
   // unit is connected and recognized the dialog opens here; until then the panel asks to connect it.
   const focusedUplink =
     focus?.action === 'uplink'

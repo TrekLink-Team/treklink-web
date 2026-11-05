@@ -57,7 +57,7 @@ export class DockError extends Error {
 }
 
 // The unit as the handshake reported it, without any secret (REQ-UBI-08, amended for the device hub
-// page, devices design section 11.13: the hardware model, battery, region, modem preset and the primary
+// page, devices design section 12.13: the hardware model, battery, region, modem preset and the primary
 // channel's name are kept; the PSK never is).
 export interface UnitReading {
   nodeNum: number;
@@ -106,11 +106,11 @@ export interface DockSession {
   primaryKeyIsDefault(): boolean;
   // Whether Wi-Fi and MQTT are both off, as after a factory reset.
   networkOff(): boolean;
-  // `reboot_seconds` (devices design section 11.13); the unit restarts after `seconds`.
+  // `reboot_seconds` (devices design section 12.13); the unit restarts after `seconds`.
   reboot(seconds: number): Promise<void>;
-  // `factory_reset_config` (devices design section 11.13); the unit restarts 7 s later.
+  // `factory_reset_config` (devices design section 12.13); the unit restarts 7 s later.
   factoryResetConfig(): Promise<void>;
-  // set_owner and set_config lora with this region inside one edit transaction (section 11.13 step 5).
+  // set_owner and set_config lora with this region inside one edit transaction (section 12.13 step 5).
   writeOwnerAndRegion(owner: { longName: string; shortName: string }, region: number): Promise<void>;
   // Waits for the restart the commit causes and docks again. Null when the port did not come back
   // before the deadline: the page then asks Staff to reconnect (a user gesture opens the chooser).
@@ -147,7 +147,7 @@ const serial = (): Serial | null =>
 export const isDockSupported = (): boolean =>
   serial() !== null && (typeof window === 'undefined' || window.isSecureContext !== false);
 
-// The granted ports are enumerated by the device connector's registry alone (devices design section 11.2):
+// The granted ports are enumerated by the device connector's registry alone (devices design section 12.2):
 // it lends a port to each docking, so this adapter never picks one itself.
 
 // The browser's own chooser; needs a user gesture (REQ-UBI-05). Only the connector's registry and the

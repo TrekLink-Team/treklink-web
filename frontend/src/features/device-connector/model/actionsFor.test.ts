@@ -4,8 +4,8 @@ import type { Connection } from './ConnectorRegistry';
 import type { CounterContext } from './connectorStore';
 import { FLASH_NOT_BUILT, actionsFor } from './actionsFor';
 
-// The table of devices design section 11.3, one row per case (REQ-EVT-32, REQ-ERR-20, REQ-ERR-21,
-// REQ-ERR-23, REQ-ERR-24).
+// The table of devices design section 12.3, one row per case (REQ-EVT-34, REQ-ERR-22, REQ-ERR-23,
+// REQ-ERR-25, REQ-ERR-26).
 
 const CAN = { register: true, operate: true };
 
@@ -52,7 +52,7 @@ const counter = (change: Partial<CounterContext> = {}): CounterContext => ({
 
 const kinds = (result: ReturnType<typeof actionsFor>) => result.actions.map((action) => action.kind);
 
-describe('actionsFor (devices design section 11.3)', () => {
+describe('actionsFor (devices design section 12.3)', () => {
   it('offers registration for an unknown unit, and only to a caller who may register', () => {
     expect(kinds(actionsFor(connection(null), null, CAN))).toEqual(['register']);
     expect(actionsFor(connection(null), null, { register: false, operate: false }).reason).toBe(
@@ -66,13 +66,13 @@ describe('actionsFor (devices design section 11.3)', () => {
     expect(result.actions[0]).toMatchObject({ rows: [{ assetTag: 'TL-0001' }] });
   });
 
-  it('names a variant mismatch and offers no swap (REQ-ERR-23)', () => {
+  it('names a variant mismatch and offers no swap (REQ-ERR-25)', () => {
     const result = actionsFor(connection({ hardwareVariant: { code: 'treklink-v2' } as never }), counter(), CAN);
     expect(kinds(result)).not.toContain('swap');
     expect(result.reason).toBe('TL-0051 is treklink-v2; RC-2026-0042 rents treklink-v3.');
   });
 
-  it('offers no swap when every reserved unit is provisioned (REQ-ERR-24)', () => {
+  it('offers no swap when every reserved unit is provisioned (REQ-ERR-26)', () => {
     const result = actionsFor(
       connection({}),
       counter({ rows: [{ deviceId: 'd-2', assetTag: 'TL-0002', nodeNum: 12, provisionedKeyVersion: 2 }] }),
@@ -92,7 +92,7 @@ describe('actionsFor (devices design section 11.3)', () => {
     expect(done.reason).toBe('Provisioned v2.');
   });
 
-  it('names another contract and a rented unit, with the link to their counter (REQ-ERR-20, REQ-ERR-21)', () => {
+  it('names another contract and a rented unit, with the link to their counter (REQ-ERR-22, REQ-ERR-23)', () => {
     const other = { id: 'c-40', code: 'RC-2026-0040', status: 'REQUESTED', organization: { id: 'o', code: 'ORG' }, provisionedKeyVersion: null };
     const reserved = actionsFor(connection({ status: 'RESERVED' }, other), counter(), CAN);
     expect(reserved.reason).toBe('TL-0051 is reserved to RC-2026-0040.');

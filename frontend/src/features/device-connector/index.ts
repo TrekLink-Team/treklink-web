@@ -1,4 +1,4 @@
-// Public surface of the device connector, the Staff device hub (devices design section 11).
+// Public surface of the device connector, the Staff device hub (devices design section 12).
 export { ConnectorButton } from './ui/ConnectorButton';
 export { ConnectorAside, ConnectorPanelBody } from './ui/ConnectorPanel';
 export { UnitImage } from './ui/UnitImage';

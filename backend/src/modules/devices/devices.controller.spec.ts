@@ -173,7 +173,7 @@ describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
     });
   });
 
-  it('audits the device hub factory reset as DOCKED with the docked node number (design §11.13)', async () => {
+  it('audits the device hub factory reset as DOCKED with the docked node number (design §12.13)', async () => {
     const dto = { keyRemoved: true, nodeDbCleared: true, ownerCleared: true, nodeNum: 2763113171 };
     await expect(controller.reset('d-1', dto, CALLER)).resolves.toEqual({
       id: 'd-1',

@@ -219,7 +219,7 @@
     transform: rotate(-45deg);
   }
   /* Docked at the counter: a pin with a double border, so shape and chip carry it, not colour alone
-     (devices design section 11.8). */
+     (devices design section 12.8). */
   .tl-marker--docked {
     background: rgb(var(--tl-marker-docked));
     border-style: double;

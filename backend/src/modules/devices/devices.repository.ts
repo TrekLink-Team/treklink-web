@@ -596,7 +596,7 @@ export class DevicesRepository {
   }
 
   // The units with these node numbers, retired ones included, for the device connector's recognition
-  // (devices api-design 30, design section 11.5).
+  // (devices api-design 30, design section 12.5).
   byNodeNums(
     nodeNums: readonly bigint[],
     client: Client = this.prisma,
