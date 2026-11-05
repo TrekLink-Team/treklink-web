@@ -28,6 +28,7 @@ import { StatusBadge } from '../shared/ui/Badge';
 import { ReportLossDialog } from '../features/report-loss/ReportLossDialog';
 import { DisposeDialog, IntakeDialog, ResetDialog } from '../widgets/DeviceActions/DeviceDialogs';
 import { deviceFailure, MSG29 } from '../widgets/DeviceActions/deviceFailure';
+import { StickyPageHeader } from '../shared/ui/PageChrome';
 import { RecordActionBar, type RecordAction } from '../shared/ui/RecordActionBar';
 import { useToast } from '../shared/ui/toastStore';
 import { useMediaQuery } from '../shared/lib/useMediaQuery';
@@ -298,16 +299,19 @@ export const DeviceDetailPage: React.FC = () => {
 
   return (
     <section aria-labelledby="device-title" className="flex flex-1 flex-col">
-      <Link to="/t/fleet" className={`${LINK} inline-flex min-h-6 items-center self-start`}>
-        Back to devices
-      </Link>
-      <div className="mt-3">
-        <PageTitle
-          id="device-title"
-          title={device.assetTag}
-          action={<StatusBadge entry={DEVICE_STATUS[device.status]} />}
-        />
-      </div>
+      {/* The back link and the title stay pinned together (ui standard §7). */}
+      <StickyPageHeader>
+        <Link to="/t/fleet" className={`${LINK} inline-flex min-h-6 items-center self-start`}>
+          Back to devices
+        </Link>
+        <div className="mt-3">
+          <PageTitle
+            id="device-title"
+            title={device.assetTag}
+            action={<StatusBadge entry={DEVICE_STATUS[device.status]} />}
+          />
+        </div>
+      </StickyPageHeader>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="flex flex-col gap-4">
