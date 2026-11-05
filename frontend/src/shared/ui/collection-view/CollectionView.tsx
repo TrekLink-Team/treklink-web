@@ -19,7 +19,6 @@ import { Button } from '../Button';
 import { cn } from '../cn';
 import { EmptyState } from '../EmptyState';
 import { Menu, type MenuItem } from '../Menu';
-import { useEdgeNode, useFocusClearOf, usePublishedHeight } from '../stickyEdges';
 import { ScrollHintOverlay } from '../ScrollHints';
 import { useScrollHints } from '../useScrollHints';
 import { useScrollStop } from '../scrollStop';
@@ -150,8 +149,6 @@ export interface CollectionViewProps<T> {
   error?: React.ReactNode;
   /** Pagination, under the items. */
   footer?: React.ReactNode;
-  /** The command bar's sticky offset; by default under the sticky page header. */
-  stickyTop?: string;
   /** Hides the command bar; by default it hides when there is nothing to filter, sort or switch. */
   hideCommandBar?: boolean;
   /** `hideWithPane` columns also leave when the list itself is narrower than 1100 px (§10.8). */
@@ -197,7 +194,6 @@ export function CollectionView<T>({
   loading,
   error,
   footer,
-  stickyTop,
   hideCommandBar,
   fitNarrow,
   resetKey,
@@ -232,7 +228,6 @@ export function CollectionView<T>({
   const { message, announce } = useLiveRegion();
   const [opener, setOpener] = useState<HTMLElement | null>(null);
   const lastFocus = useRef<{ id: string; index: number } | null>(null);
-  const [barNode, setBarNode] = useEdgeNode<HTMLDivElement>();
   const tableScroller = useRef<HTMLDivElement | null>(null);
   const tableHints = useScrollHints(tableScroller);
   // The item box is the scroll region on a fit page; with nothing focusable in it, it takes a tab
@@ -245,8 +240,6 @@ export function CollectionView<T>({
   const [itemBox, setItemBox] = useState<HTMLDivElement | null>(null);
   useScrollStop(tableNode, `${label}: table`);
   useScrollStop(itemBox, label);
-  usePublishedHeight(barNode, '--tl-collection-bar-h');
-  useFocusClearOf(barNode, 'top');
 
   // A list of one or two records with nothing to filter, sort or switch hides its command bar
   // (§9.3); its item actions stay, and with no bar there is nothing to select for.
@@ -1311,11 +1304,14 @@ export function CollectionView<T>({
         className,
       )}
     >
+      {/* The one command bar row sits above the items and is never sticky (chapter 06 §9.3, §11.1). On a
+          fit page it stays outside the item box, which is the scroll region, so it neither scrolls away
+          nor covers a row; inside a scrolling body it moves with its own list. A sticky bar with the
+          page-header offset floated over the rows of a list in a PageScrollBody (leader, 2026-11-06). */}
       {!barHidden && (
         <div
-          ref={setBarNode}
-          style={{ top: stickyTop ?? 'var(--tl-page-header-h, 0px)' }}
-          className="sticky z-raised rounded-panel border border-line bg-surface shadow-raise [@media(max-height:479.98px)]:static"
+          data-cv-bar=""
+          className="relative z-raised shrink-0 rounded-panel border border-line bg-surface shadow-raise"
         >
           <div
             role="group"

@@ -77,27 +77,25 @@ const list = (items: Row[] | undefined) => (
 );
 
 describe('sticky edges follow their element (review of treklink-web#349, 2.4.11)', () => {
-  it('publishes the height of a command bar that mounts once its list grows past two records', () => {
-    // One or two records hide the command bar (chapter 06 §9.3); it mounts when the list grows.
+  it('leaves the CollectionView command bar out: it is not sticky, so it publishes no height (W30)', () => {
+    // The bar sits above the items and is never sticky (chapter 06 §9.3, §11.1); a sticky bar with
+    // the page-header offset floated over the rows of a list inside a PageScrollBody.
     const { rerender } = render(list(ROWS.slice(0, 2)));
-    expect(screen.queryByRole('group', { name: 'Invoices: commands' })).toBeNull();
-    expect(published('--tl-collection-bar-h')).toBe('');
     rerender(list(ROWS));
     expect(screen.getByRole('group', { name: 'Invoices: commands' })).toBeTruthy();
-    expect(published('--tl-collection-bar-h')).toBe('52px');
+    expect(published('--tl-collection-bar-h')).toBe('');
   });
 
-  it('keeps focus clear of a command bar that mounted late', () => {
+  it('moves no focus for a CollectionView command bar (W30)', () => {
     const scrollIntoView = vi.fn();
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
-    const { rerender } = render(list(ROWS.slice(0, 2)));
-    rerender(list(ROWS));
+    render(list(ROWS));
     const bar = screen.getByRole('group', { name: 'Invoices: commands' }).parentElement!;
     vi.spyOn(bar, 'getBoundingClientRect').mockReturnValue({ top: 0, bottom: 60 } as DOMRect);
-    const covered = screen.getByRole('button', { name: 'Show details of b' });
-    vi.spyOn(covered, 'getBoundingClientRect').mockReturnValue({ top: 30, bottom: 70 } as DOMRect);
-    fireEvent.focusIn(covered);
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
+    const below = screen.getByRole('button', { name: 'Show details of b' });
+    vi.spyOn(below, 'getBoundingClientRect').mockReturnValue({ top: 30, bottom: 70 } as DOMRect);
+    fireEvent.focusIn(below);
+    expect(scrollIntoView).not.toHaveBeenCalled();
     delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView;
   });
 

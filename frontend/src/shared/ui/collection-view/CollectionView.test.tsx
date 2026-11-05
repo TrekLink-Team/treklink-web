@@ -635,6 +635,42 @@ const atWidth = (width: number) =>
     };
   });
 
+describe('command bar placement (chapter 06 §9.3, §11.1, W30)', () => {
+  const bar = () => screen.getByRole('group', { name: 'Units of CT-0042: commands' }).parentElement!;
+
+  it('is one row above the items and never sticky, with no page-header offset', () => {
+    renderView();
+    expect(bar().className).not.toMatch(/(^|\s)sticky(\s|$)/);
+    expect(bar().style.top).toBe('');
+    const table = screen.getByRole('table', { name: 'Units of CT-0042' });
+    expect(bar().compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('stays outside the scrolling item box on a fit page, in every view', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <div data-fit-page="">
+          <CollectionView<Unit>
+            label="Units of CT-0042"
+            items={UNITS}
+            itemId={(unit) => unit.id}
+            itemName={(unit) => unit.tag}
+            fields={FIELDS}
+            noun={{ one: 'unit', other: 'units' }}
+            search={{ label: 'Search units' }}
+            emptyState={{ title: 'None' }}
+          />
+        </div>
+      </MemoryRouter>,
+    );
+    const section = container.querySelector('[data-fit-page] > [data-cv]')!;
+    const tableBox = screen.getByRole('table').parentElement!;
+    expect(tableBox.contains(bar())).toBe(false);
+    expect(bar().parentElement).toBe(section);
+    expect(bar().className).toMatch(/shrink-0/);
+  });
+});
+
 describe('details pane placement (chapter 06 §9.8, §10.8)', () => {
   afterEach(() => vi.unstubAllGlobals());
 
