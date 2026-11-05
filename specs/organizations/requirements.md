@@ -61,7 +61,7 @@
 
 - **REQ-EVT-12**: WHEN TrekLink Staff or an Admin open a compliance case against an organization, the system SHALL record its type, evidence, linked contracts and loss cases, and the opener; WHEN they record an action, the system SHALL run it through the existing suspension or revocation and append a `ComplianceAction` row; WHEN they close it, the system SHALL record the outcome and the authority reference. [FR-ORG-08, FR-ORG-09, D-046]
 - **REQ-EVT-13**: WHEN `devices` marks an organization's channel key exposed, the system SHALL set `channelKeyExposedAt` and notify its Managers; WHEN Staff record a key rotation (`POST /api/organizations/:id/channel-key/rotate`), the system SHALL increase `channelKeyVersion` and clear `channelKeyExposedAt`. [FR-DEV-13, D-045]
-- **REQ-EVT-14** (proposal, D-095): WHEN TrekLink Staff or an Admin open the role permissions of an organization (`GET /api/organizations/:id/roles`), the system SHALL check that the organization exists and return the view that `auth` builds for it, read-only; an unknown organization is 404 `NOT_FOUND`. [FR-AUTH-06, FR-AUTH-10]
+- **REQ-EVT-14** (D-095, built in treklink-web#388): WHEN TrekLink Staff or an Admin open the role permissions of an organization (`GET /api/organizations/:id/roles`), the system SHALL check that the organization exists and return the view that `auth` builds for it, read-only; an unknown organization is 404 `NOT_FOUND`, and a Manager or an Operator is refused with 403 `FORBIDDEN` (a Manager reads its own organization on `GET /api/organization/roles`). [FR-AUTH-06, FR-AUTH-10]
 
 ### State-Driven
 

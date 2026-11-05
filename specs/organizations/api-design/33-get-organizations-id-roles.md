@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-The read-only view of the roles of one organization (D-095, specified in `auth` design section 9): the same body as `GET /api/organization/roles` (auth api-design 19), for the organization in the path. TrekLink Staff and Admin read any organization; a Manager reads its own, and another organization answers 404. It calls the read service of `auth`.
+The read-only view of the roles of one organization (D-095, specified in `auth` design section 9): the same body as `GET /api/organization/roles` (auth api-design 19), for the organization in the path. Only TrekLink Staff and Admin reach it; a Manager answers 403 here and reads its own organization on auth api-design 19. It calls the read service of `auth`.
 
 ## API Specification
 
@@ -134,14 +134,12 @@ flowchart TB
     E1["Return 404 NOT_FOUND"]
     D1 -->|yes| E1
     E1 --> X1((End))
-    P0["Answer 404 when the caller may not read this organization's roles"]
+    P0["Require that the organization exists"]
     D1 -->|no| P0
-    P1["Require that the organization exists"]
+    P1["Ask auth for the role view of that organization"]
     P0 --> P1
-    P2["Ask auth for the role view of that organization"]
-    P1 --> P2
     OK["Return 200"]
-    P2 --> OK
+    P1 --> OK
     OK --> Z((End))
 ```
 
@@ -156,7 +154,7 @@ sequenceDiagram
     participant DB as Postgres
     participant Auth as OrganizationRolePolicyService
     C->>Ctl: GET /api/organizations/:id/roles
-    Ctl->>Svc: view(id, ability)
+    Ctl->>Svc: view(id)
     Svc->>DB: SELECT organizations WHERE id
     Svc->>Auth: viewOf(organizationId)
     Svc-->>Ctl: result

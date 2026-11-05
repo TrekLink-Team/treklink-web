@@ -667,7 +667,7 @@ by organization registration (UC-01), so MF-01 continues from here with a signed
 
 ## 9. Per-organization role policy (proposal, D-095)
 
-> **Status**: Proposal of TanNB, 2026-11-02, for the ruling of the leader (D-095 rule 2). It changes D-057 and touches D-061. Nothing in this section is built, and `scripts/specs/catalog.py`, the seed and the schema stay as they are until the ruling. Requirements: REQ-UBI-10 to REQ-UBI-12, REQ-EVT-10 and REQ-EVT-11, REQ-STA-04, REQ-ERR-10 to REQ-ERR-12. Screen: `specs/frontend/ui-design/3-7-organization-roles-and-permissions.md`.
+> **Status**: Proposal of TanNB, 2026-11-02, ruled by the leader the same day (D-095). It changes D-057 and touches D-061. The migration `20261103120000_organization_role_policy`, the policy service and the Staff and Admin read `GET /api/organizations/:id/roles` (treklink-web#388) are built; the sections below still read as the proposal. Requirements: REQ-UBI-10 to REQ-UBI-12, REQ-EVT-10 and REQ-EVT-11, REQ-STA-04, REQ-ERR-10 to REQ-ERR-12. Screen: `specs/frontend/ui-design/3-7-organization-roles-and-permissions.md`.
 
 An Org Manager edits what the two organization roles of their own organization may do. TrekLink keeps control through a ceiling: no organization can give a role more than the `ORG_MANAGER` role holds in the data, which the Admin edits on screen 7.2.
 
