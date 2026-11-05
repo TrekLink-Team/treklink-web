@@ -424,7 +424,7 @@ export const CounterPage: React.FC<{
     return null;
   };
 
-  // The quick swap with hot provisioning (devices design sections 11.6 and 11.7): rentals api-design 30,
+  // The quick swap with hot provisioning (devices design sections 11.6 and 11.7): rentals api-design 32,
   // then the docked unit written and read back on the port the connector holds, then the record. A
   // failure after the exchange leaves it in place and the new row asks to dock again (REQ-ERR-19). A
   // refused exchange changes nothing and its message is returned for the swap dialog, which stays open

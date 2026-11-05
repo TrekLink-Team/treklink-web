@@ -3,8 +3,8 @@ import { HandoverService } from '../src/modules/rentals/handover.service';
 import { compileRentalFlow, RentalFlow } from './db-rental-flow';
 
 // The device connector over HTTP against Postgres (devices design section 11, devices api-design 30 to
-// 32, rentals api-design 30): recognition of a reserved unit with its contract, the dock session routes,
-// the quick swap with each refusal of rentals REQ-ERR-17, and organization accounts kept out
+// 32, rentals api-design 32): recognition of a reserved unit with its contract, the dock session routes,
+// the quick swap with each refusal of rentals REQ-ERR-18, and organization accounts kept out
 // (REQ-UBI-07). The whole application with real guards, policies and services. Run only through
 // test:db against a migrated disposable database.
 describe('device connector over HTTP against Postgres (devices design section 11)', () => {
@@ -164,7 +164,7 @@ describe('device connector over HTTP against Postgres (devices design section 11
   });
 
   it('30 (rentals): refuses a contract not APPROVED, a row already handed over and a unit not on the contract', async () => {
-    // A request is not approved yet; the contract state is checked before the row (REQ-ERR-17 order).
+    // A request is not approved yet; the contract state is checked before the row (REQ-ERR-18 order).
     const org = await flow.organization();
     const variantId = await flow.variant();
     const [heldId] = await flow.availableDevices(variantId, 5);

@@ -10,7 +10,7 @@ import { RentalsDeviceContracts } from './providers/device-contracts.provider';
 
 // The ports `rentals` provides to lower modules (platform design §2.1): CONTRACT_DIRECTORY and
 // CREDIT_BASIS (service credits, billing task 8.1) for `billing`, CUSTODY_RESOLVER for `devices`
-// (task 1.3) and DEVICE_CONTRACTS for the device connector (task 10.1). Global and exporting only the tokens, because neither `billing` nor `devices` can
+// (task 1.3) and DEVICE_CONTRACTS for the device connector (task 11.1). Global and exporting only the tokens, because neither `billing` nor `devices` can
 // import `rentals`. LOSS_CASE_LISTENERS is an array `devices` exports, so RentalsModule registers its
 // listener there instead.
 @Global()

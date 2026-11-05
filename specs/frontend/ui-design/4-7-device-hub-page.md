@@ -42,7 +42,7 @@ registry (screen 4.6): it opens no port of its own.
 |---|---|---|---|---|
 | Connect a unit | always; disabled without Web Serial | none; the browser's port chooser | the chooser | the unit appears and is selected |
 | Provision | devices design §11.3 offers it (counter context only); otherwise disabled with "Provision from the counter of its contract." and Open its counter for a `RESERVED` unit | rentals 21, 09 | as screen 4.6 | as screen 4.6 |
-| Quick swap | §11.3 offers it; otherwise disabled with "Quick swap runs from a contract's counter." | rentals 30 | as screen 4.6 | as screen 4.6 |
+| Quick swap | §11.3 offers it; otherwise disabled with "Quick swap runs from a contract's counter." | rentals 32 | as screen 4.6 | as screen 4.6 |
 | Configure uplink | §11.3 offers it; otherwise disabled with the reason | none on the server | the dialog of screen 4.2 | "{assetTag} is configured as an uplink to {broker}." |
 | Update firmware | task 8.3 registered its panel; otherwise disabled with "Firmware releases are not published yet" | devices 28, 29 | as screen 4.3 | as screen 4.6 |
 | Reboot | the unit is Ready and no write runs | none on the server | none | toast "{name} restarted." |
