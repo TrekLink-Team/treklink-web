@@ -14,6 +14,7 @@ import {
 } from '../entities/rented-device/api';
 import { ReportLossDialog } from '../features/report-loss/ReportLossDialog';
 import { formatDateTime } from '../shared/lib/format';
+import { useMediaQuery } from '../shared/lib/useMediaQuery';
 import {
   Badge,
   Button,
@@ -55,7 +56,10 @@ const columns: Column<RentedDevice>[] = [
     header: 'Asset tag',
     cell: (row) => (
       <span className="flex flex-wrap items-center gap-1">
-        {row.assetTag}
+        <span className="whitespace-nowrap">{row.assetTag}</span>
+        <span className="basis-full text-xs text-ink-muted [@media(min-width:1440px)]:hidden">
+          {row.variantCode}
+        </span>
         {row.openFaultReportId && <Badge tone="waiting">Fault reported</Badge>}
         {row.openLossCase && <Badge tone="critical">{row.openLossCase.code}</Badge>}
       </span>
@@ -76,7 +80,18 @@ const columns: Column<RentedDevice>[] = [
       </div>
     ),
   },
-  { key: 'state', header: 'State', cell: (row) => STATES[row.state] },
+  {
+    key: 'state',
+    header: 'State',
+    cell: (row) => (
+      <>
+        {STATES[row.state]}
+        <span className="block text-xs text-ink-muted [@media(min-width:1440px)]:hidden">
+          {row.batteryPct === null ? 'Battery unknown' : `${row.batteryPct}% battery`}
+        </span>
+      </>
+    ),
+  },
   {
     key: 'battery',
     header: 'Battery',
@@ -98,6 +113,7 @@ type ConsoleDialog =
   | { kind: 'fault' | 'history' | 'loss' | 'holder' | 'notice'; device: RentedDevice };
 
 export const RentedDevicesPage: React.FC = () => {
+  const wideTable = useMediaQuery('(min-width: 1440px)', true);
   const queryClient = useQueryClient();
   const toast = useToast((state) => state.show);
   const [filters, setFilters] = useState<RentedDeviceFilters>({ pageNumber: 1 });
@@ -154,53 +170,60 @@ export const RentedDevicesPage: React.FC = () => {
       label: 'Fault history',
       onSelect: () => setDialog({ kind: 'history', device: row }),
     },
-    ...(row.group
-      ? [
-          {
-            key: 'unassign',
-            label: 'Remove from group',
-            disabled: unassign.isPending,
-            onSelect: () => unassign.mutate(row),
-          },
-        ]
-      : []),
-    ...(!row.openFaultReportId && !row.openLossCase
-      ? [
-          {
-            key: 'fault',
-            label: 'Report fault',
-            onSelect: () => setDialog({ kind: 'fault', device: row }),
-          },
-        ]
-      : []),
-    ...(row.contract.status !== 'CLOSED'
-      ? [
-          {
-            key: 'holder',
-            label: 'Label holder',
-            onSelect: () => setDialog({ kind: 'holder', device: row }),
-          },
-          ...(!row.openLossCase
-            ? [
-                {
-                  key: 'loss',
-                  label: 'Report lost',
-                  destructive: true,
-                  onSelect: () => setDialog({ kind: 'loss', device: row }),
-                },
-              ]
-            : []),
-        ]
-      : []),
-    ...(row.contract.status === 'ACTIVE' && row.contract.planType === 'MONTHLY'
-      ? [
-          {
-            key: 'notice',
-            label: 'Give notice',
-            onSelect: () => setDialog({ kind: 'notice', device: row }),
-          },
-        ]
-      : []),
+    {
+      key: 'unassign',
+      label: 'Remove from group',
+      disabled: !row.group || unassign.isPending,
+      disabledReason: !row.group
+        ? 'This device is not assigned to a group.'
+        : unassign.isPending
+          ? 'A group change is being saved.'
+          : undefined,
+      onSelect: () => unassign.mutate(row),
+    },
+    {
+      key: 'fault',
+      label: 'Report fault',
+      disabled: !!row.openFaultReportId || !!row.openLossCase,
+      disabledReason: row.openFaultReportId
+        ? 'A fault is already reported for this device.'
+        : row.openLossCase
+          ? 'This device has an open loss case.'
+          : undefined,
+      onSelect: () => setDialog({ kind: 'fault', device: row }),
+    },
+    {
+      key: 'holder',
+      label: 'Label holder',
+      disabled: row.contract.status === 'CLOSED',
+      disabledReason: row.contract.status === 'CLOSED' ? 'This contract is closed.' : undefined,
+      onSelect: () => setDialog({ kind: 'holder', device: row }),
+    },
+    {
+      key: 'loss',
+      label: 'Report lost',
+      disabled: row.contract.status === 'CLOSED' || !!row.openLossCase,
+      disabledReason:
+        row.contract.status === 'CLOSED'
+          ? 'This contract is closed.'
+          : row.openLossCase
+            ? 'This device already has an open loss case.'
+            : undefined,
+      destructive: true,
+      onSelect: () => setDialog({ kind: 'loss', device: row }),
+    },
+    {
+      key: 'notice',
+      label: 'Give notice',
+      disabled: row.contract.status !== 'ACTIVE' || row.contract.planType !== 'MONTHLY',
+      disabledReason:
+        row.contract.planType !== 'MONTHLY'
+          ? 'Notice is only available for a monthly contract.'
+          : row.contract.status !== 'ACTIVE'
+            ? 'Notice is only available while the contract is Active.'
+            : undefined,
+      onSelect: () => setDialog({ kind: 'notice', device: row }),
+    },
   ];
   return (
     <section
@@ -274,7 +297,11 @@ export const RentedDevicesPage: React.FC = () => {
           <DataTable<RentedDevice>
             className="relative flex min-h-0 flex-1 flex-col [&>div.overflow-auto]:min-h-0 [&>div.overflow-auto]:flex-1 [@media(max-height:479.98px)]:flex-none"
             caption="Rented devices"
-            columns={columns}
+            columns={
+              wideTable
+                ? columns
+                : columns.filter(({ key }) => key !== 'variant' && key !== 'battery')
+            }
             rows={devices.data?.items}
             loading={devices.isPending}
             error={
