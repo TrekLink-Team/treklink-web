@@ -19,11 +19,11 @@ export const EnvironmentBadge: React.FC<{ className?: string }> = ({ className }
   return (
     <span
       className={cn(
-        'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-badge border border-dashed border-status-waiting-fg px-2 text-caption font-extrabold uppercase tracking-wider text-status-waiting-fg',
+        'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-badge border border-dashed border-status-waiting-fg px-1.5 text-caption sm:px-2 font-extrabold uppercase tracking-wider text-status-waiting-fg',
         className,
       )}
     >
-      <FlaskConical aria-hidden="true" className="h-3.5 w-3.5" />
+      <FlaskConical aria-hidden="true" className="hidden h-3.5 w-3.5 sm:block" />
       <span className="md:hidden">{label.short}</span>
       <span className="hidden md:inline">{label.long}</span>
     </span>

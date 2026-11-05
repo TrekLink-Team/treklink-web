@@ -23,7 +23,7 @@ export const AppHeader: React.FC<{ user: SessionUser; home: string }> = ({ user,
   const workspace = workspaceOf(user);
 
   return (
-    <header className="tl-glass relative z-header flex h-header shrink-0 items-center gap-1 rounded-none border-x-0 border-t-0 px-2 sm:gap-2 sm:px-3">
+    <header className="tl-glass relative z-header flex h-header shrink-0 items-center gap-1 rounded-none border-x-0 border-t-0 px-1 sm:gap-2 sm:px-3">
       <IconButton label="Open navigation" icon={<Menu />} size="lg" className="lg:hidden" onClick={() => setDrawer(true)} />
       <IconButton
         label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
@@ -38,13 +38,14 @@ export const AppHeader: React.FC<{ user: SessionUser; home: string }> = ({ user,
       <span aria-hidden="true" className="mx-1 hidden h-6 w-px bg-line md:block" />
       {/* From 1280 px the workspace keeps its width and the page search gives way, so an organization
           reads in full ("TrekLink Demo Tours Co., Ltd.", not "TrekLink ..."); narrower, only its code
-          shows, on one line, and the title keeps the name (W15 panel walk). */}
-      <p className="flex items-baseline gap-1.5 px-1 text-body-sm xl:shrink-0" title={workspace.name}>
+          shows, on one line, and the title keeps the name (W15 panel walk). Below 640 px neither shows,
+          so the header fits 320 px without cutting the account menu (W22 walk, 1.4.10). */}
+      <p className="hidden items-baseline gap-1.5 px-1 text-body-sm sm:flex xl:shrink-0" title={workspace.name}>
         <span className="sr-only">Workspace: </span>
         <span className="hidden max-w-[14rem] truncate font-bold text-ink xl:inline">{workspace.name}</span>
         {workspace.code && <span className="hidden whitespace-nowrap font-mono text-caption font-semibold text-ink-muted sm:inline">{workspace.code}</span>}
       </p>
-      <EnvironmentBadge className="ml-1" />
+      <EnvironmentBadge className="sm:ml-1" />
 
       <button
         type="button"
