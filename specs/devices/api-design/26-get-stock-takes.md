@@ -38,7 +38,9 @@ No body.
         "id": "st-1",
         "takenBy": "Tran Thi B",
         "createdAt": "2026-10-20T03:15:00.000Z",
-        "unconfirmedCount": 2
+        "scannedCount": 13,
+        "unconfirmedCount": 2,
+        "unknownCount": 1
       }
     ],
     "pageNumber": 1,

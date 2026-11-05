@@ -84,6 +84,8 @@
 - **REQ-EVT-26**: WHEN `rentals` records provisioning with a docked `nodeNum`, the system SHALL compare it with the device's `nodeNum` before storing the key version. [FR-DEV-05, D-080]
 - **REQ-EVT-27**: WHEN Staff configure a docked unit as a Stage A uplink and its `nodeNum` equals the device's, the counter SHALL write, in one edit transaction, Wi-Fi on with the typed network, the MQTT module with the typed broker and the D-005 transport values (root `treklink`, JSON on, encryption off), and uplink on the primary channel, keep every other field as read, and read the values back after the unit restarts. [D-005, D-080, D-093]
 - **REQ-EVT-28**: WHEN Staff flash a unit from an `OPEN` `FIRMWARE_UPDATE` record, the counter SHALL offer only the releases that carry the device's variant, write the chosen image at the manifest offset after the backend has checked its SHA-256, verify every written region, and on a verified write fill the record's firmware version with the release version for completion. [FR-DEV-21, D-093]
+- **REQ-EVT-29**: WHEN an Admin creates, edits, deactivates or deletes a hardware variant, the system SHALL apply an edit or a deactivation only as a compare-and-set on the variant's `version`, and SHALL record one audit entry (`hardwareVariant.create`, `.update` or `.delete`) with the values before and after, after commit. [FR-DEV-04, W20A 2026-11-05]
+- **REQ-EVT-30**: WHEN Staff run a stock-take, the system SHALL compare the scanned tags, trimmed and upper-cased, with every device not `RETIRED` or `DISPOSED`: a scanned unit counts as confirmed by scan whatever its status, a `RENTED` unit not scanned counts as heard when its `lastSeenAt` is within `devices.stockTakeSeenHours`, every other unit is unconfirmed with its status, and a scanned tag matching no such unit is unknown; the run SHALL be audited (`stockTake.run`) after commit. [FR-DEV-10, REQ-EVT-12, W20A 2026-11-05]
 
 ### State-Driven
 
@@ -113,6 +115,7 @@
 - **REQ-ERR-16**: IF the chip of the unit on the port does not match the chip of the device's variant in the release manifest, or the node number derived from its MAC address differs from the device's `nodeNum`, THEN the counter SHALL write nothing and name what differs.
 - **REQ-ERR-17**: IF the image fails its SHA-256 check (502 `FIRMWARE_IMAGE_INVALID`), the write fails, or a written region does not verify, THEN the counter SHALL record nothing, keep the record `OPEN` and ask Staff to flash again; a v2 unit is flashed again with its power button held.
 - **REQ-ERR-18**: IF an Admin saves a variant whose image URL is longer than 500 characters, is neither an `https://` URL with a host nor an app path `/variants/<file>` (no `/` or `..` in the file name, an image extension), or whose spec sheet has an unknown key or a value that is not a string, empty or whitespace only, or longer than 80 characters after trimming, THEN 400 `VARIANT_MEDIA_INVALID` and nothing is saved.
+- **REQ-ERR-19**: IF an Admin edits a variant with an `expectedVersion` other than its stored `version`, THEN 409 `STALE_VERSION` and nothing is saved; IF the remaining value schedule is empty, does not start at month 0, has months that do not increase or values that increase with age, THEN 400 `SCHEDULE_INVALID`. [FR-DEV-04, FR-BILL-05]
 
 ---
 
@@ -155,6 +158,8 @@ The `devices` section of the [Configuration Matrix](../platform/configuration-ma
 - **AC-19**: On an `OPEN` `FIRMWARE_UPDATE` record of a v3 unit, Update with release `2.7.26-treklink.2` writes the app image at `0x10000`, the unit keeps its owner names and channel, and the record offers Complete with that version; completing it sets the device's firmware version (AC-12).
 - **AC-20**: A v4 image offered to a unit whose chip reads ESP32 writes nothing; a v2 unit whose MAC-derived node number is not the record's device writes nothing; an image whose SHA-256 differs from the manifest answers 502 `FIRMWARE_IMAGE_INVALID` and nothing is written.
 - **AC-21**: Saving v4 with `imageUrl` `/variants/treklink-v4.jpg` and `specSheet` `{"mcu": "ESP32-S3"}` shows the photo and the line "MCU ESP32-S3" on its device cards; `imageUrl` `http://example.com/a.jpg`, `/variants/../x.jpg` or `//host/a.jpg`, the key `colour` or the value `"  "` answers 400 `VARIANT_MEDIA_INVALID`.
+- **AC-22**: An Admin creates `treklink-v5`, edits its name with the version it read, and a second edit with the old version answers 409 `STALE_VERSION`; deleting it succeeds while no unit is registered, and changing `hasGps` on v3, which has units, answers 409 `VARIANT_IN_USE`.
+- **AC-23**: A stock-take scanning `tl-0001` and `TL-9999` counts TL-0001 confirmed by scan, lists `TL-9999` as unknown, lists every other AVAILABLE unit as unconfirmed with its status, and appears first in the past stock-takes with its unconfirmed count.
 
 ---
 

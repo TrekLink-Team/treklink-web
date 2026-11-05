@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Edits a variant's name, baseline, schedule, service plan or active flag. Sensor flags are fixed once devices exist, because past intake checks depend on them. A new interval applies from each device's next completed service; a new baseline makes the weekly scan flag every device on an older firmware (D-047).
+Edits a variant's name, baseline, schedule, service plan or active flag. Sensor flags are fixed once devices exist, because past intake checks depend on them. A new interval applies from each device's next completed service; a new baseline makes the weekly scan flag every device on an older firmware (D-047). The code is fixed after create. The edit is a compare-and-set on `version` (design section 11).
 
 ## API Specification
 
@@ -27,7 +27,8 @@ Edits a variant's name, baseline, schedule, service plan or active flag. Sensor 
 
 ```json
 {
-  "isActive": false
+  "isActive": false,
+  "expectedVersion": 3
 }
 ```
 
@@ -41,6 +42,10 @@ Edits a variant's name, baseline, schedule, service plan or active flag. Sensor 
 | isActive | Offer in new requests | bool | no | `false` |
 | imageUrl | Photo URL or app path under `/variants/`, or null to clear (design §10) | string | no | `/variants/treklink-v3.jpg` |
 | specSheet | Spec sheet, replaces the stored one; keys from design §10 only | object | no | `{"mcu": "ESP32"}` |
+| hasGps | Sensor flag; refused while units are registered | bool | no | `true` |
+| hasMotionSensor | Sensor flag; refused while units are registered | bool | no | `false` |
+| mqttCapable | Sensor flag; refused while units are registered | bool | no | `true` |
+| expectedVersion | Variant version the caller saw | int | yes | `3` |
 
 ## Response sample
 
@@ -82,7 +87,8 @@ Edits a variant's name, baseline, schedule, service plan or active flag. Sensor 
       "localAlarm": "LED blinks"
     },
     "isActive": false,
-    "deviceCount": 18
+    "deviceCount": 18,
+    "version": 4
   },
   "isSuccess": true,
   "statusCode": 200,
@@ -183,6 +189,23 @@ Edits a variant's name, baseline, schedule, service plan or active flag. Sensor 
 </td>
         </tr>
         <tr>
+            <td>409</td>
+            <td>Another user changed the record first (expectedVersion differs) (<code>STALE_VERSION</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "STALE_VERSION"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "This was changed by someone else. Reload and try again."
+}
+```
+</td>
+        </tr>
+        <tr>
             <td>400</td>
             <td>The image URL is not https or `/variants/...`, or a spec key is unknown or too long (<code>VARIANT_MEDIA_INVALID</code>)</td>
 <td>
@@ -195,6 +218,40 @@ Edits a variant's name, baseline, schedule, service plan or active flag. Sensor 
   "isSuccess": false,
   "statusCode": 400,
   "message": "Check the image link and the spec sheet entries."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>400</td>
+            <td>The schedule does not start at 0 months or is not descending (<code>SCHEDULE_INVALID</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "SCHEDULE_INVALID"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "remainingValueSchedule must start at 0 months and never increase."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>400</td>
+            <td>An interval is set without a checklist (<code>CHECKLIST_REQUIRED</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "CHECKLIST_REQUIRED"
+  },
+  "isSuccess": false,
+  "statusCode": 400,
+  "message": "Add at least one service checklist item."
 }
 ```
 </td>
@@ -224,17 +281,34 @@ flowchart TB
     E3["Return 409 VARIANT_IN_USE"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"The image URL is not https or `/variants/...`, or a spec key is unknown or too long?"}
+    D4{"Another user changed the record first (expectedVersion differs)?"}
     D3 -->|no| D4
-    E4["Return 400 VARIANT_MEDIA_INVALID"]
+    E4["Return 409 STALE_VERSION"]
     D4 -->|yes| E4
     E4 --> X4((End))
+    D5{"The image URL is not https or `/variants/...`, or a spec key is unknown or too long?"}
+    D4 -->|no| D5
+    E5["Return 400 VARIANT_MEDIA_INVALID"]
+    D5 -->|yes| E5
+    E5 --> X5((End))
+    D6{"The schedule does not start at 0 months or is not descending?"}
+    D5 -->|no| D6
+    E6["Return 400 SCHEDULE_INVALID"]
+    D6 -->|yes| E6
+    E6 --> X6((End))
+    D7{"An interval is set without a checklist?"}
+    D6 -->|no| D7
+    E7["Return 400 CHECKLIST_REQUIRED"]
+    D7 -->|yes| E7
+    E7 --> X7((End))
     P0["Validate"]
-    D4 -->|no| P0
-    P1["Update"]
+    D7 -->|no| P0
+    P1["Compare and set on version"]
     P0 --> P1
+    P2["Audit hardwareVariant.update after commit"]
+    P1 --> P2
     OK["Return 200"]
-    P1 --> OK
+    P2 --> OK
     OK --> Z((End))
 ```
 

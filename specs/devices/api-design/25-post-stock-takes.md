@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Compares scanned asset tags with the fleet: in-stock units confirmed by scan, rented units confirmed by a packet within `devices.stockTakeSeenHours`, and every unit confirmed by neither (FR-DEV-10). The run and its result are stored.
+Compares scanned asset tags with the fleet: in-stock units confirmed by scan, rented units confirmed by a packet within `devices.stockTakeSeenHours`, and every unit confirmed by neither (FR-DEV-10). Tags are trimmed and upper-cased; a scanned unit counts as confirmed whatever its status; RETIRED and DISPOSED units are left out (design section 11). The run and its result are stored and audited.
 
 ## API Specification
 
@@ -39,14 +39,19 @@ Compares scanned asset tags with the fleet: in-stock units confirmed by scan, re
 {
   "result": {
     "id": "st-1",
+    "createdAt": "2026-10-20T03:15:00.000Z",
+    "scannedCount": 13,
     "inStockConfirmed": 12,
     "rentedSeen": 20,
     "unconfirmed": [
       {
+        "id": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
         "assetTag": "TL-0031",
-        "status": "AVAILABLE"
+        "status": "AVAILABLE",
+        "lastSeenAt": null
       },
       {
+        "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
         "assetTag": "TL-0040",
         "status": "RENTED",
         "lastSeenAt": "2026-10-17T08:00:00Z"
@@ -141,8 +146,10 @@ flowchart TB
     P0 --> P1
     P2["Store the run"]
     P1 --> P2
+    P3["Audit stockTake.run after commit"]
+    P2 --> P3
     OK["Return 201"]
-    P2 --> OK
+    P3 --> OK
     OK --> Z((End))
 ```
 
