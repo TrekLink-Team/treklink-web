@@ -23,6 +23,7 @@ import { useConnector } from '../model/useConnector';
 import { UnitImage } from './UnitImage';
 import { ConnectorList } from './ConnectorList';
 import { STATE_TEXT, unitName } from '../model/text';
+import { useFlashAvailability } from '../model/useFlashAvailability';
 
 // The device connector panel, the Staff device hub (devices design section 12.2, screen 4.6): the rows of
 // the connected units through the shared CollectionView (ConnectorList), and the device view of one unit,
@@ -312,9 +313,10 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
     }
   }, [snapshot.connections]);
 
+  const flashUnavailable = useFlashAvailability(staff && flashPanel !== null);
   const can = useMemo(
-    () => ({ register: staff, operate: staff, flash: flashPanel !== null }),
-    [staff, flashPanel],
+    () => ({ register: staff, operate: staff, flash: flashPanel !== null, flashUnavailable }),
+    [staff, flashPanel, flashUnavailable],
   );
   const actionsOf = useCallback(
     (connection: Connection) => actionsFor(connection, context, can),
@@ -340,10 +342,12 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
   };
 
   const viewed = viewing === null ? undefined : snapshot.connections.find((connection) => connection.id === viewing);
-  const missing =
-    focus?.assetTag && !snapshot.connections.some((connection) => connection.unit?.nodeNum === focus.nodeNum)
-      ? focus.assetTag
-      : null;
+  // An entry point names its unit by node number, or by asset tag alone (the maintenance record, task 8.3).
+  const matchesFocus = (connection: Connection) =>
+    focus?.nodeNum != null
+      ? connection.unit?.nodeNum === focus.nodeNum
+      : connection.recognized?.device?.assetTag === focus?.assetTag;
+  const missing = focus?.assetTag && !snapshot.connections.some(matchesFocus) ? focus.assetTag : null;
   // Configure uplink from the device page opens the hub on its unit (REQ-EVT-41, REQ-EVT-42): once that
   // unit is connected and recognized the dialog opens here; until then the panel asks to connect it.
   const focusedUplink =
@@ -361,9 +365,23 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
     setUplink(null);
     if (focus?.action === 'uplink') clearFocus();
   };
-  const flashDevice = flashing?.recognized?.device;
+  // Update firmware from the hub page or a maintenance record opens the flash panel on its unit once that
+  // unit is connected, recognized and allowed to flash (REQ-EVT-41, task 8.3).
+  const focusedFlash =
+    focus?.action === 'flash'
+      ? snapshot.connections.find(
+          (connection) =>
+            matchesFocus(connection) &&
+            connection.state === 'ready' &&
+            actionsFor(connection, context, can).actions.some(
+              (action) => action.kind === 'flash' && action.disabledReason === null,
+            ),
+        )
+      : undefined;
+  const flashConnection = flashing ?? focusedFlash ?? null;
+  const flashDevice = flashConnection?.recognized?.device;
   // Stable props for the flash panel of task 8.3, so its effects run once per unit.
-  const flashingId = flashing?.id ?? null;
+  const flashingId = flashConnection?.id ?? null;
   const flashRecord = flashDevice?.openMaintenance?.id ?? null;
   const flashProps = useMemo(
     () =>
@@ -473,7 +491,16 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
         />
       )}
       {flashPanel && flashProps && (
-        <FlashSlot panel={flashPanel} props={{ ...flashProps, onClose: () => setFlashing(null) }} />
+        <FlashSlot
+          panel={flashPanel}
+          props={{
+            ...flashProps,
+            onClose: () => {
+              setFlashing(null);
+              if (focus?.action === 'flash') clearFocus();
+            },
+          }}
+        />
       )}
     </div>
   );

@@ -10,6 +10,8 @@ import {
   useDockPresence,
   useStartConnector,
 } from '../../features/device-connector';
+import { FlashFirmwarePanel } from '../../features/flash-firmware';
+import type { FlashPanel } from '../../features/device-connector';
 import { isFullBleed, visibleNav } from '../../shared/config/navigation';
 import { cn } from '../../shared/ui/cn';
 import { Drawer } from '../../shared/ui/Drawer';
@@ -45,6 +47,9 @@ interface AppShellProps {
  * plus drawer), desktop from 1024 px (sidebar, collapsible to the rail). The Info pane docks from
  * 1280 px and opens as a sheet below that.
  */
+// The hub's flash panel slot takes the panel's own props (devices design section 11.7, task 8.3).
+const HubFlashPanel: FlashPanel = (props) => <FlashFirmwarePanel {...props} />;
+
 export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children }) => {
   const { pathname } = useLocation();
   // The Demo control entry shows while the backend's demo controls are on (D-088) or, for an Admin, while
@@ -71,6 +76,13 @@ export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children
   const staff = user.accountType === 'TREKLINK';
   useStartConnector(staff);
   useDockPresence(staff);
+  // The firmware flash panel (devices task 8.3) plugs into the hub's Update firmware (REQ-EVT-41).
+  const registerFlashPanel = useConnectorStore((state) => state.registerFlashPanel);
+  useEffect(() => {
+    if (!staff) return undefined;
+    registerFlashPanel(HubFlashPanel);
+    return () => registerFlashPanel(null);
+  }, [staff, registerFlashPanel]);
   const connectorOpen = useConnectorStore((state) => state.open) && staff;
   const setConnectorOpen = useConnectorStore((state) => state.setOpen);
   const connectorPushed = useMediaQuery('(min-width: 1100px)') && !fullBleed;

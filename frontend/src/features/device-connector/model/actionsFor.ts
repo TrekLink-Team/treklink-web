@@ -28,7 +28,14 @@ export const FLASH_NOT_BUILT = 'Firmware releases are not published yet';
 export const actionsFor = (
   connection: Connection,
   context: ConnectorContext | null,
-  can: { register: boolean; operate: boolean; flash?: boolean },
+  can: {
+    register: boolean;
+    operate: boolean;
+    flash?: boolean;
+    // Why the variant cannot be flashed now: no release carries it yet, or the releases are still read
+    // (devices task 8.3, W32). Null when a release carries it.
+    flashUnavailable?: (variantCode: string) => string | null;
+  },
 ): UnitActions => {
   if (connection.state !== 'ready' || !connection.unit) return NONE;
   const recognized = connection.recognized;
@@ -99,7 +106,10 @@ export const actionsFor = (
       if (device.openMaintenance?.reason === 'FIRMWARE_UPDATE' && device.openMaintenance.status === 'OPEN') {
         actions.push({
           kind: 'flash',
-          disabledReason: can.operate && can.flash ? null : FLASH_NOT_BUILT,
+          disabledReason:
+            can.operate && can.flash
+              ? (can.flashUnavailable?.(device.hardwareVariant.code) ?? null)
+              : FLASH_NOT_BUILT,
         });
       }
       if (uplinkAllowed) actions.push({ kind: 'uplink' });

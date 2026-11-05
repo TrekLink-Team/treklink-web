@@ -21,6 +21,14 @@ vi.mock('../../../entities/device/api', () => ({
   recordReset,
   deviceKeys: { device: (id: string) => ['device', id] },
 }));
+// The firmware releases of api-design 28 (task 8.3): one release carries treklink-v3 unless a test empties it.
+const firmware = vi.hoisted(() => ({
+  releases: [{ version: '2.7.26-treklink.2', publishedAt: '2026-10-20T03:15:00Z', isBaseline: true, variants: [{ variantCode: 'treklink-v3', chip: 'ESP32', app: { offset: 65536, sizeBytes: 8 }, factory: { offset: 0, sizeBytes: 8 } }] }] as unknown[],
+}));
+vi.mock('../../../entities/firmware/api', () => ({
+  NO_RELEASE_TEXT: 'No firmware release is published yet.',
+  useFirmwareReleases: () => ({ data: firmware.releases, error: null, isLoading: false }),
+}));
 vi.mock('../../../entities/contract/api', () => ({ issueChannelKey: vi.fn(), exchangeDevice: vi.fn() }));
 
 // The device hub page of screen 4.7 (devices design section 12.13) over fake units on fake Web Serial

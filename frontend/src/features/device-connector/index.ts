@@ -4,7 +4,13 @@ export { ConnectorAside, ConnectorPanelBody } from './ui/ConnectorPanel';
 export { UnitImage } from './ui/UnitImage';
 export { DeviceHub } from './ui/DeviceHub';
 export { renderPath } from './model/text';
-export { useConnectorStore, type ConnectorContext, type CounterRow } from './model/connectorStore';
+export {
+  useConnectorStore,
+  type ConnectorContext,
+  type CounterRow,
+  type FlashPanel,
+  type FlashPanelProps,
+} from './model/connectorStore';
 export {
   openConnector,
   useConnector,

@@ -1084,14 +1084,17 @@ flash outside a record is not offered, so a unit on a contract is never flashed 
 3. The page connects through `esptool-js` (`ESPLoader.main("default_reset")`). The library picks the reset
    from the port: the USB Serial/JTAG reset on the ESP32-S3 native USB (v2, v4), the classic DTR and RTS reset
    through a USB to UART bridge (v3) (`lib/esploader.js:534-540`). For v2 it sets `baudrate` and `romBaudrate`
-   both to 115200, which skips the port reopen (`lib/types/loaderOptions.d.ts:29-36`).
+   both to 115200, which skips the port reopen (`lib/types/loaderOptions.d.ts:29-36`). Other units run at
+   460800 baud with the ROM rate left to the library (spec silent; chosen 2026-11-06 in task 8.3, esptool's
+   upload default; to be confirmed on the bench).
 4. Two checks before any write (REQ-ERR-16): the chip must match the manifest's `chip` for the variant, and
    the unit must be this device. The firmware derives the node number from the MAC address, bytes 2 to 5
    (`treklink-firmware` `src/mesh/NodeDB.cpp:1160`), so the page reads the MAC (`readMac`) and compares the
    derived number with the device's `nodeNum`. A unit whose node number was re-picked after a collision
    (`NodeDB.cpp:1162-1171`) fails this check and is flashed on the bench instead. v2 and v4 are both ESP32-S3,
    so the chip alone cannot tell them apart; the node number does.
-5. It fetches the image (api-design 29, which also returns the image's MD5), writes it compressed at the
+5. It fetches the image (api-design 29, which also returns the image's MD5, taken over the image padded to 4
+   bytes with `0xFF` as `esptool-js` pads it before hashing, `lib/esploader.js:1596`), writes it compressed at the
    manifest offset, and passes `calculateMD5Hash` returning that MD5, so `esptool-js` compares each written
    region with the chip's `flashMd5sum` (`lib/types/flashOptions.d.ts:46-49`, `lib/esploader.d.ts:396`) with no
    MD5 library in the browser. `flashMode`, `flashFreq` and `flashSize` stay `"keep"`: otherwise the library rewrites the
@@ -1099,7 +1102,10 @@ flash outside a record is not offered, so a unit on a contract is never flashed 
    install would fail its own verification. Then it resets the unit; a v2 unit turns off at the reset unless its power
    button is still held.
 6. On a verified write the panel fills the record's firmware version with the release version and opens
-   Complete (devices api-design 14); Staff complete the record as today. A failed or unverified write
+   Complete (devices api-design 14); Staff complete the record as today. Built (2026-11-06, task 8.3): the
+   panel runs in the device hub (§11.7), so Complete the record goes to `/t/maintenance` with the record id
+   and the release version in the navigation state, and the maintenance page opens Complete with the version
+   filled. The record's Update firmware opens the hub on its unit (REQ-EVT-39). A failed or unverified write
    records nothing and keeps the record `OPEN` (REQ-ERR-17).
 7. When docking is available (§8), the page also reads the unit back after the reset and shows the
    firmware version the unit reports beside the release version.
