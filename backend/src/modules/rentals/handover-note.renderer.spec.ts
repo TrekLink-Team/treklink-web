@@ -232,6 +232,31 @@ describe('renderHandoverNote (rentals task 2.4, design §4.1)', () => {
     expect(text).not.toContain('MC-2026-017');
   });
 
+  it("signs Party A's box electronically with the Staff name and the signing time", async () => {
+    const { text } = await textOf(await renderHandoverNote(fullNote()));
+    const lessor = text.slice(
+      text.indexOf('PARTY A, FOR THE LESSOR'),
+      text.indexOf('PARTY B, FOR THE LESSEE'),
+    );
+    expect(lessor).toContain('Signed electronically by Trần Thị Bích 2 Nov 2026, 10:00 (UTC+7)');
+    expect(lessor).toContain('Name: Trần Thị Bích');
+    expect(lessor).toContain('Role: TrekLink Staff');
+  });
+
+  it("leaves Party A's box unsigned on the preview, and names an unknown signer as not recorded", async () => {
+    const preview = (
+      await textOf(await renderHandoverNote({ ...fullNote(), signaturePng: undefined }))
+    ).text;
+    expect(preview).not.toContain('Signed electronically');
+
+    const unnamed = (
+      await textOf(
+        await renderHandoverNote({ ...fullNote(), partyA: { name: null, role: 'TrekLink Admin' } }),
+      )
+    ).text;
+    expect(unnamed).toContain('Signed electronically by Not recorded 2 Nov 2026, 10:00 (UTC+7)');
+  });
+
   it('titles a replacement and names the unit it replaces', async () => {
     const note = fullNote();
     const { text } = await textOf(

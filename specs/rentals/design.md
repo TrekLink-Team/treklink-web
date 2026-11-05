@@ -190,7 +190,7 @@ unit only. Every read joins the caller's transaction when there is one.
 | 3. Devices | asset tag, variant, node ID, channel key version, battery, GPS fix, condition | `DevicesService.handoverUnits`; the counter checks; condition from the check and `devices.handoverMinBatteryPct` |
 | 4. Payment received before handover | invoice number, amount, method, receipt or reference, time; whether the first payment is paid in full | `PaymentsService.receivedOfContract`; `BalanceService.firstPaymentConfirmed` |
 | 5. Custody, damage and loss | custody, return, damage and loss clauses and the rate table: late fee per unit per started day, each active damage rate of the variant, the loss charge as the units' remaining value at the note time | `rentals.returnGraceHours`, `rentals.defaultAfterDays`, `billing.lateFeePerDevicePerDayVnd`, `devices.lossSearchDays`; `PricingService.rateTableFor`; `DevicesService.handoverUnits` |
-| 6. Signatures | acceptance sentence; Party A and Party B blocks side by side with name, role and time; the drawn signature in Party B's block | the counter input |
+| 6. Signatures | acceptance sentence; Party A and Party B blocks side by side with name, role and time; the drawn signature in Party B's block; in Party A's block, once signed, the electronic signature of the Staff or Admin account that completes the handover: "Signed electronically by", its name and the signing time (W21, 2026-11-05; the preview leaves it unsigned) | the counter input; Party A from `AccountDirectory.namesOf` |
 | Footer, every page | issuer, note number, "Page x of y" | |
 
 A value the reads do not have prints "Not recorded". The preview prints "PREVIEW FOR REVIEW BEFORE
