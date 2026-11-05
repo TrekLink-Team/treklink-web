@@ -160,7 +160,7 @@ export const VariantsPage: React.FC = () => {
 
   const titleOf = (variant: AdminVariant) => (
     <span className="flex items-center gap-3 py-1">
-      <VariantImage variant={variant} render="icon" size="sm" />
+      <VariantImage variant={variant} render="icon" size="sm" preview />
       <span className="flex min-w-0 flex-col">
         <span className="font-semibold">{variant.code}</span>
         <span className="text-body-sm text-ink-muted">{variant.name}</span>
@@ -208,7 +208,9 @@ export const VariantsPage: React.FC = () => {
         details={{
           // The card above names the firmware baseline and the capabilities.
           fields: ['units', 'status'],
-          image: (variant) => <VariantCard variant={variant} render="detail" headingLevel="h3" />,
+          image: (variant) => (
+            <VariantCard variant={variant} render="detail" headingLevel="h3" imagePreview />
+          ),
           extra: (variant) => <PlanDetails variant={variant} />,
         }}
         emptyState={{

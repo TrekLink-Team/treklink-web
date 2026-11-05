@@ -143,7 +143,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('IncidentsPage (/o/incidents, screen 8.1)', () => {
-  it('lists open incidents with labels, owners and deadlines, and the SAR disclaimer', async () => {
+  it('opens on all incidents with labels, owners, deadlines and the SAR disclaimer', async () => {
     api.mockResolvedValue(
       page([
         view(),
@@ -168,7 +168,8 @@ describe('IncidentsPage (/o/incidents, screen 8.1)', () => {
     );
     renderAt('/o/incidents');
     expect(await screen.findAllByText('INC-2026-000001')).not.toHaveLength(0);
-    expect(lastGet()).toBe('/incidents?pageSize=20&open=true&pageNumber=1');
+    expect(lastGet()).toBe('/incidents?pageSize=20&pageNumber=1');
+    expect(screen.getByRole('button', { name: /^Show: All states/ })).toBeTruthy();
     expect(screen.getByText(/does not replace official search-and-rescue/)).toBeTruthy();
     expect(screen.getAllByText('TL-0042, Le Thi E')).not.toHaveLength(0);
     expect(screen.getAllByText('Unknown device, No holder label')).not.toHaveLength(0);
@@ -181,7 +182,7 @@ describe('IncidentsPage (/o/incidents, screen 8.1)', () => {
     expect(screen.getAllByText('No pending deadline')).not.toHaveLength(0);
   });
 
-  // The Show filter of the command bar (chapter 06 §9.3): open, all, or one state.
+  // The Show filter of the command bar (chapter 06 §9.3): all, open, or one state.
   const show = (label: string) => {
     fireEvent.click(screen.getByRole('button', { name: /^Show: / }));
     fireEvent.click(screen.getByRole('menuitem', { name: label }));
@@ -191,10 +192,12 @@ describe('IncidentsPage (/o/incidents, screen 8.1)', () => {
     api.mockResolvedValue(page([view()]));
     renderAt('/o/incidents');
     await screen.findAllByText('INC-2026-000001');
-    // A state combines with Open only (review of treklink-web#350).
+    // A state combines with the incident scope (review of treklink-web#350).
     show('Escalated');
     await waitFor(() => expect(lastGet()).toContain('state=ESCALATED'));
-    expect(lastGet()).toContain('open=true');
+    expect(lastGet()).not.toContain('open=');
+    show('Incidents: Open only');
+    await waitFor(() => expect(lastGet()).toContain('open=true'));
     show('Incidents: Open or closed');
     await waitFor(() => expect(lastGet()).not.toContain('open='));
     expect(lastGet()).toContain('state=ESCALATED');
@@ -224,7 +227,7 @@ describe('IncidentsPage (/o/incidents, screen 8.1)', () => {
     fireEvent.click(await header('Latest event'));
     await waitFor(() => expect(lastGet()).toContain('sort=lastEventAt&order=desc'));
     fireEvent.click(await header('Latest event'));
-    await waitFor(() => expect(lastGet()).toBe('/incidents?pageSize=20&open=true&pageNumber=1'));
+    await waitFor(() => expect(lastGet()).toBe('/incidents?pageSize=20&pageNumber=1'));
     fireEvent.click(await header('Incident'));
     await waitFor(() => expect(lastGet()).toContain('sort=code&order=asc'));
     const sortable = within(await screen.findByRole('table'))
@@ -237,10 +240,10 @@ describe('IncidentsPage (/o/incidents, screen 8.1)', () => {
   it('shows the empty states, unfiltered and filtered', async () => {
     api.mockResolvedValue(page([]));
     renderAt('/o/incidents');
-    expect(await screen.findByText('No open incidents.')).toBeTruthy();
+    expect(await screen.findByText('No incidents recorded.')).toBeTruthy();
     show('Escalated');
     expect(await screen.findByText('No results match your filters.')).toBeTruthy();
-    // Clearing drops both filters: every incident, open or closed.
+    // Clearing drops both filters and restores every incident, open or closed.
     fireEvent.click(screen.getByRole('button', { name: 'Clear search and filter' }));
     await waitFor(() => expect(lastGet()).toBe('/incidents?pageSize=20&pageNumber=1'));
   });

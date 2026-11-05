@@ -210,6 +210,7 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     const image = await screen.findByRole('img', { name: 'TrekLink v3 unit' });
     expect(image.getAttribute('src')).toBe('/variants/treklink-v3-detail.png');
     expect(image.getAttribute('width')).toBe('160');
+    expect(screen.getByRole('button', { name: 'Preview TrekLink v3 image' })).toBeTruthy();
   });
 
   it("shows the card of the unit's variant with its spec sheet and the empty image slot", async () => {

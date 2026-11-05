@@ -85,10 +85,11 @@ afterEach(() => {
 });
 
 describe('ServiceCreditsPage (screen 6.5, billing design §9.6)', () => {
-  it('opens on the decision queue and disables Decide on a credit the Admin requested (BR-24)', () => {
+  it('opens on all statuses and disables Decide on a credit the Admin requested (BR-24)', () => {
     credits = [credit('sc-1', 'staff-1'), credit('sc-2', 'admin-1')];
     renderPage();
-    expect(filtersSeen).toContainEqual({ status: 'REQUESTED', pageNumber: 1 });
+    expect(filtersSeen).toContainEqual({ status: undefined, pageNumber: 1 });
+    expect(screen.getByRole('button', { name: /^Show: All statuses/ })).toBeTruthy();
     expect(
       within(rowOf('TL-0001'))
         .getByRole('button', { name: /^Decide/ })
@@ -173,8 +174,8 @@ describe('ServiceCreditsPage (screen 6.5, billing design §9.6)', () => {
     expect(recordServiceCreditRefund).toHaveBeenCalledWith('sc-1', 'FT2611020001');
   });
 
-  it('says when nothing waits for a decision', () => {
+  it('says when no service credit is recorded', () => {
     renderPage();
-    expect(screen.getByText('No service credits are waiting for a decision.')).toBeTruthy();
+    expect(screen.getByText('No service credits recorded.')).toBeTruthy();
   });
 });

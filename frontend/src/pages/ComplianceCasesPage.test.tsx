@@ -30,7 +30,7 @@ const theCase = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-const CASES_OPEN = '/compliance-cases?pageNumber=1&pageSize=20&status=OPEN';
+const CASES_ALL = '/compliance-cases?pageNumber=1&pageSize=20';
 const ORGS = '/organizations?pageSize=100';
 
 const serve = (
@@ -38,7 +38,7 @@ const serve = (
   respond: (endpoint: string, options?: RequestInit) => unknown = () => undefined,
 ) =>
   api.mockImplementation((endpoint: string, options?: RequestInit) => {
-    if (endpoint === CASES_OPEN && !options?.method) return Promise.resolve(casesList());
+    if (endpoint === CASES_ALL && !options?.method) return Promise.resolve(casesList());
     if (endpoint === ORGS) {
       return Promise.resolve({
         items: [{ id: 'org-1', code: 'ORG-0007', legalName: 'Ta Nang Treks', status: 'ACTIVE' }],
@@ -67,11 +67,13 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('ComplianceCasesPage (screen 3.6)', () => {
-  it('lists open cases with their type, linked items and status', async () => {
+  it('opens on All and lists cases with their type, linked items and status', async () => {
     serve(() => ({ items: [theCase()], pageNumber: 1, pageSize: 20, totalCount: 1, totalPages: 1 }));
     renderPage();
 
     const table = await screen.findByRole('table', { name: 'Compliance cases' });
+    expect(screen.getByRole('tab', { name: 'All' }).getAttribute('aria-selected')).toBe('true');
+    expect(api).toHaveBeenCalledWith(CASES_ALL);
     expect(within(table).getByText('CMP-0002')).toBeTruthy();
     expect(within(table).getByText('ORG-0007')).toBeTruthy();
     expect(within(table).getByText('Suspected theft')).toBeTruthy();

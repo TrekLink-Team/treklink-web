@@ -14,6 +14,7 @@ interface Props {
   headingLevel?: 'h2' | 'h3' | 'h4';
   // For a control that names itself after the card (aria-labelledby).
   headingId?: string;
+  imagePreview?: boolean;
   // Under the spec summary, for a price or an availability line.
   children?: React.ReactNode;
   className?: string;
@@ -27,6 +28,7 @@ export const VariantCard: React.FC<Props> = ({
   render = 'icon',
   headingLevel = 'h3',
   headingId,
+  imagePreview = false,
   children,
   className,
 }) => {
@@ -37,7 +39,12 @@ export const VariantCard: React.FC<Props> = ({
   return (
     // The text wraps under the image when the card is narrower than both (reflow at 320 px).
     <div className={cn('flex min-w-0 flex-wrap gap-3', render === 'detail' && 'flex-col', className)}>
-      <VariantImage variant={variant} render={render} size={render === 'detail' ? 'lg' : 'md'} />
+      <VariantImage
+        variant={variant}
+        render={render}
+        size={render === 'detail' ? 'lg' : 'md'}
+        preview={imagePreview}
+      />
       <div className="min-w-[10rem] flex-1">
         <Heading id={headingId} className="text-body font-semibold text-ink">
           {variant.name}

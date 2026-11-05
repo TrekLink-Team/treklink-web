@@ -576,12 +576,13 @@ const reportFields = (onViewIncident: (id: string) => void): CollectionField<Aut
   },
 ];
 
-// The Authority reports tab of /t/incidents (screen 8.3, api-design 11): open cases only by default,
-// chosen from Show and filtered on the server, server order kept (D-059 rule 7), no sort.
+// The Authority reports tab of /t/incidents (screen 8.3, api-design 11): all reports by default,
+// with open cases available from Show and filtered on the server, server order kept (D-059 rule 7),
+// no sort.
 export const AuthorityReportsPanel: React.FC<{ onViewIncident: (id: string) => void }> = ({
   onViewIncident,
 }) => {
-  const [openOnly, setOpenOnly] = useState(true);
+  const [openOnly, setOpenOnly] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const [recording, setRecording] = useState(false);
   const [closing, setClosing] = useState<AuthorityReport | null>(null);
@@ -628,8 +629,8 @@ export const AuthorityReportsPanel: React.FC<{ onViewIncident: (id: string) => v
           },
         ]}
         filters={[
-          { key: 'open', label: 'Open cases only' },
           { key: 'all', label: 'All reports' },
+          { key: 'open', label: 'Open cases only' },
         ]}
         query={{ search: '', filter: openOnly ? 'open' : 'all', sort: null }}
         onQueryChange={(next) => {
@@ -638,10 +639,7 @@ export const AuthorityReportsPanel: React.FC<{ onViewIncident: (id: string) => v
         }}
         pageInfo={pageInfoOf(data)}
         emptyState={{ title: openOnly ? 'No open authority cases.' : 'No authority reports recorded.' }}
-        // All reports is a narrowing Show filter for CollectionView, so an empty list there would read
-        // "No results match your filters."; screen 8.3 names it "No authority reports recorded."
-        // (review of treklink-web#355).
-        noMatch={openOnly ? undefined : { title: 'No authority reports recorded.' }}
+        noMatch={openOnly ? { title: 'No open authority cases.' } : undefined}
         footer={
           data && data.totalPages > 1 ? (
             <Pagination

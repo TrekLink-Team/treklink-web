@@ -184,13 +184,18 @@ type BulkDecision = 'APPROVED' | 'WAIVED';
 
 const chargesText = (count: number) => `${count} ${count === 1 ? 'charge' : 'charges'}`;
 
+const EMPTY: Partial<Record<DamageChargeStatus | '', string>> = {
+  '': 'No damage charges recorded.',
+  PENDING_APPROVAL: 'No damage charges are waiting for a decision.',
+};
+
 // /t/damage-charges, screen 6.4 (billing api-design 16 and 17, UC-48): the damage charges, with the
-// approval queue first. TrekLink Staff read it; an Admin decides a pending charge they did not
+// approval queue available from Show. TrekLink Staff read it; an Admin decides a pending charge they did not
 // inspect, and the control is hidden on their own (BR-24, MSG30 only for a forced request).
 export const DamageChargesPage: React.FC = () => {
   const { user } = useAuth();
   const isAdmin = hasAnyRole(user?.roles ?? [], ['ADMIN']);
-  const [status, setStatus] = useState<DamageChargeStatus | ''>('PENDING_APPROVAL');
+  const [status, setStatus] = useState<DamageChargeStatus | ''>('');
   const [pageNumber, setPageNumber] = useState(1);
   const [deciding, setDeciding] = useState<DamageCharge | null>(null);
   const charges = useDamageCharges({ status: status || undefined, pageNumber });
@@ -280,8 +285,8 @@ export const DamageChargesPage: React.FC = () => {
             : []
         }
         filters={[
-          { key: 'PENDING_APPROVAL', label: DAMAGE_CHARGE_STATUS.PENDING_APPROVAL.label },
           { key: '', label: 'All statuses' },
+          { key: 'PENDING_APPROVAL', label: DAMAGE_CHARGE_STATUS.PENDING_APPROVAL.label },
           ...(Object.keys(DAMAGE_CHARGE_STATUS) as DamageChargeStatus[])
             .filter((key) => key !== 'PENDING_APPROVAL')
             .map((key) => ({ key, label: DAMAGE_CHARGE_STATUS[key].label })),
@@ -291,10 +296,9 @@ export const DamageChargesPage: React.FC = () => {
           setStatus(next.filter as DamageChargeStatus | '');
           setPageNumber(1);
         }}
-        // The approval queue (the default filter) narrows the list, so the bar stays for one or two.
         hideCommandBar={false}
         pageInfo={pageInfoOf(charges.data)}
-        emptyState={{ title: 'No damage charges are waiting for a decision.' }}
+        emptyState={{ title: EMPTY[status] ?? 'No damage charges match these filters.' }}
         noMatch={{ title: 'No damage charges match these filters.' }}
         footer={
           charges.data && charges.data.totalPages > 1 ? (

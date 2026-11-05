@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { cn } from '../../shared/ui';
+import { cn, ImagePreview } from '../../shared/ui';
 import { imageSources, type VariantRender } from './spec';
 
 export const NO_IMAGE_TEXT = 'Variant image not added yet';
@@ -20,6 +20,7 @@ interface Props {
   // (specs/devices/design.md section 10, "Two renders per variant").
   render: VariantRender;
   size: VariantImageSize;
+  preview?: boolean;
   className?: string;
 }
 
@@ -27,7 +28,7 @@ interface Props {
 // in both themes. Lazy loaded, named "{variant name} unit". A source that fails moves to the next one (the
 // icon to the detail render); with none left the box shows the labelled empty slot, or, at the small size
 // where the label cannot fit, an empty box the row's own text already names.
-export const VariantImage: React.FC<Props> = ({ variant, render, size, className }) => {
+export const VariantImage: React.FC<Props> = ({ variant, render, size, preview = false, className }) => {
   const sources = imageSources(variant.imageUrl, render);
   const key = sources.join('|');
   // The failures are kept per source list, so a changed variant starts again from its first source.
@@ -35,7 +36,7 @@ export const VariantImage: React.FC<Props> = ({ variant, render, size, className
   const index = failed.key === key ? failed.count : 0;
   const src = sources[index];
   const { px, box } = SIZES[size];
-  return (
+  const image = (
     <div
       className={cn(
         'flex shrink-0 items-center justify-center overflow-hidden border border-line bg-sunken',
@@ -60,4 +61,10 @@ export const VariantImage: React.FC<Props> = ({ variant, render, size, className
       )}
     </div>
   );
+  const previewSrc = imageSources(variant.imageUrl, 'detail')[0];
+  return preview && src !== undefined && previewSrc !== undefined ? (
+    <ImagePreview src={previewSrc} alt={`${variant.name} unit`} caption={variant.name}>
+      {image}
+    </ImagePreview>
+  ) : image;
 };

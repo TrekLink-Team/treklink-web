@@ -39,9 +39,9 @@ import { LINK } from '../shared/ui/styles';
 type Tab = 'OPEN' | 'CLOSED' | 'ALL';
 
 const TABS: { key: Tab; label: string }[] = [
+  { key: 'ALL', label: 'All' },
   { key: 'OPEN', label: 'Open' },
   { key: 'CLOSED', label: 'Closed' },
-  { key: 'ALL', label: 'All' },
 ];
 
 const TYPES = Object.keys(CASE_TYPE_LABEL) as ComplianceCaseType[];
@@ -172,7 +172,7 @@ export const ComplianceCasesPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const showToast = useToast((state) => state.show);
-  const [tab, setTab] = useState<Tab>('OPEN');
+  const [tab, setTab] = useState<Tab>('ALL');
   const [pageNumber, setPageNumber] = useState(1);
   const [opening, setOpening] = useState(false);
   const cases = useComplianceCases(tab === 'ALL' ? undefined : tab, pageNumber);

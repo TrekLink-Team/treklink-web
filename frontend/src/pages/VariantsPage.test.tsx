@@ -79,6 +79,20 @@ describe('VariantsPage (screen 4.1)', () => {
     expect(inTable().getAllByText('18 units').length).toBeGreaterThan(0);
     expect(inTable().getByText('Inactive')).toBeTruthy();
     expect(inTable().getAllByText('GPS, MQTT').length).toBeGreaterThan(0);
+    expect(
+      inTable().getAllByRole('button', { name: 'Preview TrekLink v3 (GPS, SOS button) image' })
+        .length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('offers the image preview in the hardware variant detail pane', async () => {
+    serve([variant()]);
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Show details of treklink-v3' }));
+
+    expect(
+      screen.getAllByRole('button', { name: 'Preview TrekLink v3 (GPS, SOS button) image' }),
+    ).toHaveLength(2);
   });
 
   it('offers Delete only for a variant without units', async () => {

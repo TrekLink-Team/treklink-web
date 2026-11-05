@@ -387,9 +387,9 @@ const AT_COUNTER: readonly ContractStatus[] = [
 ];
 
 const QUEUES: { key: string; label: string; status?: ContractStatus }[] = [
+  { key: 'ALL', label: 'All' },
   { key: 'REQUESTED', label: 'Requested', status: 'REQUESTED' },
   { key: 'APPROVED', label: 'Approved', status: 'APPROVED' },
-  { key: 'ALL', label: 'All' },
 ];
 
 // As the fleet search (FleetPage): one request once typing pauses.
@@ -402,7 +402,7 @@ export const ContractApprovalPage: React.FC = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [moving, setMoving] = useState<{ contract: Contract; move: RowMove } | null>(null);
-  const [queueKey, setQueueKey] = useState('REQUESTED');
+  const [queueKey, setQueueKey] = useState('ALL');
   const [pageNumber, setPageNumber] = useState(1);
   const [text, setText] = useState('');
   // The header sort on the server (rentals api-design 02, W26); none keeps the newest change first.
@@ -547,7 +547,6 @@ export const ContractApprovalPage: React.FC = () => {
         filters={QUEUES.map((queue) => ({ key: queue.key, label: queue.label }))}
         query={{ search: text, filter: queueKey, sort: collectionSortOf(sort) }}
         titleSort="code"
-        // The default queue (Requested) narrows the list, so the bar stays even for one or two rows.
         hideCommandBar={false}
         onQueryChange={(next) => {
           if (next.search !== text) {
