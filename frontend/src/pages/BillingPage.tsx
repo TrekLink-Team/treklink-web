@@ -31,8 +31,16 @@ const InvoicesTab: React.FC<{ contractId?: string }> = ({ contractId }) => {
   // The invoice pane takes a column only while an invoice is open; until then the list keeps the full
   // width, so its number, total, paid and issued columns are not cut off beside an empty column.
   return (
-    <div className={cn('grid gap-5', selectedId && 'xl:grid-cols-[minmax(0,1fr)_440px]')}>
-      <div className="min-w-0 overflow-x-auto">
+    // From 1280 px the list and the open invoice sit side by side, each scrolling inside itself;
+    // below that they stack and this tab body is the one scroll region (ui standard §7).
+    <div
+      className={cn(
+        'grid min-h-0 flex-1 gap-5 overflow-y-auto overscroll-contain xl:grid-rows-[minmax(0,1fr)] xl:overflow-visible',
+        '[@media(max-height:479.98px)]:overflow-visible',
+        selectedId && 'xl:grid-cols-[minmax(0,1fr)_440px]',
+      )}
+    >
+      <div data-fit-page="" className="flex min-w-0 flex-col xl:min-h-0">
         <InvoiceFilterBar filters={filters} onChange={setFilters} />
         <InvoiceTable
           invoices={data?.items}
@@ -59,13 +67,15 @@ const InvoicesTab: React.FC<{ contractId?: string }> = ({ contractId }) => {
         />
       </div>
       {selectedId ? (
-        <InvoiceDetailView
-          key={selectedId}
-          invoiceId={selectedId}
-          contractPath={(id) => `/t/contracts/${id}`}
-          canRecordCounter
-          focusOnOpen
-        />
+        <div className="min-w-0 xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain">
+          <InvoiceDetailView
+            key={selectedId}
+            invoiceId={selectedId}
+            contractPath={(id) => `/t/contracts/${id}`}
+            canRecordCounter
+            focusOnOpen
+          />
+        </div>
       ) : (
         <p className="text-sm text-ink-muted">Open an invoice to see its lines and payments.</p>
       )}
@@ -185,7 +195,7 @@ export const BillingPage: React.FC = () => {
   const [tab, setTab] = useState<'invoices' | 'payments'>('invoices');
 
   return (
-    <section aria-labelledby="billing-title">
+    <section aria-labelledby="billing-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col">
       <PageTitle id="billing-title" title="Invoices and payments" />
       <div role="tablist" aria-label="Billing" className="mb-4 flex gap-2">
         {(['invoices', 'payments'] as const).map((name) => (

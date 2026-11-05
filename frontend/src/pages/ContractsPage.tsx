@@ -84,7 +84,7 @@ export const ContractsPage: React.FC = () => {
       : [];
 
   return (
-    <section aria-labelledby="contracts-title" className="flex flex-col gap-4">
+    <section aria-labelledby="contracts-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4">
       <PageTitle id="contracts-title" title="Contracts" action={requestLink} />
 
       <CollectionView<Contract>

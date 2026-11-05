@@ -246,7 +246,7 @@ export const ApiKeysPage: React.FC = () => {
       : `${active} of ${limit} active keys${revoked > 0 ? `, ${revoked} revoked` : ''}`;
 
   return (
-    <section aria-labelledby="api-keys-title">
+    <section aria-labelledby="api-keys-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         id="api-keys-title"
         title="API keys"

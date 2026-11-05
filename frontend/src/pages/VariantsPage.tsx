@@ -171,7 +171,7 @@ export const VariantsPage: React.FC = () => {
   const data = variants.data;
 
   return (
-    <section aria-labelledby={TITLE_ID} className="flex flex-col gap-4">
+    <section aria-labelledby={TITLE_ID} data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         id={TITLE_ID}
         title="Hardware variants"

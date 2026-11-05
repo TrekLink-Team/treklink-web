@@ -116,7 +116,7 @@ export const StaffFieldStationsPage: React.FC = () => {
   ];
 
   return (
-    <section aria-labelledby="t-field-stations-title">
+    <section aria-labelledby="t-field-stations-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         id="t-field-stations-title"
         title="Field stations"

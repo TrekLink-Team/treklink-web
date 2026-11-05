@@ -309,7 +309,7 @@ export const ServiceCreditsPage: React.FC = () => {
   ];
 
   return (
-    <section aria-labelledby="service-credits-title" className="flex flex-col gap-6">
+    <section aria-labelledby="service-credits-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-6">
       <PageHeader id="service-credits-title" title="Service credits" />
       {!isAdmin && (
         <Alert tone="info">Only a TrekLink Admin who did not request a credit decides it.</Alert>

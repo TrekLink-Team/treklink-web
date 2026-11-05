@@ -242,7 +242,7 @@ export const AccountsPage: React.FC = () => {
   const data = accounts.data;
 
   return (
-    <section aria-labelledby="accounts-title" className="flex flex-col gap-4">
+    <section aria-labelledby="accounts-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         id="accounts-title"
         title="Accounts"

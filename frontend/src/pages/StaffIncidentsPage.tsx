@@ -28,6 +28,7 @@ import {
   type CollectionTransition,
 } from '../shared/ui/collection-view';
 import { Button } from '../shared/ui/Button';
+import { cn } from '../shared/ui/cn';
 import { TabPanel, Tabs } from '../shared/ui/Tabs';
 import { INCIDENT_STATE, type IncidentState } from '../shared/ui/status';
 import { LINK } from '../shared/ui/styles';
@@ -116,7 +117,7 @@ export const StaffIncidentsPage: React.FC = () => {
     },
   ];
   return (
-    <section aria-labelledby="staff-incidents-title">
+    <section aria-labelledby="staff-incidents-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col">
       <PageTitle
         id="staff-incidents-title"
         title={scope.id === 'all' ? 'All incidents' : 'Incident queue'}
@@ -162,7 +163,7 @@ export const StaffIncidentsPage: React.FC = () => {
       />
 
       {tab === 'reports' && (
-        <TabPanel idPrefix="staff-incidents" tabKey="reports">
+        <TabPanel idPrefix="staff-incidents" tabKey="reports" className="flex min-h-0 flex-1 flex-col">
           <AuthorityReportsPanel
             onViewIncident={(id) => {
               setSelected(id);
@@ -173,9 +174,10 @@ export const StaffIncidentsPage: React.FC = () => {
       )}
 
       {tab === 'queue' && (
-        <TabPanel idPrefix="staff-incidents" tabKey="queue">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className={selected ? 'hidden lg:block' : ''}>
+        <TabPanel idPrefix="staff-incidents" tabKey="queue" className="flex min-h-0 flex-1 flex-col">
+          {/* One row: the queue table and the incident beside it each scroll inside themselves. */}
+          <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
+            <div data-fit-page="" className={cn('min-h-0 flex-col', selected ? 'hidden lg:flex' : 'flex')}>
               {/* The incident detail of screen 8.2 opens beside the queue, from the code or from
                   Show details: it is this queue's details view, in place of the built-in pane. */}
               <CollectionView<Incident>
@@ -256,33 +258,35 @@ export const StaffIncidentsPage: React.FC = () => {
               />
             </div>
             {selected && (
-              <StaffIncidentDetail
-                key={`${selected}-${startWithFalseAlarm}`}
-                id={selected}
-                startWithFalseAlarm={startWithFalseAlarm}
-                onBack={back}
-                onUnavailable={() => {
-                  setSelected(null);
-                  setSaved(null);
-                  client.removeQueries({ queryKey: incidentKeys.detail(selected) });
-                  void client.invalidateQueries({ queryKey: incidentKeys.all });
-                  useToast.getState().show('You do not have access to this.');
-                  requestAnimationFrame(() =>
-                    document.getElementById('staff-incidents-title')?.focus(),
-                  );
-                }}
-                onSaved={(code) => {
-                  setSaved(code);
-                  if (scope.id !== 'all') setSelected(null);
-                  requestAnimationFrame(() =>
-                    document
-                      .getElementById(
-                        scope.id === 'all' ? 'staff-incident-title' : 'staff-incidents-title',
-                      )
-                      ?.focus(),
-                  );
-                }}
-              />
+              <div className="min-h-0 overflow-y-auto overscroll-contain">
+                <StaffIncidentDetail
+                  key={`${selected}-${startWithFalseAlarm}`}
+                  id={selected}
+                  startWithFalseAlarm={startWithFalseAlarm}
+                  onBack={back}
+                  onUnavailable={() => {
+                    setSelected(null);
+                    setSaved(null);
+                    client.removeQueries({ queryKey: incidentKeys.detail(selected) });
+                    void client.invalidateQueries({ queryKey: incidentKeys.all });
+                    useToast.getState().show('You do not have access to this.');
+                    requestAnimationFrame(() =>
+                      document.getElementById('staff-incidents-title')?.focus(),
+                    );
+                  }}
+                  onSaved={(code) => {
+                    setSaved(code);
+                    if (scope.id !== 'all') setSelected(null);
+                    requestAnimationFrame(() =>
+                      document
+                        .getElementById(
+                          scope.id === 'all' ? 'staff-incident-title' : 'staff-incidents-title',
+                        )
+                        ?.focus(),
+                    );
+                  }}
+                />
+              </div>
             )}
           </div>
         </TabPanel>

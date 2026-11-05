@@ -439,7 +439,7 @@ export const FleetPage: React.FC = () => {
   const pageSize = data?.pageSize ?? 20;
 
   return (
-    <section aria-labelledby="fleet-title" className="flex flex-col gap-4">
+    <section aria-labelledby="fleet-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader id="fleet-title" title="Devices" primaryAction={registerButton} />
 
       {/* One row that scrolls sideways on a phone, with the hints of chapter 06 §10.6; it wraps from 640 px. */}

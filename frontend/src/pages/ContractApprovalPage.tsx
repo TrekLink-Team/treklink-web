@@ -504,7 +504,7 @@ export const ContractApprovalPage: React.FC = () => {
   const pageSize = data?.pageSize ?? 20;
 
   return (
-    <section aria-labelledby="queue-title" className="flex flex-col gap-4">
+    <section aria-labelledby="queue-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4">
       <PageTitle id="queue-title" title="Contracts" />
       <CollectionView<Contract>
         label="Contracts"

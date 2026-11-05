@@ -56,7 +56,7 @@ export const IncidentsPage: React.FC = () => {
   ];
 
   return (
-    <section aria-labelledby="incidents-title" className="flex flex-col gap-4">
+    <section aria-labelledby="incidents-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4">
       <PageTitle
         id="incidents-title"
         title="Incidents"
