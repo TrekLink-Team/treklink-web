@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/apiClient';
-import type { Variant } from '../device/api';
 
 // A variant as the Admin list reads it (devices api-design 01 with includeInactive): the registered
 // unit count decides which fields stay fixed and whether Delete is offered (REQ-STA-02); the version
 // is the optimistic lock of an edit (api-design 03, REQ-ERR-19).
-export interface AdminVariant extends Variant {
+export interface AdminVariant extends VariantInput {
+  id: string;
+  code: string;
+  isActive: boolean;
   deviceCount: number;
   version: number;
 }

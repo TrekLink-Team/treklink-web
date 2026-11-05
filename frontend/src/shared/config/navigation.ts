@@ -114,7 +114,7 @@ export const TREKLINK_NAV: NavGroup[] = [
     entries: [
       { route: '/t/fleet', label: 'Devices', icon: Cpu, roles: STAFF, built: true },
       { route: '/t/admin/sync', label: 'Field data sync', icon: Radio, roles: STAFF, built: true },
-      { route: '/t/stock-take', label: 'Stock-take', icon: ClipboardList, roles: STAFF, built: false },
+      { route: '/t/stock-take', label: 'Stock-take', icon: ClipboardList, roles: STAFF, built: true },
       { route: '/t/maintenance', label: 'Maintenance', icon: Wrench, roles: STAFF, built: true },
       { route: '/t/loss-cases', label: 'Loss cases', icon: ShieldAlert, roles: STAFF, built: true },
     ],

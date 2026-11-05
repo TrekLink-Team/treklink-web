@@ -37,6 +37,7 @@ import { ReportsPage } from '../pages/ReportsPage';
 import { RolesPage } from '../pages/RolesPage';
 import { SystemHealthPage } from '../pages/SystemHealthPage';
 import { PricesPage } from '../pages/PricesPage';
+import { StockTakePage } from '../pages/StockTakePage';
 import { VariantsPage } from '../pages/VariantsPage';
 import { DamageChargesPage } from '../pages/DamageChargesPage';
 import { ServiceCreditsPage } from '../pages/ServiceCreditsPage';
@@ -161,6 +162,7 @@ export const AppRoutes: React.FC = () => (
         <Route path="/t/compliance-cases" element={<ComplianceCasesPage />} />
         <Route path="/t/compliance-cases/:id" element={<ComplianceCasePage />} />
         <Route path="/t/admin/sync" element={<SyncStatusPage />} />
+        <Route path="/t/stock-take" element={<StockTakePage />} />
       </Route>
       <Route element={<RequireRole roles={ADMIN} />}>
         <Route path="/t/admin/accounts" element={<AccountsPage />} />

@@ -107,12 +107,14 @@ const ROUTES: Record<SeededRole | 'anonymous', RouteCase[]> = {
     { pattern: '/t/compliance-cases' },
     { pattern: '/t/compliance-cases/:id', resolve: firstId('/compliance-cases') },
     { pattern: '/t/admin/sync' },
+    { pattern: '/t/stock-take' },
   ],
   admin: [
     // Staff see MSG26 here by design (ui-design 4-3); the page is checked as the Admin.
     { pattern: '/t/maintenance/approvals' },
     { pattern: '/t/admin/accounts' },
     { pattern: '/t/admin/prices' },
+    { pattern: '/t/admin/variants' },
     { pattern: '/t/admin/parameters' },
     { pattern: '/t/admin/audit' },
     { pattern: '/t/admin/audit/changes' },

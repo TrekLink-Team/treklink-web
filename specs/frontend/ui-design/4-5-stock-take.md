@@ -5,7 +5,7 @@
 | Owner | KhoaDD |
 | Task | `specs/frontend/tasks.md` 4.5 |
 | Assigned, due | 2026-10-21, 2026-10-23 |
-| Status | Ready for review |
+| Status | Built (2026-11-05, W20A) |
 | Routes | `/t/stock-take` (`specs/frontend/design.md` §2) |
 | Roles | TrekLink Staff and TrekLink Admin: run a stock-take and see past ones. Organization roles: MSG26. |
 | Use case, FRs, story | UC-54; FR-DEV-10; US-UC54 |
@@ -32,7 +32,7 @@ Scope from the task: devices api-design 25 and 26; scan input; the four result g
 | Scan or type an asset tag, Enter adds it | none (client list; duplicates ignored with the note "Already scanned") | none | none |
 | Remove a scanned tag | none | none | none |
 | Finish stock-take (primary) | devices 25 `POST /api/stock-takes` | dialog: "Submit {n} scanned tags? Units not scanned and not heard recently are listed as unconfirmed." | MSG03; the four result groups open |
-| Unconfirmed or unknown row link | navigation to `/t/devices/:id`, or to Register device on screen 4.2 with the tag prefilled for an unknown tag | none | none |
+| Unconfirmed or unknown row link | navigation to `/t/devices/:id`, or to screen 4.2 for an unknown tag (the tag prefill waits on a prefill parameter of screen 4.2, not built on 2026-11-05) | none | none |
 | Past stock-take row | none in this release (the list shows counts only) | none | none |
 
 The scan list survives a page reload in session storage until it is submitted, so a long count is not lost.
