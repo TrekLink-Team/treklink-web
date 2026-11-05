@@ -86,6 +86,15 @@ const IN_SERVICE: readonly DeviceStatus[] = [
 
 const failureOf = deviceFailure;
 
+// Who holds the unit (W20B item 3). devices api-design 07 has no holder field; the key organization is
+// set when rentals provisions a reserved unit and cleared at the reset (REQ-EVT-04, REQ-EVT-06), so a
+// reserved, rented or lost unit with a key is held for that organization, and any other unit by TrekLink.
+const HELD_FOR_ORGANIZATION: readonly DeviceStatus[] = ['RESERVED', 'RENTED', 'LOST'];
+const holderOf = (device: Device): string =>
+  HELD_FOR_ORGANIZATION.includes(device.status) && device.keyOrganization
+    ? `${device.keyOrganization.legalName} (${device.keyOrganization.code})`
+    : 'TrekLink';
+
 // Where a history row leads (screen 4.2, "History row link"): the contract, the loss case, the incident
 // or the maintenance record it names. Staff have no incident or maintenance detail route, so those open
 // the list with the record's id in the navigation state. Other references (an inspection, an intake
@@ -278,6 +287,14 @@ export const DeviceDetailPage: React.FC = () => {
       : []),
   ];
 
+  // The variant card comes from the unit's own payload (devices design section 10). Below 600 px it
+  // follows the facts and the next step, so the first screen of a phone reads the unit's state.
+  const variantCard = (
+    <div className={CARD}>
+      <VariantCard variant={device.hardwareVariant} render="detail" headingLevel="h2" />
+    </div>
+  );
+
   return (
     <section aria-labelledby="device-title" className="flex flex-1 flex-col">
       <Link to="/t/fleet" className={`${LINK} inline-flex min-h-6 items-center self-start`}>
@@ -293,12 +310,13 @@ export const DeviceDetailPage: React.FC = () => {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="flex flex-col gap-4">
-          {/* The variant card comes from the unit's own payload (devices design section 10). */}
-          <div className={CARD}>
-            <VariantCard variant={device.hardwareVariant} render="detail" headingLevel="h2" />
-          </div>
+          {!phone && variantCard}
           <div className={CARD}>
             <dl className={phone ? FACT_LIST_PHONE : 'grid gap-3 sm:grid-cols-2'}>
+              {/* The facts a person checks first, ahead of the render on a phone (W20B item 3). */}
+              <Fact label="Holder">{holderOf(device)}</Fact>
+              <Fact label="Battery">{device.batteryPct !== null ? `${device.batteryPct}%` : 'Not reported'}</Fact>
+              <Fact label="Last seen">{device.lastSeenAt ? formatDateTime(device.lastSeenAt) : 'Never heard'}</Fact>
               <Fact label="Node">{device.nodeId} ({device.nodeNum})</Fact>
               <Fact label="Hardware variant">{device.hardwareVariant.code}</Fact>
               <Fact label="Acquired">{formatDate(device.acquiredAt)}</Fact>
@@ -329,6 +347,10 @@ export const DeviceDetailPage: React.FC = () => {
             </dl>
           </div>
 
+          {device.nextStep && <NextStepPanel device={device} step={device.nextStep} />}
+
+          {phone && variantCard}
+
           {/* Screen 4.2: the last position on a small map with the overlay, coordinates under it. */}
           <section className={CARD} aria-labelledby="device-position">
             <h2 id="device-position" className="mb-3 text-title-sm text-ink">
@@ -336,8 +358,6 @@ export const DeviceDetailPage: React.FC = () => {
             </h2>
             <PositionMap position={device.lastPosition} label={device.assetTag} seenAt={device.lastSeenAt} />
           </section>
-
-          {device.nextStep && <NextStepPanel device={device} step={device.nextStep} />}
 
           {!phone && <RecordActionBar label="Device actions" actions={actions} />}
         </div>
