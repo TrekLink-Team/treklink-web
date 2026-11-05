@@ -226,7 +226,12 @@ export const VariantsPage: React.FC = () => {
       {pending?.kind === 'form' && (
         <VariantFormDialog
           variant={pending.variant}
-          onClose={close}
+          // After a 409 STALE_VERSION the form says to close it to load the current values, and the list
+          // does not refetch on window focus: closing refetches it, so Edit then opens on the new version.
+          onClose={() => {
+            close();
+            void refresh();
+          }}
           onSaved={() => done()}
         />
       )}
