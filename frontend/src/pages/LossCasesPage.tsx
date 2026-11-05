@@ -71,7 +71,7 @@ export const LossCasesPage: React.FC<{ scope: LossScope }> = ({ scope }) => {
   ];
 
   return (
-    <section aria-labelledby="loss-cases-title" className="flex flex-col gap-4">
+    <section aria-labelledby="loss-cases-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         id="loss-cases-title"
         title="Loss cases"

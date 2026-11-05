@@ -243,7 +243,7 @@ export const DamageChargesPage: React.FC = () => {
   ];
 
   return (
-    <section aria-labelledby="damage-charges-title" className="flex flex-col gap-6">
+    <section aria-labelledby="damage-charges-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-6">
       <PageHeader id="damage-charges-title" title="Damage charges" />
       {!isAdmin && (
         <Alert tone="info">

@@ -588,7 +588,7 @@ export const AuthorityReportsPanel: React.FC<{ onViewIncident: (id: string) => v
   const { data, isLoading, error, refetch, isFetching } = useAuthorityReports(openOnly, pageNumber);
 
   return (
-    <section aria-labelledby="authority-reports-title" className="flex flex-col gap-4">
+    <section aria-labelledby="authority-reports-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="authority-reports-title" tabIndex={-1} className="text-title-sm text-ink">
           Authority reports

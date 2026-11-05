@@ -327,7 +327,7 @@ export const AuditLogPage: React.FC = () => {
   const data = logs.data;
   return (
     <AuditTabs>
-      <section aria-labelledby="audit-title" className="flex flex-col gap-4">
+      <section aria-labelledby="audit-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-4">
         <PageHeader
           id="audit-title"
           title="Audit log"

@@ -361,7 +361,7 @@ export const MembersPage: React.FC = () => {
   const count = members.data?.length;
 
   return (
-    <section aria-labelledby="members-title">
+    <section aria-labelledby="members-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         id="members-title"
         title="Members"

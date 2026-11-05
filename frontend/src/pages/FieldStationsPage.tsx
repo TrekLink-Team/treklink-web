@@ -356,7 +356,7 @@ export const FieldStationsPage: React.FC = () => {
   ];
 
   return (
-    <section aria-labelledby={TITLE_ID}>
+    <section aria-labelledby={TITLE_ID} data-fit-page="" className="flex min-h-0 flex-1 flex-col">
       <PageHeader id={TITLE_ID} title="Field stations" meta={countLine} primaryAction={createButton || undefined} />
 
       {organizationId && <ReleaseCard organizationId={organizationId} />}

@@ -37,7 +37,7 @@ export const InvoicesPage: React.FC = () => {
   const { data, isLoading, error, refetch } = useInvoices('o', filters);
 
   return (
-    <section aria-labelledby="invoices-title">
+    <section aria-labelledby="invoices-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col">
       <PageTitle id="invoices-title" title="Invoices" />
       <InvoiceFilterBar filters={filters} onChange={setFilters} />
       <InvoiceTable
