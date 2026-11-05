@@ -1287,7 +1287,7 @@ export function CollectionView<T>({
       data-cv={baseId}
       onKeyDown={onRegionKeyDown}
       className={cn(
-        'flex flex-col gap-2 cv-fill-root:min-h-0 cv-fill-root:flex-1',
+        'flex flex-col gap-2 cv-fill-root:min-h-0',
         fitsNarrow && '[container-type:inline-size]',
         className,
       )}
@@ -1312,7 +1312,7 @@ export function CollectionView<T>({
       </p>
       <div
         className={cn(
-          'flex items-start gap-3 cv-fill:min-h-0 cv-fill:flex-1 cv-fill:items-stretch',
+          'flex items-start gap-3 cv-fill:min-h-0 cv-fill:items-stretch',
           pushedAside && 'min-w-0',
         )}
       >

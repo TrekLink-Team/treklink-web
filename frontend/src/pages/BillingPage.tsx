@@ -35,7 +35,7 @@ const InvoicesTab: React.FC<{ contractId?: string }> = ({ contractId }) => {
     // below that they stack and this tab body is the one scroll region (ui standard §7).
     <div
       className={cn(
-        'grid min-h-0 flex-1 gap-5 overflow-y-auto overscroll-contain xl:grid-rows-[minmax(0,1fr)] xl:overflow-visible',
+        'grid min-h-0 flex-1 content-start gap-5 overflow-y-auto overscroll-contain xl:grid-rows-[minmax(0,auto)_auto] xl:overflow-visible',
         '[@media(max-height:479.98px)]:overflow-visible',
         selectedId && 'xl:grid-cols-[minmax(0,1fr)_440px]',
       )}
