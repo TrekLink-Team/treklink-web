@@ -118,7 +118,7 @@ describe('StockTakePage (screen 4.5)', () => {
     scan('TL-0001');
     scan('TL-9999');
     fireEvent.click(screen.getByRole('button', { name: 'Finish stock-take' }));
-    const confirm = within(await screen.findByRole('dialog', { name: 'Submit 2 tags?' }));
+    const confirm = within(await screen.findByRole('dialog', { name: 'Submit 2 scanned tags?' }));
     fireEvent.click(confirm.getByRole('button', { name: 'Finish stock-take' }));
 
     await waitFor(() => expect(writes()).toHaveLength(1));
@@ -149,7 +149,7 @@ describe('StockTakePage (screen 4.5)', () => {
     renderPage();
     scan('TL-0001');
     fireEvent.click(screen.getByRole('button', { name: 'Finish stock-take' }));
-    const confirm = within(await screen.findByRole('dialog', { name: 'Submit 1 tag?' }));
+    const confirm = within(await screen.findByRole('dialog', { name: 'Submit 1 scanned tag?' }));
     fireEvent.click(confirm.getByRole('button', { name: 'Finish stock-take' }));
     expect(await screen.findByText('Scan at least one asset tag.')).toBeTruthy();
     expect(within(screen.getByRole('list', { name: 'Scanned tags' })).getByText('TL-0001')).toBeTruthy();
