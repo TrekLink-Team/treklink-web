@@ -30,6 +30,7 @@ import { deviceFailure, MSG29 } from '../widgets/DeviceActions/deviceFailure';
 import { RecordActionBar, type RecordAction } from '../shared/ui/RecordActionBar';
 import { useToast } from '../shared/ui/toastStore';
 import { useMediaQuery } from '../shared/lib/useMediaQuery';
+import { PositionMap } from '../widgets/LiveMapWidget/PositionMap';
 import { CARD, FACT_LIST_PHONE, LINK } from '../shared/ui/styles';
 
 const MSG03 = 'Saved.';
@@ -300,13 +301,16 @@ export const DeviceDetailPage: React.FC = () => {
                   'None'
                 )}
               </Fact>
-              <Fact label="Last position">
-                {device.lastPosition
-                  ? `${device.lastPosition.lat.toFixed(5)}, ${device.lastPosition.lon.toFixed(5)}`
-                  : 'Position unavailable'}
-              </Fact>
             </dl>
           </div>
+
+          {/* Screen 4.2: the last position on a small map with the overlay, coordinates under it. */}
+          <section className={CARD} aria-labelledby="device-position">
+            <h2 id="device-position" className="mb-3 text-title-sm text-ink">
+              Last position
+            </h2>
+            <PositionMap position={device.lastPosition} label={device.assetTag} seenAt={device.lastSeenAt} />
+          </section>
 
           {device.nextStep && <NextStepPanel device={device} step={device.nextStep} />}
 

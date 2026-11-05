@@ -198,13 +198,22 @@ const Unavailable: React.FC<{ overlay: MapConfig['sovereigntyOverlay'] }> = ({ o
 // no status colour, so a track never reads as an alert.
 const TRACK_STYLE: L.PolylineOptions = { color: '#1d4ed8', weight: 3, opacity: 0.85 };
 
+// Where a map opens instead of the configured viewport, such as one device's last position.
+export interface MapView {
+  /** [latitude, longitude], Leaflet order. */
+  center: [number, number];
+  zoom: number;
+}
+
 const LeafletMap: React.FC<{
   config: MapConfig;
   markers: MapMarker[];
   selectedId?: string | null;
   track?: [number, number][];
   onLink?: (link: MapLink) => void;
-}> = ({ config, markers, selectedId, track, onLink }) => {
+  view?: MapView;
+  compact?: boolean;
+}> = ({ config, markers, selectedId, track, onLink, view, compact = false }) => {
   const [map, setMap] = useState<L.Map | null>(null);
   const [tilesFailed, setTilesFailed] = useState(false);
   const markerRefs = useRef<Map<string, L.Marker>>(new Map());
@@ -217,6 +226,9 @@ const LeafletMap: React.FC<{
   useEffect(() => {
     onLinkRef.current = onLink;
   }, [onLink]);
+  // The opening view and the compact flag are read once, when the map is built; a later view moves the
+  // map in the effect below rather than rebuilding it.
+  const opening = useRef({ view, compact });
   const openLink = useCallback<OpenLink>((link) => {
     if (!onLinkRef.current) return false;
     onLinkRef.current(link);
@@ -228,8 +240,14 @@ const LeafletMap: React.FC<{
   const containerRef = useCallback(
     (node: HTMLDivElement | null) => {
       if (!node) return;
+      const { view: openingView, compact: small } = opening.current;
       const { lat, lon, zoom } = config.defaultViewport;
-      const instance = L.map(node).setView([lat, lon], zoom);
+      // A small map inside a page (a device's last position) leaves the wheel and, on a phone, one
+      // finger to the page, so the page still scrolls over it; the zoom buttons stay.
+      const instance = L.map(node, {
+        scrollWheelZoom: !small,
+        dragging: !(small && L.Browser.mobile),
+      }).setView(openingView?.center ?? [lat, lon], openingView?.zoom ?? zoom);
       // A plain Leaflet credit: the library's default prefix adds a national flag icon, a political
       // symbol with no place on a TrekLink map (dry run 2026-10-30, MF-02 step 3).
       instance.attributionControl.setPrefix(LEAFLET_CREDIT);
@@ -275,7 +293,7 @@ const LeafletMap: React.FC<{
       layers[initial.name].addTo(instance);
       // Base layers only: the sovereignty overlay is never offered for switching off (REQ-UBI-06).
       if (basemaps.length > 1)
-        L.control.layers(layers, undefined, { collapsed: false }).addTo(instance);
+        L.control.layers(layers, undefined, { collapsed: small }).addTo(instance);
       instance.on('baselayerchange', () => setTilesFailed(false));
 
       // Always on, never in a layer control, never removed by the user (REQ-UBI-06). The mask goes
@@ -384,6 +402,15 @@ const LeafletMap: React.FC<{
     };
   }, [map, track]);
 
+  // A new opening view, such as a device that reported a new position, moves the map there.
+  const centerLat = view?.center[0];
+  const centerLon = view?.center[1];
+  const viewZoom = view?.zoom;
+  useEffect(() => {
+    if (!map || centerLat === undefined || centerLon === undefined) return;
+    map.setView([centerLat, centerLon], viewZoom ?? map.getZoom());
+  }, [map, centerLat, centerLon, viewZoom]);
+
   // A device chosen in a list beside the map: centre on its latest reading, where a gliding marker is
   // heading, and open its popup.
   useEffect(() => {
@@ -417,10 +444,14 @@ export const LiveMapWidget: React.FC<{
   track?: [number, number][];
   /** Follows a popup link inside the app (React Router); without it the browser follows the href. */
   onLink?: (link: MapLink) => void;
+  /** Opens the map here instead of the configured viewport. */
+  view?: MapView;
+  /** A small map inside a page: the layer control starts collapsed, and the wheel scrolls the page. */
+  compact?: boolean;
   /** Size of the map box. The default keeps the interim dashboard's height; a full-bleed map page
    * passes `h-full` inside MapWorkspace. */
   className?: string;
-}> = ({ markers = [], selectedId = null, track, onLink, className }) => {
+}> = ({ markers = [], selectedId = null, track, onLink, view, compact, className }) => {
   const config = useQuery({
     queryKey: MAP_CONFIG_KEY,
     queryFn: getMapConfig,
@@ -444,6 +475,8 @@ export const LiveMapWidget: React.FC<{
           selectedId={selectedId}
           track={track}
           onLink={onLink}
+          view={view}
+          compact={compact}
         />
       )}
       {config.isPending && (
