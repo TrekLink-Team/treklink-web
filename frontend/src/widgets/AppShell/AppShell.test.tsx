@@ -144,11 +144,13 @@ describe('AppShell (specs/frontend/design.md §2)', () => {
   // Review of treklink-web#385: a tall list on a map page grew this wrapper, so `main` scrolled and the
   // map legend dropped below the fold. A full-bleed page must let the wrapper shrink to `main`.
   it('lets the wrapper of a full-bleed page shrink to the content area, and no other page', () => {
+    // The plain class, not the fit-page variant `has-[[data-fit-page]]:min-h-0` every page carries
+    // (ui standard §7, W24b).
     show('/o/map');
-    expect(document.getElementById('main')!.firstElementChild!.className).toContain('min-h-0');
+    expect(document.getElementById('main')!.firstElementChild!.classList.contains('min-h-0')).toBe(true);
     cleanup();
     show('/o/contracts');
-    expect(document.getElementById('main')!.firstElementChild!.className).not.toContain('min-h-0');
+    expect(document.getElementById('main')!.firstElementChild!.classList.contains('min-h-0')).toBe(false);
   });
 
   it('opens the Info pane as a sheet below 1280 px only when asked', () => {
