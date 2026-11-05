@@ -51,7 +51,7 @@ answers 409 for anything else.
 | Retire (Admin) | `MAINTENANCE` not on a live contract row | devices 16 `POST /api/devices/:id/retire` | dialog with the reason field: "A retired device leaves the rentable fleet. Its history is kept." | MSG03 |
 | Dispose (Admin) | `RETIRED` | devices 23 `POST /api/devices/:id/dispose` | dialog with the three wipe steps and the method; Dispose stays disabled until every step is ticked | MSG03 |
 | Position history | any state | navigation to `/t/devices/:id/telemetry` (screen 9.2) | none | none |
-| History row link | `refType` is set | navigation to the contract, incident, maintenance record or loss case | none | none |
+| History row link | `refType` is set | navigation to the contract, incident, maintenance record or loss case; an incident row opens the Staff list `/t/incidents` and moves to `/t/incidents/:id` when that route lands (W20B, 2026-11-05) | none | none |
 
 The inspection after the reset belongs to the counter check-in (screen 5.5); this page links there when a
 `RETURNED` device has its reset logged.
