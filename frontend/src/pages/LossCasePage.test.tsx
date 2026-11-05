@@ -92,6 +92,15 @@ describe('LossCasePage (screen 4.4)', () => {
     expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).toBeNull();
   });
 
+  it('names the device state the case was reported from with its label, never the enum (W20B follow-up)', async () => {
+    serve(() => theCase({ stateFromDevice: 'RENTED' }));
+    renderPage();
+    await screen.findByRole('heading', { name: 'LOSS-0003, Reported' });
+    const fact = screen.getByText('Device state when reported').nextElementSibling as HTMLElement;
+    expect(fact.textContent).toBe('Rented');
+    expect(screen.queryByText('RENTED')).toBeNull();
+  });
+
   it('draws the last position on a small map with the coordinates under it (W20B item 5)', async () => {
     serve(() => theCase());
     renderPage();
