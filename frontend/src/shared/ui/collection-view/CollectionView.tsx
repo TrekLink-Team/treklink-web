@@ -68,7 +68,7 @@ export const SELECTION_CLEARED = 'Selection cleared';
 export const NO_MATCHES = 'No results match your filters.';
 
 // The views every collection offers, in the order the View button cycles them (chapter 06 §9.2, W30).
-// The Claude Design canvas "Contract Home" draws the table icon for the Details list and the square
+// The "Contract Home" design canvas draws the table icon for the Details list and the square
 // for Large cards.
 const COLLECTION_VIEWS: readonly CollectionViewKey[] = ['details', 'grid', 'smallCards', 'mediumCards', 'largeCards'];
 
@@ -1267,7 +1267,7 @@ export function CollectionView<T>({
     );
   };
 
-  // The card views (chapter 06 §9.2; W30, Claude Design canvas "Contract Home", artboard "Large cards
+  // The card views (chapter 06 §9.2; W30, the "Contract Home" design canvas, artboard "Large cards
   // view (1280)" and the smaller sizes): the checkbox, the image tile, the item name as the heading with
   // its subtitle, the label and value block with the status badge as the state menu (§11.3), a divider,
   // then the item actions right-aligned in their fixed slots (§11.4). Small cards and the Grid keep the
