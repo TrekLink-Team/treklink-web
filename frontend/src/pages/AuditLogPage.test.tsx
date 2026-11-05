@@ -261,7 +261,7 @@ describe('AuditLogPage (screen 7.4, change log)', () => {
     renderPage();
     const toggle = screen.getByRole('button', { name: 'Filters' });
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    expect(document.getElementById('audit-filter-bar')!.className).toContain('hidden sm:block');
+    expect(document.getElementById('audit-filter-bar')!.className).toContain('hidden roomy:block');
     fireEvent.click(toggle);
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
     expect(lastCall().enabled).toBe(true);

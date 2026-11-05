@@ -40,6 +40,10 @@ const status = (name) => ({
 const fitPageVariants = plugin(({ addVariant }) => {
   addVariant('cv-fill-root', '[data-fit-page] > &');
   addVariant('cv-fill', '[data-fit-page] > [data-cv] &');
+  // A screen with room for a block above a list (from 1280 by 800 CSS px). Below it, a filter card
+  // or an information card above a list folds into a disclosure, so the list keeps its room
+  // (ui standard §7, leader 2026-11-05).
+  addVariant('roomy', '@media (min-width: 1280px) and (min-height: 800px)');
 });
 
 /** @type {import('tailwindcss').Config} */

@@ -103,8 +103,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           </h1>
           {meta && <span className="text-body text-ink-muted">{meta}</span>}
         </div>
+        {/* On a short screen (under 640 CSS px high, above the 400 % zoom release) the description
+            gives its room to the list or the record (ui standard §7). */}
         {description && (
-          <p className="max-w-measure text-body text-ink-muted group-data-[compact=true]/chrome:hidden">
+          <p className="max-w-measure text-body text-ink-muted group-data-[compact=true]/chrome:hidden [@media(min-height:480px)_and_(max-height:639.98px)]:hidden">
             {description}
           </p>
         )}
