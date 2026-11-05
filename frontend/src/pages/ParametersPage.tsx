@@ -197,17 +197,20 @@ export const ParametersPage: React.FC = () => {
           value={editing.reason}
           onChange={(event) => setEditing({ ...editing, reason: event.target.value })}
         />
+        {/* Toolbar size in the table; the 44 px touch size below 640 px, where the editor is in a card
+            (0-ui-standard §1, 2.5.8; W21). */}
         <div className="flex gap-2">
           <Button
             variant="primary"
             size="sm"
+            className="max-sm:h-11 max-sm:px-4"
             loading={editing.saving}
             loadingLabel="Saving"
             onClick={() => void save(parameter)}
           >
             Save
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setEditing(null)}>
+          <Button variant="ghost" size="sm" className="max-sm:h-11 max-sm:px-4" onClick={() => setEditing(null)}>
             Cancel
           </Button>
         </div>
