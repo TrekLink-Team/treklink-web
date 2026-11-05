@@ -50,6 +50,9 @@ export interface HistoryDto {
   clippedTo: { from: string; to: string | null }[];
   points: HistoryPointDto[];
   truncated: boolean;
+  // The live `monitoring.historyMaxRangeDays`, so the range form of screen 9.2 checks against the
+  // server's limit without a parameter read its roles may not make (W21, 2026-11-05).
+  maxRangeDays: number;
 }
 
 const CSV_HEADER = 'at,kind,lat,lon,altitude,batteryPct';
@@ -80,7 +83,7 @@ export class HistoryService {
     ability: PolicyAbility,
   ): Promise<HistoryDto> {
     const organizationId = this.scopeOf(caller, ability);
-    await this.checkRange(query);
+    const maxRangeDays = await this.checkRange(query);
 
     let clippedTo: HistoryDto['clippedTo'] = [];
     if (organizationId === null) {
@@ -103,7 +106,7 @@ export class HistoryService {
       to: query.to,
       kinds: query.kind?.length ? query.kind : HISTORY_KINDS,
     });
-    return { deviceId, clippedTo, points: points.map(toDto), truncated };
+    return { deviceId, clippedTo, points: points.map(toDto), truncated, maxRangeDays };
   }
 
   // `format=csv`: the points as CSV text, which the envelope carries in `result` (api-design 08 does the
@@ -128,8 +131,9 @@ export class HistoryService {
     return own;
   }
 
-  // `to` is after `from` and at most `monitoring.historyMaxRangeDays` days later (REQ-ERR-02).
-  private async checkRange(query: HistoryQuery): Promise<void> {
+  // `to` is after `from` and at most `monitoring.historyMaxRangeDays` days later (REQ-ERR-02); answers
+  // that limit.
+  private async checkRange(query: HistoryQuery): Promise<number> {
     const maxDays = await this.parameters.get('monitoring.historyMaxRangeDays');
     if (typeof maxDays !== 'number' || !Number.isFinite(maxDays)) {
       throw new DomainException(
@@ -146,5 +150,6 @@ export class HistoryService {
         `to must be after from and at most ${maxDays} days later.`,
       );
     }
+    return maxDays;
   }
 }

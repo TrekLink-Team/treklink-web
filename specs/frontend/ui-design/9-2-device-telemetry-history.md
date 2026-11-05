@@ -37,7 +37,7 @@ endpoint; the table pages in the client (50 rows), and the 7-day cap keeps the r
 | Control | Endpoint | Confirmation | Success message |
 |---|---|---|---|
 | Load with the default range (the last 24 hours) | monitoring 03 `GET /api/telemetry/devices/:id/history?from&to&kind` | none | none |
-| Range: From and To pickers, quick buttons "Last 24 hours" and "Last {n} days" with n = `monitoring.historyMaxRangeDays`; the range is written to `?from=&to=` | same | none | none |
+| Range: From and To pickers, quick buttons "Last 24 hours" and "Last {n} days" with n = `monitoring.historyMaxRangeDays`, read from monitoring 03 `maxRangeDays` of the last answer (the button shows once an answer has named n, and not for n = 1); the range is written to `?from=&to=` | same | none | none |
 | Kind filter: Positions, Telemetry (both on by default) | same with `kind` | none | none |
 | Download CSV (secondary, top right) | monitoring 03 `GET /api/telemetry/devices/:id/history?...&format=csv` | none | file saved; no toast |
 | Row click | centres the map on the point | none | none |
@@ -98,3 +98,12 @@ that has a position: it centres the map on the point, and the point's time then 
 point has no details pane, because every field is already in its row: latitude and longitude share one
 field, and altitude and battery carry their units, so a phone row reads without column headers (review of
 treklink-web#355).
+
+## Range limit from the server (W21, 2026-11-05)
+
+Added by KhoaDD under D-078, leader ruling of 2026-11-05 (a field in the history answer, not a new
+endpoint or a member-readable parameter). The page's roles cannot read `GET /api/parameters`, so monitoring
+03 answers `maxRangeDays`, the live `monitoring.historyMaxRangeDays` it checked the range against. The page
+keeps the value of the last answer: MSG35 names it and "Last {n} days" uses it. Before the first answer
+the form checks only that the end is after the start ("Choose an end after the start."), and the server's
+400 banner is the backstop, as for a range opened from a link. No client constant remains.

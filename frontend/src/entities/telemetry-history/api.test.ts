@@ -8,17 +8,26 @@ const FROM = '2026-10-20T00:00:00.000Z';
 const TO = '2026-10-21T00:00:00.000Z';
 
 describe('periodError (MSG35)', () => {
-  it('accepts a period of one second up to seven days', () => {
-    expect(periodError(FROM, '2026-10-20T00:00:01.000Z')).toBeNull();
-    expect(periodError(FROM, '2026-10-27T00:00:00.000Z')).toBeNull();
+  it('accepts a period of one second up to the server limit', () => {
+    expect(periodError(FROM, '2026-10-20T00:00:01.000Z', 7)).toBeNull();
+    expect(periodError(FROM, '2026-10-27T00:00:00.000Z', 7)).toBeNull();
+    expect(periodError(FROM, '2026-11-03T00:00:00.000Z', 14)).toBeNull();
   });
 
   it('refuses an empty, reversed or too long period, and a date that is not one', () => {
     const message = 'Choose an end after the start, at most 7 days later.';
-    expect(periodError(FROM, FROM)).toBe(message);
-    expect(periodError(TO, FROM)).toBe(message);
-    expect(periodError(FROM, '2026-10-27T00:00:00.001Z')).toBe(message);
-    expect(periodError('', '')).toBe(message);
+    expect(periodError(FROM, FROM, 7)).toBe(message);
+    expect(periodError(TO, FROM, 7)).toBe(message);
+    expect(periodError(FROM, '2026-10-27T00:00:00.001Z', 7)).toBe(message);
+    expect(periodError('', '', 7)).toBe(message);
+    expect(periodError(FROM, '2026-11-03T00:00:00.001Z', 14)).toBe(
+      'Choose an end after the start, at most 14 days later.',
+    );
+  });
+
+  it('checks only the order before the server has named its limit', () => {
+    expect(periodError(FROM, '2026-12-20T00:00:00.000Z', null)).toBeNull();
+    expect(periodError(TO, FROM, null)).toBe('Choose an end after the start.');
   });
 });
 

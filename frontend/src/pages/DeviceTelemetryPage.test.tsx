@@ -46,6 +46,7 @@ const history = (overrides: Partial<History> = {}): History => ({
   clippedTo: [{ from: '2026-10-20T02:00:00.000Z', to: '2026-10-21T00:00:00.000Z' }],
   points: [point(0), point(1, { kind: 'TELEMETRY', lat: null, lon: null }), point(2)],
   truncated: false,
+  maxRangeDays: 7,
   ...overrides,
 });
 
@@ -174,6 +175,30 @@ describe('DeviceTelemetryPage (screen 9.2)', () => {
     await waitFor(() => expect(screen.getByTestId('search').textContent).toContain('from='));
     const last = ranges[ranges.length - 1];
     expect(Date.parse(last.to) - Date.parse(last.from)).toBe(7 * 86_400_000);
+  });
+
+  it('takes the range limit from the server answer, not a client constant (W21)', async () => {
+    state = { data: history({ maxRangeDays: 14 }), isPending: false, error: null };
+    renderPage();
+    expect(screen.queryByRole('button', { name: 'Last 7 days' })).toBeNull();
+    fireEvent.change(screen.getByLabelText(/^From/), { target: { value: '2026-10-20T08:00' } });
+    fireEvent.change(screen.getByLabelText(/^To/), { target: { value: '2026-11-04T08:00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(screen.getByText('Choose an end after the start, at most 14 days later.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Last 14 days' }));
+    await waitFor(() => expect(screen.getByTestId('search').textContent).toContain('from='));
+    const last = ranges[ranges.length - 1];
+    expect(Date.parse(last.to) - Date.parse(last.from)).toBe(14 * 86_400_000);
+  });
+
+  it('offers no "Last n days" before the first answer and checks only the order', () => {
+    state = { data: undefined, isPending: true, error: null };
+    renderPage();
+    expect(screen.queryByRole('button', { name: /^Last \d+ days$/ })).toBeNull();
+    fireEvent.change(screen.getByLabelText(/^From/), { target: { value: '2026-10-21T08:00' } });
+    fireEvent.change(screen.getByLabelText(/^To/), { target: { value: '2026-10-20T08:00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(screen.getByText('Choose an end after the start.')).toBeTruthy();
   });
 
   it('keeps at least one kind ticked and sends the other kind as the filter', async () => {

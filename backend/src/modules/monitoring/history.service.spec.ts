@@ -80,6 +80,7 @@ describe('HistoryService (monitoring 3.3, api-design 03)', () => {
           },
         ],
         truncated: false,
+        maxRangeDays: 7,
       });
       expect(contracts.rentalPeriods).toHaveBeenCalledWith(DEVICE, 'org-1');
       expect(events.historyPoints).toHaveBeenCalledWith({
@@ -114,7 +115,13 @@ describe('HistoryService (monitoring 3.3, api-design 03)', () => {
       ]);
       events.historyPoints.mockResolvedValue({ points: [], truncated: false });
       const result = await service.history(DEVICE, { from: FROM, to: TO }, memberCaller, member);
-      expect(result).toEqual({ deviceId: DEVICE, clippedTo: [], points: [], truncated: false });
+      expect(result).toEqual({
+        deviceId: DEVICE,
+        clippedTo: [],
+        points: [],
+        truncated: false,
+        maxRangeDays: 7,
+      });
     });
 
     it('is refused when the caller has no organization', async () => {
@@ -214,12 +221,20 @@ describe('HistoryService (monitoring 3.3, api-design 03)', () => {
     );
   });
 
+  it('answers the live range limit, so the form checks against the parameter (screen 9.2)', async () => {
+    parameters.get.mockResolvedValue(14);
+    const result = await service.history(DEVICE, { from: FROM, to: TO }, staffCaller, staff);
+    expect(result.maxRangeDays).toBe(14);
+    expect(parameters.get).toHaveBeenCalledWith('monitoring.historyMaxRangeDays');
+  });
+
   describe('csv', () => {
     it('writes a header and one row per point, empty for a value not sent', () => {
       const csv = service.csv({
         deviceId: DEVICE,
         clippedTo: [],
         truncated: false,
+        maxRangeDays: 7,
         points: [
           {
             at: '2026-10-20T03:15:00.000Z',
@@ -253,6 +268,7 @@ describe('HistoryService (monitoring 3.3, api-design 03)', () => {
         deviceId: DEVICE,
         clippedTo: [],
         truncated: true,
+        maxRangeDays: 7,
         points: [
           {
             at: '2026-10-20T03:15:00.000Z',
@@ -274,9 +290,15 @@ describe('HistoryService (monitoring 3.3, api-design 03)', () => {
     });
 
     it('is only the header for no points', () => {
-      expect(service.csv({ deviceId: DEVICE, clippedTo: [], points: [], truncated: false })).toBe(
-        'at,kind,lat,lon,altitude,batteryPct',
-      );
+      expect(
+        service.csv({
+          deviceId: DEVICE,
+          clippedTo: [],
+          points: [],
+          truncated: false,
+          maxRangeDays: 7,
+        }),
+      ).toBe('at,kind,lat,lon,altitude,batteryPct');
     });
   });
 });

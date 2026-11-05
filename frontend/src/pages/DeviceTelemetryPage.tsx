@@ -3,7 +3,6 @@ import { MapPin } from 'lucide-react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   HISTORY_KINDS,
-  DEFAULT_HISTORY_MAX_RANGE_DAYS,
   fetchHistoryCsv,
   periodError,
   useHistory,
@@ -118,7 +117,8 @@ const csvName = (tag: string, range: HistoryRange) =>
   `telemetry-${tag}-${range.from.slice(0, 10)}-${range.to.slice(0, 10)}.csv`;
 
 // `/o/devices/:id/telemetry` and `/t/devices/:id/telemetry`, screen 9.2 (monitoring api-design 03, UC-40,
-// FR-MON-07): where a device was and how its battery went over a range of at most seven days. An
+// FR-MON-07): where a device was and how its battery went over a range of at most
+// `monitoring.historyMaxRangeDays` days, a limit each answer carries (`maxRangeDays`). An
 // organization sees only the events attributed to it; Staff and Admin see the whole history. Read-only.
 // The points render through CollectionView (chapter 06 §9, D-096); Show on the map pans to a point.
 export const DeviceTelemetryPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
@@ -142,6 +142,10 @@ export const DeviceTelemetryPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =
   const focusSummary = useRef(false);
 
   const history = useHistory(id, applied);
+  // The server's range limit from the last answer; kept while a later range is refused or loading.
+  const [maxRangeDays, setMaxRangeDays] = useState<number | null>(null);
+  const answered = history.data?.maxRangeDays;
+  if (answered !== undefined && answered !== maxRangeDays) setMaxRangeDays(answered);
 
   // After Apply, focus moves to the result summary once the new points have arrived.
   useEffect(() => {
@@ -205,7 +209,7 @@ export const DeviceTelemetryPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =
   }, [positions, rows, selectedKey]);
 
   const apply = (from: string | null, to: string | null, chosen: readonly HistoryKind[]) => {
-    const message = from && to ? periodError(from, to) : periodError('', '');
+    const message = periodError(from ?? '', to ?? '', maxRangeDays);
     setPeriodMessage(message);
     if (message || !from || !to) return;
     const next = new URLSearchParams({ from, to });
@@ -343,9 +347,11 @@ export const DeviceTelemetryPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =
             <Button type="button" variant="secondary" onClick={() => quick(1)}>
               Last 24 hours
             </Button>
-            <Button type="button" variant="secondary" onClick={() => quick(DEFAULT_HISTORY_MAX_RANGE_DAYS)}>
-              Last {DEFAULT_HISTORY_MAX_RANGE_DAYS} days
-            </Button>
+            {maxRangeDays !== null && maxRangeDays > 1 && (
+              <Button type="button" variant="secondary" onClick={() => quick(maxRangeDays)}>
+                Last {maxRangeDays} days
+              </Button>
+            )}
           </div>
         </form>
       </Card>

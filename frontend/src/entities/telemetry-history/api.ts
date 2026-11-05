@@ -21,6 +21,8 @@ export interface History {
   points: HistoryPoint[];
   // The range held more than 50,000 points and only the oldest are answered.
   truncated: boolean;
+  // The live parameter `monitoring.historyMaxRangeDays` the range was checked against (W21).
+  maxRangeDays: number;
 }
 
 // A range as ISO 8601 UTC instants, `from` inclusive and `to` exclusive, and the kinds asked for.
@@ -30,21 +32,19 @@ export interface HistoryRange {
   kinds: readonly HistoryKind[];
 }
 
-// The default of the parameter `monitoring.historyMaxRangeDays` (configuration matrix: 7, from 1 to 31).
-// The backend checks the range against the live parameter (monitoring api-design 03, REQ-ERR-02), but
-// no read gives the parameter to the roles of this page: GET /api/parameters needs `parameter.manage`
-// (Admin only) and the history response carries no limit. So the form checks this default, and the
-// server's 400 is the backstop when an Admin changes the parameter.
-export const DEFAULT_HISTORY_MAX_RANGE_DAYS = 7;
-
 const DAY_MS = 86_400_000;
 
 // MSG35: the period is reversed or longer than the limit. Returns the message, or null when it is fine.
-export const periodError = (from: string, to: string): string | null => {
+// The limit is the server's `monitoring.historyMaxRangeDays`, which each history response carries
+// (monitoring api-design 03 `maxRangeDays`); null before the first answer, when only the order is
+// checked and the server's 400 is the backstop.
+export const periodError = (from: string, to: string, maxRangeDays: number | null): string | null => {
   const span = new Date(to).getTime() - new Date(from).getTime();
-  return Number.isFinite(span) && span > 0 && span <= DEFAULT_HISTORY_MAX_RANGE_DAYS * DAY_MS
-    ? null
-    : `Choose an end after the start, at most ${DEFAULT_HISTORY_MAX_RANGE_DAYS} days later.`;
+  const fits = maxRangeDays === null || span <= maxRangeDays * DAY_MS;
+  if (Number.isFinite(span) && span > 0 && fits) return null;
+  return maxRangeDays === null
+    ? 'Choose an end after the start.'
+    : `Choose an end after the start, at most ${maxRangeDays} days later.`;
 };
 
 export const historyKeys = {
