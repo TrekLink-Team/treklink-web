@@ -304,6 +304,13 @@ export class EnvironmentVariables {
   @IsOptional()
   @IsString()
   SEPAY_WEBHOOK_API_KEY?: string;
+
+  // Owned by `devices` (design section 9.1, leader ruling 2026-11-06): an optional read-only GitHub token
+  // the firmware release reader sends on its GitHub API calls, to get past the unauthenticated limit of
+  // 60 requests an hour per address on a shared host. The firmware repository is public, so no scope.
+  @IsOptional()
+  @IsString()
+  GITHUB_TOKEN?: string;
 }
 
 export type ValidatedEnvironment = EnvironmentVariables & { SWAGGER_ENABLED: boolean };

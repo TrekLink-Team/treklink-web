@@ -1,9 +1,12 @@
 import { createHash } from 'node:crypto';
 import { HttpStatus } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DomainException, ErrorCode } from '../../../common/errors';
+import { ValidatedEnvironment } from '../../platform/config/environment-variables';
 import { ParameterService } from '../../platform/parameters/parameter.service';
 import { DevicesService } from '../devices.service';
 import {
+  FAILURE_CACHE_MS,
   FirmwareReleaseService,
   MANIFEST_ASSET,
   MAX_IMAGE_BYTES,
@@ -67,6 +70,7 @@ describe('FirmwareReleaseService (devices task 8.2)', () => {
   let listing: unknown;
   let http: { json: jest.Mock; bytes: jest.Mock };
   let parameters: { get: jest.Mock };
+  let environment: { GITHUB_TOKEN?: string };
   let service: FirmwareReleaseService;
 
   beforeEach(() => {
@@ -103,10 +107,15 @@ describe('FirmwareReleaseService (devices task 8.2)', () => {
         { code: 'treklink-v2', firmwareBaseline: '2.7.19-treklink.3' },
       ]),
     };
+    environment = {};
+    const config = {
+      get: (key: keyof typeof environment) => environment[key],
+    } as unknown as ConfigService<ValidatedEnvironment, true>;
     service = new FirmwareReleaseService(
       parameters as unknown as ParameterService,
       devices as unknown as DevicesService,
       http,
+      config,
     );
   });
 
@@ -185,6 +194,56 @@ describe('FirmwareReleaseService (devices task 8.2)', () => {
         Promise.resolve(key === 'devices.firmwareReleaseRepo' ? 'not a repository' : 300),
       );
       expect((await refusal(service.list())).errorCode).toBe(ErrorCode.FIRMWARE_SOURCE_UNAVAILABLE);
+    });
+
+    // Design section 9.1, leader ruling 2026-11-06: a shared host spends GitHub's unauthenticated limit.
+    it('keeps a failed read for 60 s and answers 502 without calling GitHub again', async () => {
+      http.json.mockRejectedValueOnce(new Error('GET answered 403'));
+      expect((await refusal(service.list(undefined, 1_000_000))).errorCode).toBe(
+        ErrorCode.FIRMWARE_SOURCE_UNAVAILABLE,
+      );
+      const again = await refusal(service.list(undefined, 1_000_000 + FAILURE_CACHE_MS - 1));
+      expect(again.errorCode).toBe(ErrorCode.FIRMWARE_SOURCE_UNAVAILABLE);
+      expect(http.json).toHaveBeenCalledTimes(1);
+      // After 60 s GitHub is read again, and a success clears the failure.
+      await expect(service.list(undefined, 1_000_000 + FAILURE_CACHE_MS)).resolves.toHaveLength(1);
+      expect(http.json).toHaveBeenCalledTimes(2);
+    });
+
+    it('keeps an answer that is not a release list as a failure too', async () => {
+      listing = { message: 'API rate limit exceeded' };
+      await refusal(service.list(undefined, 5));
+      await refusal(service.list(undefined, 10));
+      expect(http.json).toHaveBeenCalledTimes(1);
+    });
+
+    it('serves a successful list from its cache without a GitHub call', async () => {
+      await service.list(undefined, 1_000_000);
+      await service.list(undefined, 1_000_000 + 1_000);
+      expect(http.json).toHaveBeenCalledTimes(1);
+    });
+
+    it('sends the optional GITHUB_TOKEN on the API call only, never on the asset downloads', async () => {
+      environment.GITHUB_TOKEN = 'github_pat_read_only';
+      await service.list();
+      expect(http.json).toHaveBeenCalledWith(
+        `https://api.github.com/repos/${REPO}/releases?per_page=30`,
+        expect.objectContaining({ Authorization: 'Bearer github_pat_read_only' }),
+      );
+      for (const [, headers] of http.bytes.mock.calls as [string, Record<string, string>][])
+        expect(headers).not.toHaveProperty('Authorization');
+      await service.image('2.7.26-treklink.2', 'treklink-v3', 'APP');
+      for (const [, headers] of http.bytes.mock.calls as [string, Record<string, string>][])
+        expect(headers).not.toHaveProperty('Authorization');
+    });
+
+    it('sends no Authorization header when GITHUB_TOKEN is empty', async () => {
+      environment.GITHUB_TOKEN = '   ';
+      await service.list();
+      expect(http.json).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.not.objectContaining({ Authorization: expect.anything() as unknown }),
+      );
     });
 
     it('skips a release whose manifest is unreadable', async () => {
