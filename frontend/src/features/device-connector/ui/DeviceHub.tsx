@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   Activity,
   BatteryMedium,
@@ -43,7 +43,7 @@ import type { Connection, ConnectionState } from '../model/ConnectorRegistry';
 import { useConnectorStore, type FlashPanel, type FlashPanelProps } from '../model/connectorStore';
 import { HUB_GROUPS, hubActionsFor, type HubAction, type HubConfirm } from '../model/hubActions';
 import { STATE_TEXT, unitName } from '../model/text';
-import { useConnector } from '../model/useConnector';
+import { useConnector, useConnectorRefresh } from '../model/useConnector';
 import { useFlashAvailability } from '../model/useFlashAvailability';
 import { HubActionDialog } from './HubActionDialog';
 import { UnitImage } from './UnitImage';
@@ -205,7 +205,6 @@ export const DeviceHub: React.FC<{ timings?: DockTimings }> = ({ timings }) => {
   const navigate = useNavigate();
   const { registry, snapshot } = useConnector();
   const docking = useDocking({ timings });
-  const queryClient = useQueryClient();
   const roles = useSession((state) => state.user?.roles ?? []);
   const staff = hasAnyRole(roles, ['STAFF']);
   const context = useConnectorStore((state) => state.context);
@@ -220,8 +219,6 @@ export const DeviceHub: React.FC<{ timings?: DockTimings }> = ({ timings }) => {
   const [pending, setPending] = useState<Pending | null>(null);
   const [running, setRunning] = useState<Running>(null);
   const [failure, setFailure] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [refreshedAt, setRefreshedAt] = useState<Date>(() => new Date());
   // Focus goes to the Actions heading once a write ends (screen 4.7): the button that ran it is disabled while the
   // unit is written and read again, so focus would otherwise fall to the page body.
   const [writesEnded, setWritesEnded] = useState(0);
@@ -252,25 +249,8 @@ export const DeviceHub: React.FC<{ timings?: DockTimings }> = ({ timings }) => {
   const toast = (message: string) => useToast.getState().show(message);
 
   // Status refresh (design section 12.14, REQ-EVT-49): the recognition of every unit and the device queries.
-  const refresh = useCallback(
-    async (deviceId?: string | null) => {
-      setRefreshing(true);
-      try {
-        void queryClient.invalidateQueries({ queryKey: ['devices'] });
-        if (deviceId) {
-          void queryClient.invalidateQueries({ queryKey: deviceKeys.device(deviceId) });
-          void queryClient.invalidateQueries({ queryKey: ['device-history', deviceId] });
-        }
-        await Promise.all(
-          registry.getSnapshot().connections.map((connection) => registry.refreshRecognition(connection.id)),
-        );
-        setRefreshedAt(new Date());
-      } finally {
-        setRefreshing(false);
-      }
-    },
-    [queryClient, registry],
-  );
+  const { refresh, refreshing } = useConnectorRefresh();
+  const refreshedAt = useConnectorStore((state) => state.refreshedAt);
 
   const runReboot = async (connection: Connection, confirmAssetTag?: string) => {
     const target = connection.recognized?.device;
@@ -430,7 +410,13 @@ export const DeviceHub: React.FC<{ timings?: DockTimings }> = ({ timings }) => {
           {connect}
         </div>
         <p className="text-caption text-ink-muted" aria-live="polite">
-          Refreshed <time dateTime={refreshedAt.toISOString()}>{formatDateTime(refreshedAt.toISOString())}</time>
+          {refreshedAt ? (
+            <>
+              Refreshed <time dateTime={refreshedAt.toISOString()}>{formatDateTime(refreshedAt.toISOString())}</time>
+            </>
+          ) : (
+            'Not refreshed yet'
+          )}
         </p>
         {device && (
           <Link to={`/t/devices/${device.id}`} className="text-body-sm font-semibold text-brand underline">

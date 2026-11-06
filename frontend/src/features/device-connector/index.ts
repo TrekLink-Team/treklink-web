@@ -15,6 +15,7 @@ export {
   openConnector,
   useConnector,
   useConnectorContext,
+  useConnectorRefresh,
   useDockPresence,
   useStartConnector,
 } from './model/useConnector';

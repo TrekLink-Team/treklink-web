@@ -83,6 +83,9 @@ interface ConnectorState {
   // The connection the device hub page shows (devices design section 12.13), kept in memory only: no
   // node number goes into the address bar (REQ-UBI-08).
   hubUnit: number | null;
+  // When the connected units were last asked about (Refresh, REQ-EVT-49), shown by the panel and the hub.
+  refreshedAt: Date | null;
+  setRefreshedAt: (at: Date) => void;
   setOpen: (open: boolean) => void;
   view: (connectionId: number | null) => void;
   openFor: (focus: ConnectorFocus) => void;
@@ -103,6 +106,8 @@ export const useConnectorStore = create<ConnectorState>((set) => ({
   registerFrom: null,
   flashPanel: null,
   hubUnit: null,
+  refreshedAt: null,
+  setRefreshedAt: (refreshedAt) => set({ refreshedAt }),
   setOpen: (open) => set(open ? { open } : { open, focus: null, viewing: null }),
   view: (viewing) => set({ viewing }),
   openFor: (focus) => set({ open: true, focus, viewing: null }),

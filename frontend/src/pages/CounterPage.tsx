@@ -21,6 +21,7 @@ import { organizationKeys, useMembers, useOrganization } from '../entities/organ
 import type { DockStage } from '../features/device-connector/actions/DockingService';
 import { handoverDockMessage } from '../features/device-connector/actions/messages';
 import { useDocking } from '../features/device-connector/actions/useDocking';
+import { useConnectorRefresh } from '../features/device-connector/model/useConnector';
 import {
   useConnector,
   useConnectorContext,
@@ -252,6 +253,8 @@ export const CounterPage: React.FC<{
   const variantName = useVariantName();
   const docking = useDocking();
   const { registry } = useConnector();
+  // The connected units and the hub show the new key and status after a provisioning or a swap (REQ-EVT-49).
+  const { refresh: refreshConnector } = useConnectorRefresh();
 
   const [today] = useState(() => new Date(Date.now() + ZONE_OFFSET_MS).toISOString().slice(0, 10));
   const [step, setStep] = useState(0);
@@ -466,6 +469,7 @@ export const CounterPage: React.FC<{
         );
         setProvisioned((current) => ({ ...current, [result.reserved.deviceId]: recorded.keyVersion }));
         showToast(`${result.reserved.assetTag} replaces ${tagOf(device)} on ${data.code}.`);
+        void refreshConnector(result.reserved.deviceId, device.deviceId);
       } catch (failure) {
         setRowError(result.reserved.deviceId, messageOf(failure));
       }
@@ -530,6 +534,7 @@ export const CounterPage: React.FC<{
         : await recordProvisioning(data.id, device.deviceId, keyVersion as number);
       setProvisioned((current) => ({ ...current, [device.deviceId]: result.keyVersion }));
       setRowError(device.deviceId, null);
+      void refreshConnector(device.deviceId);
       return true;
     } catch (failure) {
       if (docked && failure instanceof ApiError && failure.errorCode === 'NODE_MISMATCH') {

@@ -1,4 +1,5 @@
-import { useEffect, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { endDockSession, openDockSession, recognizeUnits } from '../../../entities/device/api';
 import { DockPresence } from './DockPresence';
 import { connectorRegistry, type ConnectorRegistry, type RegistrySnapshot } from './ConnectorRegistry';
@@ -9,6 +10,34 @@ export const useConnector = (): { registry: ConnectorRegistry; snapshot: Registr
   const registry = connectorRegistry(recognizeUnits);
   const snapshot = useSyncExternalStore(registry.subscribe, registry.getSnapshot);
   return { registry, snapshot };
+};
+
+// The status refresh of devices design section 12.14 (REQ-EVT-49): the device lists, the named devices and their
+// history, and the recognition of every connected unit, with the time kept for the panel and the hub. Pages call
+// it after a registration, a provisioning or a quick swap; the panel and the hub call it from Refresh.
+export const useConnectorRefresh = () => {
+  const queryClient = useQueryClient();
+  const setRefreshedAt = useConnectorStore((state) => state.setRefreshedAt);
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = useCallback(
+    async (...deviceIds: (string | null | undefined)[]) => {
+      setRefreshing(true);
+      try {
+        void queryClient.invalidateQueries({ queryKey: ['devices'] });
+        for (const id of deviceIds) {
+          if (!id) continue;
+          void queryClient.invalidateQueries({ queryKey: ['device', id] });
+          void queryClient.invalidateQueries({ queryKey: ['device-history', id] });
+        }
+        await connectorRegistry(recognizeUnits).refreshAll();
+        setRefreshedAt(new Date());
+      } finally {
+        setRefreshing(false);
+      }
+    },
+    [queryClient, setRefreshedAt],
+  );
+  return { refresh, refreshing };
 };
 
 // Starts the registry once the Staff shell mounts (REQ-EVT-31): granted ports open without the chooser.

@@ -181,6 +181,16 @@ export class ConnectorRegistry {
     if (connection?.unit) await this.lookUp(id, connection.unit.nodeNum);
   }
 
+  // Asks the server again for every read unit (devices design section 12.14, REQ-EVT-49): Refresh, and after a
+  // change made elsewhere (a registration, a provisioning, a quick swap). One batched request.
+  async refreshAll(): Promise<void> {
+    await Promise.all(
+      this.connections
+        .filter((connection) => connection.unit && connection.state !== 'unplugged')
+        .map((connection) => this.lookUp(connection.id, (connection.unit as UnitReading).nodeNum)),
+    );
+  }
+
   // Forget: the row leaves and, where the browser has it, the grant is withdrawn.
   async forget(id: number): Promise<void> {
     const connection = this.get(id);

@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plug, X } from 'lucide-react';
+import { Plug, RefreshCw, X } from 'lucide-react';
 import { useSession } from '../../../entities/session/model';
 import { hasAnyRole } from '../../../shared/lib/permissions';
 import { Alert } from '../../../shared/ui/Alert';
-import { Button } from '../../../shared/ui/Button';
+import { Button, IconButton } from '../../../shared/ui/Button';
+import { formatDateTime } from '../../../shared/lib/format';
 import { buttonClasses } from '../../../shared/ui/buttonStyles';
 import { ConfirmDialog, Dialog } from '../../../shared/ui/Dialog';
 import { Field, Select } from '../../../shared/ui/Field';
@@ -19,7 +20,7 @@ import {
   type FlashPanel,
   type FlashPanelProps,
 } from '../model/connectorStore';
-import { useConnector } from '../model/useConnector';
+import { useConnector, useConnectorRefresh } from '../model/useConnector';
 import { UnitImage } from './UnitImage';
 import { ConnectorList } from './ConnectorList';
 import { STATE_TEXT, unitName } from '../model/text';
@@ -278,6 +279,8 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
   const setRegisterFrom = useConnectorStore((state) => state.setRegisterFrom);
   const clearFocus = useConnectorStore((state) => state.clearFocus);
   const flashPanel = useConnectorStore((state) => state.flashPanel);
+  const refreshedAt = useConnectorStore((state) => state.refreshedAt);
+  const { refresh, refreshing } = useConnectorRefresh();
   const [flashing, setFlashing] = useState<Connection | null>(null);
   const [forgetting, setForgetting] = useState<Connection | null>(null);
   // Back from the device view returns focus to the row that opened it (screen 4.6).
@@ -431,6 +434,14 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
             <p id={`${headingId}-count`} className="flex-1 text-body-sm text-ink-muted">
               {snapshot.connections.length === 1 ? '1 unit connected' : `${snapshot.connections.length} units connected`}
             </p>
+            <IconButton
+              label="Refresh the connected units"
+              size="sm"
+              variant="secondary"
+              icon={<RefreshCw className={refreshing ? 'animate-spin motion-reduce:animate-none' : undefined} />}
+              disabled={refreshing || snapshot.connections.length === 0}
+              onClick={() => void refresh(...snapshot.connections.map((connection) => connection.recognized?.device?.id))}
+            />
             <Button
               size="sm"
               variant="secondary"
@@ -440,6 +451,11 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
             >
               Connect a unit
             </Button>
+            {refreshedAt && (
+              <p className="basis-full text-caption text-ink-muted" aria-live="polite">
+                Refreshed <time dateTime={refreshedAt.toISOString()}>{formatDateTime(refreshedAt.toISOString())}</time>
+              </p>
+            )}
           </div>
           {missing && <p className="text-body-sm font-semibold text-ink">Connect {missing} to continue.</p>}
           <ConnectorList
