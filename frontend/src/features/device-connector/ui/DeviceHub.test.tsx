@@ -157,6 +157,11 @@ describe('DeviceHub (screen 4.7)', () => {
     expect(value('Contract')).toBe('None');
     // The render slot names the variant when the file is missing (REQ-ERR-31): jsdom loads no image.
     expect(screen.getByRole('img', { name: 'TrekLink v3 (GPS, SOS button), front view' })).toBeTruthy();
+    // Every device render previews the detail render (leader, 2026-11-06 00:50).
+    fireEvent.click(screen.getByRole('button', { name: 'Preview TrekLink v3 (GPS, SOS button) image' }));
+    const preview = screen.getByRole('figure', { name: 'TrekLink v3 (GPS, SOS button) image preview' });
+    expect(preview.querySelector('img')?.getAttribute('src')).toBe('/variants/treklink-v3-detail.png');
+    fireEvent.keyDown(document, { key: 'Escape' });
     const actions = screen.getByRole('region', { name: 'Actions' });
     expect(within(actions).getAllByRole('listitem')).toHaveLength(6);
     expect((actionButton('Factory reset') as HTMLButtonElement).disabled).toBe(false);

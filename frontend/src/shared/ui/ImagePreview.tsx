@@ -21,6 +21,10 @@ interface ImagePreviewProps {
   caption: string;
   children: React.ReactNode;
   className?: string;
+  // For a thumbnail inside a row that is itself a link or a button: the thumbnail is no control of its
+  // own, so it never swallows the row's click; the preview opens on a pointer rest only, and the row's
+  // page or pane shows the larger render to keyboard users.
+  hoverOnly?: boolean;
 }
 
 /**
@@ -36,9 +40,10 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
   caption,
   children,
   className,
+  hoverOnly = false,
 }) => {
   const id = useId();
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLElement>(null);
   const previewRef = useRef<HTMLElement>(null);
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -173,10 +178,51 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
     }
   };
 
+  const preview =
+    open &&
+    createPortal(
+      <figure
+        ref={previewRef}
+        id={id}
+        aria-label={`${caption} image preview`}
+        onPointerEnter={cancelClose}
+        onPointerLeave={pointerLeave}
+        className="fixed z-toast w-80 max-w-[calc(100vw-1rem)] overflow-hidden rounded-panel border border-line bg-surface-raised p-2 shadow-overlay"
+        style={{
+          top: position?.top ?? 0,
+          left: position?.left ?? 0,
+          visibility: position === null ? 'hidden' : 'visible',
+        }}
+      >
+        <img
+          src={src}
+          alt={alt}
+          className="max-h-[calc(100dvh-5rem)] w-full rounded-control bg-sunken object-contain"
+        />
+        <figcaption className="mt-2 text-body-sm font-semibold text-ink">{caption}</figcaption>
+      </figure>,
+      document.body,
+    );
+
+  if (hoverOnly)
+    return (
+      <>
+        <span
+          ref={triggerRef as React.RefObject<HTMLSpanElement>}
+          onPointerEnter={pointerRest}
+          onPointerLeave={pointerLeave}
+          className={cn('inline-flex shrink-0 cursor-zoom-in', className)}
+        >
+          {children}
+        </span>
+        {preview}
+      </>
+    );
+
   return (
     <>
       <button
-        ref={triggerRef}
+        ref={triggerRef as React.RefObject<HTMLButtonElement>}
         type="button"
         aria-label={`Preview ${caption} image`}
         aria-expanded={open}
@@ -190,30 +236,7 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
         {children}
       </button>
 
-      {open &&
-        createPortal(
-          <figure
-            ref={previewRef}
-            id={id}
-            aria-label={`${caption} image preview`}
-            onPointerEnter={cancelClose}
-            onPointerLeave={pointerLeave}
-            className="fixed z-toast w-80 max-w-[calc(100vw-1rem)] overflow-hidden rounded-panel border border-line bg-surface-raised p-2 shadow-overlay"
-            style={{
-              top: position?.top ?? 0,
-              left: position?.left ?? 0,
-              visibility: position === null ? 'hidden' : 'visible',
-            }}
-          >
-            <img
-              src={src}
-              alt={alt}
-              className="max-h-[calc(100dvh-5rem)] w-full rounded-control bg-sunken object-contain"
-            />
-            <figcaption className="mt-2 text-body-sm font-semibold text-ink">{caption}</figcaption>
-          </figure>,
-          document.body,
-        )}
+      {preview}
     </>
   );
 };

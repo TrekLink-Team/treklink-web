@@ -151,6 +151,15 @@ describe('FleetPage (/t/fleet, screen 4.2)', () => {
 
   // W15 panel walk: the asset tag broke at its hyphen (TL- / 0002) and the service date read 2027-05-03
   // beside dates written 04 Nov 2026 everywhere else.
+  it('previews the detail render from the icon in the table (leader, 2026-11-06 00:50)', async () => {
+    renderPage();
+    const table = within(await screen.findByRole('table'));
+    const row = table.getByText('TL-0042').closest('tr') as HTMLElement;
+    fireEvent.click(within(row).getByRole('button', { name: /^Preview .* image$/ }));
+    const preview = await screen.findByRole('figure', { name: /image preview$/ });
+    expect(preview.querySelector('img')?.getAttribute('src')).toBe('/variants/treklink-v3-detail.png');
+  });
+
   it('keeps the asset tag on one line and writes the service date as every other date', async () => {
     renderPage();
     const table = within(await screen.findByRole('table'));

@@ -20,7 +20,11 @@ interface Props {
   // (specs/devices/design.md section 10, "Two renders per variant").
   render: VariantRender;
   size: VariantImageSize;
+  // Every device render opens the larger detail render (leader, 2026-11-06 00:50, chapter 06 §11.9). Off
+  // only where a caller shows the large render itself.
   preview?: boolean;
+  // Inside a row that is itself a link or a button: hover only, no control of its own (ImagePreview).
+  nested?: boolean;
   className?: string;
 }
 
@@ -28,7 +32,14 @@ interface Props {
 // in both themes. Lazy loaded, named "{variant name} unit". A source that fails moves to the next one (the
 // icon to the detail render); with none left the box shows the labelled empty slot, or, at the small size
 // where the label cannot fit, an empty box the row's own text already names.
-export const VariantImage: React.FC<Props> = ({ variant, render, size, preview = false, className }) => {
+export const VariantImage: React.FC<Props> = ({
+  variant,
+  render,
+  size,
+  preview = true,
+  nested = false,
+  className,
+}) => {
   const sources = imageSources(variant.imageUrl, render);
   const key = sources.join('|');
   // The failures are kept per source list, so a changed variant starts again from its first source.
@@ -63,8 +74,15 @@ export const VariantImage: React.FC<Props> = ({ variant, render, size, preview =
   );
   const previewSrc = imageSources(variant.imageUrl, 'detail')[0];
   return preview && src !== undefined && previewSrc !== undefined ? (
-    <ImagePreview src={previewSrc} alt={`${variant.name} unit`} caption={variant.name}>
+    <ImagePreview
+      src={previewSrc}
+      alt={`${variant.name} unit`}
+      caption={variant.name}
+      hoverOnly={nested}
+    >
       {image}
     </ImagePreview>
-  ) : image;
+  ) : (
+    image
+  );
 };

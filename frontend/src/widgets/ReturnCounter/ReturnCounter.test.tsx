@@ -478,6 +478,23 @@ describe('ReturnCounter (screen 5.5)', () => {
     vi.unstubAllGlobals();
   });
 
+  it('previews the detail render from a unit card on a phone (leader, 2026-11-06 00:50)', () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: Number(/min-width:\s*(\d+)px/.exec(query)?.[1] ?? 0) <= 360,
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    const v3 = { id: 'v-3', code: 'treklink-v3', name: 'TrekLink v3', imageUrl: '/variants/treklink-v3-detail.png' };
+    renderCounter(
+      contract({ devices: [device('TL-0009', { hardwareVariant: v3 })] } as Partial<ContractDetail>),
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: 'Preview TrekLink v3 image' })[0]);
+    const preview = screen.getByRole('figure', { name: 'TrekLink v3 image preview' });
+    expect(preview.querySelector('img')?.getAttribute('src')).toBe('/variants/treklink-v3-detail.png');
+    vi.unstubAllGlobals();
+  });
+
   it('offers the damage codes of the variant as checkboxes and sends the chosen ones (5.5)', async () => {
     resetDevice.mockResolvedValue(undefined);
     inspectDevice.mockResolvedValue({
