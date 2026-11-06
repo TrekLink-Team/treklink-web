@@ -22,7 +22,6 @@ import {
   DAMAGE_CHARGE_STATUS,
   Dialog,
   Field,
-  Input,
   PageHeader,
   Pagination,
   pageInfoOf,
@@ -35,6 +34,7 @@ import {
 } from '../shared/ui';
 import { BadgeDollarSign, Scale } from 'lucide-react';
 import { ErrorState } from '../shared/ui/bits';
+import { MoneyInput } from '../shared/ui/MoneyInput';
 
 const DECISIONS: { value: DamageDecision; label: string }[] = [
   { value: 'APPROVED', label: 'Approve' },
@@ -155,11 +155,11 @@ const DecisionDialog: React.FC<{ charge: DamageCharge; onClose: () => void }> = 
         />
         {decision === 'REDUCED' && (
           <Field id="final-amount" label="Final amount (VND)" error={errors.finalVnd} required>
-            <Input
+            <MoneyInput
               id="final-amount"
-              inputMode="numeric"
+              label="Final amount"
               value={finalAmount}
-              onChange={(event) => setFinalAmount(event.target.value)}
+              onValueChange={setFinalAmount}
             />
           </Field>
         )}

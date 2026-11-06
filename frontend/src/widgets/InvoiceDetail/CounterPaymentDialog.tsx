@@ -5,6 +5,7 @@ import { ApiError } from '../../shared/api/apiClient';
 import { formatVnd } from '../../shared/lib/format';
 import { Field } from '../../shared/ui/bits';
 import { invalid } from '../../shared/ui/errors';
+import { MoneyInput } from '../../shared/ui/MoneyInput';
 import { Dialog } from '../../shared/ui/Dialog';
 import { useConfirmStep } from '../../shared/ui/useConfirmStep';
 import { useToast } from '../../shared/ui/toastStore';
@@ -138,13 +139,13 @@ export const CounterPaymentDialog: React.FC<{ invoice: InvoiceDetail; onClose: (
             </div>
           </fieldset>
           <Field id="counter-amount" label="Amount received (VND)" error={errors.amountVnd}>
-            <input
+            <MoneyInput
               id="counter-amount"
-              inputMode="numeric"
-              className={`${INPUT} text-right`}
+              label="Amount received"
               value={amount}
-              onChange={(event) => setAmount(event.target.value)}
+              onValueChange={setAmount}
               {...invalid('counter-amount', errors.amountVnd)}
+              secureKeyboard
             />
           </Field>
           <Field

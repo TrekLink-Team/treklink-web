@@ -46,7 +46,11 @@ describe('CounterPaymentDialog (screen 6.3)', () => {
     );
     expect(screen.getByText(/Due now/).textContent).toContain('1,125,000 VND');
     expect(screen.getByText(/Due now/).textContent).toContain('Due later');
-    expect((screen.getByLabelText(/Amount received/) as HTMLInputElement).value).toBe('1125000');
+    expect((screen.getByLabelText(/Amount received/) as HTMLInputElement).value).toBe('1.125.000');
+    // D-101: the payment amount offers the Secure keyboard, off by default.
+    expect(
+      screen.getByRole('button', { name: 'Secure keyboard for Amount received' }).getAttribute('aria-pressed'),
+    ).toBe('false');
   });
 
   it('never counts more than the unpaid total, and nothing for lines not yet due', () => {

@@ -16,6 +16,7 @@ import {
 import { ApiError } from '../shared/api/apiClient';
 import { ALL_NAV } from '../shared/config/navigation';
 import { formatVnd } from '../shared/lib/format';
+import { MoneyInput } from '../shared/ui/MoneyInput';
 import { useTheme, type ThemePreference } from '../shared/lib/theme';
 import {
   Alert,
@@ -155,6 +156,8 @@ export const DesignSystemPage: React.FC = () => {
   const openInfo = useOpenInfoPane();
 
   const [query, setQuery] = useState('');
+  // The money input of chapter 06 §11.10 in the payment dialog sample.
+  const [demoAmount, setDemoAmount] = useState('4000000');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [allResults, setAllResults] = useState(false);
   const [deviceState, setDeviceState] = useState<DemoDeviceState>('AVAILABLE');
@@ -604,7 +607,14 @@ export const DesignSystemPage: React.FC = () => {
             }
           >
             <Field id="ds-amount" label="Amount (VND)" required>
-              <Input id="ds-amount" inputMode="numeric" defaultValue="4.000.000" />
+              <MoneyInput
+                id="ds-amount"
+                label="Amount"
+                value={demoAmount}
+                onValueChange={setDemoAmount}
+                presets={[1_000_000, 4_000_000]}
+                secureKeyboard
+              />
             </Field>
           </Dialog>
         )}

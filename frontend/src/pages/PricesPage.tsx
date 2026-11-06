@@ -35,6 +35,7 @@ import {
 } from '../shared/ui';
 import { ErrorState } from '../shared/ui/bits';
 import { invalid } from '../shared/ui/errors';
+import { MoneyInput } from '../shared/ui/MoneyInput';
 
 type Errors = Record<string, string | undefined>;
 
@@ -164,12 +165,11 @@ const PriceDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           error={errors.monthlyPriceVnd}
           required
         >
-          <Input
+          <MoneyInput
             id="price-amount"
-            inputMode="numeric"
-            className="text-right"
+            label="Monthly price"
             value={price}
-            onChange={(event) => setPrice(event.target.value)}
+            onValueChange={setPrice}
             {...invalid('price-amount', errors.monthlyPriceVnd)}
           />
         </Field>
@@ -327,12 +327,11 @@ const RateDialog: React.FC<{ rate: DamageRate | null; onClose: () => void }> = (
           />
         </Field>
         <Field id="rate-amount" label="Amount (VND)" error={errors.amountVnd} required>
-          <Input
+          <MoneyInput
             id="rate-amount"
-            inputMode="numeric"
-            className="text-right"
+            label="Amount"
             value={amount}
-            onChange={(event) => setAmount(event.target.value)}
+            onValueChange={setAmount}
             {...invalid('rate-amount', errors.amountVnd)}
           />
         </Field>

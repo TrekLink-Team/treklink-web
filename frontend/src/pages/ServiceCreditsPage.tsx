@@ -37,6 +37,7 @@ import {
   type ServiceCreditStatus,
 } from '../shared/ui';
 import { ErrorState } from '../shared/ui/bits';
+import { MoneyInput } from '../shared/ui/MoneyInput';
 import { LINK } from '../shared/ui/styles';
 
 const DECISIONS: { value: ServiceCreditDecision; label: string }[] = [
@@ -173,11 +174,11 @@ const DecisionDialog: React.FC<{ credit: ServiceCredit; onClose: () => void }> =
         />
         {decision === 'REDUCE' && (
           <Field id="credit-amount" label="Credit (VND)" error={errors.decidedVnd} required>
-            <Input
+            <MoneyInput
               id="credit-amount"
-              inputMode="numeric"
+              label="Credit"
               value={amount}
-              onChange={(event) => setAmount(event.target.value)}
+              onValueChange={setAmount}
             />
           </Field>
         )}

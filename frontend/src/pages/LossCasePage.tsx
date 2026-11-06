@@ -37,6 +37,7 @@ import {
 } from '../shared/ui';
 import { Fact } from '../shared/ui/bits';
 import { invalid } from '../shared/ui/errors';
+import { MoneyInput } from '../shared/ui/MoneyInput';
 import { LINK } from '../shared/ui/styles';
 import { PositionMap } from '../widgets/LiveMapWidget/PositionMap';
 import { DEVICE_STATUS, type DeviceStatus } from '../shared/ui/status';
@@ -299,11 +300,11 @@ const SettleDialog: React.FC<DialogProps> = ({ item, onDone, onFailed, onReload,
         />
         {decision === 'REDUCED' && (
           <Field id="settle-charge" label="Charge (VND)" error={errors.charge} required>
-            <Input
+            <MoneyInput
               id="settle-charge"
-              inputMode="numeric"
+              label="Charge"
               value={charge}
-              onChange={(event) => setCharge(event.target.value.replace(/[^0-9]/g, ''))}
+              onValueChange={setCharge}
               {...invalid('settle-charge', errors.charge)}
             />
           </Field>

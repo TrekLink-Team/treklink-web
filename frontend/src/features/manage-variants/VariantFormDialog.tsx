@@ -9,7 +9,7 @@ import {
 import { VariantCard } from '../../entities/variant/VariantCard';
 import { SPEC_KEYS } from '../../entities/variant/spec';
 import { ApiError } from '../../shared/api/apiClient';
-import { Alert, Button, Checkbox, Dialog, Field, IconButton, Input } from '../../shared/ui';
+import { Alert, Button, Checkbox, Dialog, Field, IconButton, Input, MoneyInput } from '../../shared/ui';
 import { invalid } from '../../shared/ui/errors';
 import { variantErrorsOf } from './variantErrors';
 
@@ -323,13 +323,13 @@ export const VariantFormDialog: React.FC<Props> = ({ variant, onClose, onSaved }
                 />
               </Field>
               <Field id={`schedule-value-${index}`} label="Value, VND" className="min-w-0 flex-1">
-                <Input
+                <MoneyInput
                   id={`schedule-value-${index}`}
-                  inputMode="numeric"
+                  label={`Value from month ${row.fromMonths || index}`}
                   value={row.valueVnd}
-                  onChange={(event) =>
+                  onValueChange={(digits) =>
                     setSchedule((rows) =>
-                      rows.map((item, at) => (at === index ? { ...item, valueVnd: event.target.value } : item)),
+                      rows.map((item, at) => (at === index ? { ...item, valueVnd: digits } : item)),
                     )
                   }
                 />

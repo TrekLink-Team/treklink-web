@@ -49,6 +49,7 @@ import { PageHeader } from '../shared/ui/PageHeader';
 import { DEVICE_STATUS, MAINTENANCE_REASON, MAINTENANCE_STATUS } from '../shared/ui/status';
 import { Field, Input, RadioGroup, Select, Textarea } from '../shared/ui/Field';
 import { messageOf } from '../shared/ui/errors';
+import { MoneyInput } from '../shared/ui/MoneyInput';
 import { NoAccessPage } from './NoAccessPage';
 import { Tabs, TabPanel } from '../shared/ui/Tabs';
 import { useToast } from '../shared/ui/toastStore';
@@ -187,12 +188,11 @@ const OpenDialog: React.FC<{ deviceId: string; onDone: () => void; onCancel: () 
           </Field>
         )}
         <Field id="open-estimate" label="Estimated cost" hint="VND">
-          <Input
+          <MoneyInput
             id="open-estimate"
-            type="number"
-            min={0}
+            label="Estimated cost"
             value={estimatedCostVnd}
-            onChange={(event) => setEstimatedCostVnd(event.target.value)}
+            onValueChange={setEstimatedCostVnd}
           />
         </Field>
         {failure && <Failure message={failure} stale={stale} onReload={onReload} />}
@@ -279,12 +279,11 @@ const EstimateDialog: React.FC<{
               : 'VND. Above the approval threshold, an Admin must approve before completion.'
           }
         >
-          <Input
+          <MoneyInput
             id="estimate-cost"
-            type="number"
-            min={0}
+            label="Estimated cost"
             value={estimatedCostVnd}
-            onChange={(event) => setEstimatedCostVnd(event.target.value)}
+            onValueChange={setEstimatedCostVnd}
           />
         </Field>
         {failure && <Failure message={failure} stale={stale} onReload={onReload} />}
@@ -425,12 +424,11 @@ const CompleteDialog: React.FC<{
         {status === 'COMPLETED' && (
           <>
             <Field id="complete-cost" label="Actual cost" required error={errors.actualCostVnd} hint="VND">
-              <Input
+              <MoneyInput
                 id="complete-cost"
-                type="number"
-                min={0}
+                label="Actual cost"
                 value={actualCostVnd}
-                onChange={(event) => setActualCostVnd(event.target.value)}
+                onValueChange={setActualCostVnd}
               />
             </Field>
             <Field id="complete-warranty" label="Warranty until">
@@ -543,12 +541,11 @@ const DecideDialog: React.FC<{ record: MaintenanceRecord; onDone: () => void; on
         />
         {decision === 'APPROVED' ? (
           <Field id="decide-cost" label="Approved amount" required error={errors.approvedCostVnd} hint="VND">
-            <Input
+            <MoneyInput
               id="decide-cost"
-              type="number"
-              min={0}
+              label="Approved amount"
               value={approvedCostVnd}
-              onChange={(event) => setApprovedCostVnd(event.target.value)}
+              onValueChange={setApprovedCostVnd}
             />
           </Field>
         ) : (

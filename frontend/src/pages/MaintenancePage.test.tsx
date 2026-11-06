@@ -493,7 +493,7 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
     fireEvent.change(dialog.getByLabelText(/Estimated cost/), { target: { value: '700000' } });
     fireEvent.click(dialog.getByRole('button', { name: 'Save estimate' }));
     expect(await dialog.findByText('Someone else changed this. Reload to see the latest.')).toBeTruthy();
-    expect((dialog.getByLabelText(/Estimated cost/) as HTMLInputElement).value).toBe('700000');
+    expect((dialog.getByLabelText(/Estimated cost/) as HTMLInputElement).value).toBe('700.000');
     fireEvent.click(dialog.getByRole('button', { name: 'Reload' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
