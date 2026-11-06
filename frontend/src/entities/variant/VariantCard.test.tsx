@@ -87,7 +87,9 @@ describe('VariantCard', () => {
     expect(screen.getByText('GPS, MQTT')).toBeTruthy();
 
     rerender(
-      <VariantCard variant={{ ...V3, hasGps: false, hasMotionSensor: false, mqttCapable: false }} />,
+      <VariantCard
+        variant={{ ...V3, hasGps: false, hasMotionSensor: false, mqttCapable: false }}
+      />,
     );
     expect(screen.getByText('None')).toBeTruthy();
   });
@@ -128,7 +130,9 @@ describe('the two renders of a variant', () => {
 
   it('derives the icon render from the detail render by name', () => {
     expect(iconUrlOf(DETAIL)).toBe(ICON);
-    expect(iconUrlOf('https://cdn.example.com/v4-detail.webp')).toBe('https://cdn.example.com/v4-icon.webp');
+    expect(iconUrlOf('https://cdn.example.com/v4-detail.webp')).toBe(
+      'https://cdn.example.com/v4-icon.webp',
+    );
     // No -detail suffix, or one not at the end: the same image serves both places.
     expect(iconUrlOf('/variants/treklink-v3.jpg')).toBe('/variants/treklink-v3.jpg');
     expect(iconUrlOf('/variants/a-detail.png?v=2')).toBe('/variants/a-detail.png?v=2');
@@ -137,7 +141,9 @@ describe('the two renders of a variant', () => {
   it('tries the icon and then the detail render for a list, only the detail render for a pane', () => {
     expect(imageSources(DETAIL, 'icon')).toEqual([ICON, DETAIL]);
     expect(imageSources(DETAIL, 'detail')).toEqual([DETAIL]);
-    expect(imageSources('/variants/treklink-v3.jpg', 'icon')).toEqual(['/variants/treklink-v3.jpg']);
+    expect(imageSources('/variants/treklink-v3.jpg', 'icon')).toEqual([
+      '/variants/treklink-v3.jpg',
+    ]);
     expect(imageSources(null, 'icon')).toEqual([]);
     expect(imageSources(undefined, 'detail')).toEqual([]);
     expect(imageSources('  ', 'detail')).toEqual([]);
@@ -161,7 +167,27 @@ describe('the two renders of a variant', () => {
     expect(image.getAttribute('src')).toBe(DETAIL);
     expect(image.getAttribute('width')).toBe('160');
     expect(image.parentElement?.className).toContain('h-40 w-40');
-    expect(image.parentElement?.parentElement?.className).toContain('flex-col');
+    // The box sits in the preview button, which sits in the card (leader, 2026-11-06 00:50).
+    expect(image.closest('button')?.parentElement?.className).toContain('flex-col');
+  });
+
+  // Leader, 2026-11-06 00:50: every device render previews, and the preview is always the detail render.
+  it('opens the detail render as a preview from the icon render by default', () => {
+    render(<VariantCard variant={{ ...V3, imageUrl: DETAIL }} />);
+    expect(screen.getByRole('img', { name: 'TrekLink v3 unit' }).getAttribute('src')).toBe(
+      DETAIL.replace('-detail', '-icon'),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Preview TrekLink v3 image' }));
+    const preview = screen.getByRole('figure', { name: 'TrekLink v3 image preview' });
+    expect(preview.querySelector('img')?.getAttribute('src')).toBe(DETAIL);
+  });
+
+  it('offers no preview without an image, and none when the caller turns it off', () => {
+    const { unmount } = render(<VariantCard variant={{ ...V3, imageUrl: null }} />);
+    expect(screen.queryByRole('button', { name: /^Preview / })).toBeNull();
+    unmount();
+    render(<VariantCard variant={{ ...V3, imageUrl: DETAIL }} imagePreview={false} />);
+    expect(screen.queryByRole('button', { name: /^Preview / })).toBeNull();
   });
 
   it('falls back from a missing icon to the detail render, then to the empty slot', () => {
@@ -184,7 +210,9 @@ describe('the two renders of a variant', () => {
     expect(image.getAttribute('width')).toBe('32');
     expect(image.parentElement?.className).toContain('bg-sunken');
 
-    rerender(<VariantImage variant={{ name: 'TrekLink v3', imageUrl: null }} render="icon" size="sm" />);
+    rerender(
+      <VariantImage variant={{ name: 'TrekLink v3', imageUrl: null }} render="icon" size="sm" />,
+    );
     expect(screen.queryByRole('img')).toBeNull();
     expect(screen.queryByText(NO_IMAGE_TEXT)).toBeNull();
     expect((container.firstChild as HTMLElement).getAttribute('aria-hidden')).toBe('true');

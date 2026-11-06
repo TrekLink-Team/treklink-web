@@ -3,8 +3,8 @@ import { capabilityText, type VariantMedia } from './spec';
 import { VariantImage } from './VariantImage';
 
 // The parts of a device's card (CollectionView, W30, the "Contract Home" design canvas): the
-// image tile with the variant's icon render from `public/variants/`, and the subtitle under the asset tag
-// with the variant name and its capabilities.
+// image tile with the variant's icon render from `public/variants/`, which opens the detail render as a
+// preview (VariantImage), and the subtitle under the asset tag with the variant name and its capabilities.
 
 export const VariantTile: React.FC<{ variant: Pick<VariantMedia, 'name' | 'imageUrl'> }> = ({ variant }) => (
   <VariantImage variant={variant} render="icon" size="md" className="h-full w-full" />

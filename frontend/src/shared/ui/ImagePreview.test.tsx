@@ -141,4 +141,31 @@ describe('ImagePreview', () => {
     );
     expect(document.activeElement).toBe(trigger);
   });
+
+  // A thumbnail inside a row that is itself a link or a button never swallows the row's click.
+  it('is no control of its own in hover-only mode and opens after the rest', () => {
+    vi.useFakeTimers();
+    const onRow = vi.fn();
+    render(
+      <button type="button" onClick={onRow}>
+        <ImagePreview
+          src="/variants/v3-detail.webp"
+          alt="TrekLink v3 unit"
+          caption="TrekLink v3"
+          hoverOnly
+        >
+          <span>Thumbnail</span>
+        </ImagePreview>
+        TL-0042
+      </button>,
+    );
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+    const thumbnail = screen.getByText('Thumbnail');
+    fireEvent.click(thumbnail);
+    expect(onRow).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('figure')).toBeNull();
+    fireEvent.pointerEnter(thumbnail.parentElement as HTMLElement);
+    act(() => vi.advanceTimersByTime(IMAGE_PREVIEW_DELAY_MS));
+    expect(screen.getByRole('figure', { name: 'TrekLink v3 image preview' })).toBeTruthy();
+  });
 });

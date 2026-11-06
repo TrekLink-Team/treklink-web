@@ -14,6 +14,7 @@ interface Props {
   headingLevel?: 'h2' | 'h3' | 'h4';
   // For a control that names itself after the card (aria-labelledby).
   headingId?: string;
+  // On by default: every device render previews (leader, 2026-11-06 00:50).
   imagePreview?: boolean;
   // Under the spec summary, for a price or an availability line.
   children?: React.ReactNode;
@@ -28,7 +29,7 @@ export const VariantCard: React.FC<Props> = ({
   render = 'icon',
   headingLevel = 'h3',
   headingId,
-  imagePreview = false,
+  imagePreview = true,
   children,
   className,
 }) => {

@@ -154,6 +154,8 @@ describe('ConnectorPanel (screen 4.6)', () => {
     expect(document.activeElement).toBe(heading);
     const render = screen.getByRole('img', { name: 'TrekLink v3 (GPS, SOS button), front view' });
     expect(render.getAttribute('src')).toBe('/variants/treklink-v3-detail.png');
+    // The device view's render previews the detail render (leader, 2026-11-06 00:50).
+    expect(screen.getAllByRole('button', { name: 'Preview TrekLink v3 (GPS, SOS button) image' }).length).toBeGreaterThan(0);
     fireEvent.error(render);
     expect(screen.getByText('TrekLink v3 (GPS, SOS button): render not added yet')).toBeTruthy();
     const unitSection = screen.getByRole('region', { name: 'From the unit' });
