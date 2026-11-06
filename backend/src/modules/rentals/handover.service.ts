@@ -137,6 +137,17 @@ export interface NoteOptions {
   replaces?: { assetTag: string; how: string };
 }
 
+// One unit of a completed handover with the key it carries (rentals REQ-EVT-30, D-100): `keyExposed`
+// when the organization's key is flagged exposed and the unit carries that version.
+export interface HandedOverUnitKey {
+  deviceId: string;
+  assetTag: string;
+  keyVersion: number | null;
+  keyExposed: boolean;
+}
+
+export type HandoverResult = ContractRow & { unitKeys: HandedOverUnitKey[] };
+
 // The counter handover (rentals tasks 2.3 and 2.4, UC-14, UC-20, UC-21, design §4): provisioning
 // records, swaps of failing units, the preview note, and the signed handover that moves the devices
 // to RENTED and the contract to ACTIVE in one transaction (MSG06).
@@ -484,7 +495,7 @@ export class HandoverService {
     input: HandoverInput,
     actor: Caller,
     at: Date = new Date(),
-  ): Promise<ContractRow> {
+  ): Promise<HandoverResult> {
     const minBattery = await this.parameters.get('devices.handoverMinBatteryPct');
     const signer = await this.signerName(input.signedByUserId);
     const partyA = await this.partyA(actor);
@@ -534,7 +545,10 @@ export class HandoverService {
         rows.map((row) => row.deviceId),
         tx,
       );
-      const keyVersion = await this.organizations.channelKeyVersion(contract.organizationId, tx);
+      // D-100 (REQ-EVT-30): a key flagged exposed after the units were provisioned does not block the
+      // handover; the answer flags each unit that leaves with it.
+      const { channelKeyVersion: keyVersion, channelKeyExposedAt } =
+        await this.organizations.channelKeyState(contract.organizationId, tx);
       const unprovisioned = units.filter(
         (unit) =>
           unit.keyOrganizationId !== contract.organizationId || unit.keyVersion !== keyVersion,
@@ -620,7 +634,13 @@ export class HandoverService {
           at,
         } satisfies DeviceHandedOverEvent);
       }
-      return { ...active, handedOverAt: at };
+      const unitKeys: HandedOverUnitKey[] = units.map((unit) => ({
+        deviceId: unit.id,
+        assetTag: unit.assetTag,
+        keyVersion: unit.keyVersion,
+        keyExposed: channelKeyExposedAt !== null && unit.keyVersion === keyVersion,
+      }));
+      return { ...active, handedOverAt: at, unitKeys };
     });
     return handed;
   }

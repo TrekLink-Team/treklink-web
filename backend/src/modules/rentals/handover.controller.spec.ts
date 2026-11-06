@@ -168,3 +168,58 @@ describe('HandoverController channel key and docked nodeNum (rentals api-design 
     expect(handover.issueChannelKey).toHaveBeenCalledWith(ID, DEVICE_ID, 275612, STAFF);
   });
 });
+
+// D-100 (rentals REQ-EVT-30, api-design 10): the handover answer lists each unit's key and its exposure.
+describe('HandoverController complete with a key flagged exposed', () => {
+  it('answers the count and each unit with keyVersion and keyExposed', async () => {
+    const unitKeys = [
+      { deviceId: 'd-1', assetTag: 'TL-0042', keyVersion: 1, keyExposed: true },
+      { deviceId: 'd-2', assetTag: 'TL-0043', keyVersion: 1, keyExposed: true },
+    ];
+    const row = {
+      id: 'c-1',
+      code: 'RC-2026-0042',
+      planType: 'MONTHLY',
+      dayPlanDays: null,
+      hardwareVariantId: 'v-3',
+      quantity: 2,
+      requestedStartDate: new Date('2026-11-06T00:00:00Z'),
+      monthlyUnitPriceVnd: 450_000n,
+      dayPremium: null,
+      holdingFeeRatio: { toNumber: () => 0.5 },
+      status: 'ACTIVE',
+      statusChangedAt: new Date('2026-11-06T03:00:00Z'),
+      handedOverAt: new Date('2026-11-06T03:00:00Z'),
+      endsAt: null,
+      noticeGivenAt: null,
+      returnDueAt: null,
+      version: 3,
+      unitKeys,
+    };
+    const handover = { complete: jest.fn().mockResolvedValue(row) };
+    const reads = {
+      labeller: jest
+        .fn()
+        .mockResolvedValue(() => ({ organization: null, variantCode: 'treklink-v3' })),
+    };
+    const controller = new HandoverController(
+      handover as unknown as HandoverService,
+      reads as unknown as ContractReadsService,
+    );
+    const answer = await controller.complete(
+      'c-1',
+      {
+        signedByMemberId: 'u-manager',
+        identityChecked: ' CCCD ...4821 ',
+        signaturePng: 'iVBORw0KGgo',
+        deviceChecks: [
+          { deviceId: 'd-1', batteryPct: 96, gpsFixOk: true },
+          { deviceId: 'd-2', batteryPct: 90, gpsFixOk: true },
+        ],
+        expectedVersion: 2,
+      },
+      STAFF,
+    );
+    expect(answer).toMatchObject({ status: 'ACTIVE', devicesHandedOver: 2, devices: unitKeys });
+  });
+});

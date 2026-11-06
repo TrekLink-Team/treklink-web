@@ -164,6 +164,17 @@ export class OrganizationsService {
     return version;
   }
 
+  // The organization's key version and exposure in one read (rentals REQ-EVT-30, D-100): the handover
+  // flags each unit that leaves with a key flagged exposed. 404 when the organization is unknown.
+  async channelKeyState(
+    organizationId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<{ channelKeyVersion: number; channelKeyExposedAt: Date | null }> {
+    const state = await this.organizations.channelKeyState(organizationId, tx);
+    if (state === null) throw notFound();
+    return state;
+  }
+
   // REQ-ERR-20: the version of the key to write to a unit, from one read of the organization row;
   // 409 CHANNEL_KEY_EXPOSED while the key is flagged exposed, 404 when the organization is unknown.
   // Provisioning a unit with the key (rentals api-design 09 and 15) asks this before comparing versions.

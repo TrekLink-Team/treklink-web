@@ -146,6 +146,9 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
     organizations = {
       unexposedKeyVersion: jest.fn().mockResolvedValue(2),
       channelKeyVersion: jest.fn().mockResolvedValue(2),
+      channelKeyState: jest
+        .fn()
+        .mockResolvedValue({ channelKeyVersion: 2, channelKeyExposedAt: null }),
       isActiveManager: jest.fn().mockResolvedValue(true),
       handoverParty: jest.fn().mockResolvedValue({
         id: 'org-1',
@@ -554,6 +557,27 @@ describe('HandoverService (rentals tasks 2.3 and 2.4)', () => {
   });
 
   describe('complete (api-design 10)', () => {
+    // D-100 (rentals REQ-EVT-30, AC-18): a key flagged exposed after provisioning does not block the
+    // handover, and the answer flags each unit that leaves with it.
+    it('hands over units whose key was flagged exposed after provisioning, and flags them', async () => {
+      organizations.channelKeyState.mockResolvedValue({
+        channelKeyVersion: 2,
+        channelKeyExposedAt: new Date('2026-11-06T01:00:00Z'),
+      });
+      const result = await service.complete('c-1', input(), STAFF, AT);
+      expect(result.unitKeys).toEqual([
+        expect.objectContaining({ deviceId: 'd-1', keyVersion: 2, keyExposed: true }),
+        expect.objectContaining({ deviceId: 'd-2', keyVersion: 2, keyExposed: true }),
+      ]);
+      expect(devices.markRented).toHaveBeenCalled();
+    });
+
+    it('flags no unit while the key is not exposed', async () => {
+      const result = await service.complete('c-1', input(), STAFF, AT);
+      expect(result.unitKeys.every((unit) => !unit.keyExposed)).toBe(true);
+      expect(result.unitKeys.map((unit) => unit.keyVersion)).toEqual([2, 2]);
+    });
+
     it('stores the signed note, rents the devices, activates the contract and emits per device', async () => {
       await expect(service.complete('c-1', input(), STAFF, AT)).resolves.toMatchObject({
         status: ContractStatus.ACTIVE,
