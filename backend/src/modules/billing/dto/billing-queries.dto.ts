@@ -69,6 +69,15 @@ export class CounterPaymentDto {
   reference!: string;
 }
 
+// billing api-design 23 (D-097 amended): how the credit due was refunded outside TrekLink.
+export class InvoiceRefundDto {
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  note!: string;
+}
+
 // billing api-design 11: one line, or by default every line due now.
 export class SepayPaymentDto {
   @IsOptional()

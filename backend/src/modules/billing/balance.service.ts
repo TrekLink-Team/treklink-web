@@ -16,8 +16,8 @@ export interface BalanceSummary {
   // yet, so they are listed apart and `settled` covers the lines only. The close guard counts them.
   pendingDamageCharges: DamageChargeRow[];
   settled: boolean;
-  // What credits leave over once every line is paid: owed to the organization and refunded outside
-  // TrekLink until a refund flow exists (REQ-STA-03, D-097 rule 3).
+  // What credits leave over once every line is paid, less the refunds recorded on the contract's
+  // invoices: owed to the organization and refunded outside TrekLink (REQ-STA-03, D-097 amended).
   owedToOrganizationVnd: bigint;
 }
 
@@ -51,6 +51,18 @@ const netted = (
       return { dueAt: item.dueAt, vnd: item.vnd - applied };
     });
   return { owing: netOwing, leftVnd: credit };
+};
+
+// What is still owed to the organization once the refunds recorded on the contract's invoices are taken off
+// the credit left over, never below zero (design section 11.3, D-097 amended).
+const owedAfterRefunds = (leftVnd: bigint, refundedVnd: bigint): bigint =>
+  leftVnd > refundedVnd ? leftVnd - refundedVnd : 0n;
+
+// The credit due on an invoice below zero: the smaller of its negative total and what the contract is
+// owed after its other lines and the refunds recorded (design section 11.3, D-097 amended).
+export const creditDueOf = (totalVnd: bigint, owedToOrganizationVnd: bigint): bigint => {
+  const credit = totalVnd < 0n ? -totalVnd : 0n;
+  return credit < owedToOrganizationVnd ? credit : owedToOrganizationVnd;
 };
 
 // Sorts after every code and id, so rows without one come last in the revenue report.
@@ -187,9 +199,10 @@ export class BalanceService {
     at: Date = new Date(),
     client?: Client,
   ): Promise<BalanceSummary> {
-    const [lines, pendingDamageCharges] = await Promise.all([
+    const [lines, pendingDamageCharges, refundedVnd] = await Promise.all([
       this.invoices.linesOfContract(contractId, client),
       this.damageCharges.pendingOfContract(contractId, client),
+      this.invoices.refundedOfContract(contractId, client),
     ]);
     const { owing: remaining, leftVnd } = netted(lines);
     const dueNowVnd = sum(remaining.filter((item) => item.dueAt.getTime() <= at.getTime()));
@@ -202,7 +215,7 @@ export class BalanceService {
       paidVnd,
       pendingDamageCharges,
       settled: dueNowVnd + dueLaterVnd === 0n,
-      owedToOrganizationVnd: leftVnd,
+      owedToOrganizationVnd: owedAfterRefunds(leftVnd, refundedVnd),
     };
   }
 
@@ -213,10 +226,14 @@ export class BalanceService {
     creditVnd: bigint,
     client?: Client,
   ): Promise<{ outstandingVnd: bigint; owedToOrganizationVnd: bigint }> {
-    const { owing, leftVnd } = netted(
-      await this.invoices.linesOfContract(contractId, client),
-      creditVnd,
-    );
-    return { outstandingVnd: sum(owing), owedToOrganizationVnd: leftVnd };
+    const [lines, refundedVnd] = await Promise.all([
+      this.invoices.linesOfContract(contractId, client),
+      this.invoices.refundedOfContract(contractId, client),
+    ]);
+    const { owing, leftVnd } = netted(lines, creditVnd);
+    return {
+      outstandingVnd: sum(owing),
+      owedToOrganizationVnd: owedAfterRefunds(leftVnd, refundedVnd),
+    };
   }
 }

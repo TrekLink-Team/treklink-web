@@ -1,9 +1,14 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { Caller, CheckPolicies, CurrentCaller } from '../../common/decorators/access.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { PagedResult } from '../../common/dto/paging';
 import { BillingReadsService, InvoiceDetail, Labelled } from './billing-reads.service';
-import { CounterPaymentDto, InvoiceQueryDto, PaymentQueryDto } from './dto/billing-queries.dto';
+import {
+  CounterPaymentDto,
+  InvoiceQueryDto,
+  InvoiceRefundDto,
+  PaymentQueryDto,
+} from './dto/billing-queries.dto';
 import { InvoiceRow } from './invoices.repository';
 import { PaymentRow } from './payments.repository';
 import { PaymentsService } from './payments.service';
@@ -11,7 +16,7 @@ import { PaymentsService } from './payments.service';
 // A JSON body cannot hold a bigint; every VND amount here is far below Number.MAX_SAFE_INTEGER.
 const vnd = (amount: bigint): number => Number(amount);
 
-export const toInvoiceView = ({ row, contract, termSeq }: Labelled<InvoiceRow>) => ({
+export const toInvoiceView = ({ row, contract, termSeq, creditDueVnd }: Labelled<InvoiceRow>) => ({
   id: row.id,
   number: row.number,
   organization: { id: row.organizationId, code: contract?.organizationCode ?? null },
@@ -21,6 +26,17 @@ export const toInvoiceView = ({ row, contract, termSeq }: Labelled<InvoiceRow>) 
   status: row.status,
   totalVnd: vnd(row.totalVnd),
   paidVnd: vnd(row.paidVnd),
+  // D-097 amended (design section 11.4): what TrekLink owes on a CREDIT_DUE invoice, and its refund.
+  creditDueVnd: creditDueVnd === null ? null : vnd(creditDueVnd),
+  refund:
+    row.refundedVnd === null || row.refundedAt === null
+      ? null
+      : {
+          amountVnd: vnd(row.refundedVnd),
+          at: row.refundedAt,
+          note: row.refundNote,
+          byId: row.refundedById,
+        },
   issuedAt: row.issuedAt,
 });
 
@@ -129,6 +145,20 @@ export class InvoicesController {
       caller,
     );
     return toPaymentView(payment);
+  }
+
+  // REQ-EVT-17 (api-design 23, D-097 amended): Staff record the refund of a credit due made outside TrekLink.
+  @Post('invoices/:id/refund')
+  @HttpCode(200)
+  @CheckPolicies((ability) => ability.can('refund', 'Invoice'))
+  @ResponseMessage('Refund recorded')
+  async refund(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: InvoiceRefundDto,
+    @CurrentCaller() caller: Caller,
+  ) {
+    const row = await this.payments.markRefunded(id, dto.note, caller);
+    return toInvoiceView({ row, contract: null, termSeq: null, creditDueVnd: null });
   }
 
   @Get('payments')

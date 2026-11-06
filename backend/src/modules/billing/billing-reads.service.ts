@@ -12,7 +12,7 @@ import {
 import { resolveSort, SortQuery } from '../../common/dto/sorting';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
-import { BalanceService, BalanceSummary } from './balance.service';
+import { BalanceService, BalanceSummary, creditDueOf } from './balance.service';
 import {
   InvoiceDetailRow,
   InvoiceRow,
@@ -44,6 +44,8 @@ export interface Labelled<T> {
   row: T;
   contract: ContractLabel | null;
   termSeq: number | null;
+  // What TrekLink owes the organization on a CREDIT_DUE invoice (design section 11.3); null otherwise.
+  creditDueVnd: bigint | null;
 }
 
 // The seller block of an invoice (screen 6.1): TrekLink's registered identity from the COMPANY_*
@@ -165,10 +167,21 @@ export class BillingReadsService {
       this.directory && rows.length > 0
         ? await this.directory.describe([...new Set(rows.map((row) => row.contractId))], termIds)
         : { contracts: new Map<string, ContractLabel>(), termSeqs: new Map<string, number>() };
+    // The balance is read once per contract, for the CREDIT_DUE rows only.
+    const owed = new Map<string, bigint>();
+    for (const contractId of new Set(
+      rows.filter((row) => row.status === InvoiceStatus.CREDIT_DUE).map((row) => row.contractId),
+    )) {
+      owed.set(contractId, (await this.balances.balanceSummary(contractId)).owedToOrganizationVnd);
+    }
     return rows.map((row) => ({
       row,
       contract: found.contracts.get(row.contractId) ?? null,
       termSeq: row.termId ? (found.termSeqs.get(row.termId) ?? null) : null,
+      creditDueVnd:
+        row.status === InvoiceStatus.CREDIT_DUE
+          ? creditDueOf(row.totalVnd, owed.get(row.contractId) ?? 0n)
+          : null,
     }));
   }
 }

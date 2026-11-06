@@ -94,7 +94,12 @@ export const InvoiceTable: React.FC<{
       key: 'status',
       label: 'Status',
       render: (invoice) => (
-        <Badge tone={INVOICE_TONES[invoice.status]}>{INVOICE_STATUS_LABELS[invoice.status]}</Badge>
+        <Badge
+          tone={INVOICE_TONES[invoice.status]}
+          after={invoice.status === 'CREDIT_DUE' ? `to organization, ${formatVnd(invoice.creditDueVnd ?? 0)}` : undefined}
+        >
+          {invoice.status === 'CREDIT_DUE' ? 'Credit due' : INVOICE_STATUS_LABELS[invoice.status]}
+        </Badge>
       ),
       compact: true,
       sortable: true,

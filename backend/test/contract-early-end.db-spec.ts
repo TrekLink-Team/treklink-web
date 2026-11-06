@@ -146,6 +146,41 @@ describe('End now: credit, check-in and close (D-097)', () => {
 
     const closed = await returns.close(contract.id, await flow.version(contract.id), flow.staff);
     expect(closed).toMatchObject({ status: ContractStatus.CLOSED });
+
+    // D-097 amended (billing REQ-STA-04, REQ-EVT-17, AC-11, migrations 20261106120000 and 120100): the
+    // closing invoice below zero is a credit due, never PAID; Staff mark it refunded with a note.
+    const closing = await flow.prisma.invoice.findFirstOrThrow({
+      where: { contractId: contract.id, kind: InvoiceKind.CLOSING },
+    });
+    expect(closing.status).toBe('CREDIT_DUE');
+    const detail = await flow.send(org.manager, 'get', `/api/invoices/${closing.id}`);
+    expect(resultOf(detail)).toMatchObject({
+      status: 'CREDIT_DUE',
+      creditDueVnd: Number(expected.creditVnd),
+      refund: null,
+    });
+    const note = { note: 'Bank transfer FT26110600042' };
+    // The Manager may not record it (invoice.refund is TrekLink Staff and Admin).
+    expect((await flow.send(org.manager, 'post', `/api/invoices/${closing.id}/refund`, note)).status).toBe(
+      403,
+    );
+    const refunded = await flow.send(flow.staff, 'post', `/api/invoices/${closing.id}/refund`, note);
+    expect(refunded.status).toBe(200);
+    expect(refunded.body).toMatchObject({
+      isSuccess: true,
+      message: 'Refund recorded',
+      result: {
+        status: 'REFUNDED',
+        refund: { amountVnd: Number(expected.creditVnd), note: note.note, byId: flow.staff.id },
+      },
+    });
+    const owedAfter = await flow.send(org.manager, 'get', `/api/contracts/${contract.id}/balance`);
+    expect(resultOf(owedAfter)).toMatchObject({ owedToOrganizationVnd: 0 });
+    const again = await flow.send(flow.staff, 'post', `/api/invoices/${closing.id}/refund`, note);
+    expect(again.status).toBe(409);
+    expect((again.body as { result: { errorCode: string } }).result.errorCode).toBe(
+      ErrorCode.INVALID_STATE_TRANSITION,
+    );
   });
 
   it('counts the grace and the late fee from the end time', async () => {

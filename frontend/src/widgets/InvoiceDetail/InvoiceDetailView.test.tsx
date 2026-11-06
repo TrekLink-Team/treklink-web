@@ -11,6 +11,9 @@ let lines: unknown[] = [];
 let totalVnd = 2_250_000;
 let paidVnd = 0;
 let buyerName: string | null = 'Fansipan Trekking JSC';
+let status = 'ISSUED';
+let creditDueVnd: number | null = null;
+let refund: unknown = null;
 const line = (seq: number, description: string, paid: number, type = 'HOLDING_FEE', amountVnd = 750_000) => ({
   seq,
   type,
@@ -30,7 +33,9 @@ vi.mock('../../entities/billing/api', async (importOriginal) => ({
     data: {
       id: 'i-1',
       number: 'INV-2026-000001',
-      status: 'ISSUED',
+      status,
+      creditDueVnd,
+      refund,
       kind: 'TERM',
       term: { seq: 1 },
       contract: { id: 'c-1', code: 'RC-2026-0002' },
@@ -91,6 +96,9 @@ beforeEach(() => {
   totalVnd = 2_250_000;
   paidVnd = 0;
   buyerName = 'Fansipan Trekking JSC';
+  status = 'ISSUED';
+  creditDueVnd = null;
+  refund = null;
 });
 
 describe('InvoiceDetailView, lines on CollectionView (screen 6.1, D-096)', () => {
@@ -291,3 +299,47 @@ describe('InvoiceDetailView as a business document (screen 6.1, W21)', () => {
     delete document.documentElement.dataset.theme;
   });
 });
+
+// D-097 amended (billing REQ-STA-04, REQ-EVT-17, design section 11.5).
+describe('InvoiceDetailView, credit due to organization', () => {
+  it('reads Credit due to organization with the amount, never Paid, and offers Mark refunded to Staff', () => {
+    status = 'CREDIT_DUE';
+    totalVnd = -720_000;
+    creditDueVnd = 720_000;
+    lines = [line(1, 'Early end credit', 0, 'EARLY_END_CREDIT', -720_000)];
+    renderView();
+    expect(screen.queryByText('Paid', { selector: 'span' })).toBeNull();
+    expect(screen.getAllByText('Credit due').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/to organization, 720,000 VND/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Credit due to organization', { selector: 'dt' }).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Mark refunded' }));
+    const dialog = screen.getByRole('dialog', { name: 'Mark INV-2026-000001 refunded?' });
+    expect(within(dialog).getByText('720,000 VND')).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Mark refunded' }));
+    expect(within(dialog).getByText(/Note is required/)).toBeTruthy();
+  });
+
+  it('offers no Mark refunded to the organization, nor while the credit is set against unpaid lines', () => {
+    status = 'CREDIT_DUE';
+    totalVnd = -720_000;
+    creditDueVnd = 720_000;
+    renderView(true);
+    expect(screen.queryByRole('button', { name: 'Mark refunded' })).toBeNull();
+    cleanup();
+    creditDueVnd = 0;
+    renderView();
+    expect(screen.queryByRole('button', { name: 'Mark refunded' })).toBeNull();
+    expect(screen.getByText(/set against the contract's unpaid invoices/)).toBeTruthy();
+  });
+
+  it('shows the refund once recorded', () => {
+    status = 'REFUNDED';
+    totalVnd = -720_000;
+    refund = { amountVnd: 720_000, at: '2026-11-06T03:00:00Z', note: 'Bank transfer FT26110600042', byId: 'u-1' };
+    renderView();
+    expect(screen.getAllByText('Refunded').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Bank transfer FT26110600042/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Mark refunded' })).toBeNull();
+  });
+});
+

@@ -207,6 +207,7 @@ model User {
   priceSchedules           PriceSchedule[]
   damageRates              DamageRate[]
   paymentsAsRecordedBy     Payment[]       @relation("Payment_recordedById")
+  invoicesAsRefundedBy     Invoice[]       @relation("Invoice_refundedById")
   paymentsAsRequestedBy    Payment[]       @relation("Payment_requestedById")
   damageChargesAsDecided   DamageCharge[]  @relation("DamageCharge_decidedById")
   damageChargesAsInspector DamageCharge[]  @relation("DamageCharge_inspectorId")
@@ -1331,6 +1332,8 @@ enum InvoiceStatus {
   ISSUED
   PARTIALLY_PAID
   PAID
+  CREDIT_DUE // total below zero: TrekLink owes the organization (billing design section 11, D-097 amended)
+  REFUNDED // the credit due was refunded outside TrekLink and recorded
 }
 
 enum InvoiceLineType {
@@ -1436,6 +1439,12 @@ model Invoice {
   totalVnd       BigInt
   paidVnd        BigInt         @default(0)
   issuedAt       DateTime       @default(now()) @db.Timestamptz(3)
+  // The refund of a credit due, made outside TrekLink (design section 11, D-097 amended); all four or none.
+  refundedVnd    BigInt?
+  refundedAt     DateTime?      @db.Timestamptz(3)
+  refundedById   String?
+  refundedBy     User?          @relation("Invoice_refundedById", fields: [refundedById], references: [id])
+  refundNote     String?        @db.VarChar(500)
 
   lines    InvoiceLine[]
   payments Payment[]

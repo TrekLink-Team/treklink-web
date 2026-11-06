@@ -1,15 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CreditCard, QrCode, Receipt } from 'lucide-react';
+import { CreditCard, QrCode, Receipt, Undo2 } from 'lucide-react';
 import {
   useBalance,
   useInvoices,
   usePayments,
+  creditDueText,
   type Invoice,
   type Payment,
 } from '../../entities/billing/api';
 import type { ContractDetail } from '../../entities/contract/api';
 import { ServiceCreditsCard } from '../../features/service-credits/ServiceCreditsCard';
+import { MarkRefundedDialog } from '../../features/mark-refunded/MarkRefundedDialog';
 import { formatDateTime, formatVnd } from '../../shared/lib/format';
 import { useMediaQuery } from '../../shared/lib/useMediaQuery';
 import { Card, CardHeader } from '../../shared/ui/Card';
@@ -39,7 +41,12 @@ const INVOICE_STATUS: Record<Invoice['status'], string> = {
   ISSUED: 'Issued',
   PARTIALLY_PAID: 'Partly paid',
   PAID: 'Paid',
+  CREDIT_DUE: 'Credit due to organization',
+  REFUNDED: 'Refunded',
 };
+
+// The status text of an invoice row: a credit due names the amount TrekLink owes (D-097 amended).
+const statusText = (invoice: Invoice): string => creditDueText(invoice) ?? INVOICE_STATUS[invoice.status];
 
 /**
  * The Money tab, for TrekLink Staff and the Org Manager (screen 5.2): the balance (billing api-design
@@ -57,6 +64,7 @@ export const MoneyTab: React.FC<{
   const invoices = useInvoices(scope, { contractId: contract.id });
   const payments = usePayments({ contractId: contract.id });
   const phone = !useMediaQuery('(min-width: 600px)', true);
+  const [refunding, setRefunding] = useState<Invoice | null>(null);
   const figures: [string, string][] = balance.data
     ? [
         ['Due now', formatVnd(balance.data.dueNowVnd)],
@@ -109,8 +117,8 @@ export const MoneyTab: React.FC<{
     {
       key: 'status',
       label: 'Status',
-      render: (invoice) => INVOICE_STATUS[invoice.status],
-      text: (invoice) => INVOICE_STATUS[invoice.status],
+      render: (invoice) => statusText(invoice),
+      text: (invoice) => statusText(invoice),
       compact: true,
     },
   ];
@@ -192,7 +200,8 @@ export const MoneyTab: React.FC<{
               <p className="mt-3 text-body-sm font-semibold text-ink">
                 TrekLink owes{' '}
                 {scope === 'o' ? 'your organization' : (contract.organization?.legalName ?? 'the organization')}{' '}
-                {formatVnd(balance.data.owedToOrganizationVnd ?? 0)}. It is refunded outside TrekLink.
+                {formatVnd(balance.data.owedToOrganizationVnd ?? 0)}. It is refunded outside TrekLink
+                {scope === 't' ? ', then marked refunded on the closing invoice.' : '.'}
               </p>
             )}
             {balance.data.pendingDamageCharges.length > 0 && (
@@ -238,19 +247,32 @@ export const MoneyTab: React.FC<{
             itemHref={invoicePath}
             fields={fields}
             noun={{ one: 'invoice', other: 'invoices' }}
-            itemActions={
-              canPay
+            itemActions={[
+              ...(canPay
                 ? [
                     {
                       key: 'pay',
                       label: 'Pay invoice',
                       icon: <CreditCard />,
-                      allowed: (invoice) => invoice.paidVnd < invoice.totalVnd,
-                      onSelect: (invoice) => navigate(invoicePath(invoice)),
+                      allowed: (invoice: Invoice) => invoice.paidVnd < invoice.totalVnd,
+                      onSelect: (invoice: Invoice) => navigate(invoicePath(invoice)),
                     },
                   ]
-                : []
-            }
+                : []),
+              // TrekLink Staff and Admin record the refund of a credit due (billing design section 11.5).
+              ...(scope === 't'
+                ? [
+                    {
+                      key: 'refund',
+                      label: 'Mark refunded',
+                      icon: <Undo2 />,
+                      allowed: (invoice: Invoice) =>
+                        invoice.status === 'CREDIT_DUE' && (invoice.creditDueVnd ?? 0) > 0,
+                      onSelect: (invoice: Invoice) => setRefunding(invoice),
+                    },
+                  ]
+                : []),
+            ]}
             details={{ href: invoicePath, hrefLabel: 'Open the invoice' }}
             emptyState={{
               title: 'No invoices yet.',
@@ -298,6 +320,7 @@ export const MoneyTab: React.FC<{
       </CollectionPaneHost>
 
       {contract.handedOverAt && <ServiceCreditsCard contractId={contract.id} />}
+      {refunding && <MarkRefundedDialog invoice={refunding} onClose={() => setRefunding(null)} />}
     </div>
   );
 };

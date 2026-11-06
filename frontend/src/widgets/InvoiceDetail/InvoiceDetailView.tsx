@@ -20,6 +20,7 @@ import { PageScrollBody, PinnedTitle } from '../../shared/ui/PageChrome';
 import { cn } from '../../shared/ui/cn';
 import { TONE_CLASSES } from '../../shared/ui/status';
 import { CARD, LINK } from '../../shared/ui/styles';
+import { MarkRefundedDialog } from '../../features/mark-refunded/MarkRefundedDialog';
 import { CounterPaymentDialog } from './CounterPaymentDialog';
 import { InvoiceParties, InvoicePrintDocument, InvoiceTotalsFooter } from './InvoiceDocument';
 
@@ -135,6 +136,7 @@ export const InvoiceDetailView: React.FC<{
   }, [focusOnOpen, loaded]);
   const navigate = useNavigate();
   const [recording, setRecording] = useState(false);
+  const [refunding, setRefunding] = useState(false);
   // A cancelled contract's voiding ADJUSTMENT sits on its CLOSING invoice, so an earlier invoice
   // can still show an amount due while the contract owes nothing. Payment actions show only while
   // the contract balance is open (ruling on #87 point 4); invoice lines stay unchanged.
@@ -169,8 +171,21 @@ export const InvoiceDetailView: React.FC<{
   if (error || !data) return <ErrorState error={error} onRetry={() => void refetch()} />;
   const due = data.totalVnd - data.paidVnd;
 
+  // D-097 amended (billing REQ-STA-04): a credit due names whom and how much after the two-word badge.
+  const creditDue = data.status === 'CREDIT_DUE' ? (data.creditDueVnd ?? 0) : null;
   const badge = (
-    <Badge tone={INVOICE_TONES[data.status]}>{INVOICE_STATUS_LABELS[data.status]}</Badge>
+    <Badge
+      tone={INVOICE_TONES[data.status]}
+      after={
+        creditDue !== null
+          ? `to organization, ${formatVnd(creditDue)}`
+          : data.status === 'REFUNDED' && data.refund
+            ? `${formatVnd(data.refund.amountVnd)}, ${formatDateTime(data.refund.at)}`
+            : undefined
+      }
+    >
+      {data.status === 'CREDIT_DUE' ? 'Credit due' : INVOICE_STATUS_LABELS[data.status]}
+    </Badge>
   );
   return (
     <div
@@ -209,8 +224,21 @@ export const InvoiceDetailView: React.FC<{
             <Fact label="Issued">{formatDateTime(data.issuedAt)}</Fact>
             <Fact label="Total">{formatVnd(data.totalVnd)}</Fact>
             <Fact label="Paid">{formatVnd(data.paidVnd)}</Fact>
-            <Fact label="Still due">{formatVnd(Math.max(due, 0))}</Fact>
+            {creditDue !== null ? (
+              <Fact label="Credit due to organization">{formatVnd(creditDue)}</Fact>
+            ) : data.status === 'REFUNDED' && data.refund ? (
+              <Fact label="Refunded to organization">
+                {formatVnd(data.refund.amountVnd)}, {formatDateTime(data.refund.at)}: {data.refund.note}
+              </Fact>
+            ) : (
+              <Fact label="Still due">{formatVnd(Math.max(due, 0))}</Fact>
+            )}
           </dl>
+          {creditDue === 0 && (
+            <p className="mt-3 text-body-sm text-ink-muted">
+              The credit is set against the contract's unpaid invoices, so nothing is owed back yet.
+            </p>
+          )}
           {payError && (
             <Alert tone="error" className="mt-3">
               {payError}
@@ -226,6 +254,12 @@ export const InvoiceDetailView: React.FC<{
                 onClick={() => void pay()}
               >
                 Pay with SePay
+              </Button>
+            )}
+            {/* Staff and Admin, who also record counter payments (billing design section 11.5). */}
+            {canRecordCounter && creditDue !== null && creditDue > 0 && (
+              <Button variant="primary" onClick={() => setRefunding(true)}>
+                Mark refunded
               </Button>
             )}
             {canRecordCounter && owing && balance.data && !balance.data.settled && (
@@ -310,6 +344,7 @@ export const InvoiceDetailView: React.FC<{
       </InvoiceBody>
 
       {recording && <CounterPaymentDialog invoice={data} onClose={() => setRecording(false)} />}
+      {refunding && <MarkRefundedDialog invoice={data} onClose={() => setRefunding(false)} />}
       <InvoicePrintDocument invoice={data} />
     </div>
   );

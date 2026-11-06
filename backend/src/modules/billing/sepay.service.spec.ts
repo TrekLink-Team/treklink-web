@@ -57,6 +57,10 @@ const invoice = (
   totalVnd: lines.reduce((total, item) => total + item.amountVnd, 0n),
   paidVnd: lines.reduce((total, item) => total + item.paidVnd, 0n),
   issuedAt: AT,
+  refundedVnd: null,
+  refundedAt: null,
+  refundedById: null,
+  refundNote: null,
   lines,
 });
 

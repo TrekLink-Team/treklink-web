@@ -21,6 +21,10 @@ export const INVOICE_SELECT = {
   totalVnd: true,
   paidVnd: true,
   issuedAt: true,
+  refundedVnd: true,
+  refundedAt: true,
+  refundedById: true,
+  refundNote: true,
 } satisfies Prisma.InvoiceSelect;
 
 export type InvoiceRow = Prisma.InvoiceGetPayload<{ select: typeof INVOICE_SELECT }>;
@@ -101,9 +105,14 @@ export interface NewInvoiceLine {
 export const invoiceNumberYear = (at: Date): number =>
   new Date(at.getTime() + NUMBER_ZONE_OFFSET_MS).getUTCFullYear();
 
-// An invoice is PAID once its payments cover its total, which a closing invoice holding only a
-// negative adjustment does at once.
-export const invoiceStatusOf = (totalVnd: bigint, paidVnd: bigint): InvoiceStatus => {
+// An invoice whose total is below zero is a credit due to the organization, never PAID, until its refund
+// is recorded (design section 11.2, D-097 amended); otherwise it is PAID once its payments cover its total.
+export const invoiceStatusOf = (
+  totalVnd: bigint,
+  paidVnd: bigint,
+  refunded = false,
+): InvoiceStatus => {
+  if (totalVnd < 0n) return refunded ? InvoiceStatus.REFUNDED : InvoiceStatus.CREDIT_DUE;
   if (paidVnd >= totalVnd) return InvoiceStatus.PAID;
   return paidVnd > 0n ? InvoiceStatus.PARTIALLY_PAID : InvoiceStatus.ISSUED;
 };
@@ -179,7 +188,10 @@ export class InvoicesRepository {
     const totalVnd = invoice.totalVnd + sumAmounts(lines);
     return tx.invoice.update({
       where: { id: invoice.id },
-      data: { totalVnd, status: invoiceStatusOf(totalVnd, invoice.paidVnd) },
+      data: {
+        totalVnd,
+        status: invoiceStatusOf(totalVnd, invoice.paidVnd, invoice.refundedAt !== null),
+      },
       select: INVOICE_SELECT,
     });
   }
@@ -222,7 +234,10 @@ export class InvoicesRepository {
     const paidVnd = invoice.paidVnd + amountVnd;
     return tx.invoice.update({
       where: { id: invoice.id },
-      data: { paidVnd, status: invoiceStatusOf(invoice.totalVnd, paidVnd) },
+      data: {
+        paidVnd,
+        status: invoiceStatusOf(invoice.totalVnd, paidVnd, invoice.refundedAt !== null),
+      },
       select: INVOICE_SELECT,
     });
   }
@@ -240,6 +255,35 @@ export class InvoicesRepository {
   }
 
   // Every line of every invoice of the contract, oldest due first.
+  // Records the refund of a credit due and marks the invoice REFUNDED (design section 11.4). Call under
+  // lockWithLines, after the caller checked the status and the amount.
+  markRefunded(
+    invoiceId: string,
+    refund: { amountVnd: bigint; at: Date; byId: string; note: string },
+    tx: Prisma.TransactionClient,
+  ): Promise<InvoiceRow> {
+    return tx.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        status: InvoiceStatus.REFUNDED,
+        refundedVnd: refund.amountVnd,
+        refundedAt: refund.at,
+        refundedById: refund.byId,
+        refundNote: refund.note,
+      },
+      select: INVOICE_SELECT,
+    });
+  }
+
+  // What has been refunded on the contract's invoices, in VND (design section 11.3).
+  async refundedOfContract(contractId: string, client: Client = this.prisma): Promise<bigint> {
+    const total = await client.invoice.aggregate({
+      where: { contractId, refundedVnd: { not: null } },
+      _sum: { refundedVnd: true },
+    });
+    return total._sum.refundedVnd ?? 0n;
+  }
+
   linesOfContract(contractId: string, client: Client = this.prisma): Promise<LineRow[]> {
     return client.invoiceLine.findMany({
       where: { invoice: { contractId } },
