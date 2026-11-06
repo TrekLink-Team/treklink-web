@@ -312,6 +312,10 @@
   .tl-cluster--unheard {
     border-color: rgb(var(--tl-marker-unheard));
   }
+  .tl-cluster--docked {
+    border-color: rgb(var(--tl-marker-docked));
+    border-style: double;
+  }
   .tl-cluster--sos {
     border-color: #d0151d;
     animation: tl-pulse-ring 1.6s ease-out infinite;

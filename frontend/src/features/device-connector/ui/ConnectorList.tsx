@@ -12,7 +12,11 @@ import {
   Trash2,
   UserPlus,
 } from 'lucide-react';
-import { CollectionView, type CollectionAction, type CollectionField } from '../../../shared/ui/collection-view';
+import {
+  CollectionView,
+  type CollectionAction,
+  type CollectionField,
+} from '../../../shared/ui/collection-view';
 import { Skeleton } from '../../../shared/ui/Skeleton';
 import { DEVICE_STATUS, type DeviceStatus } from '../../../shared/ui/status';
 import type { Connection, RegistrySnapshot } from '../model/ConnectorRegistry';
@@ -70,7 +74,8 @@ export const ConnectorList: React.FC<Props> = ({
     () => new Map(snapshot.connections.map((connection) => [connection.id, actionsOf(connection)])),
     [snapshot.connections, actionsOf],
   );
-  const actionsFor = (connection: Connection) => byId.get(connection.id) ?? { actions: [], reason: null };
+  const actionsFor = (connection: Connection) =>
+    byId.get(connection.id) ?? { actions: [], reason: null };
   // A write on another unit makes this unit's writes unavailable, with the reason (REQ-STA-06).
   const lockedOut = (connection: Connection) =>
     writing !== null && writing !== connection.id ? LOCKED : undefined;
@@ -80,19 +85,20 @@ export const ConnectorList: React.FC<Props> = ({
       key: 'unit',
       label: 'Unit',
       compact: true,
-      text: (connection) => `${connection.unit?.nodeId ?? ''} ${connection.recognized?.device?.hardwareVariant.name ?? ''}`,
+      text: (connection) =>
+        `${connection.unit?.nodeId ?? ''} ${connection.recognized?.device?.hardwareVariant.name ?? ''}`,
       render: (connection) =>
         reading(connection) && !connection.unit ? (
           <Skeleton className="h-3.5 w-32" />
         ) : (
-        <span className="text-ink-muted">
-          <span className="font-mono">{connection.unit?.nodeId ?? 'Node not read'}</span>
-          {connection.recognized?.device
-            ? `, ${connection.recognized.device.hardwareVariant.name}`
-            : connection.unit?.pioEnv
-              ? `, ${connection.unit.pioEnv}`
-              : ''}
-        </span>
+          <span className="text-ink-muted">
+            <span className="font-mono">{connection.unit?.nodeId ?? 'Node not read'}</span>
+            {connection.recognized?.device
+              ? `, ${connection.recognized.device.hardwareVariant.name}`
+              : connection.unit?.pioEnv
+                ? `, ${connection.unit.pioEnv}`
+                : ''}
+          </span>
         ),
     },
     {
@@ -127,7 +133,8 @@ export const ConnectorList: React.FC<Props> = ({
         const notes = [
           connection.message ?? reason,
           flash?.disabledReason ?? null,
-          lockedOut(connection) && actions.some((action) => action.kind !== 'link' && action.kind !== 'register')
+          lockedOut(connection) &&
+          actions.some((action) => action.kind !== 'link' && action.kind !== 'register')
             ? LOCKED
             : null,
         ].filter((note): note is string => Boolean(note));
@@ -173,7 +180,9 @@ export const ConnectorList: React.FC<Props> = ({
     label: actionLabel,
     icon: <ExternalLink />,
     allowed: (connection) =>
-      actionsFor(connection).actions.some((action) => action.kind === 'link' && action.label === actionLabel),
+      actionsFor(connection).actions.some(
+        (action) => action.kind === 'link' && action.label === actionLabel,
+      ),
     onSelect: (connection) => {
       const action = actionsFor(connection).actions.find(
         (candidate) => candidate.kind === 'link' && candidate.label === actionLabel,
@@ -197,14 +206,16 @@ export const ConnectorList: React.FC<Props> = ({
       key: 'reconnect',
       label: 'Reconnect',
       icon: <Plug />,
-      allowed: (connection) => snapshot.reconnectFor === connection.id && connection.state === 'reconnect',
+      allowed: (connection) =>
+        snapshot.reconnectFor === connection.id && connection.state === 'reconnect',
       onSelect: () => onReconnect(),
     },
     {
       key: 'stop',
       label: 'Stop waiting for',
       icon: <Square />,
-      allowed: (connection) => snapshot.reconnectFor === connection.id && connection.state === 'reconnect',
+      allowed: (connection) =>
+        snapshot.reconnectFor === connection.id && connection.state === 'reconnect',
       onSelect: () => onStopReconnect(),
     },
     {
@@ -230,36 +241,39 @@ export const ConnectorList: React.FC<Props> = ({
       items={[...snapshot.connections]}
       itemId={(connection) => String(connection.id)}
       itemName={unitName}
-      itemTitle={(connection) =>
+      // The card's tile holds the unit's icon render and its heading the asset tag (chapter 06 §9.2). A unit
+      // still being read or checked shows a skeleton in their place (screen 4.6, States); the connection
+      // field says which step it is on.
+      cardImage={(connection) =>
         reading(connection) ? (
-          // A unit still being read or checked: a skeleton in the shape of the row (screen 4.6, States);
-          // the connection field says which step it is on.
-          <span className="flex items-center gap-2">
-            <Skeleton className="h-12 w-12 shrink-0" />
-            <h3 className="min-w-0">
-              <span className="sr-only">Unit being read</span>
-              <Skeleton className="h-4 w-24" />
-            </h3>
-          </span>
+          <Skeleton className="h-12 w-12" />
         ) : (
-        <span className="flex items-center gap-2">
           <UnitImage
             code={connection.recognized?.device?.hardwareVariant.code ?? null}
             name={connection.recognized?.device?.hardwareVariant.name ?? null}
             kind="icon"
           />
-          <h3 className="truncate text-body font-semibold text-ink">
+        )
+      }
+      itemTitle={(connection) =>
+        reading(connection) ? (
+          <>
+            <span className="sr-only">Unit being read</span>
+            <Skeleton className="h-4 w-24" />
+          </>
+        ) : (
+          <span className="block truncate text-body text-ink">
             {connection.recognized?.device?.assetTag ?? 'Unknown unit'}
-          </h3>
-        </span>
+          </span>
         )
       }
       fields={fields}
       noun={{ one: 'unit', other: 'units' }}
       itemActions={itemActions}
       onShowDetails={(connection) => onShow(connection.id)}
-      views={['list']}
-      defaultView="list"
+      // The panel is narrow, so the units show as Large cards, the view a collection takes below 600 px
+      // (chapter 06 §9); the List view this used is gone from CollectionView.
+      defaultView="largeCards"
       details={false}
       search={{ label: 'Search connected units' }}
       emptyState={{

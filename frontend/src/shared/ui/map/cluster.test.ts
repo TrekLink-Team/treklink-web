@@ -99,6 +99,14 @@ describe('clusterName', () => {
     );
   });
 
+  it('ranks a unit docked at the counter after offline and before live, and names it', () => {
+    expect(severityRank('stale')).toBeLessThan(severityRank('docked'));
+    expect(severityRank('docked')).toBeLessThan(severityRank('fresh'));
+    expect(clusterName(['docked', 'fresh'], 'x')).toBe(
+      '2 devices, 1 docked at the counter, near x',
+    );
+  });
+
   it('puts SOS ahead of not heard', () => {
     expect(clusterName(['unheard', 'unheard', 'sos'], 'x')).toBe(
       '3 devices, 1 SOS, 2 not heard since handover, near x',
