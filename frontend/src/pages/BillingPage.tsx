@@ -33,10 +33,12 @@ const InvoicesTab: React.FC<{ contractId?: string }> = ({ contractId }) => {
   // width, so its number, total, paid and issued columns are not cut off beside an empty column.
   return (
     // From 1280 px the list and the open invoice sit side by side, each scrolling inside itself;
-    // below that they stack and this tab body is the one scroll region (ui standard §7).
+    // below that they stack and this tab body is the one scroll region (ui standard §7). Each scroll
+    // region is `relative`, so a visually hidden live region in the pane takes its position from the
+    // region that clips it, not from #main, which it would otherwise stretch (W35 viewport check).
     <div
       className={cn(
-        'grid min-h-0 flex-1 content-start gap-5 overflow-y-auto overscroll-contain xl:grid-rows-[minmax(0,auto)_auto] xl:overflow-visible',
+        'relative grid min-h-0 flex-1 content-start gap-5 overflow-y-auto overscroll-contain xl:grid-rows-[minmax(0,auto)_auto] xl:overflow-visible',
         '[@media(max-height:479.98px)]:overflow-visible',
         selectedId && 'xl:grid-cols-[minmax(0,1fr)_440px]',
       )}
@@ -68,7 +70,7 @@ const InvoicesTab: React.FC<{ contractId?: string }> = ({ contractId }) => {
         />
       </div>
       {selectedId ? (
-        <div className="min-w-0 xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain">
+        <div className="relative min-w-0 xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain">
           <InvoiceDetailView
             key={selectedId}
             invoiceId={selectedId}
