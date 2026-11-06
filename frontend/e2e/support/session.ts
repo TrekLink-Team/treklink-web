@@ -147,6 +147,20 @@ export const runBackendScript = async (script: string, args: string[]): Promise<
 // Numbers as the screens format them (en-US grouping, "1,125,000 VND").
 export const vnd = (amount: number): string => `${amount.toLocaleString('en-US')} VND`;
 
+// What a MoneyInput shows for an amount: vi-VN groups, `1.125.000`; the ₫ beside it is a hidden glyph,
+// not part of the value (chapter 06 §11.10, D-101).
+export const moneyText = (amount: number): string => String(amount).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+// Types an amount into a MoneyInput key by key, as the presenter does, and checks the grouped display.
+export const typeMoney = async (field: Locator, amount: number): Promise<void> => {
+  await field.click();
+  await field.press('ControlOrMeta+a');
+  await field.press('Backspace');
+  await expect(field).toHaveValue('');
+  await field.pressSequentially(String(amount));
+  await expect(field).toHaveValue(moneyText(amount));
+};
+
 // The value of a `<dt>`/`<dd>` pair, such as the Balance card's "Due now".
 export const definitionOf = (scope: Page | Locator, term: string): Locator =>
   scope.locator('dt', { hasText: new RegExp(`^${term}$`) }).first().locator('xpath=following-sibling::dd[1]');

@@ -7,11 +7,13 @@ import {
   definitionOf,
   expectToast,
   homeAction,
+  moneyText,
   openFromSidebar,
   runBackendScript,
   showOnly,
   signIn,
   titleStatus,
+  typeMoney,
   vnd,
 } from './support/session';
 
@@ -207,7 +209,7 @@ test('MF-05 steps 10 to 12: Staff take the closing payment and close the contrac
   await page.getByRole('button', { name: 'Record counter payment' }).click();
   const pay = page.getByRole('dialog');
   await expect(pay).toContainText(`contract ${CONTRACT}, ORG-0001. Due now: ${vnd(2_900_000)}`);
-  await expect(pay.getByLabel('Amount received (VND)')).toHaveValue('2900000');
+  await expect(pay.getByLabel('Amount received (VND)')).toHaveValue(moneyText(2_900_000));
   await pay.getByLabel('Cash').check();
   await pay.getByLabel('Receipt number or bank reference').fill(`R-${Date.now()}`);
   await pay.getByRole('button', { name: 'Record', exact: true }).click();
@@ -244,7 +246,7 @@ test('MF-05 step 13 (optional): TL-0017 completes maintenance and passes an inta
   const dialog = page.getByRole('dialog', { name: 'Complete maintenance for TL-0017' });
   await dialog.getByLabel('Completed').check();
   await dialog.getByRole('textbox', { name: /^Resolution/ }).fill('Casing replaced');
-  await dialog.getByRole('spinbutton', { name: /^Actual cost/ }).or(dialog.getByRole('textbox', { name: /^Actual cost/ })).fill('0');
+  await typeMoney(dialog.getByRole('textbox', { name: /^Actual cost/ }), 0);
   await dialog.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('TL-0017 stays in maintenance until it passes an intake check on its page.')).toBeVisible();
 
