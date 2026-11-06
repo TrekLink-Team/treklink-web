@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Returns the immutable, itemized invoice with its dated lines and payments, and the two parties of the business document (screen 6.1): `organization` carries the buyer's registered legal name, tax code and address (null when the directory cannot name it), and `seller` TrekLink's from the `COMPANY_LEGAL_NAME`, `COMPANY_TAX_CODE`, `COMPANY_ADDRESS` and `COMPANY_HOTLINE` configuration. The list (08) keeps the organization code only.
+Returns the immutable, itemized invoice with its dated lines and payments, and the two parties of the business document (screen 6.1): `organization` carries the buyer's registered legal name, tax code and address (null when the directory cannot name it), and `seller` TrekLink's from the `COMPANY_LEGAL_NAME`, `COMPANY_TAX_CODE`, `COMPANY_ADDRESS` and `COMPANY_HOTLINE` configuration. The list (08) keeps the organization code only. An invoice whose total is below zero is `CREDIT_DUE` with `creditDueVnd`, what TrekLink owes the organization on it (design section 11.3), until a refund is recorded (23); then it is `REFUNDED` with `refund`.
 
 ## API Specification
 
@@ -15,7 +15,7 @@ Returns the immutable, itemized invoice with its dated lines and payments, and t
 | --- | --- |
 | GET | /api/invoices/:id |
 | Permission | Org Manager: own; TrekLink Staff, TrekLink Admin |
-| Traces | UC-45, UC-55, FR-BILL-06 |
+| Traces | UC-45, UC-55, FR-BILL-06, D-097 amended |
 
 ### Path parameters
 
@@ -52,6 +52,8 @@ No body.
     "status": "PARTIALLY_PAID",
     "totalVnd": 4500000,
     "paidVnd": 2250000,
+    "creditDueVnd": null,
+    "refund": null,
     "issuedAt": "2026-10-20T03:15:00.000Z",
     "lines": [
       {

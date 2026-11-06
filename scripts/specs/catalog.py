@@ -220,6 +220,8 @@ PERMISSIONS = [
     ("payment.read.own", "read", "Payment", OWN, ["ORG_MANAGER"]),
     ("payment.payOnline.own", "payOnline", "Invoice", OWN, ["ORG_MANAGER"]),
     ("payment.recordCounter", "recordCounter", "Invoice", None, ["STAFF"]),
+    # D-097 amended (billing design §11; migration 20261106120100_invoice_refund)
+    ("invoice.refund", "refund", "Invoice", None, ["STAFF"]),
     ("damageCharge.read", "read", "DamageCharge", None, ["STAFF"]),
     ("damageCharge.decide", "decide", "DamageCharge", None, ["ADMIN"]),
     # service credits (task 8.1, design §9.4; migration 20261102180000_service_credits)

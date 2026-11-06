@@ -46,6 +46,8 @@ Scope from the task: billing api-design 08, 09; lines with due dates and status
 | State | What the user sees |
 |---|---|
 | Loading | List skeleton rows; detail header and line table skeletons |
+| Credit due to organization (`CREDIT_DUE`, D-097 amended, billing design section 11.5; leader ruling 2026-11-06) | The badge "Credit due" with "to organization, {amount}" after it, never Paid; the fact "Credit due to organization" in place of Still due; the document's totals end with "Credit due to organization {amount}". Staff and Admin get the primary action "Mark refunded" (a `Dialog` naming the amount, a required Note, Mark refunded, toast "Refund recorded."). With a credit due of zero, the text "The credit is set against the contract's unpaid invoices, so nothing is owed back yet." and no action |
+| Refunded (`REFUNDED`) | The badge "Refunded" with the amount and date after it; the fact "Refunded to organization {amount}, {date}: {note}"; the document's totals end with "Refunded to organization {amount}" |
 | Empty | No invoices: "No invoices yet. Invoices appear when TrekLink approves a contract." With a filter: MSG01 |
 | Error `VALIDATION_FAILED` (400, billing 08) | MSG02 next to the filter the server names; the filters reset |
 | Error `NOTHING_DUE` (409, billing 11) | The server's `message` ("This invoice has nothing to pay.") in line above the lines; the invoice refetches (D-059 rule 3) |

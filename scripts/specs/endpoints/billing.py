@@ -3,7 +3,8 @@ from ._common import (USER_ID, ORG_ID, DEVICE_ID, VARIANT_ID, CONTRACT_ID, INVOI
 
 INVOICE = {"id": INVOICE_ID, "number": "INV-2026-000123", "organization": {"id": ORG_ID, "code": "ORG-0007"},
            "contract": {"id": CONTRACT_ID, "code": "RC-2026-0042"}, "kind": "TERM", "term": {"seq": 1},
-           "status": "PARTIALLY_PAID", "totalVnd": 4500000, "paidVnd": 2250000, "issuedAt": NOW,
+           "status": "PARTIALLY_PAID", "totalVnd": 4500000, "paidVnd": 2250000, "creditDueVnd": None,
+           "refund": None, "issuedAt": NOW,
            "lines": [{"seq": 1, "type": "HOLDING_FEE", "description": "Term 1 holding fee, 10 x treklink-v3",
                       "quantity": 10, "unitVnd": 225000, "amountVnd": 2250000, "dueAt": "2026-10-25T02:00:00Z",
                       "paidVnd": 2250000},
@@ -145,7 +146,9 @@ ENDPOINTS = [
        "the business document (screen 6.1): `organization` carries the buyer's registered legal name, tax code "
        "and address (null when the directory cannot name it), and `seller` TrekLink's from the "
        "`COMPANY_LEGAL_NAME`, `COMPANY_TAX_CODE`, `COMPANY_ADDRESS` and `COMPANY_HOTLINE` configuration. "
-       "The list (08) keeps the organization code only.", "UC-45, UC-55, FR-BILL-06",
+       "The list (08) keeps the organization code only. An invoice whose total is below zero is `CREDIT_DUE` "
+       "with `creditDueVnd`, what TrekLink owes the organization on it (design section 11.3), until a refund is "
+       "recorded (23); then it is `REFUNDED` with `refund`.", "UC-45, UC-55, FR-BILL-06, D-097 amended",
        path=[INV_PATH], response={**INVOICE,
                                   "organization": {**INVOICE["organization"], "legalName": "Fansipan Trekking JSC",
                                                    "taxCode": "0109876543", "address": "Sa Pa, Lao Cai"},
@@ -407,6 +410,30 @@ ENDPOINTS = [
        steps=["Lock the credit", "Require REFUND_DUE", "Refuse a reference already used", "Mark REFUNDED", "Audit"],
        controller="ServiceCreditsController", service="ServiceCreditService", call="recordRefund(id, reference, actor)",
        seq=["Svc->>DB: SELECT service_credits FOR UPDATE", "Svc->>DB: UPDATE service_credits"]),
+
+    ep("POST", "/api/invoices/:id/refund", "Mark a credit-due invoice refunded", "TrekLink Staff, TrekLink Admin",
+       "Records that the credit TrekLink owes the organization on a `CREDIT_DUE` invoice was refunded outside "
+       "TrekLink (D-097 amended, BR-34: no real money moves through TrekLink). The amount recorded is the "
+       "invoice's `creditDueVnd` at that moment; the contract's `owedToOrganizationVnd` drops by it.",
+       "D-097 amended, REQ-EVT-17, REQ-ERR-09, AC-11, AC-12, BR-34", path=[INV_PATH],
+       body=[["note", "How it was refunded, such as the bank-transfer reference; 1 to 500 characters", "string",
+              "yes", "`Bank transfer FT26110600042`"]],
+       sample={"note": "Bank transfer FT26110600042"},
+       response={**{k: INVOICE[k] for k in INVOICE if k != "lines"}, "kind": "CLOSING", "term": None,
+                 "status": "REFUNDED", "totalVnd": -720000, "paidVnd": 0, "creditDueVnd": None,
+                 "refund": {"amountVnd": 720000, "at": NOW, "note": "Bank transfer FT26110600042",
+                            "byId": "u-staff-1"}},
+       message="Refund recorded", entity="Invoice",
+       errors=[(404, "NOT_FOUND", "No such invoice", "Invoice not found."),
+               (409, "INVALID_STATE_TRANSITION", "The invoice is not `CREDIT_DUE`",
+                "Only an invoice with a credit due can be marked refunded."),
+               (409, "NOTHING_OWED", "The credit is still set against the contract's unpaid lines",
+                "Nothing is owed to the organization on this invoice yet: the credit is set against its unpaid invoices.")],
+       steps=["Lock the invoice", "Require CREDIT_DUE", "Compute the credit due from the contract balance",
+              "Record the refund and mark REFUNDED", "Audit invoice.refunded after commit"],
+       controller="InvoicesController", service="PaymentsService", call="markRefunded(id, note, actor)",
+       seq=["Svc->>DB: SELECT invoices FOR UPDATE", "Svc->>DB: SELECT invoice_lines of the contract",
+            "Svc->>DB: UPDATE invoices SET status = REFUNDED"]),
 
 ]
 
