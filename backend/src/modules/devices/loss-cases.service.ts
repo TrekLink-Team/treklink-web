@@ -189,10 +189,12 @@ export class LossCaseService {
     return summaries;
   }
 
-  // api-design 18: newest first; an organization caller sees its own organization's cases only.
+  // api-design 18: newest first; an organization caller sees its own organization's cases only, and
+  // TrekLink may narrow the list to one organization.
   async list(
     query: {
       state?: LossCaseState;
+      organizationId?: string;
       pageNumber?: number;
       pageSize?: number;
     } & SortQuery<LossCaseSortField>,
@@ -208,7 +210,11 @@ export class LossCaseService {
     const [rows, total] = await this.cases.page(
       {
         state: query.state,
-        ...(caller.organizationId !== null ? { organizationId: caller.organizationId } : {}),
+        ...(caller.organizationId !== null
+          ? { organizationId: caller.organizationId }
+          : query.organizationId !== undefined
+            ? { organizationId: query.organizationId }
+            : {}),
       },
       page.skip,
       page.take,

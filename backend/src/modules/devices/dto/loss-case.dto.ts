@@ -7,6 +7,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   Min,
   MinLength,
@@ -95,6 +96,12 @@ export class LossCaseQueryDto extends PagedQueryDto {
   @IsOptional()
   @IsEnum(LossCaseState)
   state?: LossCaseState;
+
+  // TrekLink callers only, for the loss case picker of a compliance case; an organization caller always
+  // reads its own organization, whatever this says.
+  @IsOptional()
+  @IsUUID()
+  organizationId?: string;
 
   // W26: one column of the allowlist; an unknown field answers 400 VALIDATION_FAILED.
   @IsOptional()
