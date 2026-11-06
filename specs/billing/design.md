@@ -994,15 +994,18 @@ overpayment, as on a paid one, because nothing is due on it.
 ```mermaid
 stateDiagram-v2
     [*] --> ISSUED: total above zero
+    [*] --> PAID: total zero
     [*] --> CREDIT_DUE: total below zero
     ISSUED --> PARTIALLY_PAID: a payment covers part
     ISSUED --> PAID: payments cover the total
     PARTIALLY_PAID --> PAID: payments cover the total
     ISSUED --> CREDIT_DUE: a credit line brings the total below zero
+    PARTIALLY_PAID --> CREDIT_DUE: a credit line brings the total below zero
     PAID --> CREDIT_DUE: a credit line brings the total below zero
     CREDIT_DUE --> REFUNDED: Staff mark refunded with a note
-    CREDIT_DUE --> ISSUED: a charge line brings the total above zero
-    REFUNDED --> ISSUED: a charge line brings the total above zero
+    CREDIT_DUE --> ISSUED: a charge line lifts the total, nothing paid
+    REFUNDED --> ISSUED: a charge line lifts the total, nothing paid
+    note right of REFUNDED: From CREDIT_DUE or REFUNDED, a total lifted to zero or above follows the payments again, PAID, PARTIALLY_PAID or ISSUED
 ```
 
 ***Figure 11***: invoice status, with the credit-due states of D-097 amended.
