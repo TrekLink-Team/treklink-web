@@ -43,7 +43,7 @@ export interface MapConfigDto {
 
 // The state of a unit on the map (REQ-UBI-04, D-092 rule 2), the custody rule of `custodyView`, and
 // `DOCKED` for a unit held at the counter outside any custody interval, shown to TrekLink callers only
-// (monitoring REQ-UBI-06, devices design section 12.8).
+// (monitoring REQ-UBI-07, devices design section 12.8).
 export type SnapshotDeviceState = UnitState | 'DOCKED';
 
 // The TrekLink counter where a unit not heard since its handover was last known to be
