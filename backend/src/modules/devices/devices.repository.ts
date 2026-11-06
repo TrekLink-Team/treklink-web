@@ -706,50 +706,66 @@ export class DevicesRepository {
   // `trail()` then puts state rows of one time in the order of their moves.
   async lifecycle(deviceId: string, client: Client = this.prisma) {
     const orderBy = [{ createdAt: 'asc' as const }, { id: 'asc' as const }];
-    const [transitions, intakeChecks, provisionings, resets, inspections] = await Promise.all([
-      client.deviceTransition.findMany({
-        where: { deviceId },
-        orderBy,
-        select: {
-          id: true,
-          fromStatus: true,
-          toStatus: true,
-          actorId: true,
-          reason: true,
-          note: true,
-          refType: true,
-          refId: true,
-          createdAt: true,
-        },
-      }),
-      client.intakeCheck.findMany({
-        where: { deviceId },
-        orderBy,
-        select: { id: true, passed: true, checkedById: true, createdAt: true },
-      }),
-      client.deviceProvisioning.findMany({
-        where: { deviceId },
-        orderBy,
-        select: {
-          id: true,
-          organizationId: true,
-          keyVersion: true,
-          provisionedById: true,
-          createdAt: true,
-        },
-      }),
-      client.deviceReset.findMany({
-        where: { deviceId },
-        orderBy,
-        select: { id: true, resetById: true, createdAt: true },
-      }),
-      client.inspection.findMany({
-        where: { deviceId },
-        orderBy,
-        select: { id: true, result: true, damageCodes: true, inspectorId: true, createdAt: true },
-      }),
-    ]);
-    return { transitions, intakeChecks, provisionings, resets, inspections };
+    const [transitions, intakeChecks, provisionings, resets, inspections, hubActions] =
+      await Promise.all([
+        client.deviceTransition.findMany({
+          where: { deviceId },
+          orderBy,
+          select: {
+            id: true,
+            fromStatus: true,
+            toStatus: true,
+            actorId: true,
+            reason: true,
+            note: true,
+            refType: true,
+            refId: true,
+            createdAt: true,
+          },
+        }),
+        client.intakeCheck.findMany({
+          where: { deviceId },
+          orderBy,
+          select: { id: true, passed: true, checkedById: true, createdAt: true },
+        }),
+        client.deviceProvisioning.findMany({
+          where: { deviceId },
+          orderBy,
+          select: {
+            id: true,
+            organizationId: true,
+            keyVersion: true,
+            provisionedById: true,
+            createdAt: true,
+          },
+        }),
+        client.deviceReset.findMany({
+          where: { deviceId },
+          orderBy,
+          select: { id: true, resetById: true, createdAt: true },
+        }),
+        client.inspection.findMany({
+          where: { deviceId },
+          orderBy,
+          select: { id: true, result: true, damageCodes: true, inspectorId: true, createdAt: true },
+        }),
+        // The device hub's actions (design section 12.14): started, finished or failed on the unit.
+        client.deviceHubAction.findMany({
+          where: { deviceId },
+          orderBy: [{ startedAt: 'asc' as const }, { id: 'asc' as const }],
+          select: {
+            id: true,
+            action: true,
+            outcome: true,
+            firmwareTo: true,
+            failure: true,
+            actorId: true,
+            startedAt: true,
+            finishedAt: true,
+          },
+        }),
+      ]);
+    return { transitions, intakeChecks, provisionings, resets, inspections, hubActions };
   }
 
   insertInspection(

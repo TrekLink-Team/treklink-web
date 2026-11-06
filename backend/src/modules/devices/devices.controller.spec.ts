@@ -46,6 +46,7 @@ describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
   let intake: { record: jest.Mock; register: jest.Mock };
   let connector: { recognize: jest.Mock };
   let dockSessions: { dock: jest.Mock; undock: jest.Mock };
+  let hubActions: { start: jest.Mock; finish: jest.Mock };
   let events: { transaction: jest.Mock; emitAfterCommit: jest.Mock };
   let controller: DevicesController;
 
@@ -75,14 +76,53 @@ describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
       dock: jest.fn().mockResolvedValue({}),
       undock: jest.fn().mockResolvedValue(null),
     };
+    hubActions = {
+      start: jest.fn().mockResolvedValue({ id: 'ha-1', outcome: 'STARTED' }),
+      finish: jest.fn().mockResolvedValue({ id: 'ha-1', outcome: 'SUCCEEDED', returnReset: false }),
+    };
     controller = new DevicesController(
       devices as unknown as DevicesService,
       intake as unknown as IntakeService,
       connector as never,
       dockSessions as never,
+      hubActions as never,
       events as never,
       CONFIG,
     );
+  });
+
+  describe('hub actions (api-design 33 and 34, design section 12.14)', () => {
+    it('hands the start and the finish to the hub action service with the caller', async () => {
+      const caller = { id: 'u-1', roles: ['STAFF'] };
+      const start = {
+        action: 'FACTORY_RESET' as const,
+        nodeNum: 178496116,
+        confirmAssetTag: 'treklink a274',
+      };
+
+      await expect(controller.startHubAction('d-1', start, caller as never)).resolves.toEqual({
+        id: 'ha-1',
+        outcome: 'STARTED',
+      });
+      await controller.finishHubAction('d-1', 'ha-1', { outcome: 'SUCCEEDED' }, caller as never);
+
+      expect(hubActions.start).toHaveBeenCalledWith('d-1', start, caller);
+      expect(hubActions.finish).toHaveBeenCalledWith(
+        'd-1',
+        'ha-1',
+        { outcome: 'SUCCEEDED' },
+        caller,
+      );
+    });
+
+    it('guards both writes with device.operate', () => {
+      const staff = createMongoAbility([{ action: 'operate', subject: 'Device' }]) as PolicyAbility;
+      const reader = createMongoAbility([{ action: 'read', subject: 'Device' }]) as PolicyAbility;
+      for (const name of ['startHubAction', 'finishHubAction']) {
+        expect(allows(name, staff)).toBe(true);
+        expect(allows(name, reader)).toBe(false);
+      }
+    });
   });
 
   describe('dock sessions (api-design 31 and 32)', () => {

@@ -13,7 +13,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DeviceStatus } from '@prisma/client';
+import { DeviceStatus, HubActionKind } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -55,6 +55,7 @@ import { UpdateDeviceDto } from './dto/update-device.dto';
 import { IntakeService } from './intake.service';
 import { DeviceConnectorService, RecognizedUnit } from './dock/device-connector.service';
 import { DockSessionService, DockSessionView } from './dock/dock-session.service';
+import { HubActionService, HubActionView } from './dock/hub-action.service';
 import { fromNodeId, isNodeNum } from './node-id';
 import { DomainException, ErrorCode } from '../../common/errors';
 
@@ -133,6 +134,44 @@ export class ResetDto {
   nodeNum?: number;
 }
 
+// devices api-design 33 (design section 12.14): the device hub starts an action on the docked unit.
+export class StartHubActionDto {
+  @IsEnum(HubActionKind)
+  action!: HubActionKind;
+
+  @IsInt()
+  @Min(0)
+  @Max(0xffffffff)
+  nodeNum!: number;
+
+  // Required while the unit is RESERVED or RENTED (400 CONFIRMATION_REQUIRED otherwise).
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  confirmAssetTag?: string;
+
+  // FIRMWARE_UPDATE: the release version written.
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  firmwareTo?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  fullImage?: boolean;
+}
+
+// devices api-design 34.
+export class FinishHubActionDto {
+  @IsIn(['SUCCEEDED', 'FAILED'])
+  outcome!: 'SUCCEEDED' | 'FAILED';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  failure?: string;
+}
+
 // The first devices endpoint, devices api-design 24 (task 4.1 part), built by LongLP for screen 5.3.
 // TrekLink Staff and Admin hold `device.availability`, the Org Manager `device.availability.org`;
 // both are the readAvailability action on Device and see counts only, never a unit.
@@ -145,6 +184,7 @@ export class DevicesController {
     private readonly intake: IntakeService,
     private readonly connector: DeviceConnectorService,
     private readonly dockSessions: DockSessionService,
+    private readonly hubActions: HubActionService,
     private readonly events: TransactionalEvents,
     private readonly config: ConfigService<ValidatedEnvironment, true>,
   ) {}
@@ -215,6 +255,33 @@ export class DevicesController {
       } satisfies AuditRecordEvent);
       return device;
     });
+  }
+
+  // devices api-design 33 (design section 12.14): every status is accepted; RESERVED and RENTED need the typed
+  // asset tag. The audit entry `device.hub_action.started` goes out after commit.
+  @Post(':id/hub-actions')
+  @HttpCode(HttpStatus.CREATED)
+  @CheckPolicies((ability) => ability.can('operate', 'Device'))
+  @ResponseMessage('Hub action started')
+  startHubAction(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: StartHubActionDto,
+    @CurrentCaller() caller: Caller,
+  ): Promise<HubActionView> {
+    return this.hubActions.start(id, dto, caller);
+  }
+
+  // devices api-design 34: the outcome, and on SUCCEEDED the effect on the device record.
+  @Post(':id/hub-actions/:actionId/finish')
+  @CheckPolicies((ability) => ability.can('operate', 'Device'))
+  @ResponseMessage('Hub action finished')
+  finishHubAction(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('actionId', ParseUUIDPipe) actionId: string,
+    @Body() dto: FinishHubActionDto,
+    @CurrentCaller() caller: Caller,
+  ): Promise<HubActionView & { returnReset: boolean }> {
+    return this.hubActions.finish(id, actionId, dto, caller);
   }
 
   @Get('availability')

@@ -7,6 +7,8 @@ import { DevicesService } from './devices.service';
 import { DeviceConnectorService } from './dock/device-connector.service';
 import { DockSessionRepository } from './dock/dock-session.repository';
 import { DockSessionService } from './dock/dock-session.service';
+import { HubActionRepository } from './dock/hub-action.repository';
+import { HubActionService } from './dock/hub-action.service';
 import { DockSweepJob } from './jobs/dock-sweep.job';
 import { IntakeService } from './intake.service';
 import { LossSearchJob } from './jobs/loss-search.job';
@@ -89,6 +91,9 @@ import { VariantsService } from './variants.service';
     DeviceConnectorService,
     DockSessionService,
     DockSweepJob,
+    // design section 12.14 (task 10.14): the device hub's action records, api-design 33 and 34.
+    HubActionRepository,
+    HubActionService,
   ],
   exports: [
     DevicesService,

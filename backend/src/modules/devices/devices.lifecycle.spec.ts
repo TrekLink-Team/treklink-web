@@ -277,6 +277,71 @@ describe('DevicesService retire and dispose', () => {
   });
 
   describe('trail (monitoring api-design 07)', () => {
+    it('lists the device hub actions at their end, or at their start while running (design section 12.14)', async () => {
+      unitAt(DeviceStatus.RENTED);
+      const started = new Date('2026-11-06T16:40:00.000Z');
+      const ended = new Date('2026-11-06T16:42:00.000Z');
+      const lifecycle = jest.fn().mockResolvedValue({
+        transitions: [],
+        intakeChecks: [],
+        provisionings: [],
+        resets: [],
+        inspections: [],
+        hubActions: [
+          {
+            id: 'ha-1',
+            action: 'FIRMWARE_UPDATE',
+            outcome: 'SUCCEEDED',
+            firmwareTo: '2.7.26-treklink.1',
+            failure: null,
+            actorId: 'staff-1',
+            startedAt: started,
+            finishedAt: ended,
+          },
+          {
+            id: 'ha-2',
+            action: 'FACTORY_RESET',
+            outcome: 'FAILED',
+            firmwareTo: null,
+            failure: 'The read-back differs: region.',
+            actorId: 'staff-1',
+            startedAt: ended,
+            finishedAt: ended,
+          },
+          {
+            id: 'ha-3',
+            action: 'REBOOT',
+            outcome: 'STARTED',
+            firmwareTo: null,
+            failure: null,
+            actorId: 'staff-1',
+            startedAt: started,
+            finishedAt: null,
+          },
+        ],
+      });
+      Object.assign(repository, { lifecycle });
+      Object.assign(maintenance, { ofDevice: jest.fn().mockResolvedValue([]) });
+
+      const entries = await service.trail('dev-1');
+
+      expect(entries.map((entry) => [entry.kind, entry.summary, entry.at, entry.refType])).toEqual([
+        ['HUB', 'Reboot in the device hub, started', started, 'HUB_ACTION'],
+        [
+          'HUB',
+          'Firmware update 2.7.26-treklink.1 in the device hub, succeeded',
+          ended,
+          'HUB_ACTION',
+        ],
+        [
+          'HUB',
+          'Factory reset in the device hub, failed: The read-back differs: region.',
+          ended,
+          'HUB_ACTION',
+        ],
+      ]);
+    });
+
     it('shows the retire reason code with the free-text note', async () => {
       unitAt(DeviceStatus.RETIRED);
       const lifecycle = jest.fn().mockResolvedValue({
