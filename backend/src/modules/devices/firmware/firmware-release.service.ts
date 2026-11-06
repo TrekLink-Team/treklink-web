@@ -5,7 +5,7 @@ import { DomainException, ErrorCode } from '../../../common/errors';
 import { ValidatedEnvironment } from '../../platform/config/environment-variables';
 import { ParameterService } from '../../platform/parameters/parameter.service';
 import { DevicesService } from '../devices.service';
-import { FIRMWARE_HTTP, type FirmwareHttp } from './firmware-http.port';
+import { BodyTooLargeError, FIRMWARE_HTTP, type FirmwareHttp } from './firmware-http.port';
 
 // The firmware release reader (devices task 8.2, design section 9.1, api-design 28 and 29). The browser
 // cannot download a GitHub release asset (no CORS), so the backend reads the releases of
@@ -245,8 +245,10 @@ export class FirmwareReleaseService {
 
     let bytes: Uint8Array;
     try {
-      bytes = await this.http.bytes(url, ASSET_HEADERS);
+      bytes = await this.http.bytes(url, ASSET_HEADERS, MAX_IMAGE_BYTES);
     } catch (error) {
+      // Refused on its Content-Length or while streaming, never read whole (review of #404).
+      if (error instanceof BodyTooLargeError) throw tooLarge();
       this.logger.warn(`Firmware image ${wanted.file} of ${version}: ${String(error)}`);
       throw unavailable();
     }

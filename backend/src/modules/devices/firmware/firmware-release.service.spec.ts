@@ -13,6 +13,7 @@ import {
   md5ForVerify,
   parseManifest,
 } from './firmware-release.service';
+import { BodyTooLargeError } from './firmware-http.port';
 
 // devices task 8.2, design sections 9.1 and 9.3: manifest parsing, the variant filter, the SHA-256 check,
 // the size limit and the cache window, all against a fake HTTP client (never the network).
@@ -306,6 +307,21 @@ describe('FirmwareReleaseService (devices task 8.2)', () => {
       const error = await refusal(service.image('2.7.26-treklink.2', 'treklink-v3', 'FACTORY'));
       expect(error.errorCode).toBe(ErrorCode.FIRMWARE_IMAGE_TOO_LARGE);
       expect(http.bytes).not.toHaveBeenCalledWith(url('big.bin'), expect.anything());
+    });
+
+    it('asks for the image with the size limit and answers 502 TOO_LARGE when the read is refused', async () => {
+      await service.image('2.7.26-treklink.2', 'treklink-v3', 'APP');
+      expect(http.bytes).toHaveBeenLastCalledWith(
+        url('firmware-treklink-v3.bin'),
+        expect.anything(),
+        MAX_IMAGE_BYTES,
+      );
+      http.bytes.mockRejectedValueOnce(
+        new BodyTooLargeError(url('firmware-treklink-v3.bin'), MAX_IMAGE_BYTES),
+      );
+      const error = await refusal(service.image('2.7.26-treklink.2', 'treklink-v3', 'APP'));
+      expect(error.getStatus()).toBe(HttpStatus.BAD_GATEWAY);
+      expect(error.errorCode).toBe(ErrorCode.FIRMWARE_IMAGE_TOO_LARGE);
     });
 
     it('refuses a downloaded image above the limit even when the manifest under-states it', async () => {

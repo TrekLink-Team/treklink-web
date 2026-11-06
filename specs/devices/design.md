@@ -1082,7 +1082,9 @@ flash outside a record is not offered, so a unit on a contract is never flashed 
 - Size: api-design 29 returns the image as base64 in the D-002 envelope, as rentals api-design 08 returns its
   PDF. A Vercel Function answers at most 4.5 MB ("The maximum payload size for the request body or the response
   body of a Vercel Function is 4.5 MB", vercel.com/docs/functions/limitations, read 2026-11-03), so the raw image
-  must stay under 3 300 000 bytes (4 400 000 bytes as base64); the service refuses a larger manifest entry with 502 `FIRMWARE_IMAGE_TOO_LARGE`. A
+  must stay under 3 300 000 bytes (4 400 000 bytes as base64); the service refuses a larger manifest entry with 502 `FIRMWARE_IMAGE_TOO_LARGE`,
+  and an asset whose `Content-Length` passes the limit, or whose streamed body does, without downloading the rest (review of
+  treklink-web#404, 2026-11-06). A
   4 MB-flash variant's app partition holds 2.42 MB, so only an 8 MB variant's factory image can come near it.
 
 ### 9.2 Flash panel (screen 4.3, on an `OPEN` `FIRMWARE_UPDATE` record)
