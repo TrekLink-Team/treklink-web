@@ -32,6 +32,7 @@ import { Pagination } from '../../shared/ui/DataTable';
 import { CollectionView, pageInfoOf, type CollectionField } from '../../shared/ui/collection-view';
 import { Button } from '../../shared/ui/Button';
 import { Dialog } from '../../shared/ui/Dialog';
+import { useUnsavedChanges } from '../../shared/lib/unsavedChanges';
 import { Field, Input, Select, Textarea } from '../../shared/ui/Field';
 import { messageOf } from '../../shared/ui/errors';
 import { CONTRACT_STATUS, INCIDENT_STATE } from '../../shared/ui/status';
@@ -165,7 +166,8 @@ export const ReportDialog: React.FC<{
   entry?: ReportEntry;
   onClose: () => void;
   onSaved?: (subject: ReportSubject) => void;
-}> = ({ entry, onClose, onSaved }) => {
+  protectNavigation?: boolean;
+}> = ({ entry, onClose, onSaved, protectNavigation = false }) => {
   const queryClient = useQueryClient();
   const showToast = useToast((state) => state.show);
   const [picked, setSubject] = useState<ReportSubject | null>(null);
@@ -193,6 +195,7 @@ export const ReportDialog: React.FC<{
   const dirty = (Object.keys(form) as (keyof ReportInput)[]).some(
     (key) => (form[key] ?? '').trim() !== (opened[key] ?? '').trim(),
   );
+  useUnsavedChanges(protectNavigation && dirty);
 
   const pick = async (next: ReportEntry) => {
     setLoadingSubject(true);
@@ -653,7 +656,7 @@ export const AuthorityReportsPanel: React.FC<{ onViewIncident: (id: string) => v
         }
       />
 
-      {recording && <ReportDialog onClose={() => setRecording(false)} />}
+      {recording && <ReportDialog protectNavigation onClose={() => setRecording(false)} />}
       {closing && <CloseCaseDialog report={closing} onClose={() => setClosing(null)} />}
     </section>
   );

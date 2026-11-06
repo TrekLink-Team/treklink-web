@@ -2,7 +2,7 @@
 import React from 'react';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, useLocation } from 'react-router-dom';
+import { MemoryRouter, Outlet, useLocation } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useSession, type SessionUser } from '../entities/session/model';
 import { AuthProvider } from './providers/AuthProvider';
@@ -35,7 +35,10 @@ vi.mock('../pages/InvoicesPage', () => ({
   InvoiceDetailPage: () => <p>invoice page</p>,
 }));
 vi.mock('../pages/DesignSystemPage', () => ({ DesignSystemPage: () => <p>design system</p> }));
-vi.mock('../pages/IncidentsPage', () => ({ IncidentsPage: () => <p>incident queue</p> }));
+vi.mock('../pages/IncidentsPage', () => ({
+  IncidentsPage: () => <p>incident queue</p>,
+  OrganizationIncidentsLayout: () => <Outlet />,
+}));
 vi.mock('../pages/StaffIncidentDetailPage', () => ({ StaffIncidentDetailPage: () => <p>Staff incident detail</p> }));
 vi.mock('../pages/IncidentDetailPage', () => ({
   IncidentDetailPage: () => <p>incident detail</p>,

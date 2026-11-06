@@ -1,6 +1,6 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
-import { BrowserRouter, useLocation } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, useLocation } from 'react-router-dom';
 import { landingRoute, useSession } from '../entities/session/model';
 import { Toast } from '../shared/ui/toast';
 import { AppShell } from '../widgets/AppShell/AppShell';
@@ -8,6 +8,7 @@ import { AuthLayout } from '../widgets/AppShell/AuthLayout';
 import { AlertBanner } from './AlertBanner';
 import { AuthProvider } from './providers/AuthProvider';
 import { LiveProvider } from './providers/LiveProvider';
+import { UnsavedChangesProvider } from './providers/UnsavedChangesProvider';
 import { useAuth } from './providers/useAuth';
 import { AppRoutes } from './router';
 
@@ -39,6 +40,24 @@ const Frame: React.FC = () => {
   );
 };
 
+// Session loss and sign-out still clear protected data and redirect immediately.
+const canBlock = () => Boolean(useSession.getState().user);
+const router = createBrowserRouter([
+  {
+    path: '*',
+    element: (
+      <AuthProvider>
+        <LiveProvider>
+          <UnsavedChangesProvider canBlock={canBlock}>
+            <Frame />
+            <Toast />
+          </UnsavedChangesProvider>
+        </LiveProvider>
+      </AuthProvider>
+    ),
+  },
+]);
+
 // While a reload's stored session is being restored (D-090 rule 3), nothing routes yet, so the guards
 // cannot send a returning user to sign-in before the refresh answers.
 export const App: React.FC = () => {
@@ -58,14 +77,5 @@ export const App: React.FC = () => {
       </div>
     );
   }
-  return (
-    <BrowserRouter>
-      <AuthProvider>
-        <LiveProvider>
-          <Frame />
-          <Toast />
-        </LiveProvider>
-      </AuthProvider>
-    </BrowserRouter>
-  );
+  return <RouterProvider router={router} />;
 };

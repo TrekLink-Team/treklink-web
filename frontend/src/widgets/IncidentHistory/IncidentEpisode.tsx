@@ -6,12 +6,13 @@ import { formatDateTime, formatUtc, viewerTimeZone } from '../../shared/lib/form
 import { ErrorState, Loading } from '../../shared/ui/bits';
 import { CARD, FOCUS, LINK } from '../../shared/ui/styles';
 
-// Screen 8.2: ordered text coordinates and Fleet map navigation, not a second unscoped map query.
+// Screens 8.1 and 8.2 use the same custody-scoped evidence and the viewer's map.
 export const IncidentEpisode: React.FC<{
   incidentId: string;
   onLostAccess: () => void;
   headingLevel?: 2 | 3;
-}> = ({ incidentId, onLostAccess, headingLevel = 3 }) => {
+  workspace?: 'organization' | 'staff';
+}> = ({ incidentId, onLostAccess, headingLevel = 3, workspace = 'staff' }) => {
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
   const { data, isLoading, error, refetch } = useEpisodeEvents(incidentId);
   const status = error instanceof ApiError ? error.statusCode : null;
@@ -59,8 +60,8 @@ export const IncidentEpisode: React.FC<{
           ))}
         </ol>
       )}
-      <Link to="/t/map" className={`${LINK} mt-3 inline-block`}>
-        Fleet map
+      <Link to={workspace === 'organization' ? '/o/map' : '/t/map'} className={`${LINK} mt-3 inline-block`}>
+        {workspace === 'organization' ? 'Open map' : 'Fleet map'}
       </Link>
     </section>
   );

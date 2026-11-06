@@ -93,6 +93,7 @@ const ROUTES: Record<SeededRole | 'anonymous', RouteCase[]> = {
   staff: [
     { pattern: '/t/map' },
     { pattern: '/t/incidents' },
+    { pattern: '/t/incidents/:id', resolve: firstId('/incidents?pageSize=20') },
     { pattern: '/t/contracts' },
     { pattern: '/t/contracts/:id', resolve: firstId('/contracts?pageSize=50', (c) => c.code === 'RC-2026-0001') },
     { pattern: '/t/devices/:id/telemetry', resolve: deviceId('TL-0009') },

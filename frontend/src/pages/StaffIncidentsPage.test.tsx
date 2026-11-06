@@ -10,12 +10,14 @@ import { incidentKeys } from '../entities/incident/api';
 import { ApiError } from '../shared/api/apiClient';
 
 const api = vi.fn();
+const evidenceApi = vi.fn();
 vi.mock('../entities/incident/episode', () => ({
   useEpisodeEvents: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
 }));
 vi.mock('../shared/api/apiClient', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../shared/api/apiClient')>()),
-  apiClient: (...args: unknown[]) => api(...args),
+  apiClient: (...args: unknown[]) =>
+    /\/(transitions|alerts)$/.test(String(args[0])) ? evidenceApi(...args) : api(...args),
 }));
 
 const incident = (overrides: Record<string, unknown> = {}) => ({
@@ -64,6 +66,7 @@ const renderPage = (client = new QueryClient({ defaultOptions: { queries: { retr
 
 beforeEach(() => {
   api.mockReset();
+  evidenceApi.mockReset().mockResolvedValue([]);
   useSession.setState({ user: { roles: ['STAFF'] } as SessionUser });
 });
 afterEach(cleanup);
@@ -75,6 +78,19 @@ const showScope = (label: string) => {
 };
 
 describe('StaffIncidentsPage (/t/incidents, screen 8.2)', () => {
+  it('reads History and alert deliveries in inline detail with nested headings', async () => {
+    api.mockImplementation((url: string) =>
+      Promise.resolve(url === '/incidents/inc-1' ? incident() : page([incident()])),
+    );
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'INC-2026-000007' }));
+    expect(await screen.findByRole('heading', { name: 'History', level: 3 })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Alert deliveries', level: 3 })).toBeTruthy();
+    expect(await screen.findByText('No history recorded.')).toBeTruthy();
+    expect(await screen.findByText('No alerts sent for this incident.')).toBeTruthy();
+    expect(evidenceApi).toHaveBeenCalledWith('/incidents/inc-1/transitions');
+    expect(evidenceApi).toHaveBeenCalledWith('/incidents/inc-1/alerts');
+  });
   it('preserves a dirty reason across a failed background detail refresh', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     let offline = false;

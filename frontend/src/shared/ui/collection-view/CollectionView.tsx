@@ -228,6 +228,8 @@ export interface CollectionViewProps<T> {
    * address). A change clears the selection, like a search, filter or sort change (§9.4 rule 4).
    */
   resetKey?: string;
+  /** Allows a queue to restore its own scroll after returning from a record route. */
+  scrollContainerRef?: (node: HTMLDivElement | null) => void;
   className?: string;
 }
 
@@ -269,6 +271,7 @@ export function CollectionView<T>({
   hideCommandBar,
   fitNarrow,
   resetKey,
+  scrollContainerRef,
   className,
 }: CollectionViewProps<T>) {
   const baseId = useId();
@@ -304,11 +307,22 @@ export function CollectionView<T>({
   // The item box is the scroll region on a fit page; with nothing focusable in it, it takes a tab
   // stop and a name of its own (ui standard §7).
   const [tableNode, setTableNode] = useState<HTMLDivElement | null>(null);
-  const setTableScroller = useCallback((node: HTMLDivElement | null) => {
-    tableScroller.current = node;
-    setTableNode(node);
-  }, []);
+  const setTableScroller = useCallback(
+    (node: HTMLDivElement | null) => {
+      tableScroller.current = node;
+      setTableNode(node);
+      scrollContainerRef?.(node);
+    },
+    [scrollContainerRef],
+  );
   const [itemBox, setItemBox] = useState<HTMLDivElement | null>(null);
+  const setItemsScroller = useCallback(
+    (node: HTMLDivElement | null) => {
+      setItemBox(node);
+      scrollContainerRef?.(node);
+    },
+    [scrollContainerRef],
+  );
   useScrollStop(tableNode, `${label}: table`);
   useScrollStop(itemBox, label);
 
@@ -1427,7 +1441,7 @@ export function CollectionView<T>({
             body
           ) : (
             <div
-              ref={setItemBox}
+              ref={setItemsScroller}
               className={cn('rounded-panel cv-fill:min-h-0 cv-fill:overflow-y-auto', FOCUS)}
             >
               {body}

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Siren } from 'lucide-react';
+import { Outlet, useOutletContext } from 'react-router-dom';
 import {
   deadlineOf,
   INCIDENT_SORT_FIELDS,
@@ -9,6 +10,7 @@ import {
   type IncidentFilters,
 } from '../entities/incident/api';
 import { StateBadges } from '../entities/incident/ui';
+import { IncidentFiltersDialog } from '../features/filter-incidents/IncidentFiltersDialog';
 import { collectionSortOf, sortParamsOf } from '../shared/api/query';
 import { flattenGroups, useDeviceGroups } from '../entities/rented-device/api';
 import { formatDateTime } from '../shared/lib/format';
@@ -21,6 +23,24 @@ import { WARNING } from '../shared/ui/styles';
 
 const STATES = Object.keys(INCIDENT_STATE) as IncidentState[];
 const DEFAULTS: IncidentFilters = { pageNumber: 1 };
+
+interface IncidentQueueState {
+  filters: IncidentFilters;
+  setFilters: React.Dispatch<React.SetStateAction<IncidentFilters>>;
+  readScroll: () => number;
+  saveScroll: (offset: number) => void;
+}
+
+// The queue and its record route share this layout, so Back keeps the applied query and scroll.
+export const OrganizationIncidentsLayout: React.FC = () => {
+  const [filters, setFilters] = useState<IncidentFilters>(DEFAULTS);
+  const scrollOffset = useRef(0);
+  const readScroll = useCallback(() => scrollOffset.current, []);
+  const saveScroll = useCallback((offset: number) => {
+    scrollOffset.current = offset;
+  }, []);
+  return <Outlet context={{ filters, setFilters, readScroll, saveScroll } satisfies IncidentQueueState} />;
+};
 
 // Show holds two server filters that combine (incidents api-design 01 `state` and `open`): one state
 // or all, and open only or open and closed (review of treklink-web#350).
@@ -40,7 +60,9 @@ const deviceText = (incident: Incident) =>
 // CollectionView (chapter 06 §9, D-096). Rows keep the server order, most urgent deadline first
 // (D-059 rule 7), until a header asks the server for another (W26: code, state, latest event).
 export const IncidentsPage: React.FC = () => {
-  const [filters, setFilters] = useState<IncidentFilters>(DEFAULTS);
+  const { filters, setFilters, readScroll, saveScroll } = useOutletContext<IncidentQueueState>();
+  const [filtering, setFiltering] = useState(false);
+  const hasDeviceOrDate = Boolean(filters.deviceId || filters.from);
   const groups = useDeviceGroups();
   const flatGroups = groups.data ? flattenGroups(groups.data.groups) : [];
   const groupId =
@@ -50,6 +72,22 @@ export const IncidentsPage: React.FC = () => {
   const { data, isLoading, error, refetch, isFetching } = useIncidents(
     groupId === filters.groupId ? filters : { ...filters, groupId, pageNumber: 1 },
   );
+  const scroller = useRef<HTMLDivElement | null>(null);
+  const restored = useRef(false);
+  const setScroller = useCallback(
+    (node: HTMLDivElement | null) => {
+      scroller.current = node;
+      if (node && data && !restored.current) {
+        node.scrollTop = readScroll();
+        restored.current = true;
+      }
+    },
+    [data, readScroll],
+  );
+  const resetScroll = () => {
+    saveScroll(0);
+    if (scroller.current) scroller.current.scrollTop = 0;
+  };
   const fields: CollectionField<Incident>[] = [
     { key: 'device', label: 'Device and holder', render: deviceText, compact: true },
     {
@@ -80,21 +118,43 @@ export const IncidentsPage: React.FC = () => {
       aria-labelledby="incidents-title"
       data-fit-page=""
       className="flex min-h-0 flex-1 flex-col gap-4"
+      onScrollCapture={(event) => {
+        if (scroller.current && event.target === scroller.current)
+          saveScroll(scroller.current.scrollTop);
+      }}
     >
       <PageTitle
         id="incidents-title"
         title="Incidents"
         action={
-          <Button onClick={() => void refetch()} loading={isFetching && !isLoading}>
-            Refresh
-          </Button>
+          <>
+            <Button onClick={() => setFiltering(true)}>
+              Filter incidents{hasDeviceOrDate ? ' (active)' : ''}
+            </Button>
+            <Button onClick={() => void refetch()} loading={isFetching && !isLoading}>
+              Refresh
+            </Button>
+          </>
         }
       />
       <p className={WARNING}>{SAR_DISCLAIMER}</p>
+      {filtering && (
+        <IncidentFiltersDialog
+          value={filters}
+          onClose={() => setFiltering(false)}
+          onApply={({ deviceId, from }) => {
+            resetScroll();
+            setFilters((current) => ({ ...current, deviceId, from, pageNumber: 1 }));
+            setFiltering(false);
+          }}
+        />
+      )}
 
       <CollectionView<Incident>
         icon={<Siren />}
         label="Incidents"
+        scrollContainerRef={setScroller}
+        resetKey={JSON.stringify([filters.deviceId, filters.from])}
         items={data?.items}
         loading={isLoading}
         error={error ? <ErrorState error={error} onRetry={() => void refetch()} /> : undefined}
@@ -114,15 +174,18 @@ export const IncidentsPage: React.FC = () => {
           groups: { open: filters.open ? OPEN : ALL, group: groupId ?? '' },
         }}
         titleSort="code"
-        onQueryChange={(next) =>
+        onQueryChange={(next) => {
+          resetScroll();
           setFilters({
+            deviceId: filters.deviceId,
+            from: filters.from,
             state: (next.filter || undefined) as IncidentState | undefined,
             open: next.groups?.open === OPEN ? true : undefined,
             ...sortParamsOf(next.sort, INCIDENT_SORT_FIELDS),
             groupId: next.groups?.group || undefined,
             pageNumber: 1,
-          })
-        }
+          });
+        }}
         filterGroups={[
           {
             key: 'open',
@@ -149,7 +212,9 @@ export const IncidentsPage: React.FC = () => {
             : []),
         ]}
         noMatch={
-          filters.open && !filters.state && !groupId ? { title: 'No open incidents.' } : undefined
+          filters.open && !filters.state && !groupId && !hasDeviceOrDate
+            ? { title: 'No open incidents.' }
+            : undefined
         }
         hideCommandBar={false}
         pageInfo={pageInfoOf(data)}
@@ -157,7 +222,24 @@ export const IncidentsPage: React.FC = () => {
           href: (incident) => `/o/incidents/${incident.id}`,
           hrefLabel: 'Open the incident',
         }}
-        emptyState={{ title: 'No incidents recorded.' }}
+        emptyState={
+          hasDeviceOrDate
+            ? {
+                title: 'No results match your filters.',
+                action: (
+                  <Button
+                    onClick={() => {
+                      resetScroll();
+                      setFilters(DEFAULTS);
+                      document.getElementById('incidents-title')?.focus();
+                    }}
+                  >
+                    Reset filters
+                  </Button>
+                ),
+              }
+            : { title: 'No incidents recorded.' }
+        }
         footer={
           data && data.totalPages > 1 ? (
             <Pagination
@@ -165,7 +247,10 @@ export const IncidentsPage: React.FC = () => {
               totalPages={data.totalPages}
               totalItems={data.totalCount}
               pageSize={data.pageSize}
-              onPage={(pageNumber) => setFilters({ ...filters, groupId, pageNumber })}
+              onPage={(pageNumber) => {
+                resetScroll();
+                setFilters({ ...filters, groupId, pageNumber });
+              }}
             />
           ) : undefined
         }

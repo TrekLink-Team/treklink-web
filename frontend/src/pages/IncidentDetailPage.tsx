@@ -20,16 +20,19 @@ import {
 } from '../entities/incident/api';
 import { StateBadges } from '../entities/incident/ui';
 import { AlertLog, TransitionTrail } from '../widgets/IncidentHistory/IncidentHistory';
+import { IncidentEpisode } from '../widgets/IncidentHistory/IncidentEpisode';
 import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime } from '../shared/lib/format';
 import { hasAnyRole } from '../shared/lib/permissions';
 import { Badge } from '../shared/ui/Badge';
 import { ErrorState, Fact, Loading, PageTitle } from '../shared/ui/bits';
 import { Button } from '../shared/ui/Button';
+import { ConfirmDialog } from '../shared/ui/Dialog';
 import { Field, Textarea } from '../shared/ui/Field';
 import { PageScrollBody } from '../shared/ui/PageChrome';
 import { RecordActionBar, type RecordAction } from '../shared/ui/RecordActionBar';
 import { useMediaQuery } from '../shared/lib/useMediaQuery';
+import { useUnsavedChanges } from '../shared/lib/unsavedChanges';
 import { messageOf } from '../shared/ui/errors';
 import { INCIDENT_STATE } from '../shared/ui/status';
 import { useToast } from '../shared/ui/toastStore';
@@ -100,6 +103,9 @@ const ActionForm: React.FC<{
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
+  const dirty = text !== (correcting?.note ?? '');
+  useUnsavedChanges(dirty);
   const id = `incident-${action}`;
 
   const submit = async (event: React.FormEvent) => {
@@ -166,10 +172,22 @@ const ActionForm: React.FC<{
         <Button type="submit" variant={spec.danger ? 'danger' : 'primary'} loading={pending}>
           {spec.submit}
         </Button>
-        <Button onClick={onCancel} disabled={pending}>
+        <Button onClick={() => (dirty ? setDiscarding(true) : onCancel())} disabled={pending}>
           Cancel
         </Button>
       </div>
+      {discarding && (
+        <ConfirmDialog
+          titleId="discard-incident-action"
+          title="Discard unsaved changes?"
+          description="Your changes to this incident will be lost."
+          confirmLabel="Discard changes"
+          cancelLabel="Keep editing"
+          destructive
+          onConfirm={onCancel}
+          onCancel={() => setDiscarding(false)}
+        />
+      )}
     </form>
   );
 };
@@ -188,6 +206,10 @@ const LABELS: Record<IncidentAction, string> = {
 // list and the actions a bar pinned to the bottom (chapter 06 §10.5).
 export const IncidentDetailPage: React.FC = () => {
   const { id = '' } = useParams();
+  return <IncidentDetailRecord key={id} id={id} />;
+};
+
+const IncidentDetailRecord: React.FC<{ id: string }> = ({ id }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const showToast = useToast((state) => state.show);
@@ -215,7 +237,7 @@ export const IncidentDetailPage: React.FC = () => {
   };
 
   if (isLoading) return <Loading />;
-  if (error || !incident)
+  if (!incident || (error instanceof ApiError && [403, 404].includes(error.statusCode)))
     return (
       <section aria-labelledby="incident-title">
         <Link to="/o/incidents" className={`${LINK} inline-flex min-h-6 items-center`}>
@@ -422,6 +444,12 @@ export const IncidentDetailPage: React.FC = () => {
               )}
             </section>
             <TransitionTrail incidentId={incident.id} onLostAccess={recheck} />
+            <IncidentEpisode
+              incidentId={incident.id}
+              onLostAccess={recheck}
+              headingLevel={2}
+              workspace="organization"
+            />
             {hasAnyRole(user?.roles ?? [], ['ORG_MANAGER']) && (
               <AlertLog incidentId={incident.id} onLostAccess={recheck} />
             )}

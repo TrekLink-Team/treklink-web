@@ -17,6 +17,7 @@ import { CARD } from '../../shared/ui/styles';
 interface PanelProps {
   incidentId: string;
   onLostAccess: () => void;
+  headingLevel?: 2 | 3;
 }
 
 const statusOf = (error: unknown): number | null =>
@@ -31,16 +32,17 @@ const usePanelAccess = (error: unknown, onLostAccess: () => void) => {
 };
 
 // api-design 12: the transition trail in sequence order; a null origin means the incident was created.
-export const TransitionTrail: React.FC<PanelProps> = ({ incidentId, onLostAccess }) => {
+export const TransitionTrail: React.FC<PanelProps> = ({ incidentId, onLostAccess, headingLevel = 2 }) => {
+  const Heading = headingLevel === 3 ? 'h3' : 'h2';
   const { data, isLoading, error, refetch } = useIncidentTransitions(incidentId);
   const hidden = usePanelAccess(error, onLostAccess);
   if (hidden) return null;
 
   return (
     <section className={CARD} aria-labelledby="transition-trail">
-      <h2 id="transition-trail" className="mb-3 text-title-sm text-ink">
+      <Heading id="transition-trail" className="mb-3 text-title-sm text-ink">
         History
-      </h2>
+      </Heading>
       {isLoading ? (
         <Loading label="Loading history…" />
       ) : error || !data ? (
@@ -94,7 +96,8 @@ const STATUS_LABEL: Record<AlertDelivery['status'], string> = {
 
 // api-design 14, Org Manager, TrekLink Staff and Admin. No push announces a delivery retry, so the log has its own
 // Refresh. A failed delivery never means the incident failed to move.
-export const AlertLog: React.FC<PanelProps> = ({ incidentId, onLostAccess }) => {
+export const AlertLog: React.FC<PanelProps> = ({ incidentId, onLostAccess, headingLevel = 2 }) => {
+  const Heading = headingLevel === 3 ? 'h3' : 'h2';
   const { data, isLoading, isFetching, error, refetch } = useIncidentAlerts(incidentId, true);
   const hidden = usePanelAccess(error, onLostAccess);
   if (hidden) return null;
@@ -102,9 +105,9 @@ export const AlertLog: React.FC<PanelProps> = ({ incidentId, onLostAccess }) => 
   return (
     <section className={CARD} aria-labelledby="alert-log">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <h2 id="alert-log" className="text-title-sm text-ink">
+        <Heading id="alert-log" className="text-title-sm text-ink">
           Alert deliveries
-        </h2>
+        </Heading>
         <Button size="sm" loading={isFetching && !isLoading} onClick={() => void refetch()}>
           Refresh
         </Button>
