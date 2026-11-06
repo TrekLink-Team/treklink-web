@@ -177,7 +177,7 @@ export class StreamListener {
 
   // A unit held at the counter (devices design section 12.8, REQ-EVT-37): stored with no organization, so
   // the entry reaches the `fleet` room only and never an organization room, the organization API or its
-  // replay (monitoring REQ-UBI-06). The Staff map pins the unit at the counter location sent here.
+  // replay (monitoring REQ-UBI-07). The Staff map pins the unit at the counter location sent here.
   @OnEvent(DEVICE_DOCKED)
   async onDeviceDocked(event: DeviceDockedEvent): Promise<void> {
     await this.stream.publish({
