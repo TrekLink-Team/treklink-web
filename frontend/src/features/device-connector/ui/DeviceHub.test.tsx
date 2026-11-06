@@ -14,26 +14,36 @@ import { DeviceHub } from './DeviceHub';
 
 const recognizeUnits = vi.hoisted(() => vi.fn());
 const fetchDevice = vi.hoisted(() => vi.fn());
-const recordReset = vi.hoisted(() => vi.fn());
+const startHubAction = vi.hoisted(() => vi.fn());
+const finishHubAction = vi.hoisted(() => vi.fn());
+const history = vi.hoisted(() => ({ items: [] as unknown[] }));
 vi.mock('../../../entities/device/api', () => ({
   recognizeUnits,
   fetchDevice,
-  recordReset,
+  startHubAction,
+  finishHubAction,
+  useDeviceHistoryFeed: (id: string | null) => ({
+    data: id ? { pages: [{ items: history.items, pageNumber: 1, totalPages: 1 }] } : undefined,
+    isLoading: false,
+    error: null,
+    hasNextPage: false,
+  }),
   deviceKeys: { device: (id: string) => ['device', id] },
 }));
 // The firmware releases of api-design 28 (task 8.3): one release carries treklink-v3 unless a test empties it.
 const firmware = vi.hoisted(() => ({
   releases: [{ version: '2.7.26-treklink.2', publishedAt: '2026-10-20T03:15:00Z', isBaseline: true, variants: [{ variantCode: 'treklink-v3', chip: 'esp32', app: { offset: 65536, sizeBytes: 8 }, factory: { offset: 0, sizeBytes: 8 } }] }] as unknown[],
 }));
-vi.mock('../../../entities/firmware/api', () => ({
-  NO_RELEASE_TEXT: 'No firmware release is published yet.',
+vi.mock('../../../entities/firmware/api', async (original) => ({
+  ...(await original<typeof import('../../../entities/firmware/api')>()),
   useFirmwareReleases: () => ({ data: firmware.releases, error: null, isLoading: false }),
 }));
 vi.mock('../../../entities/contract/api', () => ({ issueChannelKey: vi.fn(), exchangeDevice: vi.fn() }));
 
-// The device hub page of screen 4.7 (devices design section 12.13) over fake units on fake Web Serial
-// ports: the not-connected state, the Device info read from the unit and the server, the six actions
-// with their reasons, the switcher, Reboot and the factory reset (AC-41 to AC-44).
+// The device hub page of screen 4.7 (devices design sections 12.13 and 12.14) over fake units on fake Web Serial
+// ports: the not-connected state, the header and field groups, the history, the grouped actions that no status
+// disables, the typed confirmation of a rented unit, Reboot, Restore TrekLink defaults, the factory reset and the
+// refresh (AC-41 to AC-46, AC-48, AC-51).
 
 const STAFF: SessionUser = {
   id: 's',
@@ -114,7 +124,9 @@ beforeEach(() => {
     ),
   );
   fetchDevice.mockResolvedValue({ id: 'd-42', lastReset: null, nextStep: { action: 'RESET', contractId: 'c-40' } });
-  recordReset.mockResolvedValue({ id: 'd-42', keyVersion: null });
+  startHubAction.mockResolvedValue({ id: 'ha-1', outcome: 'STARTED' });
+  finishHubAction.mockResolvedValue({ id: 'ha-1', outcome: 'SUCCEEDED' });
+  history.items = [];
   act(() =>
     useSession
       .getState()
@@ -148,37 +160,51 @@ describe('DeviceHub (screen 4.7)', () => {
     expect(screen.getByText('Docking needs Chrome or Edge on a desktop. Open TrekLink there to connect units.')).toBeTruthy();
   });
 
-  it('shows the unit, its Device info from the unit and the server, and the six actions (AC-41)', async () => {
+  it('shows the header, the field groups, the history and the grouped actions (AC-41, AC-51)', async () => {
+    history.items = [
+      { at: '2026-11-06T16:42:00.000Z', kind: 'HUB', summary: 'Firmware update 2.7.26-treklink.2 in the device hub, succeeded', actor: 'Tran Thi B', refType: 'HUB_ACTION', refId: 'ha-1' },
+      { at: '2026-11-05T03:00:00.000Z', kind: 'STATE', summary: 'From Rented to Returned', actor: 'Tran Thi B', refType: null, refId: null },
+    ];
+    // Task 8.3 registers the flash panel in the shell.
+    useConnectorStore.setState({ flashPanel: () => null });
     install([A]);
     await renderHub();
     await screen.findByRole('heading', { name: 'TL-0042' });
-    const info = screen.getByRole('region', { name: 'Device info' });
-    await waitFor(() => expect(within(info).getByText('None recorded')).toBeTruthy());
-    const value = (label: string) => within(info).getByText(label).nextElementSibling?.textContent;
-    expect(value('Node number')).toBe(`${A} (!a4b1c2d4)`);
-    expect(value('Hardware model')).toBe('TBEAM');
-    expect(value('Battery')).toBe('87%, 4.05 V (from the unit)');
-    expect(value('Region')).toBe('MY_433, LONG_FAST');
-    expect(value('Primary channel')).toBe('ORG-SAPA');
-    expect(value('Owner')).toBe('TL-0042 (0042)');
-    expect(value('Key version')).toBe('v2, ORG-SAPA');
-    expect(value('Contract')).toBe('None');
-    // The render slot names the variant when the file is missing (REQ-ERR-31): jsdom loads no image.
-    expect(screen.getByRole('img', { name: 'TrekLink v3 (GPS, SOS button), front view' })).toBeTruthy();
-    // Every device render previews the detail render (leader, 2026-11-06 00:50).
-    fireEvent.click(screen.getByRole('button', { name: 'Preview TrekLink v3 (GPS, SOS button) image' }));
-    const preview = screen.getByRole('figure', { name: 'TrekLink v3 (GPS, SOS button) image preview' });
-    expect(preview.querySelector('img')?.getAttribute('src')).toBe('/variants/treklink-v3-detail.png');
-    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.getAllByText('Returned, to inspect').length).toBeGreaterThan(0);
+    // The unit reports 2.7.26.a4aa98d and the newest release is 2.7.26-treklink.2.
+    expect(screen.getByText('Update available')).toBeTruthy();
+    const group = (name: string) => screen.getByRole('region', { name });
+    const value = (name: string, label: string) => within(group(name)).getByText(label).nextElementSibling?.textContent;
+    await waitFor(() => expect(value('Custody and contract', 'Last reset')).toBe('None recorded'));
+    expect(value('Identity', 'Node')).toBe(`${A} (!a4b1c2d4)`);
+    expect(value('Identity', 'Hardware model')).toBe('TBEAM');
+    expect(value('Identity', 'Owner')).toBe('TL-0042 (0042)');
+    expect(value('Radio and region', 'Region')).toBe('MY_433');
+    expect(value('Radio and region', 'Modem preset')).toBe('LONG_FAST');
+    expect(value('Radio and region', 'Primary channel')).toBe('ORG-SAPA');
+    expect(value('Power', 'Battery')).toBe('87 %');
+    expect(value('Power', 'Voltage')).toBe('4.05 V');
+    expect(screen.getByRole('meter', { name: 'Battery 87 %' })).toBeTruthy();
+    expect(value('Custody and contract', 'Key version')).toBe('v2, ORG-SAPA');
+    expect(value('Custody and contract', 'Contract')).toBe('None');
+    expect(value('Firmware', 'Latest release')).toBe('2.7.26-treklink.2');
+    // The history, newest first, in its own named scroll region.
+    const list = screen.getByRole('region', { name: 'Device history' });
+    expect(list.getAttribute('tabindex')).toBe('0');
+    expect(within(list).getAllByRole('listitem')[0].textContent).toContain('Firmware update 2.7.26-treklink.2');
+    // Three groups; no action disabled for a returned unit.
     const actions = screen.getByRole('region', { name: 'Actions' });
-    expect(within(actions).getAllByRole('listitem')).toHaveLength(6);
-    expect((actionButton('Factory reset') as HTMLButtonElement).disabled).toBe(false);
-    expect((actionButton('Reboot') as HTMLButtonElement).disabled).toBe(false);
-    expect((actionButton('Provision') as HTMLButtonElement).disabled).toBe(true);
-    expect(within(actions).getByText('Provision from the counter of its contract.')).toBeTruthy();
-    expect(within(actions).getByText('Firmware releases are not published yet')).toBeTruthy();
+    expect(within(actions).getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual([
+      'Configure',
+      'Firmware',
+      'Danger zone',
+    ]);
+    for (const name of ['Configure uplink', 'Restore TrekLink defaults', 'Reboot', 'Update firmware', 'Factory reset']) {
+      expect((actionButton(name) as HTMLButtonElement).disabled).toBe(false);
+    }
+    expect((actionButton('Re-provision') as HTMLButtonElement).disabled).toBe(true);
+    expect(within(actions).getByText('No contract to provision for. Reserve TL-0042 on a contract first.')).toBeTruthy();
   });
-
   it('switches between connected units without putting a node number in the address bar', async () => {
     install([A, B]);
     await renderHub();
@@ -193,7 +219,7 @@ describe('DeviceHub (screen 4.7)', () => {
     expect(window.location.href).not.toContain(B.toString(16));
   });
 
-  it('reboots the unit and calls no endpoint (AC-42)', async () => {
+  it('reboots the unit and records the reboot (AC-42)', async () => {
     install([A]);
     await renderHub();
     await screen.findByRole('heading', { name: 'TL-0042' });
@@ -201,12 +227,12 @@ describe('DeviceHub (screen 4.7)', () => {
     fireEvent.click(actionButton('Reboot'));
     await waitFor(() => expect(useToast.getState().message).toBe('TL-0042 restarted.'), { timeout: 3000 });
     expect(units[0].writes.map((write) => write.variant)).toEqual(['reboot_seconds']);
+    expect(startHubAction).toHaveBeenCalledWith('d-42', { action: 'REBOOT', nodeNum: A });
     // The Reboot button is disabled while the unit is read again, so focus goes to the Actions heading.
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Actions' })));
-    expect(recordReset).not.toHaveBeenCalled();
   });
 
-  it('confirms, wipes the returned unit and records the reset with the docked node number (AC-43)', async () => {
+  it('confirms, wipes the returned unit and records the action with the docked node number (AC-43)', async () => {
     install([A]);
     await renderHub();
     await screen.findByRole('heading', { name: 'TL-0042' });
@@ -216,21 +242,57 @@ describe('DeviceHub (screen 4.7)', () => {
     expect(within(dialog).getByText('the channel key of ORG-SAPA')).toBeTruthy();
     expect(within(dialog).getByText(/region MY_433 is written back/)).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Factory reset' }));
-    await waitFor(() => expect(useToast.getState().message).toBe('TL-0042 is reset. Inspect it at the counter next.'), {
-      timeout: 5000,
-    });
-    expect(recordReset).toHaveBeenCalledWith('d-42', A);
-    // The Factory reset button is disabled now (already reset), so focus goes to the Actions heading.
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Actions' })));
+    await waitFor(() => expect(useToast.getState().message).toBe('TL-0042 is reset.'), { timeout: 5000 });
+    expect(startHubAction).toHaveBeenCalledWith('d-42', { action: 'FACTORY_RESET', nodeNum: A });
+    expect(finishHubAction).toHaveBeenCalledWith('d-42', 'ha-1', { outcome: 'SUCCEEDED' });
     expect(units[0].state).toMatchObject({ longName: 'TL-0042', shortName: '0042', region: 16, channelName: '' });
     expect(Array.from(units[0].state.psk)).toEqual([1]);
   });
 
-  it('keeps factory reset unavailable with its reason for a unit already reset (AC-44)', async () => {
-    fetchDevice.mockResolvedValue({ id: 'd-42', lastReset: { createdAt: '2026-11-04T02:00:00.000Z' }, nextStep: { action: 'INSPECT', contractId: 'c-40' } });
+  it('asks for the asset tag typed before any action on a rented unit, and names the contract (AC-45)', async () => {
+    recognizeUnits.mockImplementation((nodeNums: number[]) =>
+      Promise.resolve(
+        nodeNums.map((nodeNum) => ({
+          ...registered(nodeNum),
+          device: { ...registered(nodeNum).device, status: 'RENTED' },
+          contract: { id: 'c-40', code: 'RC-2026-0040', status: 'ACTIVE', organization: { id: 'o-1', code: 'ORG-SAPA' }, provisionedKeyVersion: 2 },
+        })),
+      ),
+    );
     install([A]);
     await renderHub();
-    await screen.findByText('TL-0042 is already reset for this return.');
-    expect((actionButton('Factory reset') as HTMLButtonElement).disabled).toBe(true);
+    await screen.findByRole('heading', { name: 'TL-0042' });
+    await waitFor(() => expect((actionButton('Restore TrekLink defaults') as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(actionButton('Restore TrekLink defaults'));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Restore TrekLink defaults on TL-0042?' });
+    expect(within(dialog).getByText(/TL-0042 is rented on RC-2026-0040 for ORG-SAPA\./)).toBeTruthy();
+    const confirm = within(dialog).getByRole('button', { name: 'Restore defaults' }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    fireEvent.change(within(dialog).getByLabelText('Type TL-0042 to confirm'), { target: { value: 'tl-0042' } });
+    expect(confirm.disabled).toBe(false);
+    fireEvent.click(confirm);
+    await waitFor(() => expect(useToast.getState().message).toBe('TL-0042 is back on the TrekLink defaults.'), {
+      timeout: 5000,
+    });
+    expect(startHubAction).toHaveBeenCalledWith('d-42', { action: 'RESTORE_DEFAULTS', nodeNum: A, confirmAssetTag: 'tl-0042' });
+    expect(units[0].writes.map((write) => write.variant)).toEqual([
+      'begin_edit_settings',
+      'set_owner',
+      'set_channel',
+      'set_config',
+      'set_module_config',
+      'commit_edit_settings',
+    ]);
+    expect(Array.from(units[0].state.psk)).toEqual([1]);
+  });
+
+  it('asks the server again for every unit on Refresh and shows the time (AC-48)', async () => {
+    install([A]);
+    await renderHub();
+    await screen.findByRole('heading', { name: 'TL-0042' });
+    const calls = recognizeUnits.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh the unit and its record' }));
+    await waitFor(() => expect(recognizeUnits.mock.calls.length).toBeGreaterThan(calls));
+    expect(screen.getByText(/^Refreshed/)).toBeTruthy();
   });
 });

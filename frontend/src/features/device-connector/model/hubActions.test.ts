@@ -1,11 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import type { RecognizedUnit } from '../../../entities/device/api';
+import type { DeviceStatus } from '../../../shared/ui/status';
 import type { Connection } from './ConnectorRegistry';
 import type { CounterContext } from './connectorStore';
 import { FLASH_NOT_BUILT } from './actionsFor';
-import { LOCKED_TEXT, NOT_READY_TEXT, hubActionsFor, type HubAction, type HubActionKind } from './hubActions';
+import {
+  LOCKED_TEXT,
+  NOT_READY_TEXT,
+  STAFF_ONLY_TEXT,
+  UNREGISTERED_TEXT,
+  hubActionsFor,
+  noContractText,
+  type HubAction,
+  type HubActionKind,
+} from './hubActions';
 
-// The Actions table of devices design section 12.13 (REQ-EVT-44, REQ-ERR-32).
+// The Actions table of devices design section 12.14 (REQ-EVT-44, REQ-ERR-32, leader UAT 2026-11-06): no status
+// disables an action; RESERVED and RENTED add the typed confirmation.
 
 const CAN = { register: true, operate: true, flash: false };
 const RESET_DUE = { nextStep: { action: 'RESET' as const, contractId: 'c-40' } };
@@ -63,88 +74,97 @@ const RENTED_ON = {
   provisionedKeyVersion: 2,
 };
 
-describe('hubActionsFor (devices design section 12.13)', () => {
-  it('always lists the six actions in the order of the brief', () => {
-    expect(hubActionsFor(connection(null), null, CAN, null, null).map((action) => action.kind)).toEqual([
-      'provision',
-      'swap',
-      'uplink',
-      'flash',
-      'reboot',
-      'factoryReset',
+const STATUSES: DeviceStatus[] = ['IN_INTAKE', 'AVAILABLE', 'RESERVED', 'RENTED', 'RETURNED', 'MAINTENANCE', 'LOST', 'RETIRED', 'DISPOSED'];
+
+describe('hubActionsFor (devices design section 12.14)', () => {
+  it('lists the seven actions in their groups, in order', () => {
+    const actions = hubActionsFor(connection({ status: 'AVAILABLE' }), null, CAN, null, null);
+    expect(actions.map((action) => [action.kind, action.group])).toEqual([
+      ['provision', 'configure'],
+      ['swap', 'configure'],
+      ['uplink', 'configure'],
+      ['restoreDefaults', 'configure'],
+      ['reboot', 'configure'],
+      ['flash', 'firmware'],
+      ['factoryReset', 'danger'],
     ]);
   });
 
-  it('offers factory reset only for a returned unit due its reset', () => {
-    const actions = byKind(hubActionsFor(connection({ status: 'RETURNED' }), null, CAN, RESET_DUE, null));
-    expect(actions.factoryReset).toMatchObject({ available: true, reason: null });
-    expect(actions.reboot.available).toBe(true);
-  });
-
-  it('names why factory reset is unavailable (REQ-ERR-32)', () => {
-    const reason = (device: Parameters<typeof connection>[0], record: object | null | undefined = RESET_DUE, contract: RecognizedUnit['contract'] = null) =>
-      byKind(hubActionsFor(connection(device, contract), null, CAN, record, null)).factoryReset.reason;
-    expect(reason(null, null)).toBe('Register this unit first.');
-    expect(reason({ status: 'RENTED' }, RESET_DUE, RENTED_ON)).toBe(
-      'TL-0042 is rented on RC-2026-0040. Check it in at the return counter first.',
-    );
-    expect(reason({ status: 'AVAILABLE' })).toBe('Factory reset is for returned units. TL-0042 is Available.');
-    expect(reason({ status: 'RETURNED' }, { nextStep: { action: 'INSPECT', contractId: 'c-40' } })).toBe(
-      'TL-0042 is already reset for this return.',
-    );
-    // The record of devices api-design 07 is still loading.
-    expect(byKind(hubActionsFor(connection({ status: 'RETURNED' }), null, CAN, undefined, null)).factoryReset.reason).toBe(
-      'Checking the record.',
-    );
-    expect(
-      byKind(hubActionsFor(connection({ status: 'RETURNED' }), null, { register: false, operate: false }, RESET_DUE, null))
-        .factoryReset.reason,
-    ).toBe('Only TrekLink Staff can do this.');
-  });
-
-  it('refuses factory reset for a returned unit whose custody row is still open (REQ-ERR-32)', () => {
-    const custody = { ...RENTED_ON, status: 'RETURN_DUE' };
-    const actions = byKind(hubActionsFor(connection({ status: 'RETURNED' }, custody), null, CAN, RESET_DUE, null));
-    expect(actions.factoryReset).toMatchObject({
-      available: false,
-      reason: 'TL-0042 is still in custody on RC-2026-0040. Check it in on its contract first.',
-    });
-  });
-
-  it('sends provisioning and the quick swap to the counter outside it, with its link for a reserved unit', () => {
+  it.each(STATUSES)('never disables Factory reset, Restore defaults, uplink or Reboot because the unit is %s', (status) => {
     const actions = byKind(
-      hubActionsFor(connection({ status: 'RESERVED' }, { ...RENTED_ON, status: 'APPROVED' }), null, CAN, {}, null),
+      hubActionsFor(connection({ status }, RENTED_ON), null, { ...CAN, flash: true, flashUnavailable: () => null }, RESET_DUE, null),
     );
-    expect(actions.provision).toMatchObject({
-      available: false,
-      reason: 'Provision from the counter of its contract.',
-      link: { label: 'Open its counter', to: '/t/counter/c-40' },
+    for (const kind of ['uplink', 'restoreDefaults', 'reboot', 'flash', 'factoryReset', 'provision'] as const) {
+      expect(actions[kind]).toMatchObject({ available: true, reason: null });
+    }
+  });
+
+  it('asks for the asset tag typed for a reserved or rented unit and names the contract', () => {
+    for (const status of ['RESERVED', 'RENTED'] as const) {
+      const { factoryReset, reboot } = byKind(hubActionsFor(connection({ status }, RENTED_ON), null, CAN, {}, null));
+      expect(factoryReset.confirm).toEqual({
+        assetTag: 'TL-0042',
+        statusLabel: status === 'RENTED' ? 'Rented' : 'Reserved',
+        contractCode: 'RC-2026-0040',
+        organizationCode: 'ORG-SAPA',
+        typed: true,
+      });
+      expect(reboot.confirm?.typed).toBe(true);
+    }
+    expect(byKind(hubActionsFor(connection({ status: 'AVAILABLE' }), null, CAN, {}, null)).factoryReset.confirm).toBeNull();
+  });
+
+  it('notes the custody of a returned unit without asking for the tag', () => {
+    const { factoryReset } = byKind(hubActionsFor(connection({ status: 'RETURNED' }, RENTED_ON), null, CAN, {}, null));
+    expect(factoryReset).toMatchObject({ available: true, confirm: { typed: false, contractCode: 'RC-2026-0040' } });
+  });
+
+  it('opens the counter of the live contract for Provision, and says Re-provision once a key is on the unit', () => {
+    const { provision } = byKind(
+      hubActionsFor(connection({ status: 'RENTED', keyVersion: 3 }, RENTED_ON), null, CAN, {}, null),
+    );
+    expect(provision).toMatchObject({
+      label: 'Re-provision',
+      available: true,
+      link: { label: 'Open RC-2026-0040', to: '/t/counter/c-40' },
     });
-    expect(actions.swap.reason).toBe("Quick swap runs from a contract's counter.");
-    expect(actions.uplink.available).toBe(true);
   });
 
-  it('runs the section 12.3 actions in the counter context', () => {
-    const actions = byKind(hubActionsFor(connection({ status: 'AVAILABLE' }), counter(), CAN, {}, null));
-    expect(actions.swap).toMatchObject({ available: true, unitAction: { kind: 'swap' } });
+  it('keeps Provision disabled with its reason when there is no contract', () => {
+    const { provision } = byKind(hubActionsFor(connection({ status: 'AVAILABLE', keyVersion: null }), null, CAN, {}, null));
+    expect(provision).toMatchObject({ label: 'Provision', available: false, reason: noContractText('TL-0042') });
   });
 
-  it('keeps Update firmware unavailable until task 8.3 registers its panel', () => {
-    const maintenance = {
-      status: 'MAINTENANCE' as const,
-      openMaintenance: { id: 'm-1', reason: 'FIRMWARE_UPDATE', status: 'OPEN' },
-    };
-    expect(byKind(hubActionsFor(connection(maintenance), null, CAN, {}, null)).flash.reason).toBe(FLASH_NOT_BUILT);
-    expect(byKind(hubActionsFor(connection(maintenance), null, { ...CAN, flash: true }, {}, null)).flash.available).toBe(true);
-    expect(byKind(hubActionsFor(connection({ status: 'AVAILABLE' }), null, { ...CAN, flash: true }, {}, null)).flash.reason).toBe(
-      'Update firmware needs an open firmware update record.',
+  it('provisions in place on its own counter row, even when it is already provisioned', () => {
+    const context = { ...counter(), contractId: 'c-40', rows: [{ deviceId: 'd-42', assetTag: 'TL-0042', nodeNum: 1, provisionedKeyVersion: 2 }] };
+    const { provision } = byKind(
+      hubActionsFor(connection({ status: 'RESERVED', keyVersion: 2 }, RENTED_ON), context, CAN, {}, null),
+    );
+    expect(provision).toMatchObject({ available: true, label: 'Re-provision', unitAction: { kind: 'provision' } });
+  });
+
+  it('names the release reason for Update firmware, never the status', () => {
+    expect(byKind(hubActionsFor(connection({ status: 'RENTED' }, RENTED_ON), null, CAN, {}, null)).flash.reason).toBe(
+      FLASH_NOT_BUILT,
+    );
+    const none = { ...CAN, flash: true, flashUnavailable: () => 'No firmware release is published yet.' };
+    expect(byKind(hubActionsFor(connection({ status: 'AVAILABLE' }), null, none, {}, null)).flash.reason).toBe(
+      'No firmware release is published yet.',
     );
   });
 
-  it('disables every action while another unit is written, or while this one is read (REQ-STA-06)', () => {
-    const locked = hubActionsFor(connection({ status: 'RETURNED' }), null, CAN, RESET_DUE, 7);
-    expect(locked.every((action) => !action.available && action.reason === LOCKED_TEXT)).toBe(true);
-    const reading = hubActionsFor(connection({ status: 'RETURNED' }, null, { state: 'reading' }), null, CAN, RESET_DUE, null);
+  it('allows only Reboot on an unknown unit', () => {
+    const actions = hubActionsFor(connection(null), null, CAN, null, null);
+    expect(actions.filter((action) => action.available).map((action) => action.kind)).toEqual(['reboot']);
+    expect(byKind(actions).factoryReset.reason).toBe(UNREGISTERED_TEXT);
+  });
+
+  it('disables everything for a caller who is not Staff, while another unit is written, or before the read', () => {
+    const notStaff = hubActionsFor(connection({ status: 'AVAILABLE' }), null, { register: false, operate: false }, {}, null);
+    expect(notStaff.every((action) => action.reason === STAFF_ONLY_TEXT)).toBe(true);
+    const locked = hubActionsFor(connection({ status: 'AVAILABLE' }), null, CAN, {}, 2);
+    expect(locked.every((action) => action.reason === LOCKED_TEXT)).toBe(true);
+    const reading = hubActionsFor(connection({ status: 'AVAILABLE' }, null, { state: 'reading', unit: null }), null, CAN, {}, null);
     expect(reading.every((action) => action.reason === NOT_READY_TEXT)).toBe(true);
   });
 });

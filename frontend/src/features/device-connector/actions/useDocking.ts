@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { exchangeDevice, issueChannelKey } from '../../../entities/contract/api';
-import { recognizeUnits, recordReset } from '../../../entities/device/api';
+import {
+  finishHubAction,
+  recognizeUnits,
+  startHubAction,
+  type HubActionKind,
+} from '../../../entities/device/api';
 import { ApiError } from '../../../shared/api/apiClient';
 import {
   choosePort,
@@ -23,7 +28,6 @@ import {
   type ExpectedUnit,
 } from './DockingService';
 import type { DockingFailureInfo } from './messages';
-import { custodyText } from '../model/hubActions';
 
 // The docking flows the pages and the connector panel run (devices design sections 8.1 and 11.7). The
 // device connector's registry lends the port and holds the one write lock (REQ-UBI-09, REQ-UBI-10): a
@@ -105,6 +109,42 @@ const readFailure = (connection: Connection): DockingError | null => {
     return new DockingError('dock', connection.message ?? 'The unit could not be read.');
   }
   return null;
+};
+
+// What the device hub records of an action on a registered unit (devices design section 12.14, api-design 33
+// and 34): the typed asset tag of a RESERVED or RENTED unit goes with the start.
+export interface HubRecord {
+  deviceId: string;
+  confirmAssetTag?: string;
+}
+
+const failureText = (error: unknown) =>
+  error instanceof DockingError || error instanceof ApiError ? error.message : 'The docking failed.';
+
+// Runs `work` between the start and the finish of its hub action record. A start the server refuses (a missing
+// confirmation, another unit) throws before anything is written to the unit; a failure records FAILED with the
+// step and is thrown again for the page to show.
+export const recordedHubAction = async <T>(
+  record: (HubRecord & { action: HubActionKind; nodeNum: number }) | null,
+  work: () => Promise<T>,
+): Promise<T> => {
+  if (!record) return work();
+  const started = await startHubAction(record.deviceId, {
+    action: record.action,
+    nodeNum: record.nodeNum,
+    ...(record.confirmAssetTag ? { confirmAssetTag: record.confirmAssetTag } : {}),
+  });
+  let result: T;
+  try {
+    result = await work();
+  } catch (error) {
+    await finishHubAction(record.deviceId, started.id, { outcome: 'FAILED', failure: failureText(error) }).catch(
+      () => undefined,
+    );
+    throw error;
+  }
+  await finishHubAction(record.deviceId, started.id, { outcome: 'SUCCEEDED' });
+  return result;
 };
 
 export const useDocking = (options: { timings?: DockTimings } = {}) => {
@@ -320,23 +360,28 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
   // Configure uplink (design sections 8.8 and 11.7): the device's connected unit. The settings are only
   // read here; the caller clears the passwords afterwards.
   const configureUplink = async (
-    target: ExpectedUnit & { deviceId: string },
+    target: ExpectedUnit & { deviceId: string; confirmAssetTag?: string },
     settings: UplinkSettings,
   ): Promise<DockResult<object>> => {
     try {
       const connection = await connectionFor(registry, target.nodeNum);
       const failure = readFailure(connection);
       if (failure) throw failure;
-      await registry.withWriteLock(connection.id, async (port, stage) => {
-        const hooks = hooksFor(target.deviceId, stage, connection.id);
-        try {
-          hooks.onStage('reading');
-          await service.readUnit(port);
-          await service.configureUplink(target, settings, hooks);
-        } finally {
-          await service.release();
-        }
-      });
+      const nodeNum = connection.unit?.nodeNum ?? target.nodeNum ?? 0;
+      await recordedHubAction(
+        { deviceId: target.deviceId, confirmAssetTag: target.confirmAssetTag, action: 'UPLINK', nodeNum },
+        () =>
+          registry.withWriteLock(connection.id, async (port, stage) => {
+            const hooks = hooksFor(target.deviceId, stage, connection.id);
+            try {
+              hooks.onStage('reading');
+              await service.readUnit(port);
+              await service.configureUplink(target, settings, hooks);
+            } finally {
+              await service.release();
+            }
+          }),
+      );
       return { ok: true };
     } catch (error) {
       if (error instanceof DockingError && error.failure === 'choose') {
@@ -350,25 +395,27 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
     }
   };
 
-  // Reboot from the device hub page (devices design section 12.13, REQ-EVT-45): on the unit's held port,
-  // under the write lock; nothing goes to the server.
-  const reboot = async (connectionId: number): Promise<DockResult<object>> => {
+  // Reboot from the device hub page (devices design sections 12.13 and 12.14, REQ-EVT-45): on the unit's held
+  // port, under the write lock; recorded as a hub action for a registered unit (`record`), never for an unknown one.
+  const reboot = async (connectionId: number, record: HubRecord | null = null): Promise<DockResult<object>> => {
     try {
       const connection = registry.get(connectionId);
       if (!connection?.unit) throw new DockingError('dock', 'The unit is no longer connected.');
       const failure = readFailure(connection);
       if (failure) throw failure;
       const nodeNum = connection.unit.nodeNum;
-      await registry.withWriteLock(connectionId, async (port, stage) => {
-        const hooks = hooksFor(`reboot-${connectionId}`, stage, connectionId);
-        try {
-          hooks.onStage('reading');
-          await service.readUnit(port);
-          await service.reboot({ nodeNum }, hooks);
-        } finally {
-          await service.release();
-        }
-      });
+      await recordedHubAction(record && { ...record, action: 'REBOOT', nodeNum }, () =>
+        registry.withWriteLock(connectionId, async (port, stage) => {
+          const hooks = hooksFor(`reboot-${connectionId}`, stage, connectionId);
+          try {
+            hooks.onStage('reading');
+            await service.readUnit(port);
+            await service.reboot({ nodeNum }, hooks);
+          } finally {
+            await service.release();
+          }
+        }),
+      );
       return { ok: true };
     } catch (error) {
       return { ok: false, ...failureOf(error) };
@@ -379,13 +426,14 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
     }
   };
 
-  // Factory reset of a returned unit from the device hub page (devices design section 12.13,
-  // REQ-EVT-46): the wipe and its read-back under the write lock, then the reset recorded with the
-  // docked node number (devices api-design 10). `wiped` tells the page whether the unit was already
-  // wiped when the server refused, so it can say the record is what is missing.
-  const factoryReset = async (
+  // A write from the device hub on a registered unit in any status (devices design section 12.14): Factory reset
+  // (REQ-EVT-46) or Restore TrekLink defaults (REQ-EVT-47), between the start and the finish of its hub action
+  // record. The server clears the key version on success and, for a returned unit due one, records the return
+  // reset. `wiped` tells the page the unit was already written when the server refused the finish.
+  const hubWrite = async (
+    kind: 'FACTORY_RESET' | 'RESTORE_DEFAULTS',
     connectionId: number,
-    target: ExpectedUnit & { deviceId: string },
+    target: ExpectedUnit & { deviceId: string; confirmAssetTag?: string },
   ): Promise<DockResult<object> & { wiped: boolean }> => {
     let wiped = false;
     try {
@@ -400,23 +448,25 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
           connection.unit.nodeId,
         );
       }
-      // The custody check before the wipe (REQ-ERR-32): the recognition is asked again, so a check-in or
-      // a handover since the page loaded is seen, and a unit still in custody gets nothing written.
-      await registry.refreshRecognition(connectionId);
-      const custody = registry.get(connectionId)?.recognized?.contract;
-      if (custody) throw new DockingError('refused', custodyText(target.assetTag, custody.code));
-      const { nodeNum } = await registry.withWriteLock(connectionId, async (port, stage) => {
-        const hooks = hooksFor(target.deviceId, stage, connectionId);
-        try {
-          hooks.onStage('reading');
-          await service.readUnit(port);
-          return await service.factoryReset(target, hooks);
-        } finally {
-          await service.release();
-        }
-      });
-      wiped = true;
-      await recordReset(target.deviceId, nodeNum);
+      const nodeNum = connection.unit.nodeNum;
+      await recordedHubAction(
+        { deviceId: target.deviceId, confirmAssetTag: target.confirmAssetTag, action: kind, nodeNum },
+        async () => {
+          await registry.withWriteLock(connectionId, async (port, stage) => {
+            const hooks = hooksFor(target.deviceId, stage, connectionId);
+            try {
+              hooks.onStage('reading');
+              await service.readUnit(port);
+              return kind === 'FACTORY_RESET'
+                ? await service.factoryReset(target, hooks)
+                : await service.restoreDefaults(target, hooks);
+            } finally {
+              await service.release();
+            }
+          });
+          wiped = true;
+        },
+      );
       return { ok: true, wiped };
     } catch (error) {
       return { ok: false, wiped, ...failureOf(error) };
@@ -428,12 +478,21 @@ export const useDocking = (options: { timings?: DockTimings } = {}) => {
     }
   };
 
+  const factoryReset = (connectionId: number, target: ExpectedUnit & { deviceId: string; confirmAssetTag?: string }) =>
+    hubWrite('FACTORY_RESET', connectionId, target);
+
+  const restoreDefaults = (
+    connectionId: number,
+    target: ExpectedUnit & { deviceId: string; confirmAssetTag?: string },
+  ) => hubWrite('RESTORE_DEFAULTS', connectionId, target);
+
   return {
     supported,
     state,
     busy: state.stage !== null,
     reboot,
     factoryReset,
+    restoreDefaults,
     readUnit,
     dockAndProvision,
     exchangeAndProvision,

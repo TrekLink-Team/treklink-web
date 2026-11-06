@@ -247,7 +247,7 @@ describe('ConnectorPanel uplink and flash (devices task 10.10, design section 12
     expect(button.getAttribute('aria-describedby')).toBeTruthy();
     closeMenu();
 
-    const seen: { record?: string; locked?: boolean; runs: number } = { runs: 0 };
+    const seen: { record?: string | null; locked?: boolean; runs: number } = { runs: 0 };
     const FakeFlash: React.FC<import('../model/connectorStore').FlashPanelProps> = ({ device, withPort }) => {
       React.useEffect(() => {
         seen.runs += 1;

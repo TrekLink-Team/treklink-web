@@ -262,6 +262,36 @@ export class DockingService {
     }
   }
 
+  // Restore TrekLink defaults (devices design section 12.14, REQ-EVT-47): owner, channel 0 default, Wi-Fi and MQTT
+  // off in one transaction, one restart, and the read-back. The firmware and the node database stay.
+  async restoreDefaults(expected: ExpectedUnit, hooks: DockHooks): Promise<{ nodeNum: number }> {
+    const session = await this.confirmUnit(expected);
+    const owner = ownerFor(expected.assetTag);
+    hooks.onStage('writing');
+    try {
+      await session.writeTrekLinkDefaults(owner);
+    } catch (error) {
+      await this.release();
+      throw fromDockError(error);
+    }
+    const back = await this.afterRestart(session, hooks);
+    try {
+      const differs = [
+        back.unit.nodeNum !== expected.nodeNum && `node ${back.unit.nodeId}`,
+        back.unit.longName !== owner.longName && 'owner long name',
+        back.unit.shortName !== owner.shortName && 'owner short name',
+        !back.primaryKeyIsDefault() && 'channel key',
+        !back.networkOff() && 'Wi-Fi and MQTT off',
+      ].filter((item): item is string => Boolean(item));
+      if (differs.length > 0) {
+        throw new DockingError('read-back', `The read-back differs: ${differs.join(', ')}.`);
+      }
+      return { nodeNum: back.unit.nodeNum };
+    } finally {
+      await back.close();
+    }
+  }
+
   // The Stage A uplink of design section 8.8: writes, restart, read-back of the named checks.
   async configureUplink(
     expected: ExpectedUnit,

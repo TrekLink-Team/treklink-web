@@ -52,8 +52,9 @@ export const actionsFor = (
   const actions: UnitAction[] = [];
   let reason: string | null = null;
 
-  const uplinkAllowed =
-    can.operate && device.status !== 'RETIRED' && device.status !== 'DISPOSED';
+  // The leader's rule of 2026-11-06 (design section 12.14): Configure uplink and Update firmware are offered for a
+  // registered unit in every status; the status only adds the hub's typed confirmation.
+  const uplinkAllowed = can.operate;
   switch (device.status) {
     case 'IN_INTAKE':
       actions.push({ kind: 'link', label: 'Record intake check', to: `/t/devices/${device.id}` });
@@ -103,19 +104,19 @@ export const actionsFor = (
       }
       break;
     case 'MAINTENANCE':
-      if (device.openMaintenance?.reason === 'FIRMWARE_UPDATE' && device.openMaintenance.status === 'OPEN') {
-        actions.push({
-          kind: 'flash',
-          disabledReason:
-            can.operate && can.flash
-              ? (can.flashUnavailable?.(device.hardwareVariant.code) ?? null)
-              : FLASH_NOT_BUILT,
-        });
-      }
       if (uplinkAllowed) actions.push({ kind: 'uplink' });
       break;
     default:
+      if (uplinkAllowed) actions.push({ kind: 'uplink' });
       break;
+  }
+  if (can.operate && !actions.some((action) => action.kind === 'uplink')) actions.push({ kind: 'uplink' });
+  // Update firmware from the latest release, no maintenance record needed (REQ-EVT-48).
+  if (can.operate) {
+    actions.push({
+      kind: 'flash',
+      disabledReason: can.flash ? (can.flashUnavailable?.(device.hardwareVariant.code) ?? null) : FLASH_NOT_BUILT,
+    });
   }
   actions.push(devicePage);
   return { actions, reason };

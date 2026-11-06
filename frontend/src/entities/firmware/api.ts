@@ -67,3 +67,25 @@ export const useFirmwareReleases = (variantCode: string | undefined, enabled: bo
 // Base64 from api-design 29 to the bytes the flasher writes.
 export const imageBytes = (image: Pick<FirmwareImage, 'imageBase64'>): Uint8Array =>
   Uint8Array.from(atob(image.imageBase64), (character) => character.charCodeAt(0));
+
+// Compares two firmware versions (devices design section 12.14): the numeric parts of the base version first
+// ("2.7.26"), then the TrekLink build number of a `-treklink.N` suffix, 0 when absent. A unit reports the
+// Meshtastic form "2.7.26.a4aa98d"; its trailing build hash is ignored. Negative when `a` is older.
+export const compareFirmware = (a: string, b: string): number => {
+  const parse = (version: string) => {
+    const [base, suffix] = version.trim().replace(/^v/i, '').split('-treklink.');
+    const numbers = base.split(/[.-]/).slice(0, 3).map((part) => Number.parseInt(part, 10) || 0);
+    while (numbers.length < 3) numbers.push(0);
+    return [...numbers, suffix ? Number.parseInt(suffix, 10) || 0 : 0];
+  };
+  const left = parse(a);
+  const right = parse(b);
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return left[index] - right[index];
+  }
+  return 0;
+};
+
+// The newest release that carries a variant (api-design 28 lists them newest first), or null.
+export const latestReleaseFor = (releases: readonly FirmwareRelease[] | undefined, variantCode: string) =>
+  releases?.find((release) => release.variants.some((entry) => entry.variantCode === variantCode)) ?? null;

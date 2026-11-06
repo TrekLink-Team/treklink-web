@@ -112,6 +112,10 @@ export interface DockSession {
   factoryResetConfig(): Promise<void>;
   // set_owner and set_config lora with this region inside one edit transaction (section 12.13 step 5).
   writeOwnerAndRegion(owner: { longName: string; shortName: string }, region: number): Promise<void>;
+  // Restore TrekLink defaults (devices design section 12.14): set_owner, channel 0 back to the firmware default
+  // (empty name, PSK 0x01, uplink and downlink off), Wi-Fi off and MQTT off inside one edit transaction. Region,
+  // LoRa preset and the node database stay.
+  writeTrekLinkDefaults(owner: { longName: string; shortName: string }): Promise<void>;
   // Waits for the restart the commit causes and docks again. Null when the port did not come back
   // before the deadline: the page then asks Staff to reconnect (a user gesture opens the chooser).
   // `findReturned` names the port the unit came back on; by default the original port, else the only
@@ -490,6 +494,51 @@ class Session implements DockSession {
       this.device.setConfig({
         ...lora,
         payloadVariant: { case: 'lora', value: { ...loraValue, region } },
+      } as never),
+    );
+    await this.commit();
+  }
+
+  async writeTrekLinkDefaults(owner: { longName: string; shortName: string }) {
+    const channel = this.requireChannel();
+    const user = this.user;
+    const network = this.networkConfig;
+    const mqtt = this.mqttConfig;
+    if (!user) throw new DockError('incomplete', 'set_owner', 'The unit did not report its owner.');
+    if (!network || !mqtt) {
+      throw new DockError('incomplete', 'set_config', 'The unit did not report its network or MQTT settings.');
+    }
+    const networkValue = (network.payloadVariant as Variant).value;
+    const mqttValue = (mqtt.payloadVariant as Variant).value;
+    await this.beginEdit();
+    await this.admin('set_owner', () =>
+      this.device.setOwner({ ...user, longName: owner.longName, shortName: owner.shortName } as never),
+    );
+    await this.admin('set_channel', () =>
+      this.device.setChannel({
+        ...channel,
+        index: 0,
+        role: PRIMARY_ROLE,
+        settings: {
+          ...channel.settings,
+          // The firmware's default key, one byte of value 1 (`Channels.cpp:135-137`), and the preset's name.
+          psk: new Uint8Array([1]),
+          name: '',
+          uplinkEnabled: false,
+          downlinkEnabled: false,
+        },
+      } as never),
+    );
+    await this.admin('set_config network', () =>
+      this.device.setConfig({
+        ...network,
+        payloadVariant: { case: 'network', value: { ...networkValue, wifiEnabled: false } },
+      } as never),
+    );
+    await this.admin('set_module_config MQTT', () =>
+      this.device.setModuleConfig({
+        ...mqtt,
+        payloadVariant: { case: 'mqtt', value: { ...mqttValue, enabled: false } },
       } as never),
     );
     await this.commit();
