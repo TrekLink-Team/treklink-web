@@ -12,6 +12,8 @@ import { useDocking } from './useDocking';
 
 interface Props {
   device: { id: string; assetTag: string; nodeNum: number; keyVersion: number | null };
+  // The asset tag typed in the hub's confirmation of a RESERVED or RENTED unit (devices design section 12.14).
+  confirmAssetTag?: string;
   onDone: (message: string) => void;
   onClose: () => void;
 }
@@ -60,7 +62,7 @@ const stageText = (stage: DockStage, assetTag: string) => {
   }
 };
 
-export const ConfigureUplinkDialog: React.FC<Props> = ({ device, onDone, onClose }) => {
+export const ConfigureUplinkDialog: React.FC<Props> = ({ device, confirmAssetTag, onDone, onClose }) => {
   const docking = useDocking();
   const [form, setForm] = useState<UplinkSettings>(EMPTY);
   const [errors, setErrors] = useState<Partial<Record<keyof UplinkSettings, string>>>({});
@@ -78,7 +80,7 @@ export const ConfigureUplinkDialog: React.FC<Props> = ({ device, onDone, onClose
     setFailure(null);
     const settings = { ...form, brokerAddress: form.brokerAddress.trim() };
     const result = await docking.configureUplink(
-      { deviceId: device.id, assetTag: device.assetTag, nodeNum: device.nodeNum },
+      { deviceId: device.id, assetTag: device.assetTag, nodeNum: device.nodeNum, confirmAssetTag },
       settings,
     );
     if (result.ok) {

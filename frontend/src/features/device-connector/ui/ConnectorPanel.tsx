@@ -385,15 +385,20 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
   const flashRecord = flashDevice?.openMaintenance?.id ?? null;
   const flashProps = useMemo(
     () =>
-      flashDevice && flashRecord && flashingId !== null
+      flashDevice && flashingId !== null
         ? {
             device: {
               id: flashDevice.id,
               assetTag: flashDevice.assetTag,
               nodeNum: flashDevice.nodeNum,
               variantCode: flashDevice.hardwareVariant.code,
-              maintenanceRecordId: flashRecord,
+              // Design section 12.14: the flash needs no record; an open one is completed after it.
+              maintenanceRecordId:
+                flashDevice.openMaintenance?.reason === 'FIRMWARE_UPDATE' ? flashRecord : null,
+              reportedFirmware: flashConnection?.unit?.firmwareVersion ?? null,
+              firmwareOnRecord: flashDevice.firmwareVersion,
             },
+            onFlashed: () => void registry.refreshRecognition(flashingId),
             withPort: <T,>(
               work: (port: SerialPort, stage: (state: ConnectionState) => void) => Promise<T>,
             ) => registry.withWriteLock(flashingId, work),

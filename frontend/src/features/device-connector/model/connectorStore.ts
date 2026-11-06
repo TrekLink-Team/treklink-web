@@ -53,8 +53,15 @@ export interface FlashPanelProps {
     assetTag: string;
     nodeNum: number;
     variantCode: string;
-    maintenanceRecordId: string;
+    // The OPEN FIRMWARE_UPDATE record, if any: the flash no longer needs one (design section 12.14).
+    maintenanceRecordId: string | null;
+    reportedFirmware?: string | null;
+    firmwareOnRecord?: string | null;
   };
+  // The asset tag typed for a RESERVED or RENTED unit, sent with the start of the flash record (api-design 33).
+  confirmAssetTag?: string;
+  // After a verified write; the hub reads the unit again.
+  onFlashed?: (version: string) => void;
   // Runs the flash on the unit's port; the hub reads the unit again afterwards (design section 12.7).
   withPort: <T>(
     work: (port: SerialPort, stage: (state: ConnectionState) => void) => Promise<T>,

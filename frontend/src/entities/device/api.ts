@@ -1,4 +1,4 @@
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueries, useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/apiClient';
 import type { DeviceStatus } from '../../shared/ui/status';
 import { queryString, type Page, type SortParams } from '../../shared/api/query';
@@ -106,7 +106,9 @@ export interface DeviceHistoryItem {
     | 'INSPECTION'
     | 'MAINTENANCE'
     | 'CONTRACT'
-    | 'INCIDENT';
+    | 'INCIDENT'
+    // A device hub action (devices design section 12.14).
+    | 'HUB';
   summary: string;
   actor: string;
   refType: string | null;
@@ -231,6 +233,17 @@ export const fetchDeviceHistory = (id: string, pageNumber: number) =>
 export const useDeviceHistory = (id: string, pageNumber: number) =>
   useQuery({ queryKey: deviceKeys.history(id, pageNumber), queryFn: () => fetchDeviceHistory(id, pageNumber) });
 
+// The device hub's History panel (devices design section 12.14): the same history, newest first, 20 rows a page,
+// with Load more. Under `['device-history', id]`, so a refresh of the device's history refreshes it too.
+export const useDeviceHistoryFeed = (id: string | null) =>
+  useInfiniteQuery({
+    queryKey: ['device-history', id ?? '', 'feed'] as const,
+    queryFn: ({ pageParam }) => fetchDeviceHistory(id ?? '', pageParam),
+    initialPageParam: 1,
+    getNextPageParam: (last) => (last.pageNumber < last.totalPages ? last.pageNumber + 1 : undefined),
+    enabled: Boolean(id),
+  });
+
 const post = <T>(endpoint: string, body: object): Promise<T> =>
   apiClient<T>(endpoint, { method: 'POST', body: JSON.stringify(body) });
 
@@ -272,6 +285,43 @@ export const recordReset = (id: string, nodeNum?: number) =>
     ownerCleared: true,
     ...(nodeNum === undefined ? {} : { nodeNum }),
   });
+
+// devices api-design 33 and 34 (design section 12.14): the device hub records each action on a docked unit, started
+// before anything is written and finished when it ends. RESERVED and RENTED units need the asset tag typed.
+export type HubActionKind = 'REBOOT' | 'FACTORY_RESET' | 'RESTORE_DEFAULTS' | 'UPLINK' | 'FIRMWARE_UPDATE';
+
+export interface HubActionRecord {
+  id: string;
+  deviceId: string;
+  action: HubActionKind;
+  outcome: 'STARTED' | 'SUCCEEDED' | 'FAILED';
+  deviceStatus: string;
+  contractCode: string | null;
+  firmwareFrom: string | null;
+  firmwareTo: string | null;
+  fullImage: boolean;
+  failure: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  returnReset?: boolean;
+}
+
+export interface StartHubAction {
+  action: HubActionKind;
+  nodeNum: number;
+  confirmAssetTag?: string;
+  firmwareTo?: string;
+  fullImage?: boolean;
+}
+
+export const startHubAction = (id: string, dto: StartHubAction) =>
+  post<HubActionRecord>(`/devices/${id}/hub-actions`, dto);
+
+export const finishHubAction = (
+  id: string,
+  actionId: string,
+  dto: { outcome: 'SUCCEEDED' | 'FAILED'; failure?: string },
+) => post<HubActionRecord>(`/devices/${id}/hub-actions/${actionId}/finish`, dto);
 
 // devices api-design 16.
 export const retireDevice = (id: string, reason: string, expectedVersion: number) =>

@@ -17,8 +17,9 @@ import { connectorRegistry, resetConnectorRegistry } from '../model/ConnectorReg
 const issueChannelKey = vi.hoisted(() => vi.fn());
 vi.mock('../../../entities/contract/api', () => ({ issueChannelKey, exchangeDevice: vi.fn() }));
 const recognizeUnits = vi.hoisted(() => vi.fn());
-const recordReset = vi.hoisted(() => vi.fn());
-vi.mock('../../../entities/device/api', () => ({ recognizeUnits, recordReset }));
+const startHubAction = vi.hoisted(() => vi.fn());
+const finishHubAction = vi.hoisted(() => vi.fn());
+vi.mock('../../../entities/device/api', () => ({ recognizeUnits, startHubAction, finishHubAction }));
 
 // DockingService and useDocking against the wire-level fake unit (devices design section 8.7). No
 // hardware is involved.
@@ -61,8 +62,10 @@ beforeEach(() => {
   );
   issueChannelKey.mockReset();
   issueChannelKey.mockResolvedValue({ keyHex: KEY_HEX, keyVersion: 3 });
-  recordReset.mockReset();
-  recordReset.mockResolvedValue({ id: 'd-42', keyVersion: null });
+  startHubAction.mockReset();
+  startHubAction.mockResolvedValue({ id: 'ha-1', outcome: 'STARTED' });
+  finishHubAction.mockReset();
+  finishHubAction.mockResolvedValue({ id: 'ha-1', outcome: 'SUCCEEDED' });
   consoleSpies = (['log', 'info', 'warn', 'error', 'debug', 'trace'] as const).map((level) =>
     vi.spyOn(console, level).mockImplementation(() => undefined),
   );
@@ -301,7 +304,7 @@ describe('useDocking reboot and factory reset', () => {
   };
   const RETURNED_UNIT = { contractId: 'c-1', deviceId: 'd-42', assetTag: 'TL-0042', nodeNum: NODE };
 
-  it('reboots the unit, sees the same node again and calls no endpoint', async () => {
+  it('reboots an unknown unit, sees the same node again and records nothing', async () => {
     const { unit } = dock();
     const { result } = render();
     const id = await readyConnection();
@@ -311,18 +314,29 @@ describe('useDocking reboot and factory reset', () => {
     });
     expect(outcome).toEqual({ ok: true });
     expect(unit.writes.map((write) => write.variant)).toEqual(['reboot_seconds']);
-    expect(recordReset).not.toHaveBeenCalled();
+    expect(startHubAction).not.toHaveBeenCalled();
     expect(issueChannelKey).not.toHaveBeenCalled();
   });
 
-  it('wipes a returned unit, writes its owner and region back, reads them back and records the reset', async () => {
+  it('records the reboot of a registered unit as a hub action with the typed asset tag (design section 12.14)', async () => {
+    dock();
+    const { result } = render();
+    const id = await readyConnection();
+    await act(async () => {
+      await result.current.reboot(id, { deviceId: 'd-42', confirmAssetTag: 'TL-0042' });
+    });
+    expect(startHubAction).toHaveBeenCalledWith('d-42', { action: 'REBOOT', nodeNum: NODE, confirmAssetTag: 'TL-0042' });
+    expect(finishHubAction).toHaveBeenCalledWith('d-42', 'ha-1', { outcome: 'SUCCEEDED' });
+  });
+
+  it('wipes the unit in any status, writes its owner and region back, reads them back and records the action', async () => {
     const { unit } = dock({ psk: KEY, longName: 'TL-0042', shortName: '0042', wifiEnabled: true });
     unit.state.mqtt.enabled = true;
     const { result } = render();
     const id = await readyConnection();
     let outcome: Awaited<ReturnType<typeof result.current.factoryReset>> | undefined;
     await act(async () => {
-      outcome = await result.current.factoryReset(id, RETURNED_UNIT);
+      outcome = await result.current.factoryReset(id, { ...RETURNED_UNIT, confirmAssetTag: 'TL-0042' });
     });
     expect(outcome).toMatchObject({ ok: true, wiped: true });
     expect(unit.writes.map((write) => write.variant)).toEqual([
@@ -334,8 +348,44 @@ describe('useDocking reboot and factory reset', () => {
     ]);
     expect(unit.state).toMatchObject({ longName: 'TL-0042', shortName: '0042', region: 16, wifiEnabled: false });
     expect(Array.from(unit.state.psk)).toEqual([1]);
-    expect(recordReset).toHaveBeenCalledWith('d-42', NODE);
+    expect(startHubAction).toHaveBeenCalledWith('d-42', {
+      action: 'FACTORY_RESET',
+      nodeNum: NODE,
+      confirmAssetTag: 'TL-0042',
+    });
+    expect(finishHubAction).toHaveBeenCalledWith('d-42', 'ha-1', { outcome: 'SUCCEEDED' });
     consoleSpies.forEach((spy) => expect(spy).not.toHaveBeenCalled());
+  });
+
+  it('restores the TrekLink defaults in one transaction and keeps the region (REQ-EVT-47)', async () => {
+    const { unit } = dock({ psk: KEY, longName: 'Org unit', shortName: 'ORG1', channelName: 'SAPA', wifiEnabled: true, region: 16 });
+    unit.state.mqtt.enabled = true;
+    const { result } = render();
+    const id = await readyConnection();
+    let outcome: Awaited<ReturnType<typeof result.current.restoreDefaults>> | undefined;
+    await act(async () => {
+      outcome = await result.current.restoreDefaults(id, RETURNED_UNIT);
+    });
+    expect(outcome).toMatchObject({ ok: true, wiped: true });
+    expect(unit.writes.map((write) => write.variant)).toEqual([
+      'begin_edit_settings',
+      'set_owner',
+      'set_channel',
+      'set_config',
+      'set_module_config',
+      'commit_edit_settings',
+    ]);
+    expect(unit.state).toMatchObject({
+      longName: 'TL-0042',
+      shortName: '0042',
+      channelName: '',
+      region: 16,
+      wifiEnabled: false,
+    });
+    expect(unit.state.mqtt.enabled).toBe(false);
+    expect(Array.from(unit.state.psk)).toEqual([1]);
+    expect(startHubAction).toHaveBeenCalledWith('d-42', { action: 'RESTORE_DEFAULTS', nodeNum: NODE });
+    expect(finishHubAction).toHaveBeenCalledWith('d-42', 'ha-1', { outcome: 'SUCCEEDED' });
   });
 
   it('writes nothing to another unit and records nothing (REQ-ERR-32)', async () => {
@@ -348,25 +398,16 @@ describe('useDocking reboot and factory reset', () => {
     });
     expect(outcome).toMatchObject({ ok: false, failure: 'mismatch', wiped: false });
     expect(unit.writes).toEqual([]);
-    expect(recordReset).not.toHaveBeenCalled();
+    expect(startHubAction).not.toHaveBeenCalled();
   });
 
-  it('asks the server again before the wipe and writes nothing to a unit still in custody (REQ-ERR-32)', async () => {
+  it('writes nothing when the server refuses the start without the typed asset tag (REQ-ERR-34)', async () => {
     const { unit } = dock();
+    startHubAction.mockRejectedValue(
+      new ApiError(400, 'CONFIRMATION_REQUIRED', 'Type TL-0042 to confirm: it is rented on RC-2026-0040.'),
+    );
     const { result } = render();
     const id = await readyConnection();
-    // A handover since the page read the unit: the custody row is open now.
-    recognizeUnits.mockImplementation((nodeNums: number[]) =>
-      Promise.resolve(
-        nodeNums.map((nodeNum) => ({
-          nodeNum,
-          nodeId: '',
-          device: null,
-          contract: { id: 'c-40', code: 'RC-2026-0040', status: 'ACTIVE', organization: { id: 'o-1', code: 'ORG-SAPA' }, provisionedKeyVersion: 2 },
-          docked: null,
-        })),
-      ),
-    );
     let outcome: Awaited<ReturnType<typeof result.current.factoryReset>> | undefined;
     await act(async () => {
       outcome = await result.current.factoryReset(id, RETURNED_UNIT);
@@ -374,14 +415,14 @@ describe('useDocking reboot and factory reset', () => {
     expect(outcome).toMatchObject({
       ok: false,
       wiped: false,
-      failure: 'refused',
-      reason: 'TL-0042 is still in custody on RC-2026-0040. Check it in on its contract first.',
+      failure: 'api',
+      reason: 'Type TL-0042 to confirm: it is rented on RC-2026-0040.',
     });
     expect(unit.writes).toEqual([]);
-    expect(recordReset).not.toHaveBeenCalled();
+    expect(finishHubAction).not.toHaveBeenCalled();
   });
 
-  it('refuses a unit reporting region UNSET before the wipe, since it could not be written back', async () => {
+  it('refuses a unit reporting region UNSET before the wipe and records the action failed', async () => {
     const { unit } = dock({ region: 0 });
     const { result } = render();
     const id = await readyConnection();
@@ -389,17 +430,14 @@ describe('useDocking reboot and factory reset', () => {
     await act(async () => {
       outcome = await result.current.factoryReset(id, RETURNED_UNIT);
     });
-    expect(outcome).toMatchObject({
-      ok: false,
-      wiped: false,
-      failure: 'refused',
-      reason: 'TL-0042 reports no LoRa region, so it could not be written back after the reset. Set its region first. Nothing was written.',
-    });
+    const reason =
+      'TL-0042 reports no LoRa region, so it could not be written back after the reset. Set its region first. Nothing was written.';
+    expect(outcome).toMatchObject({ ok: false, wiped: false, failure: 'refused', reason });
     expect(unit.writes).toEqual([]);
-    expect(recordReset).not.toHaveBeenCalled();
+    expect(finishHubAction).toHaveBeenCalledWith('d-42', 'ha-1', { outcome: 'FAILED', failure: reason });
   });
 
-  it('names a read-back that differs and records nothing (REQ-ERR-33)', async () => {
+  it('names a read-back that differs and records the action failed with it (REQ-ERR-33)', async () => {
     const { unit } = dock({}, { loseRegionOnCommit: true });
     const { result } = render();
     const id = await readyConnection();
@@ -409,12 +447,15 @@ describe('useDocking reboot and factory reset', () => {
     });
     expect(outcome).toMatchObject({ ok: false, failure: 'read-back', reason: 'The read-back differs: region.' });
     expect(unit.writes[0].variant).toBe('factory_reset_config');
-    expect(recordReset).not.toHaveBeenCalled();
+    expect(finishHubAction).toHaveBeenCalledWith('d-42', 'ha-1', {
+      outcome: 'FAILED',
+      failure: 'The read-back differs: region.',
+    });
   });
 
-  it('reports a server refusal after the wipe as wiped, so the page says the record is missing', async () => {
+  it('reports a server refusal of the finish as wiped, so the page says the record is missing', async () => {
     dock();
-    recordReset.mockRejectedValue(new ApiError(409, 'ALREADY_RESET', 'This device is already reset for this return.'));
+    finishHubAction.mockRejectedValue(new ApiError(409, 'HUB_ACTION_FINISHED', 'This hub action is already finished.'));
     const { result } = render();
     const id = await readyConnection();
     let outcome: Awaited<ReturnType<typeof result.current.factoryReset>> | undefined;
@@ -425,7 +466,7 @@ describe('useDocking reboot and factory reset', () => {
       ok: false,
       wiped: true,
       failure: 'api',
-      reason: 'This device is already reset for this return.',
+      reason: 'This hub action is already finished.',
     });
   });
 });

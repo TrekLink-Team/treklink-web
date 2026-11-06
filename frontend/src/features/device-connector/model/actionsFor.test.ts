@@ -62,7 +62,7 @@ describe('actionsFor (devices design section 12.3)', () => {
 
   it('offers the quick swap at the counter with only the reserved units not provisioned', () => {
     const result = actionsFor(connection({}), counter(), CAN);
-    expect(kinds(result)).toEqual(['swap', 'uplink', 'link']);
+    expect(kinds(result)).toEqual(['swap', 'uplink', 'flash', 'link']);
     expect(result.actions[0]).toMatchObject({ rows: [{ assetTag: 'TL-0001' }] });
   });
 
@@ -101,16 +101,22 @@ describe('actionsFor (devices design section 12.3)', () => {
 
     const rented = actionsFor(connection({ status: 'RENTED' }, other), counter(), CAN);
     expect(rented.reason).toBe('TL-0051 is rented on RC-2026-0040. Check it in at the return counter.');
-    expect(kinds(rented)).toEqual(['link', 'link']);
+    // Design section 12.14: a rented unit keeps Configure uplink and Update firmware (the hub asks for the typed tag).
+    expect(kinds(rented)).toEqual(['link', 'uplink', 'flash', 'link']);
   });
 
-  it('shows Update firmware for an open FIRMWARE_UPDATE record, unavailable until the flash panel exists', () => {
+  it('shows Update firmware in every status, no record needed, unavailable until the flash panel exists', () => {
+    const flashOf = (result: ReturnType<typeof actionsFor>) => result.actions.find((action) => action.kind === 'flash');
+    expect(flashOf(actionsFor(connection({ status: 'AVAILABLE' }), null, CAN))).toEqual({
+      kind: 'flash',
+      disabledReason: FLASH_NOT_BUILT,
+    });
     const result = actionsFor(
       connection({ status: 'MAINTENANCE', openMaintenance: { id: 'mr-1', reason: 'FIRMWARE_UPDATE', status: 'OPEN' } }),
       null,
       CAN,
     );
-    expect(result.actions[0]).toEqual({ kind: 'flash', disabledReason: FLASH_NOT_BUILT });
+    expect(flashOf(result)).toEqual({ kind: 'flash', disabledReason: FLASH_NOT_BUILT });
     expect(FLASH_NOT_BUILT).toBe('Firmware releases are not published yet');
     // Once task 8.3 registers its panel the action is available.
     const ready = actionsFor(
@@ -118,11 +124,12 @@ describe('actionsFor (devices design section 12.3)', () => {
       null,
       { ...CAN, flash: true },
     );
-    expect(ready.actions[0]).toEqual({ kind: 'flash', disabledReason: null });
+    expect(flashOf(ready)).toEqual({ kind: 'flash', disabledReason: null });
   });
 
-  it('allows nothing but the device page for a retired unit, and nothing while a unit is not ready', () => {
-    expect(kinds(actionsFor(connection({ status: 'RETIRED' }), counter(), CAN))).toEqual(['link']);
+  it('keeps the hub actions for a retired unit, and allows nothing while a unit is not ready', () => {
+    expect(kinds(actionsFor(connection({ status: 'RETIRED' }), counter(), CAN))).toEqual(['uplink', 'flash', 'link']);
+    expect(kinds(actionsFor(connection({ status: 'RETIRED' }), null, { register: false, operate: false }))).toEqual(['link']);
     expect(actionsFor({ ...connection({}), state: 'writing' }, counter(), CAN)).toEqual({ actions: [], reason: null });
   });
 });

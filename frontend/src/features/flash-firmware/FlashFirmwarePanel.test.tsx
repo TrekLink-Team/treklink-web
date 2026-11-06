@@ -54,7 +54,7 @@ const Where: React.FC = () => {
 
 const withPort = vi.fn((work: Parameters<FlashFirmwareProps['withPort']>[0]) => work({} as SerialPort, vi.fn()));
 const close = vi.fn();
-const open = (variantCode = 'treklink-v3') =>
+const open = (variantCode = 'treklink-v3', record: string | null = 'mr-1', confirmAssetTag?: string) =>
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter initialEntries={['/t/device-hub']}>
@@ -63,7 +63,16 @@ const open = (variantCode = 'treklink-v3') =>
             path="/t/device-hub"
             element={
               <FlashFirmwarePanel
-                device={{ id: 'd-42', assetTag: 'TL-0042', nodeNum: NODE, variantCode, maintenanceRecordId: 'mr-1' }}
+                device={{
+                  id: 'd-42',
+                  assetTag: 'TL-0042',
+                  nodeNum: NODE,
+                  variantCode,
+                  maintenanceRecordId: record,
+                  reportedFirmware: '2.7.19.a4aa98d',
+                  firmwareOnRecord: '2.7.19-treklink.3',
+                }}
+                confirmAssetTag={confirmAssetTag}
                 withPort={withPort as FlashFirmwareProps['withPort']}
                 onClose={close}
               />
@@ -82,8 +91,12 @@ beforeEach(() => {
   api.mockReset();
   withPort.mockClear();
   close.mockReset();
-  api.mockImplementation((endpoint: string) => {
+  api.mockImplementation((endpoint: string, init?: { body?: string }) => {
     if (endpoint.startsWith('/firmware-releases?') || endpoint === '/firmware-releases') return Promise.resolve(releases);
+    if (endpoint === '/devices/d-42/hub-actions') return Promise.resolve({ id: 'ha-1', outcome: 'STARTED' });
+    if (endpoint === '/devices/d-42/hub-actions/ha-1/finish') {
+      return Promise.resolve({ id: 'ha-1', ...(JSON.parse(init?.body ?? '{}') as object) });
+    }
     const kind = new URL(`http://x${endpoint}`).searchParams.get('kind');
     return Promise.resolve({
       ...RELEASE,
@@ -117,19 +130,68 @@ describe('FlashFirmwarePanel (devices task 8.3, screen 4.3)', () => {
     expect(withPort).not.toHaveBeenCalled();
   });
 
-  it('offers the releases of the variant with the baseline preselected (REQ-EVT-28)', async () => {
+  it('preselects the newest release of the variant and shows it against the unit (REQ-EVT-48)', async () => {
     open();
     const select = (await screen.findByLabelText('Release')) as HTMLSelectElement;
     expect(api).toHaveBeenCalledWith('/firmware-releases?variantCode=treklink-v3');
     expect(select.value).toBe('2.7.26-treklink.2');
-    expect(select.options[1].textContent).toBe('2.7.26-treklink.2 (baseline)');
+    expect(select.options[1].textContent).toBe('2.7.26-treklink.2 (latest) (baseline)');
+    expect(screen.getByText('(Newer than the unit)')).toBeTruthy();
+    expect(screen.getByText('2.7.19.a4aa98d')).toBeTruthy();
+  });
+
+  it('records the flash as a hub action, before the write and after it, with no maintenance record needed', async () => {
+    open('treklink-v3', null, 'TL-0042');
+    await screen.findByLabelText('Release');
+    fireEvent.click(flashButton());
+    expect(await screen.findByText('2.7.26-treklink.2 written and verified on TL-0042.')).toBeTruthy();
+    const posts = api.mock.calls.filter(([, init]) => (init as { method?: string } | undefined)?.method === 'POST');
+    expect(posts.map(([endpoint, init]) => [endpoint, JSON.parse((init as { body: string }).body) as unknown])).toEqual([
+      [
+        '/devices/d-42/hub-actions',
+        { action: 'FIRMWARE_UPDATE', nodeNum: NODE, firmwareTo: '2.7.26-treklink.2', fullImage: false, confirmAssetTag: 'TL-0042' },
+      ],
+      ['/devices/d-42/hub-actions/ha-1/finish', { outcome: 'SUCCEEDED' }],
+    ]);
+    expect(screen.getByText('a'.repeat(64))).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Complete the record' })).toBeNull();
+  });
+
+  it('records a failed write as FAILED with the step', async () => {
+    const fake = fakeLoader();
+    fake.writeFlash.mockRejectedValue(new Error('MD5 of file does not match data in flash!'));
+    loader.current = fake;
+    open();
+    await screen.findByLabelText('Release');
+    fireEvent.click(flashButton());
+    await screen.findByText(/The flash is recorded as failed/);
+    expect(api).toHaveBeenCalledWith('/devices/d-42/hub-actions/ha-1/finish', {
+      method: 'POST',
+      body: JSON.stringify({ outcome: 'FAILED', failure: 'The written image did not verify.' }),
+    });
+  });
+
+  it('writes nothing when the server refuses the start (REQ-ERR-34)', async () => {
+    const images = api.getMockImplementation() as (endpoint: string, init?: { body?: string }) => Promise<unknown>;
+    api.mockImplementation((endpoint: string, init?: { body?: string }) =>
+      endpoint === '/devices/d-42/hub-actions'
+        ? Promise.reject(new ApiError(400, 'CONFIRMATION_REQUIRED', 'Type TL-0042 to confirm: it is rented on RC-2026-0040.'))
+        : images(endpoint, init),
+    );
+    open();
+    await screen.findByLabelText('Release');
+    fireEvent.click(flashButton());
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('Type TL-0042 to confirm: it is rented on RC-2026-0040.'));
+    expect(withPort).not.toHaveBeenCalled();
   });
 
   it('Update writes the app image at its offset and hands the version to Complete (AC-19)', async () => {
     open();
     await screen.findByLabelText('Release');
     fireEvent.click(flashButton());
-    expect(await screen.findByText('2.7.26-treklink.2 written and verified on TL-0042. Complete the record to save it.')).toBeTruthy();
+    expect(
+      await screen.findByText('2.7.26-treklink.2 written and verified on TL-0042. Complete the firmware update record to close it.'),
+    ).toBeTruthy();
     expect(api).toHaveBeenCalledWith('/firmware-releases/2.7.26-treklink.2/images/treklink-v3?kind=APP');
     expect(withPort).toHaveBeenCalledTimes(1);
     const fake = loader.current as ReturnType<typeof fakeLoader>;
@@ -148,7 +210,7 @@ describe('FlashFirmwarePanel (devices task 8.3, screen 4.3)', () => {
   it('Full install erases and writes the factory image at 0', async () => {
     open();
     await screen.findByLabelText('Release');
-    fireEvent.click(screen.getByRole('radio', { name: /Full install/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Full factory image/ }));
     fireEvent.click(flashButton());
     // Screen 4.3: Full install asks first, and nothing runs until it is confirmed.
     const confirm = screen.getByRole('alertdialog', { name: 'Erase TL-0042 and install 2.7.26-treklink.2?' });
@@ -183,7 +245,7 @@ describe('FlashFirmwarePanel (devices task 8.3, screen 4.3)', () => {
     await screen.findByLabelText('Release');
     fireEvent.click(flashButton());
     expect(
-      await screen.findByText('The written image did not verify. Nothing was recorded. Flash TL-0042 again.'),
+      await screen.findByText('The written image did not verify. The flash is recorded as failed. Flash TL-0042 again.'),
     ).toBeTruthy();
   });
 
