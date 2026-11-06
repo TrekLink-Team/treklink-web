@@ -1,11 +1,20 @@
 import { randomUUID } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { AccountType, MemberRole } from '@prisma/client';
+import {
+  AccountType,
+  AttributionState,
+  EventKind,
+  IngressPath,
+  MemberRole,
+  PriorityTier,
+  TimeSource,
+} from '@prisma/client';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { AccountsService } from '../src/modules/auth';
 import { AccountsRepository } from '../src/modules/auth/accounts.repository';
 import { AlertDeliveriesRepository } from '../src/modules/incidents/alert-deliveries.repository';
+import { IncidentIngress } from '../src/modules/incidents/incident-ingress';
 import { IncidentLifecycle } from '../src/modules/incidents/incident-lifecycle';
 import { IncidentsRepository } from '../src/modules/incidents/incidents.repository';
 import { RoutingService } from '../src/modules/incidents/routing.service';
@@ -23,8 +32,9 @@ if (!databaseUrl || !process.env.DATABASE_DIRECT_URL) {
 
 // Organizations AC-07 and TC-32 (BR-36): an SOS from a device of a SUSPENDED organization still reaches
 // its primary. Neither `RosterService.tiersAt` nor `RoutingService.route` reads the organization status,
-// and this suite proves it with a real roster against Postgres. Run on migrated disposable Postgres
-// only. Every fixture is unique to the run, so repeated runs delete nothing.
+// and this suite proves it with a real roster against Postgres, first through the routing and the
+// lifecycle and then through `IncidentIngress.onSos`, the entry point that gateway-sync calls (#417).
+// Run on migrated disposable Postgres only. Every fixture is unique to the run, so repeated runs delete nothing.
 describe('an SOS of a SUSPENDED organization against Postgres (AC-07, BR-36)', () => {
   const prisma = new PrismaService({ datasourceUrl: databaseUrl });
   const events = new TransactionalEvents(prisma, new EventEmitter2());
@@ -48,6 +58,7 @@ describe('an SOS of a SUSPENDED organization against Postgres (AC-07, BR-36)', (
     events,
   );
   const routing = new RoutingService(new RosterService(new RosterRepository(prisma)), accounts);
+  const ingress = new IncidentIngress(repository, lifecycle, routing, parameters, events);
   const runId = randomUUID();
   let variantId: string;
   let creatorId: string;
@@ -119,6 +130,51 @@ describe('an SOS of a SUSPENDED organization against Postgres (AC-07, BR-36)', (
       );
       return { route, routed };
     });
+
+  // The SOS as gateway-sync hands it over: its stored field event (the incident references it) and the
+  // attribution at the occurrence time, through `IncidentIngress.onSos` in one transaction.
+  const sosThroughIngress = (deviceId: string, organizationId: string) =>
+    events.transaction(async (tx) => {
+      const occurredAt = new Date();
+      const eventId = `suspended-sos-${runId}-${randomUUID()}`;
+      await tx.fieldEvent.create({
+        data: {
+          eventId,
+          deviceId,
+          organizationId,
+          attribution: AttributionState.ATTRIBUTED,
+          uplinkKey: '!suspended-sos',
+          ingress: IngressPath.MQTT_NODE,
+          kind: EventKind.SOS,
+          priority: PriorityTier.P0_SOS,
+          occurredAt,
+          timeSource: TimeSource.DEVICE_RTC,
+          payload: {},
+        },
+      });
+      return ingress.onSos(
+        { eventId, deviceId, organizationId, contractId: null, source: 'DEVICE_SOS', occurredAt },
+        tx,
+      );
+    });
+
+  const onShift = async (organizationId: string) => {
+    const [primaryUser, backupUser] = await Promise.all([user('primary'), user('backup')]);
+    const primaryMember = await member(organizationId, primaryUser, MemberRole.OPERATOR);
+    const backupMember = await member(organizationId, backupUser, MemberRole.OPERATOR);
+    const now = Date.now();
+    await prisma.rosterShift.create({
+      data: {
+        organizationId,
+        startsAt: new Date(now - 3_600_000),
+        endsAt: new Date(now + 3_600_000),
+        primaryMemberId: primaryMember,
+        backupMemberId: backupMember,
+        createdById: creatorId,
+      },
+    });
+    return { primaryUser, backupUser };
+  };
 
   beforeAll(async () => {
     await prisma.$connect();
@@ -193,5 +249,40 @@ describe('an SOS of a SUSPENDED organization against Postgres (AC-07, BR-36)', (
 
     expect(route.to).toBe('UNROUTED');
     expect(routed).toMatchObject({ state: 'UNROUTED', organizationId });
+  });
+
+  // #417: the same two outcomes through IncidentIngress.onSos, which does not read the organization status.
+  it('onSos opens the incident of a SUSPENDED organization and alerts the primary on shift', async () => {
+    const organizationId = await suspendedOrganization();
+    const { primaryUser } = await onShift(organizationId);
+    const unit = await device();
+
+    const incident = await sosThroughIngress(unit.id, organizationId);
+
+    expect(
+      await prisma.organization.findUniqueOrThrow({ where: { id: organizationId } }),
+    ).toMatchObject({ status: 'SUSPENDED' });
+    expect(incident).toMatchObject({
+      state: 'NOTIFY_PRIMARY',
+      organizationId,
+      source: 'DEVICE_SOS',
+    });
+    const transition = await prisma.incidentTransition.findFirstOrThrow({
+      where: { incidentId: incident.id, toState: 'NOTIFY_PRIMARY' },
+    });
+    const rows = await prisma.alertDelivery.findMany({ where: { transitionId: transition.id } });
+    expect(rows.some((row) => row.recipientId === primaryUser && row.tier === 'PRIMARY')).toBe(
+      true,
+    );
+    expect(rows.some((row) => row.tier === 'TREKLINK')).toBe(false);
+  });
+
+  it('onSos leaves the incident of a SUSPENDED organization with nobody to alert UNROUTED', async () => {
+    const organizationId = await suspendedOrganization();
+    const unit = await device();
+
+    const incident = await sosThroughIngress(unit.id, organizationId);
+
+    expect(incident).toMatchObject({ state: 'UNROUTED', organizationId });
   });
 });
