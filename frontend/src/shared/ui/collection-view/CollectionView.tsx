@@ -700,7 +700,7 @@ export function CollectionView<T>({
         tooltip={action.label}
         name={action.accessibleName?.(item) ?? `${action.label} ${name}`}
         icon={action.icon}
-        shortLabel={labelled ? action.label : undefined}
+        shortLabel={labelled ? (action.cardLabel ?? action.label) : undefined}
         align="start"
         unavailableReason={reasonOf(action, item)}
         onClick={() => action.onSelect(item)}
@@ -746,9 +746,9 @@ export function CollectionView<T>({
     if (inline.length === 0) return rest;
     // A card footer: the labelled main actions at the inline start, the overflow and Show details at the end.
     return labelled ? (
-      <span className="flex w-full flex-wrap items-center gap-1">
-        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-0.5">{inline}</span>
-        {rest}
+      <span className="flex w-full flex-wrap items-center justify-between gap-x-1 gap-y-0.5">
+        <span className="flex flex-[1_1_auto] flex-wrap items-center gap-x-0.5 gap-y-0.5">{inline}</span>
+        <span className="ml-auto">{rest}</span>
       </span>
     ) : (
       <span className="flex items-center justify-end gap-0.5">

@@ -337,7 +337,7 @@ describe('FleetPage (/t/fleet, screen 4.2)', () => {
     expect(document.getElementById(hub.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
       'Connect TL-0042 over USB to use the hub.',
     );
-    expect(within(available).getByRole('button', { name: 'Open device page TL-0042' }).textContent).toBe('Open device page');
+    expect(within(available).getByRole('button', { name: 'Open device page TL-0042' }).textContent).toBe('Device page');
     expect(labels(maintenance).slice(0, 2)).toEqual(['Open device page TL-0043', 'Record service TL-0043']);
     expect(labels(rented).slice(0, 2)).toEqual(['Open device page TL-0044', 'Report loss TL-0044']);
     fireEvent.click(within(rented).getByRole('button', { name: 'Report loss TL-0044' }));

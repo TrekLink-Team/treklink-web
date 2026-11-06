@@ -128,8 +128,9 @@ Added by KhoaDD under D-078 for devices design §12.14 (REQ-EVT-49, REQ-EVT-50).
 tables above disagree, this section wins.
 
 - Each unit card's footer, left of More actions (...) and Show details (i), carries the main actions in fixed
-  slots: for a registered unit Open in device hub, Update firmware, Reboot (three, so from the third the overflow
-  menu holds them below 600 px); for an unknown unit Register. An unavailable action keeps its slot, disabled,
+  slots: for a registered unit Open in device hub, Update firmware, Reboot, shown as Hub, Firmware and Reboot (short
+  visible labels inside the full names); for an unknown unit Register in the slot of Open in device hub. They never
+  move into the overflow menu; below 600 px every action is in the card's Actions menu (chapter 06 §10.5). An unavailable action keeps its slot, disabled,
   with its reason as the tooltip and the accessible description (chapter 06 §11.4). Update firmware and Reboot
   open the device hub on the unit with that action, where its dialog and progress live.
 - The panel header carries Refresh (icon button "Refresh the connected units") and "Refreshed {time}" as text. It
