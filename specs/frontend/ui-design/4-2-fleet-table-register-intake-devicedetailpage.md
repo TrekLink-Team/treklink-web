@@ -212,7 +212,8 @@ Show details (i) with the device's actions, in the order of the table's row acti
 These are main quick actions: they keep their own fixed slots, labelled in a card with a short visible label that is
 part of the full name (Device page, Hub, Firmware, Reboot, Service, Report loss; WCAG 2.5.3), and as icon buttons
 with their tooltips in a table row. They never move into the overflow menu, which holds the other actions once they
-are three or more (chapter 06 §11.4). Report loss opens the loss case dialog of the device page on the list. An unavailable action keeps its slot disabled with its reason as the
+are three or more (chapter 06 §11.4). On a phone (below 600 px) they stay visible on the card as labelled 44 px
+buttons, and the card's Actions menu holds Show details and the other actions (chapter 06 §10.5). Report loss opens the loss case dialog of the device page on the list. An unavailable action keeps its slot disabled with its reason as the
 tooltip and the accessible description. The table's row actions list the same actions in the same order before
 the state actions of W29. Update firmware and Reboot run in the device hub on the unit (they open `/t/device-hub`
 with the unit selected and the action started), so the list never writes to a unit itself.

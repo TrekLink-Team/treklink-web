@@ -759,13 +759,14 @@ export function CollectionView<T>({
   };
 
   // At phone width an item's actions and status changes are one Actions dropdown (§10.5).
-  const phoneMenu = (item: T) => {
+  // `of` narrows the actions: a phone card draws its main quick actions itself and the menu holds the rest.
+  const phoneMenu = (item: T, of: CollectionAction<T>[][] = slots) => {
     const name = itemName(item);
     const plain: MenuItem[] = [
       ...(offersDetails
         ? [{ key: 'details', label: 'Show details', onSelect: () => showDetails(item) }]
         : []),
-      ...slotActions(item).map((action) => ({
+      ...slotActions(item, of).map((action) => ({
         key: action.key,
         label: action.label,
         destructive: action.destructive,
@@ -793,6 +794,34 @@ export function CollectionView<T>({
         triggerClassName={MENU_TRIGGER}
         items={ordered.map((each, index) => ({ ...each, separatorBefore: index === firstDestructive }))}
       />
+    );
+  };
+
+  // A phone card (screen 4.2, W39): the main quick actions stay visible as labelled 44 px buttons, and the one
+  // Actions menu holds Show details and the other actions (§10.5).
+  const phoneCardActions = (item: T) => {
+    const name = itemName(item);
+    const menu = phoneMenu(item, menuSlots);
+    if (inlineSlots.length === 0) return menu;
+    return (
+      <span className="flex w-full flex-wrap items-center justify-between gap-x-1 gap-y-0.5">
+        <span className="flex flex-[1_1_auto] flex-wrap items-center gap-0.5">
+          {slotActions(item, inlineSlots).map((action) => (
+            <TooltipButton
+              key={action.key}
+              tooltip={action.label}
+              name={action.accessibleName?.(item) ?? `${action.label} ${name}`}
+              icon={action.icon}
+              shortLabel={action.cardLabel ?? action.label}
+              align="start"
+              tall
+              unavailableReason={reasonOf(action, item)}
+              onClick={() => action.onSelect(item)}
+            />
+          ))}
+        </span>
+        {menu && <span className="ml-auto">{menu}</span>}
+      </span>
     );
   };
 
@@ -1323,7 +1352,7 @@ export function CollectionView<T>({
           {visible.map((item, index) => {
             const id = itemId(item);
             const actions = phone ? (
-              phoneMenu(item)
+              phoneCardActions(item)
             ) : offersDetails || listActions.length > 0 || (transitions !== undefined && !status) ? (
               <>
                 {statusMenu(item)}

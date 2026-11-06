@@ -17,6 +17,8 @@ interface Props {
   shortLabel?: string;
   /** Where the tooltip lines up with the button. */
   align?: 'start' | 'end';
+  /** A 44 px target, for a labelled action on a phone (ui standard, primary touch). */
+  tall?: boolean;
   className?: string;
 }
 
@@ -27,7 +29,7 @@ interface Props {
  * not used: it does not show on focus or touch and cannot be dismissed.
  */
 export const TooltipButton = React.forwardRef<HTMLButtonElement, Props>(function TooltipButton(
-  { tooltip, name, icon, onClick, unavailableReason, pressed, disabled, shortLabel, align = 'end', className },
+  { tooltip, name, icon, onClick, unavailableReason, pressed, disabled, shortLabel, align = 'end', tall = false, className },
   ref,
 ) {
   const tipId = useId();
@@ -79,6 +81,7 @@ export const TooltipButton = React.forwardRef<HTMLButtonElement, Props>(function
           className={cn(
             'inline-flex h-10 items-center gap-1.5 rounded-control px-2.5 text-body-sm font-semibold text-ink transition duration-tl ease-tl hover:bg-chrome/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-55',
             unavailable && 'cursor-not-allowed text-ink-muted',
+            tall && 'h-11',
           )}
           {...commonEvents}
         >
