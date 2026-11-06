@@ -1,5 +1,7 @@
 # API Design Index: gateway-sync
 
+> **Draft, pending supervisor acceptance (D-098 amended)**: endpoint 08 and its note below. Endpoints 01 to 07 keep their status.
+
 > Generated from `scripts/specs/endpoints/gateway_sync.py`. Contract: D-002 envelope; on failure `result = { errorCode }` (`specs/platform/requirements.md` REQ-UBI-04). Organization members and API keys only ever see their own organization's records (FR-AUTH-11).
 
 | # | Method | Route | Permission | Spec File |
@@ -11,8 +13,9 @@
 | 05 | POST | `/api/gateway-sync` op `replayAudit` | TrekLink Admin | [05-post-gateway-sync-op-replay-audit.md](05-post-gateway-sync-op-replay-audit.md) |
 | 06 | POST | `/api/gateway-sync` op `listQueueReports` | TrekLink Staff, TrekLink Admin | [06-post-gateway-sync-op-list-queue-reports.md](06-post-gateway-sync-op-list-queue-reports.md) |
 | 07 | POST | `/api/gateway-sync` op `syncStatus` | TrekLink Staff, TrekLink Admin | [07-post-gateway-sync-op-sync-status.md](07-post-gateway-sync-op-sync-status.md) |
+| 08 | POST | `/api/gateway-sync/ingest` | Public (Field Station credential) | [08-post-gateway-sync-ingest.md](08-post-gateway-sync-ingest.md) |
 
-The MQTT ingress (Stage A, B and C) and the Field Station local page are not HTTP endpoints of the backend; they are documented in the hand-written contracts below. `POST /api/gateway-sync` is the D-027 operation endpoint; the broker hooks are separate routes because mosquitto-go-auth calls fixed URIs.
+The MQTT ingress (Stage A, B and C) and the Field Station local page are not HTTP endpoints of the backend; they are documented in the hand-written contracts below. `POST /api/gateway-sync` is the D-027 operation endpoint; the broker hooks are separate routes because mosquitto-go-auth calls fixed URIs. Draft (D-098 amended): 08, `POST /api/gateway-sync/ingest`, is the HTTPS fallback of the Stage C uplink for a deployment with no MQTT broker (design §10), a separate route because a Field Station authenticates with its station credential, not a user token. It is built only if the supervisor accepts it.
 
 - Hand-written contract: [field-station-local-page.md](field-station-local-page.md)
 - Hand-written contract: [mqtt-ingress-contract.md](mqtt-ingress-contract.md)

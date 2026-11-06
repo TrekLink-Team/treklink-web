@@ -1,5 +1,10 @@
 # Requirements Specification: gateway-sync (field data to the cloud, exactly once)
 
+> **Draft, pending supervisor acceptance (D-098 amended)**: the HTTPS ingest fallback in this file
+> (REQ-UBI-07, REQ-UBI-08, REQ-EVT-16 to REQ-EVT-19, REQ-STA-05, REQ-ERR-09 to REQ-ERR-12, AC-10 to AC-16,
+> and the rows marked "draft" in §4) is built only if the supervisor accepts it. MQTT stays the primary
+> uplink. Everything else in this file keeps its approved status.
+
 **User Story**: As an **organization running groups where phones have no signal**, I want every SOS, position and telemetry packet my rented devices send to reach the platform exactly once and SOS first, even after hours offline, so that nothing that happened in the field is lost or counted twice.
 **Story ID**: the Stories row of `tasks.md` (backlog D-051) | **Priority**: Highest | **Milestone**: MF-02
 
@@ -13,7 +18,9 @@
   per-type strategies; `eventId` derivation and deduplication; occurrence time and attribution of each
   event to a custody interval; persistence of field events with the attributed organization; the device projection call; correlation hand-off to `incidents`; the sync audit;
   Stage B queue reports; Field Station health; the broker authentication hooks; the Field Station
-  executable (queue, flush, local page) in `treklink-web/gateway/`.
+  executable (queue, flush, local page) in `treklink-web/gateway/`. Draft (D-098 amended): the HTTPS
+  ingest fallback, `POST /api/gateway-sync/ingest` and the Field Station's HTTPS uplink, for a deployment
+  with no MQTT broker (design §10).
 - **Out-of-Scope**: incident rules (`incidents`); the live map and API stream (`monitoring`, fed by this
   module's events); the firmware's own queue (`treklink-firmware/specs/onboard-queue/`).
 - **Depends on**: `platform`, `organizations` (station credentials), `devices`, `rentals` (custody
@@ -30,6 +37,7 @@
 | Credentials at the broker | FR-EVT-14, D-037 |
 | Positions | FR-DEV-06, FR-MON-04 |
 | Occurrence time and attribution | FR-EVT-15 to FR-EVT-17, BR-36, E02-7, E02-8, D-040 |
+| HTTPS ingest fallback (draft) | FR-EVT-01, FR-EVT-02, FR-EVT-04, FR-EVT-08, FR-EVT-11, FR-EVT-13, FR-EVT-14, BR-11, BR-12, D-037, D-098 amended |
 
 ---
 
@@ -43,6 +51,8 @@
 - **REQ-UBI-04**: The system SHALL order and compare events by queue sequence and priority, never by wall-clock comparison across hosts, and SHALL store a device `rx_time` of 0 as unknown. Occurrence time SHALL be used for attribution only. [FR-EVT-08, FR-EVT-15, E02-6]
 - **REQ-UBI-05**: The system SHALL accept the stock Meshtastic JSON topics through adapters that produce one canonical envelope, and SHALL keep the stock payload shapes untouched (D-019). [FR-EVT-10, NFR-IF-02]
 - **REQ-UBI-06**: The system SHALL derive occurrence time in this order and record its source: `STATION_CORRECTED`, the Field Station's `fs_captured_at` plus the offset `receivedAt - fs_sent_at` of the same publish; else `DEVICE_RTC`, the device `rx_time` when non-zero, not later than `receivedAt` plus `gatewaySync.deviceTimeMaxAheadSeconds` and not earlier than `receivedAt` minus `gatewaySync.lateUploadGraceHours`; else `SERVER_RECEIPT`, the `receivedAt`. [FR-EVT-15, E02-8, D-040]
+- **REQ-UBI-07** (draft, D-098 amended): The system SHALL accept on `POST /api/gateway-sync/ingest` each packet in exactly the Stage C message shape of [mqtt-ingress-contract.md](api-design/mqtt-ingress-contract.md) (the stock JSON plus `fs_captured_at` and `fs_sent_at`), and SHALL pass it through the same envelope decoding and the same `IngestionService.ingest` as a Stage C MQTT message, with ingress `FIELD_STATION` and the authenticated station's username as the uplink key, so that `eventId`, deduplication, occurrence time, attribution, the audit row and every outcome are those of the MQTT path, and a packet delivered over both paths is stored once. [FR-EVT-01, FR-EVT-10, BR-11, D-006]
+- **REQ-UBI-08** (draft, D-098 amended): The system SHALL serve the HTTPS ingest over TLS only: a request that did not arrive over TLS SHALL be refused with 403 `TLS_REQUIRED` before its credential is read, and the Field Station SHALL refuse at start an ingest URL whose scheme is not `https`. [D-037]
 
 ### Event-Driven
 
@@ -59,6 +69,10 @@
 - **REQ-EVT-12**: WHEN a `treklink_queue_health` report arrives, the system SHALL store a `DeviceQueueReport` and SHALL NOT create a field event or reach correlation. [NFR-IF-01]
 - **REQ-EVT-13**: WHEN the latest queue report of a device has a non-zero total depth, the system SHALL report the device as buffering on the system-health page. [UC-42]
 - **REQ-EVT-14**: WHEN a queue report's counter is lower than the previous report's, the system SHALL flag `rebootDetected` and SHALL NOT treat the difference as negative traffic. [NFR-REL-05]
+- **REQ-EVT-16** (draft, D-098 amended): WHEN a request reaches the HTTPS ingest, the system SHALL authenticate the Field Station by HTTP Basic credentials carrying the Username and Secret of its existing Field Station credential (D-037, organizations api-design 24), with the checks of the broker's credential hook (design §4): a missing or malformed `Authorization` header SHALL be refused 401 `UNAUTHENTICATED`; an unknown username, a wrong secret, a revoked station or a station of a `CLOSED` organization SHALL be refused 403 `CREDENTIAL_REJECTED`, with exactly one bcrypt compare on every path past the rate check (REQ-ERR-09). The station SHALL be taken from the credential only, never from the request body. A refused request SHALL store nothing and write no audit row. [FR-EVT-14, D-037]
+- **REQ-EVT-17** (draft, D-098 amended): WHEN an authenticated batch is accepted, the system SHALL take one `receivedAt` for the request, SHALL ingest its packets one at a time in array order, and SHALL answer 200 with one result per packet in the same order (its `eventId` and outcome); a packet whose `type` is not ingested SHALL be answered `IGNORED` with no audit row, as on MQTT. Occurrence time, late packets and ordering SHALL follow REQ-UBI-04, REQ-UBI-06 and REQ-EVT-05 unchanged, with `fs_sent_at` read against the request's `receivedAt`. [FR-EVT-08, FR-EVT-11, FR-EVT-15]
+- **REQ-EVT-18** (draft, D-098 amended): WHEN an authenticated request carries a `health` member, the system SHALL validate and record it as a report on `treklink/fs/<username>/health` is recorded (REQ-EVT-08), for the authenticated station, and SHALL answer whether it was recorded. [FR-EVT-13, FR-EVT-18]
+- **REQ-EVT-19** (draft, D-098 amended): WHEN the Field Station starts, it SHALL choose one uplink for the whole run: MQTT when `MQTT_BROKER_URL` is set, otherwise HTTPS when `GATEWAY_INGEST_URL` is set, otherwise MQTT on the default broker URL. It SHALL send every queued packet over the chosen uplink only; a packet SHALL reach the other uplink only when it is still queued after a failed attempt and the station is restarted with the other uplink configured. [FR-EVT-02, D-098 amended]
 
 ### State-Driven (Field Station, Stage C)
 
@@ -66,6 +80,7 @@
 - **REQ-STA-02**: WHILE the uplink is down, the Field Station SHALL keep queuing, and SHALL keep serving its local page. [FR-EVT-12, NFR-UI-04]
 - **REQ-STA-03**: WHILE the queue is at its bound, the Field Station SHALL shed the oldest P3 first, then the oldest P2, and never P0 or P1, logging each shed event. [FR-EVT-06, E02-5]
 - **REQ-STA-04**: WHILE `GATEWAY_SERIAL_SIMULATION` is not `true`, the Field Station SHALL read the node on `GATEWAY_SERIAL_PORT` over the Meshtastic client API (frames of `0x94 0xC3`, a 16-bit big-endian length and a `FromRadio` message), SHALL ask the node for its configuration once per connection and send a heartbeat at least every 5 minutes, and SHALL queue every decoded text, position and device-metrics telemetry packet in the stock JSON shape of design §3.1, with the node on the port as `sender` and the tier of design §3.1; WHILE it is `true`, the Field Station SHALL run the frame simulator and open no port. [FR-EVT-02, FR-EVT-03, D-093, task 5.1]
+- **REQ-STA-05** (draft, D-098 amended): WHILE HTTPS is the chosen uplink, the Field Station SHALL flush as it does over MQTT: rows persisted before any attempt (REQ-STA-01), one request in flight, `ORDER BY tier, localSeq`, at most `GATEWAY_QUEUE_FLUSH_BATCH_SIZE` rows, `fs_captured_at` and `fs_sent_at` added to each packet, and a row removed only when a 200 response lists it; and SHALL send its health report in a request every `GATEWAY_HEALTH_INTERVAL_MS`, alone or with a batch. [FR-EVT-02, FR-EVT-04, BR-12, NFR-REL-04]
 
 ### Unwanted Behaviour
 
@@ -77,6 +92,10 @@
 - **REQ-ERR-07**: IF the serial port cannot be opened, closes or errors, THEN the Field Station SHALL log it, report the reader as not reading on its local page, keep queuing and flushing what it holds, and open the port again every `GATEWAY_SERIAL_RECONNECT_MS`. [FR-EVT-12, task 5.1]
 - **REQ-ERR-08**: IF a serial frame does not decode, a packet is still encrypted, its port number is not text, position or telemetry, a telemetry message carries no device metrics, or a position carries no coordinates, THEN the Field Station SHALL skip that packet and keep reading. [FR-EVT-05, task 5.1]
 - **REQ-ERR-06**: IF no custody interval contains the occurrence time, a Field Station's organization differs from the interval's, or the occurrence time lies within `gatewaySync.attributionMarginSeconds` of the interval's handover or end, THEN the system SHALL store the event `UNATTRIBUTED` with no organization, SHALL audit it `ACCEPTED_UNATTRIBUTED` with the reason in the audit detail (`NO_INTERVAL`, `STATION_ORGANIZATION_DIFFERS`, `NEAR_HANDOVER` or `NEAR_END`), and SHALL hand it on so that only TrekLink Staff and Admin see it. [FR-EVT-17, BR-36, E02-8]
+- **REQ-ERR-09** (draft, D-098 amended): IF a request carries more packets than `gatewaySync.httpsIngestMaxBatch`, THEN the system SHALL refuse it 400 `BATCH_TOO_LARGE` naming the maximum; IF a username sends more than `gatewaySync.httpsIngestRequestsPerMinute` requests in one minute, THEN the system SHALL refuse the request 429 `RATE_LIMITED` with a `Retry-After` header, counted before the secret is compared. Either refusal SHALL ingest nothing and write no audit row. [D-015]
+- **REQ-ERR-10** (draft, D-098 amended): IF the database becomes unreachable during a batch, THEN the system SHALL stop at that packet and answer 503 `INGEST_UNAVAILABLE`, keeping what it committed before; the Field Station's resend of the whole batch SHALL store each packet once (REQ-ERR-02). [FR-EVT-04, E02-1, E02-2]
+- **REQ-ERR-11** (draft, D-098 amended): IF an HTTPS request of the Field Station fails (no connection, `GATEWAY_HTTPS_TIMEOUT_MS` elapsed, any status other than 200), THEN the Field Station SHALL keep every row of the batch queued with its attempt counted, SHALL retry after a wait that starts at `GATEWAY_HTTPS_RETRY_MIN_MS`, doubles up to `GATEWAY_HTTPS_RETRY_MAX_MS` and is never shorter than a `Retry-After` it received, SHALL halve its batch on 400 `BATCH_TOO_LARGE`, SHALL show the error on its local page, and SHALL never drop a row because of a refusal. [FR-EVT-04, FR-EVT-07, E02-1]
+- **REQ-ERR-12** (draft, D-098 amended): IF `HTTPS_INGEST_ENABLED` is not `true`, THEN the HTTPS ingest SHALL answer 404 `NOT_FOUND` to every request, as the broker hooks do with their secret unset. [D-098 amended]
 
 ---
 
@@ -113,6 +132,21 @@ configuration file (`field-station-local-page.md`), and these environment variab
 | `GATEWAY_LOCAL_PORT` | `4321` | whole number, 1 to 65535 | Port of the local page and local API on `127.0.0.1` (design §3); the host is fixed. A value outside the bounds stops the gateway at start | REQ-STA-02 |
 | `GATEWAY_LOCAL_STALE_SECONDS` | `300` | whole number, 30 to 7200 | A node silent this long is shown stale on the local page; default and bounds of `monitoring.deviceStaleSeconds` | REQ-STA-02 |
 | `GATEWAY_LOCAL_EVENT_LOG_SIZE` | `200` | whole number, 10 to 10000 | Decoded events the local page's log keeps in memory (`/local/events`) | REQ-STA-02 |
+| `GATEWAY_INGEST_URL` (draft) | unset | an `https://` URL | The HTTPS ingest, for example `https://<staging host>/api/gateway-sync/ingest`; used only when `MQTT_BROKER_URL` is unset (REQ-EVT-19). Any other scheme stops the gateway at start | REQ-UBI-08, REQ-EVT-19 |
+| `GATEWAY_HTTPS_TIMEOUT_MS` (draft) | `15000` | whole number, 1000 to 120000 | Wait for one ingest response before the request counts as failed. A value outside the bounds stops the gateway at start | REQ-ERR-11 |
+| `GATEWAY_HTTPS_RETRY_MIN_MS` (draft) | `2000` | whole number, 500 to 60000 | First wait after a failed request; it doubles on each further failure | REQ-ERR-11 |
+| `GATEWAY_HTTPS_RETRY_MAX_MS` (draft) | `60000` | whole number, 1000 to 3600000, not below the minimum | Longest wait between two attempts | REQ-ERR-11 |
+
+Draft (D-098 amended), backend: `HTTPS_INGEST_ENABLED` (default `false`; `true` serves `POST
+/api/gateway-sync/ingest`, set only where no broker is hosted, such as the Vercel staging) and
+`HTTPS_INGEST_TRUST_PROXY` (default `false`; `true` reads TLS from the first `X-Forwarded-Proto` value,
+for a platform whose edge terminates TLS, such as Vercel). Business parameters, added to the
+Configuration Matrix through `scripts/specs/catalog.py` when the draft is accepted:
+
+| Key | Default | Type | Bounds | Unit | Meaning | Requirement |
+|---|---|---|---|---|---|---|
+| `gatewaySync.httpsIngestMaxBatch` (draft) | `50` | INT | 1 to 500 | packets | Most packets in one HTTPS ingest request; the flush batch of design §3 | REQ-ERR-09 |
+| `gatewaySync.httpsIngestRequestsPerMinute` (draft) | `60` | INT | 1 to 600 | requests | HTTPS ingest requests one Field Station username may send per minute | REQ-ERR-09 |
 
 ---
 
@@ -127,9 +161,20 @@ configuration file (`field-station-local-page.md`), and these environment variab
 - **AC-07**: A Stage A event with `rx_time` 0 received within `gatewaySync.attributionMarginSeconds` of a handover is stored `UNATTRIBUTED`, with `timeSource = SERVER_RECEIPT`, and reaches Staff only. (E02-8)
 - **AC-08**: A Field Station of A flushing a device more than `gatewaySync.lateUploadGraceHours` after its check-in is audited `NOT_RENTED_TO_STATION_ORG`.
 - **AC-09**: Recorded serial frames of a position, a device-metrics telemetry and an `SOS - ` text, with a debug log line and a node-info packet between them and a frame split across two reads, reach the queue as three stock JSON packets with the station node as `sender`, at P2, P3 and P0; the node-info packet and the log line queue nothing. With `GATEWAY_SERIAL_SIMULATION=true` no port is opened. (REQ-STA-04, REQ-ERR-08)
+- **AC-10** (draft): One Stage C packet sent once on the Field Station MQTT topic and once to the HTTPS ingest, in either order, is stored once; the second attempt is audited `DUPLICATE_REJECTED` and opens no second incident. (BR-11, REQ-UBI-07)
+- **AC-11** (draft): An HTTPS batch of an `SOS - ` text, a packet with no `from`, a packet of an unregistered node and a node-info packet answers 200 with four results in that order, `ACCEPTED`, `MALFORMED_ENVELOPE`, `UNKNOWN_DEVICE` and `IGNORED`; it writes three audit rows and opens one incident. (REQ-EVT-17)
+- **AC-12** (draft): With no `Authorization` header the ingest answers 401 `UNAUTHENTICATED`; with a wrong secret, a revoked station or a station of a `CLOSED` organization 403 `CREDENTIAL_REJECTED`; over plain HTTP 403 `TLS_REQUIRED`; with `HTTPS_INGEST_ENABLED` unset 404. None of them stores an event or writes an audit row. (REQ-EVT-16, REQ-UBI-08, REQ-ERR-12)
+- **AC-13** (draft): A batch of `gatewaySync.httpsIngestMaxBatch` plus one packets answers 400 `BATCH_TOO_LARGE`, and the request past `gatewaySync.httpsIngestRequestsPerMinute` in a minute answers 429 `RATE_LIMITED` with `Retry-After`; after a TrekLink Admin raises either parameter, the same request is accepted without a restart (BR-29). (REQ-ERR-09)
+- **AC-14** (draft): A Field Station with `MQTT_BROKER_URL` unset and `GATEWAY_INGEST_URL` set queues 200 events across the tiers with the backend unreachable; when it returns, every P0 arrives before any P2 or P3. Killed with a request in flight and restarted, it has removed no row that no 200 response listed, and the backend stores each packet once. It opens no MQTT connection. (REQ-STA-05, REQ-ERR-11, TC-12)
+- **AC-15** (draft): The E02-7 fixture of AC-06, flushed over HTTPS by A's station with its clock 3 h fast, is attributed to A's interval with `timeSource = STATION_CORRECTED`, and B receives nothing. (REQ-EVT-17, E02-7)
+- **AC-16** (draft): A Field Station with both `MQTT_BROKER_URL` and `GATEWAY_INGEST_URL` set sends every packet over MQTT and makes no HTTPS request; with `GATEWAY_INGEST_URL=http://...` it stops at start. (REQ-EVT-19, REQ-UBI-08)
 
 ---
 
 ## 6. Open Questions
 
-None. The SOS cancel text is not consumed (D-038).
+None for the approved scope. The SOS cancel text is not consumed (D-038).
+
+Draft (D-098 amended), open for the leader: whether the Field Station may fall back from MQTT to HTTPS
+on its own while running (this draft says no, REQ-EVT-19); whether the audit records the transport
+(design §10.7); where the station credential dialog shows the ingest URL (organizations api-design 24).

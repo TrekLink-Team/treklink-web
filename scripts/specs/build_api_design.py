@@ -136,7 +136,9 @@ def render(module, ep):
     op = f" op {ep['op']}" if ep.get("op") else ""
     response_contract = ("D-038 raw success acknowledgement; D-002 errors." if ep.get("raw_response")
                          else "Envelope: D-002.")
-    out = [f"# {ep['method']} {ep['url']}{op}: {ep['title']}", "",
+    # `banner`: an optional status line drawn first, for example a draft pending acceptance.
+    banner = [f"> {ep['banner']}", ""] if ep.get("banner") else []
+    out = [f"# {ep['method']} {ep['url']}{op}: {ep['title']}", ""] + banner + [
            f"> Module `{module}`. Generated from `scripts/specs/endpoints/{module.replace('-', '_')}.py` by "
            "`scripts/specs/build_api_design.py`; edit the catalog, not this file. Format: "
            f"`02-templates/04-api-endpoint-template.md` with Mermaid (D-017). {response_contract}", "",
@@ -189,8 +191,10 @@ def build(module):
         (target / name).write_text(render(module, ep))
         route = f"`{ep['url']}`" + (f" op `{ep['op']}`" if ep.get("op") else "")
         rows.append([f"{i:02d}", ep["method"], route, ep["permission"], f"[{name}]({name})"])
-    index = [f"# API Design Index: {module}", "",
-             f"> Generated from `scripts/specs/endpoints/{module.replace('-', '_')}.py`. Contract: D-002 envelope; "
+    index = [f"# API Design Index: {module}", ""]
+    if getattr(cat, "BANNER", None):
+        index += [f"> {cat.BANNER}", ""]
+    index += [f"> Generated from `scripts/specs/endpoints/{module.replace('-', '_')}.py`. Contract: D-002 envelope; "
              "on failure `result = { errorCode }` (`specs/platform/requirements.md` REQ-UBI-04). "
              "Organization members and API keys only ever see their own organization's records (FR-AUTH-11).", "",
              table(rows, ["#", "Method", "Route", "Permission", "Spec File"]), ""]

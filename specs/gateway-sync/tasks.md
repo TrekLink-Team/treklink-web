@@ -1,5 +1,9 @@
 # Implementation Tasks: gateway-sync
 
+> **Draft, pending supervisor acceptance (D-098 amended)**: Phase 7 (HTTPS ingest fallback, design §10,
+> api-design 08) is a draft. Its tasks stay unticked and are built only if the supervisor accepts it.
+> Phases 1 to 6 keep their status.
+
 > Rewritten 2026-10-18 (D-051) in the full task format of `specs/README.md` §6; adds the Field Station
 > version in its health report against the downloadable release (FR-EVT-18, D-039). Fulfills `design.md`;
 > endpoints are `api-design/01` to `06`; MQTT and the local page are the hand-written contracts in `api-design/`.
@@ -149,3 +153,57 @@
 ## Phase 6: Verification & DoD
 
 - [ ] 6.1 Suite green; lint, boundary check, typecheck clean; `api-design/*.md` matching behaviour; installation guide for organizations (NFR-USE-06) (owner KhoaDD)
+
+## Phase 7: HTTPS ingest fallback (draft, D-098 amended)
+
+> Draft, pending supervisor acceptance (D-098 amended). Design §10, api-design 08. MQTT stays the
+> primary uplink; nothing in Phases 1 to 6 changes behaviour.
+
+- [ ] 7.1 Shared station credential, adapter and health split, no behaviour change (owner KhoaDD)
+  - **Files**: `backend/src/modules/gateway-sync/station-credential.ts` (new), `broker-hooks.service.ts`, `adapters/field-station-json.adapter.ts`, `station-health.handler.ts`
+  - **Do**: move the Field Station branch of `BrokerAuthService.checkUser` (`broker-hooks.service.ts:143-158`) and its dummy hash into `StationCredentialVerifier.verify(username, secret)`, returning the station or a refusal reason, with exactly one bcrypt compare on every path; `checkUser` calls it. Split `FieldStationJsonAdapter.adapt` into the topic match and `adaptMessage(uplinkKey, message, receivedAt)`, which takes the parsed object and runs `decodeStock` and the `fs_captured_at`, `fs_sent_at` checks. Split `StationHealthHandler.handle` into the topic match and `record(username, report, receivedAt)`
+  - **Test**: `broker-hooks.service.spec.ts` and `broker-hooks.controller.spec.ts` pass unchanged; `station-credential.spec.ts` (unknown, revoked, `CLOSED`, `SUSPENDED` accepted, wrong secret, one compare per path); `field-station-json.adapter.spec.ts` gains the same cases through `adaptMessage`
+  - **Done when**: the MQTT suites and `test/broker-hooks.e2e-spec.ts` pass with no edit to their expectations
+  - _Requirements: REQ-EVT-16, REQ-UBI-07, D-037_
+- [ ] 7.2 `POST /api/gateway-sync/ingest` (owner KhoaDD)
+  - **Files**: `station-ingest.controller.ts`, `station-credential.guard.ts`, `station-ingest-rate-limiter.ts`, `station-ingress.ts`, `dto/station-ingest.dto.ts`, `gateway-sync.module.ts`; `backend/src/common/errors/error-code.enum.ts` (`TLS_REQUIRED`, `BATCH_TOO_LARGE`, `INGEST_UNAVAILABLE`); `backend/src/modules/platform/config/environment-variables.ts` and `specs/platform/requirements.md` §4 (`HTTPS_INGEST_ENABLED`, `HTTPS_INGEST_TRUST_PROXY`)
+  - **Do**: api-design 08. `@Public()` and `StationCredentialGuard` in the order of design §10.2: enabled (404), TLS (403 `TLS_REQUIRED`, `request.secure` or the first `X-Forwarded-Proto` with `HTTPS_INGEST_TRUST_PROXY=true`), Basic header (401 `UNAUTHENTICATED`), `StationIngestRateLimiter.hit(username)` on `gatewaySync.httpsIngestRequestsPerMinute` (429 `RATE_LIMITED`, `Retry-After`), `StationCredentialVerifier.verify` (403 `CREDENTIAL_REJECTED`). Then the DTO (400 `VALIDATION_FAILED`: `packets` an array of objects, `health` an object, at least one present) and the batch size against `gatewaySync.httpsIngestMaxBatch` (400 `BATCH_TOO_LARGE`, `maxBatch` in the result). One `receivedAt`; `StationIngress.ingestBatch` runs `adaptMessage`, then `IngestionService.rejectMalformed` or `ingest`, packet by packet in array order; `IGNORED` for an ignored type; `FAILED` for any non-transient error, logged; a transient database error (`isTransientDatabaseError`) stops the batch with 503 `INGEST_UNAVAILABLE`. `health` through `StationHealthHandler.record`. `@ResponseMessage('Batch ingested.')`. The secret is never logged
+  - **Test**: `station-ingest.controller.spec.ts`, `station-credential.guard.spec.ts` (each guard branch in order, the compare skipped on 429), `station-ingest-rate-limiter.spec.ts` (window, reset, prune, a parameter change applies to the next request), `station-ingress.spec.ts` (order of results, each outcome, `IGNORED`, `FAILED`, the 503 stop with earlier packets committed, health `RECORDED`, `DROPPED`, null)
+  - **Done when**: the module-boundary check stays green (no import from `monitoring`)
+  - _Requirements: REQ-UBI-07, REQ-UBI-08, REQ-EVT-16, REQ-EVT-17, REQ-EVT-18, REQ-ERR-09, REQ-ERR-10, REQ-ERR-12, FR-EVT-01, FR-EVT-11, FR-EVT-13, FR-EVT-14, BR-11_
+  - _Story: US-UC26_
+  - _Depends on: 7.1, 7.3_
+- [ ] 7.3 Parameters and, if ruled, the audit transport (owner KhoaDD)
+  - **Files**: a new forward migration `backend/prisma/migrations/<timestamp>_gateway_sync_https_ingest/migration.sql`; `scripts/specs/catalog.py`; `backend/src/modules/platform/parameters/parameter-registry.ts`; `specs/platform/configuration-matrix.md` and the seed, regenerated by `scripts/specs/build_seed.py`; `backend/prisma/schema.prisma` only if the leader rules for the column
+  - **Do**: insert `gatewaySync.httpsIngestMaxBatch` (INT, 50, 1 to 500) and `gatewaySync.httpsIngestRequestsPerMinute` (INT, 60, 1 to 600), requirements §4; never edit an applied migration. If the leader rules for it (design §10.7): enum `UplinkTransport` (`MQTT`, `HTTPS`) and nullable `sync_audit_log.transport` in the same migration, set by `MqttSubscriber` and `StationIngress`, shown in the Detail column of the Field data sync audit list
+  - **Test**: the parameter registry spec lists both keys with their bounds; `test/sync-audit.db-spec.ts` reads `transport` when the column exists
+  - **Done when**: `prisma migrate deploy` applies on a fresh Postgres 16 and on a copy of the shared `dev` database
+  - _Requirements: REQ-ERR-09, D-015_
+- [ ] 7.4 Backend e2e and database tests (owner KhoaDD)
+  - **Files**: `backend/test/station-ingest.e2e-spec.ts`, `backend/test/station-ingest.db-spec.ts`
+  - **Do**: every Validation row of api-design 08 in its guard order; AC-10 over Postgres with the Stage C fixture published through `MqttSubscriber.handle` and posted to the route, in both orders; AC-11; AC-12; AC-13 with a live parameter change; AC-15 with `test/fixtures/mqtt/station-sos-e02-7.json` posted over HTTPS; two concurrent requests of two stations carrying positions of one device, to check the speed rule's read of the last plotted position (design §10.10)
+  - **Test**: as above, at least two organizations (D-042)
+  - **Done when**: both files pass in CI; the db-spec on a local Postgres 16 when one is available
+  - _Requirements: AC-10, AC-11, AC-12, AC-13, AC-15, REQ-EVT-16, REQ-EVT-17, REQ-UBI-08, REQ-ERR-09, REQ-ERR-10, REQ-ERR-12_
+  - _Depends on: 7.2, 7.3_
+- [ ] 7.5 Field Station HTTPS transport (owner KhoaDD)
+  - **Files**: `gateway/src/https/https-uplink-client.ts` (new), `gateway/src/config.ts`, `gateway/src/index.ts`, `gateway/src/local/local-server.ts`, `.env.example`
+  - **Do**: design §10.9. Config: `GATEWAY_INGEST_URL` (`https://` only, else stop at start), `GATEWAY_HTTPS_TIMEOUT_MS`, `GATEWAY_HTTPS_RETRY_MIN_MS`, `GATEWAY_HTTPS_RETRY_MAX_MS` with the bounds of requirements §4. Uplink choice once at start (REQ-EVT-19): `MQTT_BROKER_URL` set, MQTT; else `GATEWAY_INGEST_URL` set, HTTPS; else MQTT on the default. `HttpsUplinkClient` with the surface of `GatewayMqttClient`: one request in flight, `peek` in tier order, `fs_captured_at` from the row and one `fs_sent_at` per request, Basic credential from `GATEWAY_FS_USERNAME` and `GATEWAY_FS_SECRET`, `remove` only the rows a 200 lists, `markAttempt` on every row of a failed request, backoff and `Retry-After`, halve on 400 `BATCH_TOO_LARGE` or 413, health every `GATEWAY_HEALTH_INTERVAL_MS`; `/local/uplink` reports the transport and the ingest URL without user information. The secret is never logged
+  - **Test**: `https-uplink-client.spec.ts` against an in-process HTTPS server with a self-signed certificate: each row of the design §10.5 table, rows removed only from a 200, backoff doubling and capped, `Retry-After` honoured, halving, health alone and with a batch; `config.spec.ts` for the new variables and the `http://` refusal
+  - **Done when**: the gateway's `npm test`, lint and typecheck pass
+  - _Requirements: REQ-EVT-19, REQ-STA-05, REQ-ERR-11, REQ-UBI-08, FR-EVT-02, FR-EVT-04, FR-EVT-07, BR-12_
+  - _Story: US-UC27_
+  - _Depends on: 5.1 (the Stage C queue with `capturedAt` in epoch milliseconds, and `fs_captured_at`, `fs_sent_at`)_
+- [ ] 7.6 Field Station outage and choice tests, staging trial (owner KhoaDD)
+  - **Files**: `gateway/test/flush-outage-https.spec.ts`, `gateway/test/harness/outage.ts` (an `--uplink https` option), `docs/sessions/<date>-https-ingest-staging.md`
+  - **Do**: AC-14 (200 events with the backend unreachable, P0 before any P2 or P3, a kill with a request in flight, no MQTT connection opened); AC-16; one run of the outage harness over HTTPS at the small scale of task 5.3; a trial on the Vercel staging with the seed's station `fs-org-0001-1` and the gateway simulator, measuring the duration of a 50-packet request against the function's limit (design §10.10) and confirming or lowering the default of `gatewaySync.httpsIngestMaxBatch`
+  - **Test**: as above
+  - **Done when**: the session file records the measured durations and the delivery counts
+  - _Requirements: AC-14, AC-16, REQ-STA-05, REQ-ERR-11, REQ-EVT-19, NFR-REL-02, NFR-REL-04_
+  - _Depends on: 7.4, 7.5_
+- [ ] 7.7 Documentation on acceptance (owner KhoaDD)
+  - **Files**: `specs/gateway-sync/api-design/field-station-local-page.md` (`/local/uplink` transport and URL), `mqtt-ingress-contract.md` (a pointer to api-design 08 for the same message over HTTPS), `deploy/README.md` (the Vercel staging variables), `specs/organizations/api-design/` through `scripts/specs/endpoints/organizations.py` if the credential dialog shows the ingest URL (leader ruling); the draft markers of requirements, design, tasks and `scripts/specs/endpoints/gateway_sync.py` (`DRAFT`, `BANNER`) removed
+  - **Do**: the edits above in the same PR as 7.2 or 7.5, whichever lands first; the decision register entry of D-098 is the leader's, in `treklink-docs`
+  - **Test**: `python3 scripts/specs/build_api_design.py` and `python3 scripts/specs/check_tasks.py` clean
+  - **Done when**: no file of the suite still says "Draft, pending supervisor acceptance"
+  - _Requirements: REQ-UBI-07, D-098 amended_

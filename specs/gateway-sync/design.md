@@ -1,5 +1,9 @@
 # Technical Design: gateway-sync
 
+> **Draft, pending supervisor acceptance (D-098 amended)**: §10 (HTTPS ingest fallback) and the note
+> under §6 are a draft, built only if the supervisor accepts them. MQTT stays the primary uplink.
+> Every other section keeps its approved status.
+
 > Fulfills `requirements.md` in this folder. Schema: the `// @module gateway-sync` block of
 > `backend/prisma/schema.prisma` is authoritative. Contracts: [mqtt-ingress-contract.md](api-design/mqtt-ingress-contract.md),
 > [queue-health-payload.md](api-design/queue-health-payload.md), [field-station-local-page.md](api-design/field-station-local-page.md).
@@ -258,6 +262,10 @@ are the window's audit rows grouped by `SyncOutcome`. All three read through `Sy
 
 Ingestion outcomes are audit values (`SyncOutcome`), not HTTP codes.
 
+Draft (D-098 amended): the HTTPS ingest of §10 adds `TLS_REQUIRED` (403), `BATCH_TOO_LARGE` (400) and
+`INGEST_UNAVAILABLE` (503), and reuses `UNAUTHENTICATED`, `CREDENTIAL_REJECTED`, `RATE_LIMITED`,
+`PAYLOAD_TOO_LARGE`, `VALIDATION_FAILED` and `NOT_FOUND` (§10.5).
+
 ---
 
 ## 7. Sequence: offline flush
@@ -459,3 +467,257 @@ sequenceDiagram
 ```
 
 ***Figure 8***: UC-42 View System Health, part 2 of 2: the health page.
+
+---
+
+## 10. HTTPS ingest fallback (draft, D-098 amended)
+
+> **Draft, pending supervisor acceptance (D-098 amended).** Built only if the supervisor accepts it;
+> until then no code, migration or parameter row exists for it, and its tasks (tasks.md Phase 7) stay
+> unticked.
+
+### 10.1 Purpose and scope
+
+MQTT stays the primary uplink: a node or a Field Station publishes to a broker and `MqttSubscriber`
+consumes it (§2). Some deployments host no broker. The Vercel staging runs the backend as functions,
+which hold no MQTT subscriber and no TCP listener, so it runs with `MQTT_INGESTION_ENABLED=false`
+(`deploy/README.md`, "Known gaps on Vercel Functions"). The fallback lets a Field Station deliver there:
+
+- `POST /api/gateway-sync/ingest` on the platform ([api-design 08](api-design/08-post-gateway-sync-ingest.md)),
+  served only with `HTTPS_INGEST_ENABLED=true`;
+- an HTTPS transport in the Field Station executable, chosen only when no broker is configured
+  (REQ-EVT-19).
+
+Out of scope: Stage A and B nodes, whose firmware speaks MQTT only (FGT §4); a node keeps needing a
+broker. The fallback carries Stage C traffic only.
+
+### 10.2 Request flow
+
+```mermaid
+flowchart LR
+    Q[("SQLitePriorityQueue")] --> H["HttpsUplinkClient"]
+    H -->|"HTTPS POST, Basic credential"| C["StationIngestController"]
+    C --> G["StationCredentialGuard"]
+    G --> V["StationCredentialVerifier"]
+    V --> O["FieldStationsService.byUsername"]
+    C --> SI["StationIngress"]
+    SI --> A["FieldStationJsonAdapter.adaptMessage"]
+    A --> I["IngestionService.ingest()"]
+    SI --> HH["StationHealthHandler.record"]
+    I --> DB[("field_events, sync_audit_log")]
+    I --> D["devices.projectReading"]
+    I --> IC["incidents.onSos / onPosition"]
+    I -.->|"after commit"| M["field.position, field.telemetry"]
+```
+
+***Figure 9***: HTTPS ingest path (draft). Every box right of `StationIngress` is the box of Figure 2;
+the HTTPS path adds only the controller, the guard and the ingress.
+
+1. The Field Station reads one batch, `ORDER BY tier, localSeq LIMIT GATEWAY_QUEUE_FLUSH_BATCH_SIZE`,
+   adds `fs_captured_at` (the row's capture time) and `fs_sent_at` (its clock now) to each packet, and
+   posts `{ packets, health? }` with `Authorization: Basic base64(username:secret)`. One request is in
+   flight at a time.
+2. `StationIngestController` (`@Public()` to the JWT guard, as the broker hooks are) runs
+   `StationCredentialGuard`, in this order: `HTTPS_INGEST_ENABLED` (404), TLS (403 `TLS_REQUIRED`),
+   the header (401 `UNAUTHENTICATED`), the per-username rate (429 `RATE_LIMITED`), then the credential
+   (403 `CREDENTIAL_REJECTED`). The guard runs before body validation, so a caller without a valid
+   credential learns nothing about the body (§4 does the same).
+3. The validation pipe checks the body shape (400 `VALIDATION_FAILED`); the controller checks the
+   batch size against `gatewaySync.httpsIngestMaxBatch` (400 `BATCH_TOO_LARGE`).
+4. The controller takes one `receivedAt` and calls `StationIngress.ingestBatch(username, packets,
+   health, receivedAt)`.
+5. For each packet, in array order and one at a time, `StationIngress` calls
+   `FieldStationJsonAdapter.adaptMessage(username, message, receivedAt)`, the topic-free half of
+   today's `adapt()`, then `IngestionService.rejectMalformed` or `IngestionService.ingest(envelope)`,
+   the calls `MqttSubscriber.handle` makes (`mqtt-subscriber.ts:96-107`). The outcome is that
+   method's `SyncOutcome`, `IGNORED` for a type ingestion does not read, or `FAILED` for an
+   unexpected error, which is logged and acknowledged as the subscriber does (§2 implementation notes).
+6. A transient database error (`isTransientDatabaseError`, `mqtt/retry.ts:7`) stops the batch at that
+   packet: the answer is 503 `INGEST_UNAVAILABLE`, earlier packets stay committed, and the station's
+   resend is absorbed by the unique `eventId` (REQ-ERR-10). The function does not retry in place,
+   because a request has a bounded duration where the subscriber can wait.
+7. A `health` member goes to `StationHealthHandler.record(username, report, receivedAt)`, the
+   topic-free half of `handle()`; the report is validated by `parseStationHealth`
+   (`station-health.handler.ts:26`).
+8. 200 with `results` in packet order; the Field Station removes exactly the rows listed.
+
+<!-- sdd: draft seq UC-27 HTTPS fallback -->
+```mermaid
+sequenceDiagram
+    autonumber
+    participant F as Field Station (HttpsUplinkClient)
+    participant Q as SQLitePriorityQueue
+    participant C as StationIngestController
+    participant G as StationCredentialGuard
+    participant O as FieldStationsService
+    participant S as StationIngress
+    participant A as FieldStationJsonAdapter
+    participant I as IngestionService
+    F->>Q: peek(batch) ORDER BY tier, localSeq
+    F->>C: POST /api/gateway-sync/ingest, Basic credential, packets with fs_captured_at, fs_sent_at
+    C->>G: canActivate
+    G->>G: enabled, TLS, header, rate per username
+    G->>O: byUsername(username)
+    O-->>G: secretHash, revokedAt, organizationStatus
+    G->>G: bcrypt.compare, one compare on every path
+    alt refused
+        G-->>F: 401, 403, 404 or 429, nothing stored
+        F->>Q: markAttempt, keep rows, back off
+    else authenticated
+        C->>C: validate body, batch size
+        C->>S: ingestBatch(username, packets, health, receivedAt)
+        loop each packet in array order
+            S->>A: adaptMessage(username, message, receivedAt)
+            A-->>S: envelope, malformed or ignored
+            S->>I: ingest(envelope) or rejectMalformed(...)
+            I-->>S: SyncOutcome, audit row written
+        end
+        S-->>C: results, health recorded or not
+        C-->>F: 200 envelope, one result per packet
+        F->>Q: remove each listed row
+    end
+```
+
+***Figure 10***: HTTPS ingest, request and outcome (draft). Steps from `IngestionService.ingest` on
+are Figures 5 and 6 unchanged; a 503 mid-batch is in §10.5.
+
+### 10.3 Shared code
+
+The HTTPS path shares everything from envelope decoding on. It adds no second writer and no second copy
+of a rule.
+
+| Concern | Shared code | HTTPS adds |
+|---|---|---|
+| Stock JSON decode | `decodeStock` (`adapters/stock-json.ts:84`) | nothing |
+| Stage C envelope, `fs_captured_at`, `fs_sent_at` | `FieldStationJsonAdapter.adapt` (`field-station-json.adapter.ts:28`), split into the topic match and `adaptMessage(uplinkKey, message, receivedAt)`, which both callers use | nothing |
+| Station resolve, late-upload grace, `NOT_RENTED_TO_STATION_ORG` | `IngestionService.resolveStation` (`ingestion.service.ts:294`) | nothing |
+| Dedup (D-006), occurrence time, attribution, persistence, projection, incidents, audit, emits | `IngestionService.ingest` (`ingestion.service.ts:73`) and `rejectMalformed` (`:57`) | nothing |
+| Station credential check | `BrokerAuthService.checkUser`, Field Station branch (`broker-hooks.service.ts:143-158`), moved into `StationCredentialVerifier.verify(username, secret)` (`station-credential.ts`), which the broker hook and the new guard both call | the Basic header parse |
+| Station health | `parseStationHealth` (`station-health.handler.ts:26`) and the record step of `handle` (`:79`), split into `record(username, report, receivedAt)` | nothing |
+| Transient database errors | `isTransientDatabaseError` (`mqtt/retry.ts:7`) | the 503 in place of an in-process retry |
+| Field Station queue | `SQLitePriorityQueue.peek`, `remove`, `markAttempt` (`gateway/src/queue/priority-queue.ts:170`, `:180`, `:186`) | nothing |
+| Field Station packet and health bodies | the Stage C message of task 5.1 (`fs_captured_at`, `fs_sent_at`) and `buildHealthReport` (`gateway/src/mqtt/health-report.ts:24`) | `HttpsUplinkClient` in place of `GatewayMqttClient` |
+
+`StationIngress` is the HTTPS counterpart of `UplinkIngress` (`uplink-ingress.ts:24`), which already
+calls the adapter and `IngestionService` without a broker for the simulator. The rate counter cannot
+reuse `monitoring`'s `ApiRateLimiter` (`monitoring/api-rate-limiter.ts`): `gateway-sync` may not reach
+into another module's internals, so `StationIngestRateLimiter` repeats its fixed one-minute window in
+`gateway-sync`, keyed by username.
+
+### 10.4 Authentication
+
+The station's existing credential, unchanged (D-037, organizations api-design 24): the Username
+`fs-<org>-<n>` and the Secret shown once at creation, stored as a bcrypt hash and read through
+`FieldStationsService.byUsername` (`field-stations.service.ts:228`). Over HTTPS it travels as HTTP Basic
+(RFC 7617), `username:secret`. No new credential kind, no new permission and no migration.
+
+`StationCredentialVerifier.verify` keeps the broker hook's rules: unknown username, revoked station,
+`CLOSED` organization or wrong secret is refused (403 `CREDENTIAL_REJECTED`, one code for every reason,
+so the answer does not tell which); a `SUSPENDED` organization is accepted, because its devices stay
+monitored (BR-32); exactly one bcrypt compare on every path, against a dummy hash at `BCRYPT_COST` for
+an unknown username. The reason is logged with the username, never the secret.
+
+The rate check comes before the compare, keyed by the username in the header, so a flood costs no
+bcrypt work. A flood under a real station's username can delay that station's flush; its queue holds
+the packets and it retries after `Retry-After` (REQ-ERR-11).
+
+This route is mutating without a JWT guard or a CASL policy. It is the third machine route of that kind,
+after the broker hooks (api-design 01, 02) and the SePay webhook (billing): the caller is a station
+holding a machine credential, not a user. No permission is added to `scripts/specs/catalog.py`.
+
+TLS: `request.secure` decides, or, with `HTTPS_INGEST_TRUST_PROXY=true`, the first `X-Forwarded-Proto`
+value, for an edge that terminates TLS (Vercel). The backend sets no `trust proxy` today (no match for
+`trust proxy` under `backend/src`, 2026-11-06), so the guard reads the header itself and only when the
+variable says the edge is trusted.
+
+### 10.5 Errors and retries
+
+| Condition | Backend answer | Stored | Field Station does |
+|---|---|---|---|
+| `HTTPS_INGEST_ENABLED` not `true` | 404 `NOT_FOUND` | nothing | keeps rows, retries at `GATEWAY_HTTPS_RETRY_MAX_MS`, shows the error |
+| Not over TLS | 403 `TLS_REQUIRED` | nothing | cannot happen from the station, which refuses a non-`https` URL at start |
+| No or malformed `Authorization` | 401 `UNAUTHENTICATED` | nothing | keeps rows, retries at the maximum wait, shows the error |
+| Over `gatewaySync.httpsIngestRequestsPerMinute` | 429 `RATE_LIMITED`, `Retry-After` | nothing | keeps rows, waits at least `Retry-After` |
+| Unknown, revoked, `CLOSED` or wrong secret | 403 `CREDENTIAL_REJECTED` | nothing | keeps rows, retries at the maximum wait, shows the error; a new credential needs a restart |
+| Body over `HTTP_BODY_LIMIT` | 413 `PAYLOAD_TOO_LARGE` | nothing | halves the batch and retries |
+| Body not `{ packets, health? }`, or neither present | 400 `VALIDATION_FAILED` | nothing | keeps rows, retries at the maximum wait, logs a defect |
+| More packets than `gatewaySync.httpsIngestMaxBatch` | 400 `BATCH_TOO_LARGE`, `maxBatch` in the result | nothing | halves the batch and retries at once |
+| Database unreachable mid-batch | 503 `INGEST_UNAVAILABLE` | packets before it | keeps every row, backs off, resends the whole batch; dedup absorbs the committed ones |
+| Any other 5xx, a timeout or no connection | none or 5xx | unknown | keeps every row, backs off, resends; dedup absorbs |
+| A packet malformed, unknown device, not rented, duplicate, failed normalization | 200, that packet's outcome | its audit row | removes the row, as a PUBACK does |
+| Otherwise | 200, `ACCEPTED` or another accepted outcome | event and audit row | removes the row |
+
+Backoff: `GATEWAY_HTTPS_RETRY_MIN_MS`, doubled after each failure up to `GATEWAY_HTTPS_RETRY_MAX_MS`,
+reset by a 200, never shorter than a `Retry-After`. Each failed request counts one attempt on each of
+its rows (`markAttempt`), so `oldest_attempts` in the health report rises as it does over MQTT.
+
+A request whose answer is lost after the backend committed is resent and stored once, with one
+`DUPLICATE_REJECTED` audit row per resent packet. The duplicate counts of the sync status page then
+include resends, as they do for a lost PUBACK.
+
+### 10.6 Parameters and environment
+
+| Name | Where | Default | Meaning |
+|---|---|---|---|
+| `gatewaySync.httpsIngestMaxBatch` | `ParameterService` (D-015) | `50` (1 to 500) | packets per request |
+| `gatewaySync.httpsIngestRequestsPerMinute` | `ParameterService` (D-015) | `60` (1 to 600) | requests per username per minute |
+| `HTTPS_INGEST_ENABLED` | backend environment | `false` | serve the route |
+| `HTTPS_INGEST_TRUST_PROXY` | backend environment | `false` | read TLS from `X-Forwarded-Proto` |
+| `GATEWAY_INGEST_URL` | gateway environment | unset | the ingest URL, `https://` only |
+| `GATEWAY_HTTPS_TIMEOUT_MS`, `GATEWAY_HTTPS_RETRY_MIN_MS`, `GATEWAY_HTTPS_RETRY_MAX_MS` | gateway environment | `15000`, `2000`, `60000` | REQ-ERR-11 |
+| `GATEWAY_QUEUE_FLUSH_BATCH_SIZE`, `GATEWAY_HEALTH_INTERVAL_MS`, `GATEWAY_FS_USERNAME`, `GATEWAY_FS_SECRET` | gateway environment | unchanged | shared with the MQTT transport |
+
+Both parameters are read per request, so a TrekLink Admin's change applies to the next request (BR-29).
+The 1 MB `HTTP_BODY_LIMIT` (`backend/src/app.setup.ts:33`) holds a batch of 50 Stage C packets with
+room to spare: the ingested messages of the synthesized fixtures of task 1.2 are 167 to 288 bytes of
+compact JSON (`backend/test/fixtures/mqtt/*.json`, measured 2026-11-06), so 50 packets are under 15 KB.
+Captured packets from real devices may be larger and are re-measured when task 1.2 replaces them.
+
+### 10.7 Transport in the audit (open)
+
+Both transports write `ingress = FIELD_STATION`, so the audit and the sync status page cannot tell them
+apart. This draft adds a nullable `transport` column (`MQTT`, `HTTPS`, null for the simulator and older
+rows) on `sync_audit_log`, by a new forward migration, so AC-10 and the delivery experiments can count
+per path. Leader ruling pending; the alternative is no schema change and a log line per request.
+
+### 10.8 Unchanged on the MQTT path
+
+- `MqttSubscriber`, its topics, QoS 1, the persistent session, the PUBACK after `ingest()` and the
+  in-process retry (§2).
+- The broker hooks (§4, api-design 01 and 02): same answers; `checkUser` calls the extracted
+  `StationCredentialVerifier`, whose behaviour its tests already pin.
+- `IngestionService`, the adapters' validation, the strategies, attribution, the audit outcomes, the
+  emits and every `SyncOutcome` value.
+- `GatewayMqttClient` and the Field Station's MQTT behaviour, including the dropped unacknowledged
+  publishes on close (§3). With `MQTT_BROKER_URL` set, the station never builds the HTTPS client.
+- The field data simulator (§2) and `UplinkIngress`.
+
+### 10.9 Field Station HTTPS transport
+
+`gateway/src/https/https-uplink-client.ts`, `HttpsUplinkClient`, built by `gateway/src/index.ts` when
+REQ-EVT-19 chooses HTTPS, with the same surface as `GatewayMqttClient` (`connected`, `uplinkStatus()`,
+`flushQueue()`, `publishHealth()`), so the serial reader, the queue and the local page are unchanged.
+It uses Node's `fetch` with an `AbortSignal` timeout of `GATEWAY_HTTPS_TIMEOUT_MS`.
+
+- Flush: after every enqueue and every 200, as the MQTT client does; one request in flight.
+- `connected`: true after a 200 and until a request fails; the local page's `/local/uplink` reports
+  the transport and the ingest URL without user information in the `broker` member it has today
+  (field-station-local-page.md change in task 7.5).
+- Health: `buildHealthReport` every `GATEWAY_HEALTH_INTERVAL_MS`, sent with the next batch or alone.
+- The secret is never logged; a 401 or 403 is logged with the status and the code only.
+
+### 10.10 Known limits (draft)
+
+- The rate counter lives in one function instance. Vercel may run several, so the per-minute limit is
+  approximate there; the batch limit is exact.
+- `MqttSubscriber` ingests serially. Concurrent HTTPS requests can reach different instances at once,
+  so ingestion's correctness relies on the unique `eventId` index (REQ-UBI-01), which holds. Two
+  packets of one device ingested at the same instant could both read the same last plotted position
+  for the speed rule **(inferred, medium confidence: needs a test in task 7.4)**; one station sends one
+  request at a time, so this takes two stations hearing one device.
+- A batch of 50 packets runs several queries per packet from `sin1` to Neon; its duration against the
+  function's time limit is **unverified** and is measured on the staging in task 7.6 before the default
+  of `gatewaySync.httpsIngestMaxBatch` is confirmed.
+- The station adds `fs_captured_at` and `fs_sent_at` only once task 5.1 brings the Stage C queue
+  (`capturedAt` in epoch milliseconds; no such field in `gateway/src` on 2026-11-06). The HTTPS
+  transport depends on it.
