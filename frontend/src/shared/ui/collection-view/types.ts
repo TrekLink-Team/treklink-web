@@ -56,6 +56,12 @@ export interface CollectionAction<T> {
   /** Shown but unavailable, with this reason as text. */
   unavailableReason?: (item: T) => string | undefined;
   destructive?: boolean;
+  /**
+   * A main quick action (W39, leader UAT 2026-11-06): it keeps its own fixed slot at the inline start of the
+   * actions, labelled in a card footer and an icon in a table row, and never moves into the overflow menu. The
+   * overflow menu still holds the other actions once they are three or more (chapter 06 §11.4).
+   */
+  inline?: boolean;
 }
 
 /**

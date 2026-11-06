@@ -86,6 +86,11 @@ interface ConnectorState {
   // When the connected units were last asked about (Refresh, REQ-EVT-49), shown by the panel and the hub.
   refreshedAt: Date | null;
   setRefreshedAt: (at: Date) => void;
+  // An action a card asked the hub to start on its unit (design section 12.14): the hub opens on the unit and runs
+  // it through its own dialogs, so a typed confirmation is never skipped.
+  hubIntent: { connectionId: number; action: 'reboot' | 'flash' } | null;
+  openHub: (connectionId: number, action?: 'reboot' | 'flash') => void;
+  clearHubIntent: () => void;
   setOpen: (open: boolean) => void;
   view: (connectionId: number | null) => void;
   openFor: (focus: ConnectorFocus) => void;
@@ -108,6 +113,10 @@ export const useConnectorStore = create<ConnectorState>((set) => ({
   hubUnit: null,
   refreshedAt: null,
   setRefreshedAt: (refreshedAt) => set({ refreshedAt }),
+  hubIntent: null,
+  openHub: (connectionId, action) =>
+    set({ hubUnit: connectionId, hubIntent: action ? { connectionId, action } : null, open: false, focus: null, viewing: null }),
+  clearHubIntent: () => set({ hubIntent: null }),
   setOpen: (open) => set(open ? { open } : { open, focus: null, viewing: null }),
   view: (viewing) => set({ viewing }),
   openFor: (focus) => set({ open: true, focus, viewing: null }),

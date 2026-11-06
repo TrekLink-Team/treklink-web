@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSession } from '../entities/session/model';
-import { ConnectorPanelBody } from '../features/device-connector';
+import { ConnectorPanelBody, useConnectorStore } from '../features/device-connector';
 import { connectorRegistry, resetConnectorRegistry } from '../features/device-connector/model/ConnectorRegistry';
 import type { DockTimings } from '../shared/lib/meshtastic-dock';
 import { FakePort, FakeSerial, FakeUnit, unitState } from '../shared/lib/meshtastic-dock.fake';
@@ -31,7 +31,7 @@ const VARIANT = {
   isActive: true,
 };
 
-const registered = vi.hoisted(() => ({ done: false }));
+const registered = vi.hoisted(() => ({ done: false, listed: [] as unknown[] }));
 const recognizeUnits = vi.hoisted(() => vi.fn());
 const registerDevice = vi.hoisted(() => vi.fn());
 vi.mock('../entities/device/api', async (importOriginal) => ({
@@ -40,7 +40,7 @@ vi.mock('../entities/device/api', async (importOriginal) => ({
   registerDevice,
   useVariants: () => ({ data: [VARIANT] }),
   useDevices: () => ({
-    data: { items: [], pageNumber: 1, pageSize: 20, totalCount: 0, totalPages: 0 },
+    data: { items: registered.listed, pageNumber: 1, pageSize: 20, totalCount: registered.listed.length, totalPages: 1 },
     isLoading: false,
     error: null,
     refetch: vi.fn(),
@@ -73,6 +73,7 @@ const a264 = {
 beforeEach(() => {
   resetConnectorRegistry();
   registered.done = false;
+  registered.listed = [];
   recognizeUnits.mockImplementation((nodeNums: number[]) =>
     Promise.resolve(
       nodeNums.map((nodeNum) => ({
@@ -142,5 +143,51 @@ describe('Register device refreshes the connected units (AC-48)', () => {
     await waitFor(() => expect(panel.getByText('In intake')).toBeTruthy());
     expect(panel.getByText('Treklink a264')).toBeTruthy();
     expect(screen.getByText(/^Refreshed/)).toBeTruthy();
+  });
+
+  it('gives a connected unit the hub actions in its card footer, and Reboot opens the hub on it (AC-49)', async () => {
+    registered.done = true;
+    const listed = (id: string, assetTag: string, nodeNum: number) => ({
+      ...a264,
+      id,
+      assetTag,
+      nodeNum,
+      hardwareVariant: { ...a264.hardwareVariant, imageUrl: null, specSheet: null, hasGps: true, hasMotionSensor: false, mqttCapable: true, firmwareBaseline: '2.7.26-treklink.1' },
+      acquiredAt: '2026-11-06T00:00:00Z',
+      statusChangedAt: '2026-11-06T16:00:00Z',
+      keyOrganizationId: null,
+      lastPosition: null,
+      version: 0,
+    });
+    registered.listed = [listed('d-a264', 'Treklink a264', A264), listed('d-2', 'TL-0002', 2), listed('d-3', 'TL-0003', 3)];
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter initialEntries={['/t/fleet']}>
+          <Routes>
+            <Route path="/t/fleet" element={<FleetPage />} />
+            <Route path="/t/device-hub" element={<p>Device hub</p>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await act(async () => {
+      await connectorRegistry(recognizeUnits, TIMINGS).start();
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Choose view' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Large cards' }));
+    const card = within(screen.getByRole('list', { name: 'Devices' })).getAllByRole('listitem')[0];
+    await waitFor(() =>
+      expect(within(card).getByRole('button', { name: 'Reboot Treklink a264' }).getAttribute('aria-disabled')).toBeNull(),
+    );
+    expect(within(card).getByRole('button', { name: 'Open in hub Treklink a264' }).getAttribute('aria-disabled')).toBeNull();
+    expect(within(card).getByRole('button', { name: 'Update firmware Treklink a264' }).textContent).toBe('Update firmware');
+    // Another unit, not connected, keeps the slots disabled with the reason.
+    const other = within(screen.getByRole('list', { name: 'Devices' })).getAllByRole('listitem')[1];
+    expect(within(other).getByRole('button', { name: 'Reboot TL-0002' }).getAttribute('aria-disabled')).toBe('true');
+
+    fireEvent.click(within(card).getByRole('button', { name: 'Reboot Treklink a264' }));
+    expect(await screen.findByText('Device hub')).toBeTruthy();
+    expect(useConnectorStore.getState().hubIntent).toMatchObject({ action: 'reboot' });
+    act(() => useConnectorStore.setState({ hubIntent: null, hubUnit: null }));
   });
 });

@@ -156,7 +156,7 @@ describe('FleetPage (/t/fleet, screen 4.2)', () => {
     const table = within(await screen.findByRole('table'));
     const row = table.getByText('TL-0042').closest('tr') as HTMLElement;
     fireEvent.click(within(row).getByRole('button', { name: /^Preview .* image$/ }));
-    const preview = await screen.findByRole('figure', { name: /image preview$/ });
+    const preview = await screen.findByRole('dialog', { name: 'TrekLink v3' });
     expect(preview.querySelector('img')?.getAttribute('src')).toBe('/variants/treklink-v3-detail.png');
   });
 
@@ -313,6 +313,35 @@ describe('FleetPage (/t/fleet, screen 4.2)', () => {
     expect(first.getByText('GPS, MQTT')).toBeTruthy();
     expect(first.getByText('96%')).toBeTruthy();
     expect(first.getByText('Available')).toBeTruthy();
+  });
+
+  it('puts the device actions in the card footer, the next action by state when not connected (AC-49)', async () => {
+    devices = [
+      device(),
+      device({ id: 'd-2', assetTag: 'TL-0043', status: 'MAINTENANCE' }),
+      device({ id: 'd-3', assetTag: 'TL-0044', status: 'RENTED' }),
+    ];
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Choose view' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Large cards' }));
+    const [available, maintenance, rented] = within(screen.getByRole('list', { name: 'Devices' })).getAllByRole('listitem');
+    const labels = (card: HTMLElement) =>
+      within(card)
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label'))
+        .filter((name): name is string => Boolean(name) && !name?.startsWith('Select') && !name?.startsWith('Preview'));
+    // No unit is connected over USB in this browser: no Update firmware or Reboot slot on any card.
+    expect(labels(available).slice(0, 2)).toEqual(['Open device page TL-0042', 'Open in hub TL-0042']);
+    const hub = within(available).getByRole('button', { name: 'Open in hub TL-0042' });
+    expect(hub.getAttribute('aria-disabled')).toBe('true');
+    expect(document.getElementById(hub.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+      'Connect TL-0042 over USB to use the hub.',
+    );
+    expect(within(available).getByRole('button', { name: 'Open device page TL-0042' }).textContent).toBe('Open device page');
+    expect(labels(maintenance).slice(0, 2)).toEqual(['Open device page TL-0043', 'Record service TL-0043']);
+    expect(labels(rented).slice(0, 2)).toEqual(['Open device page TL-0044', 'Report loss TL-0044']);
+    fireEvent.click(within(rented).getByRole('button', { name: 'Report loss TL-0044' }));
+    expect(await screen.findByRole('dialog')).toBeTruthy();
   });
 
   it('names battery and last seen in the label and value block of a card (W20B item 4, W30)', async () => {

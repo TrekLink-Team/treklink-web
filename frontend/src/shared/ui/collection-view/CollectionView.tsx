@@ -604,10 +604,13 @@ export function CollectionView<T>({
     return all;
   }, []);
   // The action a slot shows for this item: the first one it may take, else the first, disabled.
-  const slotActions = (item: T) =>
-    slots.map((group) => group.find((action) => !action.allowed || action.allowed(item)) ?? group[0]);
-  // Three or more slots besides Show details share one overflow menu in a fixed slot next to it.
-  const overflows = slots.length >= 3;
+  const slotActions = (item: T, of: CollectionAction<T>[][] = slots) =>
+    of.map((group) => group.find((action) => !action.allowed || action.allowed(item)) ?? group[0]);
+  // The main quick actions keep their own slots at the inline start (W39); the others, three or more besides
+  // Show details, share one overflow menu in a fixed slot next to it.
+  const inlineSlots = slots.filter((group) => group[0].inline);
+  const menuSlots = slots.filter((group) => !group[0].inline);
+  const overflows = menuSlots.length >= 3;
   const transitionsOf = (item: T) => transitions?.(item) ?? [];
 
   const searching = query.search.trim() !== '';
@@ -689,9 +692,21 @@ export function CollectionView<T>({
   // The actions cell, right-aligned, in fixed slots from the inline end (§11.4): Show details last
   // in tab order at the inline end, the overflow menu next to it for three or more actions, else the
   // actions in their list order to its left. A page adds a new action at the start of its list.
-  const actionButtons = (item: T) => {
+  const actionButtons = (item: T, labelled = false) => {
     const name = itemName(item);
-    return (
+    const inline = slotActions(item, inlineSlots).map((action) => (
+      <TooltipButton
+        key={action.key}
+        tooltip={action.label}
+        name={action.accessibleName?.(item) ?? `${action.label} ${name}`}
+        icon={action.icon}
+        shortLabel={labelled ? action.label : undefined}
+        align="start"
+        unavailableReason={reasonOf(action, item)}
+        onClick={() => action.onSelect(item)}
+      />
+    ));
+    const rest = (
       <span className="flex items-center justify-end gap-0.5">
         {overflows ? (
           <Menu
@@ -700,7 +715,7 @@ export function CollectionView<T>({
             chevron={false}
             trigger={<MoreHorizontal aria-hidden="true" className="h-5 w-5" />}
             triggerClassName="h-10 min-w-10"
-            items={slotActions(item).map((action) => {
+            items={slotActions(item, menuSlots).map((action) => {
               const reason = reasonOf(action, item);
               return {
                 key: action.key,
@@ -714,7 +729,7 @@ export function CollectionView<T>({
             })}
           />
         ) : (
-          slotActions(item).map((action) => (
+          slotActions(item, menuSlots).map((action) => (
             <TooltipButton
               key={action.key}
               tooltip={action.label}
@@ -726,6 +741,19 @@ export function CollectionView<T>({
           ))
         )}
         {detailsButton(item)}
+      </span>
+    );
+    if (inline.length === 0) return rest;
+    // A card footer: the labelled main actions at the inline start, the overflow and Show details at the end.
+    return labelled ? (
+      <span className="flex w-full flex-wrap items-center gap-1">
+        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-0.5">{inline}</span>
+        {rest}
+      </span>
+    ) : (
+      <span className="flex items-center justify-end gap-0.5">
+        {inline}
+        {rest}
       </span>
     );
   };
@@ -1299,7 +1327,7 @@ export function CollectionView<T>({
             ) : offersDetails || listActions.length > 0 || (transitions !== undefined && !status) ? (
               <>
                 {statusMenu(item)}
-                {actionButtons(item)}
+                {actionButtons(item, true)}
               </>
             ) : null;
             const shown = layout.fields ? cardFields : [];

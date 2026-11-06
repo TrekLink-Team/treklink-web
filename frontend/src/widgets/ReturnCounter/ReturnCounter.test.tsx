@@ -544,7 +544,7 @@ describe('ReturnCounter (screen 5.5)', () => {
       contract({ devices: [device('TL-0009', { hardwareVariant: v3 })] } as Partial<ContractDetail>),
     );
     fireEvent.click(screen.getAllByRole('button', { name: 'Preview TrekLink v3 image' })[0]);
-    const preview = screen.getByRole('figure', { name: 'TrekLink v3 image preview' });
+    const preview = screen.getByRole('dialog', { name: 'TrekLink v3' });
     expect(preview.querySelector('img')?.getAttribute('src')).toBe('/variants/treklink-v3-detail.png');
     vi.unstubAllGlobals();
   });

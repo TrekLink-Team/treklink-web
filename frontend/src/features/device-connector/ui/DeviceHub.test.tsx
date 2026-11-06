@@ -141,7 +141,7 @@ afterEach(() => {
   Reflect.deleteProperty(window.navigator, 'serial');
   act(() => {
     useSession.getState().signOut();
-    useConnectorStore.setState({ open: false, viewing: null, focus: null, context: null, hubUnit: null, flashPanel: null });
+    useConnectorStore.setState({ open: false, viewing: null, focus: null, context: null, hubUnit: null, flashPanel: null, hubIntent: null });
     useToast.getState().dismiss();
   });
 });
@@ -284,6 +284,15 @@ describe('DeviceHub (screen 4.7)', () => {
       'commit_edit_settings',
     ]);
     expect(Array.from(units[0].state.psk)).toEqual([1]);
+  });
+
+  it('runs the Reboot a card asked for once the unit is read (design section 12.14)', async () => {
+    install([A]);
+    act(() => useConnectorStore.setState({ hubIntent: { connectionId: 1, action: 'reboot' } }));
+    await renderHub();
+    await waitFor(() => expect(useToast.getState().message).toBe('TL-0042 restarted.'), { timeout: 4000 });
+    expect(units[0].writes.map((write) => write.variant)).toEqual(['reboot_seconds']);
+    expect(useConnectorStore.getState().hubIntent).toBeNull();
   });
 
   it('asks the server again for every unit on Refresh and shows the time (AC-48)', async () => {

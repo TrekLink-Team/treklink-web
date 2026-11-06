@@ -5,7 +5,9 @@ import {
   Download,
   ExternalLink,
   KeyRound,
+  LayoutDashboard,
   Plug,
+  Power,
   Radio,
   RotateCw,
   Square,
@@ -41,6 +43,8 @@ interface Props {
   onForget: (connection: Connection) => void;
   onReconnect: () => void;
   onStopReconnect: () => void;
+  // Opens the device hub on the unit, and starts Update firmware or Reboot there (design section 12.14).
+  onOpenHub?: (connection: Connection, action?: 'reboot' | 'flash') => void;
 }
 
 // Read and recognition still running: nothing about the unit is known yet.
@@ -67,6 +71,7 @@ export const ConnectorList: React.FC<Props> = ({
   onForget,
   onReconnect,
   onStopReconnect,
+  onOpenHub,
 }) => {
   const navigate = useNavigate();
   const writing = snapshot.writing;
@@ -193,12 +198,58 @@ export const ConnectorList: React.FC<Props> = ({
 
   // Show details is CollectionView's own slot at the inline end (chapter 06 §11.4, onShowDetails); a unit
   // still being read opens its device view with the fields it has, marked Not read.
+  // The card footer's main actions (design section 12.14, REQ-EVT-50, chapter 06 §11.4): Open in device hub, which
+  // shares its slot with Register for an unknown unit, then Update firmware and Reboot, both run in the hub through
+  // its dialogs. They keep their slots, disabled with the reason, while the unit cannot take them.
+  const ready = (connection: Connection) => connection.state === 'ready' && connection.unit !== null;
+  const hubActions: CollectionAction<Connection>[] = onOpenHub
+    ? [
+        {
+          key: 'hub',
+          slot: 'main',
+          inline: true,
+          label: 'Open in device hub',
+          icon: <LayoutDashboard />,
+          allowed: (connection) => Boolean(connection.recognized?.device) || !connection.recognized,
+          unavailableReason: (connection) => (ready(connection) ? undefined : STATE_TEXT[connection.state]),
+          onSelect: (connection) => onOpenHub(connection),
+        },
+        {
+          ...kindAction('register', 'Register', <UserPlus />, 'register', false),
+          slot: 'main',
+          inline: true,
+          accessibleName: (connection) => `Register ${unitName(connection)}`,
+        },
+        {
+          key: 'hub-flash',
+          inline: true,
+          label: 'Update firmware',
+          icon: <Download />,
+          allowed: (connection) => Boolean(connection.recognized?.device),
+          unavailableReason: (connection) => {
+            const flash = find(actionsFor(connection).actions, 'flash');
+            if (!flash) return ready(connection) ? 'Register this unit first.' : STATE_TEXT[connection.state];
+            return flash.disabledReason ?? lockedOut(connection);
+          },
+          onSelect: (connection) => onOpenHub(connection, 'flash'),
+        },
+        {
+          key: 'hub-reboot',
+          inline: true,
+          label: 'Reboot',
+          icon: <Power />,
+          unavailableReason: (connection) => (ready(connection) ? lockedOut(connection) : STATE_TEXT[connection.state]),
+          onSelect: (connection) => onOpenHub(connection, 'reboot'),
+        },
+      ]
+    : [];
   const itemActions: CollectionAction<Connection>[] = [
-    kindAction('register', 'New device: register it?', <UserPlus />, 'register', false),
+    ...hubActions,
+    ...(onOpenHub ? [] : [kindAction('register', 'New device: register it?', <UserPlus />, 'register', false)]),
     kindAction('provision', 'Provision', <KeyRound />, 'provision', true),
     kindAction('swap', 'Put on this contract', <ArrowLeftRight />, 'swap', true),
     kindAction('uplink', 'Configure uplink', <Radio />, 'uplink', true),
-    kindAction('flash', 'Update firmware', <Download />, 'flash', true),
+    ...(onOpenHub ? [] : [kindAction('flash', 'Update firmware', <Download />, 'flash', true)]),
     linkAction('Record intake check'),
     linkAction('Open its counter'),
     linkAction('Open device page'),

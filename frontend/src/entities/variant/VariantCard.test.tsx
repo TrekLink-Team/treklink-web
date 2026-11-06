@@ -178,7 +178,7 @@ describe('the two renders of a variant', () => {
       DETAIL.replace('-detail', '-icon'),
     );
     fireEvent.click(screen.getByRole('button', { name: 'Preview TrekLink v3 image' }));
-    const preview = screen.getByRole('figure', { name: 'TrekLink v3 image preview' });
+    const preview = screen.getByRole('dialog', { name: 'TrekLink v3' });
     expect(preview.querySelector('img')?.getAttribute('src')).toBe(DETAIL);
   });
 
