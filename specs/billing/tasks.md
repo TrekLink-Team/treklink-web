@@ -88,6 +88,7 @@
 ## Phase 3: Payments
 
 - [x] 3.1 Counter payments (owner LongLP)
+  - **Review follow-up** (2026-11-06, web#407, KhoaDD ruling): new CASH and BANK_TRANSFER receipts derive `isSandbox` from the shared badge setting `VITE_APP_ENV`. Production is false, other/unset values true. Existing receipts, including RC-2026-0002's rehearsal receipt, remain unchanged. Service/repository and invoice-badge regressions cover both methods and sandbox/production values. Verification passed: 38 backend tests, 20 frontend tests, both typechecks, backend lint/boundaries and the changed frontend test's lint. PR review is pending.
   - **Files**: `backend/src/modules/billing/payments.service.ts`
   - **Do**: cash or bank transfer with a receipt reference, `CONFIRMED` at once (MSG20); applied to unpaid lines oldest due first under `SELECT ... FOR UPDATE` on the invoice; more than due 400 `OVERPAYMENT`; a known reference 409 `DUPLICATE_REFERENCE`
   - **Test**: two concurrent counter payments on one invoice never over-apply

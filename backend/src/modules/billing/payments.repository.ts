@@ -29,6 +29,7 @@ export interface NewCounterPayment {
   method: typeof PaymentMethod.CASH | typeof PaymentMethod.BANK_TRANSFER;
   recordedById: string;
   confirmedAt: Date;
+  isSandbox: boolean;
 }
 
 export interface NewSepayPayment {
@@ -229,13 +230,13 @@ export class PaymentsRepository {
     return count;
   }
 
-  // A counter payment is confirmed when it is recorded, and moves no real sandbox money (BR-34).
+  // The service supplies the environment's sandbox flag. Existing receipts are never relabelled.
   insertCounterPayment(
     payment: NewCounterPayment,
     tx: Prisma.TransactionClient,
   ): Promise<PaymentRow> {
     return tx.payment.create({
-      data: { ...payment, status: PaymentStatus.CONFIRMED, isSandbox: false },
+      data: { ...payment, status: PaymentStatus.CONFIRMED },
       select: PAYMENT_SELECT,
     });
   }

@@ -8,6 +8,7 @@ import { InvoiceDetailView } from './InvoiceDetailView';
 
 let settled = false;
 let lines: unknown[] = [];
+let payments: unknown[] = [];
 let totalVnd = 2_250_000;
 let paidVnd = 0;
 let buyerName: string | null = 'Fansipan Trekking JSC';
@@ -56,7 +57,7 @@ vi.mock('../../entities/billing/api', async (importOriginal) => ({
       totalVnd,
       paidVnd,
       lines,
-      payments: [],
+      payments,
     },
     isLoading: false,
     error: null,
@@ -93,6 +94,7 @@ beforeEach(() => {
   balanceAvailable = true;
   balanceRequests.length = 0;
   lines = [];
+  payments = [];
   totalVnd = 2_250_000;
   paidVnd = 0;
   buyerName = 'Fansipan Trekking JSC';
@@ -102,6 +104,18 @@ beforeEach(() => {
 });
 
 describe('InvoiceDetailView, lines on CollectionView (screen 6.1, D-096)', () => {
+  it.each([
+    ['CASH', true],
+    ['BANK_TRANSFER', true],
+    ['CASH', false],
+    ['BANK_TRANSFER', false],
+  ])('labels %s receipt sandbox=%s from its recorded flag', (method, isSandbox) => {
+    payments = [{ id: 'payment-1', reference: 'RCPT-TEST', method, isSandbox, amountVnd: 1000, status: 'CONFIRMED', confirmedAt: null }];
+    renderView();
+    const paymentSection = within(screen.getByRole('heading', { name: 'Payments', level: 3 }).parentElement!);
+    expect(paymentSection.getByText(/RCPT-TEST/)).toBeTruthy();
+    expect(paymentSection.queryByText('SANDBOX') !== null).toBe(isSandbox);
+  });
   it('searches the lines and narrows them by status from Show', () => {
     lines = [
       line(1, 'Holding fee, term 1', 750_000),

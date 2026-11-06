@@ -1,6 +1,8 @@
 import { InvoiceKind, InvoiceLineType, InvoiceStatus, PaymentMethod, Prisma } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
 import { ErrorCode } from '../../common/errors';
 import { AUDIT_RECORD } from '../platform/audit/audit-record.event';
+import type { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { BalanceService } from './balance.service';
 import { InvoicesRepository } from './invoices.repository';
@@ -43,6 +45,7 @@ describe('PaymentsService.recordCounter (billing task 3.1, REQ-EVT-10, UC-22)', 
   let events: { transaction: jest.Mock; emitAfterCommit: jest.Mock };
   let balances: { balanceSummary: jest.Mock };
   let service: PaymentsService;
+  let config: { get: jest.Mock };
 
   beforeEach(() => {
     invoices = {
@@ -67,11 +70,13 @@ describe('PaymentsService.recordCounter (billing task 3.1, REQ-EVT-10, UC-22)', 
       emitAfterCommit: jest.fn(),
     };
     balances = { balanceSummary: jest.fn().mockResolvedValue({ owedToOrganizationVnd: 0n }) };
+    config = { get: jest.fn().mockReturnValue(undefined) };
     service = new PaymentsService(
       invoices as unknown as InvoicesRepository,
       payments as unknown as PaymentsRepository,
       events as unknown as TransactionalEvents,
       balances as unknown as BalanceService,
+      config as unknown as ConfigService<ValidatedEnvironment, true>,
     );
   });
 
@@ -103,6 +108,7 @@ describe('PaymentsService.recordCounter (billing task 3.1, REQ-EVT-10, UC-22)', 
         method: PaymentMethod.CASH,
         recordedById: 'staff-1',
         confirmedAt: AT,
+        isSandbox: true,
       },
       TX,
     );
@@ -163,6 +169,29 @@ describe('PaymentsService.recordCounter (billing task 3.1, REQ-EVT-10, UC-22)', 
     });
     expect(payments.insertCounterPayment).not.toHaveBeenCalled();
   });
+
+  it.each([
+    [undefined, true],
+    ['', true],
+    ['sandbox', true],
+    ['staging', true],
+    ['development', true],
+    ['production', false],
+    ['PRODUCTION', false],
+  ])(
+    'uses badge environment %p for both counter payment methods',
+    async (environment, isSandbox) => {
+      config.get.mockReturnValue(environment);
+      for (const method of [PaymentMethod.CASH, PaymentMethod.BANK_TRANSFER]) {
+        await service.recordCounter('inv-1', { ...INPUT, method }, STAFF, AT);
+        expect(payments.insertCounterPayment).toHaveBeenLastCalledWith(
+          expect.objectContaining({ method, isSandbox }),
+          TX,
+        );
+      }
+      expect(config.get).toHaveBeenCalledWith('VITE_APP_ENV');
+    },
+  );
 
   it('turns a reference taken at the same moment on another invoice into DUPLICATE_REFERENCE', async () => {
     payments.insertCounterPayment.mockRejectedValue(

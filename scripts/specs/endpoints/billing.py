@@ -233,14 +233,17 @@ ENDPOINTS = [
 
     ep("POST", "/api/invoices/:id/payments/counter", "Record a counter payment", "TrekLink Staff, TrekLink Admin",
        "Records cash or bank transfer received at the counter with the receipt number as reference; a "
-       "repeated receipt number records nothing (FR-BILL-08). Payments made in the sandbox stay labelled as such.",
+       "repeated receipt number records nothing (FR-BILL-08). The stored isSandbox flag follows VITE_APP_ENV, "
+       "the frontend environment badge setting: case-insensitive production is false; every other value, "
+       "including unset or empty, is true, independently of CASH/BANK_TRANSFER and provider mode. "
+       "The payment list labels sandbox receipts. Existing confirmed receipts are not relabelled (web#407).",
        "UC-22, FR-BILL-08, BR-31, MSG20",
        path=[INV_PATH],
        body=[["method", "`CASH` or `BANK_TRANSFER`", "enum", "yes", "`CASH`"],
              ["amountVnd", "Amount received, at most the amount due", "int", "yes", "`2250000`"],
              ["reference", "Receipt number or bank reference", "string", "yes", "`RCPT-2026-0193`"]],
        sample={"method": "CASH", "amountVnd": 2250000, "reference": "RCPT-2026-0193"},
-       response={**PAYMENT, "method": "CASH", "reference": "RCPT-2026-0193", "status": "CONFIRMED", "isSandbox": False,
+       response={**PAYMENT, "method": "CASH", "reference": "RCPT-2026-0193", "status": "CONFIRMED", "isSandbox": True,
                  "confirmedAt": NOW}, status=201, message="Payment of 2,250,000 VND received.", entity="Invoice",
        errors=[(409, "DUPLICATE_REFERENCE", "The reference is already recorded (logged no-op)",
                 "RCPT-2026-0193 is already registered."),
