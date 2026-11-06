@@ -43,19 +43,24 @@ export const OrganizationRolesReadOnly: React.FC<{ organizationId: string }> = (
   const cellFor = (permission: Permission, role: Role) =>
     organizationCellOf(permission, role, data, NO_DRAFTS);
   if (wide) {
+    // The grid's own scroll box fills its parent (`flex-1`); inside a card it has no flex parent, so its
+    // height was its content and it leaked into `#main` (review of treklink-web#389). This wrapper
+    // gives it a ceiling: it scrolls inside itself and the page body keeps one scroll region.
     return (
-      <RoleGrid
-        roles={roles}
-        catalog={catalog}
-        drafts={NO_DRAFTS}
-        badKey={null}
-        onToggle={IGNORE}
-        cellFor={cellFor}
-        lockedFor="Manager"
-        customised={(role, key) => isCustomised(data, role.key, key)}
-        readOnly
-        caption="Permissions by role of this organization"
-      />
+      <div data-roles-grid-frame="" className="flex max-h-[32rem] min-h-0 flex-col">
+        <RoleGrid
+          roles={roles}
+          catalog={catalog}
+          drafts={NO_DRAFTS}
+          badKey={null}
+          onToggle={IGNORE}
+          cellFor={cellFor}
+          lockedFor="Manager"
+          customised={(role, key) => isCustomised(data, role.key, key)}
+          readOnly
+          caption="Permissions by role of this organization"
+        />
+      </div>
     );
   }
   const role = roles.find((item) => item.id === selectedId) ?? roles[0];
