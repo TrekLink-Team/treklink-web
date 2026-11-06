@@ -993,9 +993,9 @@ overpayment, as on a paid one, because nothing is due on it.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> ISSUED: total above zero
-    [*] --> PAID: total zero
-    [*] --> CREDIT_DUE: total below zero
+    [*] --> ISSUED: invoice issued, total above zero
+    [*] --> PAID: invoice issued, total zero
+    [*] --> CREDIT_DUE: invoice issued, total below zero
     ISSUED --> PARTIALLY_PAID: a payment covers part
     ISSUED --> PAID: payments cover the total
     PARTIALLY_PAID --> PAID: payments cover the total
