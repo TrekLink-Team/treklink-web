@@ -127,6 +127,7 @@
   - _Requirements: REQ-EVT-09, REQ-UBI-05, AC-09, AC-10_
   - **Implementation**: The console reads current custody from rentals, clips telemetry to that custody, and loads open loss cases by the paged custody row IDs. `rented-devices.db-spec.ts` exercises AC-09 and AC-10, including nested groups, check-in, and Staff map behavior. The unit specs cover custody clipping and the live event payload.
   - **Verification** (2026-11-05): local backend typecheck, units, HTTP e2e, database integration, lint and boundary checks passed. API 09's activity and sequence diagrams were rendered and visually checked against the implementation under D-067. Review and merge remain pending.
+  - **Integration** (2026-11-06, dev `b66dd587`): preserve both connector docking and group-filter dependencies in the snapshot. Docked-only Staff rows carry `group: null`; organization filtering and custody clipping remain covered. The Manager console uses API 09's three custody states independently of the wider Staff map union. Five affected backend suites passed, 73 tests, with typecheck, lint and boundaries. Fifteen affected frontend files passed, 300 tests, with typecheck, lint and build. Current-head CI and re-review remain separate delivery gates.
 
 ## Phase 8: Docked units on the Staff map (devices design §12.8)
 
