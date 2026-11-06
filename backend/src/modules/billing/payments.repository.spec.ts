@@ -44,22 +44,26 @@ describe('PaymentsRepository (billing tasks 1.1 and 3.1)', () => {
     });
   });
 
-  it('inserts a counter payment confirmed and outside the sandbox (BR-34)', async () => {
-    const payment = {
-      reference: 'RCPT-1',
-      organizationId: 'org-1',
-      contractId: 'c-1',
-      invoiceId: 'inv-1',
-      amountVnd: 100n,
-      method: PaymentMethod.BANK_TRANSFER,
-      recordedById: 'staff-1',
-      confirmedAt: AT,
-    };
-    await repository.insertCounterPayment(payment, prisma as unknown as Prisma.TransactionClient);
+  it.each([true, false])(
+    'persists the counter receipt sandbox flag %s without overriding it',
+    async (isSandbox) => {
+      const payment = {
+        reference: 'RCPT-1',
+        organizationId: 'org-1',
+        contractId: 'c-1',
+        invoiceId: 'inv-1',
+        amountVnd: 100n,
+        method: PaymentMethod.BANK_TRANSFER,
+        recordedById: 'staff-1',
+        confirmedAt: AT,
+        isSandbox,
+      };
+      await repository.insertCounterPayment(payment, prisma as unknown as Prisma.TransactionClient);
 
-    expect(prisma.payment.create).toHaveBeenCalledWith({
-      data: { ...payment, status: PaymentStatus.CONFIRMED, isSandbox: false },
-      select: PAYMENT_SELECT,
-    });
-  });
+      expect(prisma.payment.create).toHaveBeenCalledWith({
+        data: { ...payment, status: PaymentStatus.CONFIRMED },
+        select: PAYMENT_SELECT,
+      });
+    },
+  );
 });

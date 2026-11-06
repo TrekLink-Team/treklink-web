@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Records cash or bank transfer received at the counter with the receipt number as reference; a repeated receipt number records nothing (FR-BILL-08). Payments made in the sandbox stay labelled as such.
+Records cash or bank transfer received at the counter with the receipt number as reference; a repeated receipt number records nothing (FR-BILL-08). The stored isSandbox flag follows VITE_APP_ENV, the frontend environment badge setting: case-insensitive production is false; every other value, including unset or empty, is true, independently of CASH/BANK_TRANSFER and provider mode. The payment list labels sandbox receipts. Existing confirmed receipts are not relabelled (web#407).
 
 ## API Specification
 
@@ -51,7 +51,7 @@ Records cash or bank transfer received at the counter with the receipt number as
     "amountVnd": 2250000,
     "method": "CASH",
     "status": "CONFIRMED",
-    "isSandbox": false,
+    "isSandbox": true,
     "expiresAt": "2026-10-20T03:45:00Z",
     "confirmedAt": "2026-10-20T03:15:00.000Z"
   },

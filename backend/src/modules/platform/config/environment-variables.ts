@@ -63,6 +63,10 @@ export class EnvironmentVariables {
   @IsIn(NODE_ENVIRONMENTS)
   NODE_ENV: NodeEnvironment = 'development';
 
+  // Shared with the frontend environment badge. Only production hides the test-data label.
+  @IsString()
+  VITE_APP_ENV = 'sandbox';
+
   @Transform(toInteger)
   @IsInt()
   @Min(1)

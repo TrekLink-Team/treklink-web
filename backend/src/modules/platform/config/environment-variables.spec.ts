@@ -25,6 +25,7 @@ describe('validate (environment)', () => {
 
     expect(env).toMatchObject({
       NODE_ENV: 'development',
+      VITE_APP_ENV: 'sandbox',
       PORT_BACKEND: 3000,
       JWT_ACCESS_TTL: '15m',
       JWT_REFRESH_TTL: '14d',

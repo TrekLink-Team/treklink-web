@@ -1,8 +1,10 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InvoiceStatus, PaymentMethod, Prisma } from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
+import type { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { BalanceService, creditDueOf } from './balance.service';
 import { InvoiceRow, InvoicesRepository } from './invoices.repository';
@@ -54,6 +56,7 @@ export class PaymentsService {
     private readonly payments: PaymentsRepository,
     private readonly events: TransactionalEvents,
     private readonly balances: BalanceService,
+    private readonly config: ConfigService<ValidatedEnvironment, true>,
   ) {}
 
   // REQ-EVT-17 (design section 11.4, D-097 amended): the credit due on a CREDIT_DUE invoice was refunded
@@ -167,6 +170,10 @@ export class PaymentsService {
             method: input.method,
             recordedById: actor.id,
             confirmedAt: at,
+            // Match EnvironmentBadge, independently of NODE_ENV and the payment provider.
+            isSandbox:
+              (this.config.get<string>('VITE_APP_ENV')?.toLowerCase() || 'sandbox') !==
+              'production',
           },
           tx,
         );

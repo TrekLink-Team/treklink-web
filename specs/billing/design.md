@@ -141,6 +141,14 @@ what remains due, and any excess stays on that payment and is logged for Staff.
 
 ## 4. Services and ports
 
+Counter receipts take their sandbox flag from `VITE_APP_ENV`, the frontend environment badge's
+setting, rather than `NODE_ENV` or SePay configuration. `PaymentsService.recordCounter` treats
+case-insensitive `production` as false and every other value, including unset or empty, as true.
+It passes the flag to `PaymentsRepository.insertCounterPayment`, which persists it without an
+override. This affects new CASH and BANK_TRANSFER receipts only. It does not relabel the confirmed
+RC-2026-0002 rehearsal receipt or other history. The existing invoice payment list uses that stored
+flag for its SANDBOX badge. Authority: KhoaDD's ruling on web#407, 2026-11-06.
+
 | Export | Used by |
 |---|---|
 | `PricingService.snapshot(variantId, tx?)`, 404 when no price is in effect | rentals |
