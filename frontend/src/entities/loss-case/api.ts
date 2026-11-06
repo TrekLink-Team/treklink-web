@@ -90,6 +90,20 @@ export const useLossCases = (
       ),
   });
 
+export const LOSS_PICKER_PAGE_SIZE = 100;
+
+// devices api-design 18 with `organizationId` (TrekLink only): the loss cases of one organization, for the
+// picker of the open case dialog (screen 3.6). Under `['loss-cases']`, so a loss case change refetches it.
+export const useOrganizationLossCases = (organizationId: string) =>
+  useQuery({
+    queryKey: [...lossCaseKeys.all, 'organization', organizationId] as const,
+    queryFn: () =>
+      apiClient<Page<LossCase>>(
+        `/loss-cases${queryString({ organizationId, pageNumber: 1, pageSize: LOSS_PICKER_PAGE_SIZE })}`,
+      ),
+    enabled: organizationId !== '',
+  });
+
 export const useLossCase = (id: string | undefined) =>
   useQuery({
     queryKey: lossCaseKeys.detail(id ?? ''),

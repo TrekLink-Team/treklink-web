@@ -149,6 +149,8 @@ export const CONTRACT_SORT_FIELDS = ['code', 'status', 'quantity', 'requestedSta
 export type ContractSortField = (typeof CONTRACT_SORT_FIELDS)[number];
 
 export interface ContractFilters extends SortParams<ContractSortField> {
+  /** rentals api-design 02, TrekLink callers: the contracts of one organization (the compliance case picker). */
+  organizationId?: string;
   status?: ContractStatus;
   planType?: PlanType;
   /** rentals api-design 02 (REQ-EVT-26): contract code, organization name or code, over the whole list. */

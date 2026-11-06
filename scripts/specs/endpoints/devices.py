@@ -386,7 +386,8 @@ ENDPOINTS = [
     ep("GET", "/api/loss-cases", "List loss cases", "TrekLink Staff, TrekLink Admin; Org Manager: own organization",
        "Lists loss cases by state; an Org Manager sees the cases of its organization's rented devices only, "
        "and its answer omits `suspectedTheft` and `policeReference` (leader ruling 2026-10-31).",
-       "UC-49, UC-60", query=PAGE_QUERY + [["state", "Filter by state", "string", "no", "`SEARCHING`"]]
+       "UC-49, UC-60", query=PAGE_QUERY + [["state", "Filter by state", "string", "no", "`SEARCHING`"],
+                           ["organizationId", "TrekLink only: the cases of one organization, for the loss case picker of a compliance case (organizations api-design 29); an Org Manager always reads its own organization and this is ignored", "uuid", "no", "`5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f`"]]
        + sort_query(["reportedAt", "code", "assetTag", "state"], "`reportedAt` newest first, then `code` descending"),
        response=paged(LOSS), steps=["Read loss_cases scoped to the caller"],
        controller="LossCasesController", service="LossCaseService", call="list(query, caller)",

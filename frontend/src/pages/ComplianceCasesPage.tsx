@@ -14,11 +14,14 @@ import {
 } from '../entities/organization/complianceCases';
 import { CaseStatusBadge, CaseTypeBadge } from '../entities/organization/complianceCaseUi';
 import { useOrganizations } from '../entities/organization/api';
+import { STATUS_LABELS, useContracts } from '../entities/contract/api';
+import { useOrganizationLossCases } from '../entities/loss-case/api';
 import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime } from '../shared/lib/format';
 import {
   Alert,
   Button,
+  Checkbox,
   CollectionView,
   Dialog,
   Field,
@@ -57,8 +60,84 @@ const linkedText = (item: ComplianceCase) => {
   return parts.length > 0 ? parts.join(', ') : 'none';
 };
 
-// The open case dialog of api-design 29. Linked contracts and loss cases are not offered: no Staff
-// list of an organization's contracts or loss cases exists yet (SD 3.6 open point 5).
+const PICKER_SIZE = 100;
+
+const toggled = (chosen: string[], id: string) =>
+  chosen.includes(id) ? chosen.filter((item) => item !== id) : [...chosen, id];
+
+// The linked contracts and loss cases of the open case dialog (screen 3.6): the contracts of the chosen
+// organization (rentals api-design 02 with `organizationId`) and its loss cases (devices api-design 18 with
+// `organizationId`), one box each. The loss case is sent by its id, never by the displayed code.
+const LinkedPickers: React.FC<{
+  organizationId: string;
+  contractIds: string[];
+  lossCaseIds: string[];
+  onContracts: (ids: string[]) => void;
+  onLossCases: (ids: string[]) => void;
+}> = ({ organizationId, contractIds, lossCaseIds, onContracts, onLossCases }) => {
+  const contracts = useContracts('t', { organizationId, pageNumber: 1, pageSize: PICKER_SIZE });
+  const lossCases = useOrganizationLossCases(organizationId);
+  const group = (
+    legend: string,
+    empty: string,
+    query: { isLoading: boolean; error: unknown; data?: { items: unknown[]; totalCount: number } },
+    boxes: React.ReactNode,
+  ) => (
+    <fieldset className="m-0 min-w-0 border-0 p-0">
+      <legend className="mb-1 text-body-sm font-semibold text-ink">{legend}</legend>
+      {query.isLoading ? (
+        <p className="text-body-sm text-ink-muted">Loading</p>
+      ) : query.error ? (
+        <Alert tone="error">{messageOf(query.error)}</Alert>
+      ) : query.data && query.data.items.length === 0 ? (
+        <p className="text-body-sm text-ink-muted">{empty}</p>
+      ) : (
+        <>
+          <div className="max-h-48 overflow-y-auto">{boxes}</div>
+          {query.data && query.data.totalCount > query.data.items.length && (
+            <p className="text-body-sm text-ink-muted">
+              Showing the first {query.data.items.length} of {query.data.totalCount}.
+            </p>
+          )}
+        </>
+      )}
+    </fieldset>
+  );
+  return (
+    <>
+      {group(
+        'Linked contracts (optional)',
+        'No contracts for this organization.',
+        contracts,
+        contracts.data?.items.map((item) => (
+          <Checkbox
+            key={item.id}
+            label={item.code}
+            description={STATUS_LABELS[item.status]}
+            checked={contractIds.includes(item.id)}
+            onChange={() => onContracts(toggled(contractIds, item.id))}
+          />
+        )),
+      )}
+      {group(
+        'Linked loss cases (optional)',
+        'No loss cases for this organization.',
+        lossCases,
+        lossCases.data?.items.map((item) => (
+          <Checkbox
+            key={item.id}
+            label={item.code}
+            description={`${item.device.assetTag}, ${item.state}`}
+            checked={lossCaseIds.includes(item.id)}
+            onChange={() => onLossCases(toggled(lossCaseIds, item.id))}
+          />
+        )),
+      )}
+    </>
+  );
+};
+
+// The open case dialog of api-design 29.
 const OpenCaseDialog: React.FC<{
   onOpened: (opened: ComplianceCase) => void;
   onClose: () => void;
@@ -68,6 +147,8 @@ const OpenCaseDialog: React.FC<{
   const [organizationId, setOrganizationId] = useState('');
   const [type, setType] = useState<ComplianceCaseType | ''>('');
   const [evidence, setEvidence] = useState('');
+  const [contractIds, setContractIds] = useState<string[]>([]);
+  const [lossCaseIds, setLossCaseIds] = useState<string[]>([]);
   const [errors, setErrors] = useState<{ organization?: string; type?: string; evidence?: string }>({});
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -87,8 +168,8 @@ const OpenCaseDialog: React.FC<{
         await openComplianceCase(organizationId, {
           type,
           evidence: evidence.trim(),
-          linkedContractIds: [],
-          linkedLossCaseIds: [],
+          linkedContractIds: contractIds,
+          linkedLossCaseIds: lossCaseIds,
         }),
       );
     } catch (failure) {
@@ -124,7 +205,11 @@ const OpenCaseDialog: React.FC<{
             id="case-organization"
             value={organizationId}
             disabled={organizations.isLoading}
-            onChange={(event) => setOrganizationId(event.target.value)}
+            onChange={(event) => {
+              setOrganizationId(event.target.value);
+              setContractIds([]);
+              setLossCaseIds([]);
+            }}
             {...invalid('case-organization', errors.organization)}
           >
             <option value="">{organizations.isLoading ? 'Loading organizations' : 'Choose an organization'}</option>
@@ -160,6 +245,15 @@ const OpenCaseDialog: React.FC<{
             {...invalid('case-evidence', errors.evidence)}
           />
         </Field>
+        {organizationId !== '' && (
+          <LinkedPickers
+            organizationId={organizationId}
+            contractIds={contractIds}
+            lossCaseIds={lossCaseIds}
+            onContracts={setContractIds}
+            onLossCases={setLossCaseIds}
+          />
+        )}
         {error && <Alert tone="error">{error}</Alert>}
       </div>
     </Dialog>

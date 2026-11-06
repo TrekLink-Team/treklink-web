@@ -24,6 +24,7 @@ Lists loss cases by state; an Org Manager sees the cases of its organization's r
 | pageNumber | 1-based page | int | no | `1` |
 | pageSize | Items per page, at most MAX_PAGE_SIZE | int | no | `20` |
 | state | Filter by state | string | no | `SEARCHING` |
+| organizationId | TrekLink only: the cases of one organization, for the loss case picker of a compliance case (organizations api-design 29); an Org Manager always reads its own organization and this is ignored | uuid | no | `5b1d2c0e-7f3a-4e21-9c8d-1a2b3c4d5e6f` |
 | sort | Sort field, one of `reportedAt`, `code`, `assetTag`, `state`; any other value answers 400 `VALIDATION_FAILED`. Omitted: `reportedAt` newest first, then `code` descending. Ties break on `id`; a null value sorts last in either direction | enum | no | `reportedAt` |
 | order | `asc` (the default with `sort`) or `desc`; without `sort` it answers 400 `VALIDATION_FAILED` | enum | no | `desc` |
 

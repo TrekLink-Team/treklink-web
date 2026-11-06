@@ -933,6 +933,25 @@ describe('LossCaseService', () => {
       );
     });
 
+    it('lets TrekLink narrow the list to one organization and ignores the filter for an organization caller', async () => {
+      await service.list({ organizationId: 'org-2' }, STAFF);
+      expect(cases.page).toHaveBeenLastCalledWith(
+        { state: undefined, organizationId: 'org-2' },
+        0,
+        20,
+        undefined,
+        undefined,
+      );
+      await service.list({ organizationId: 'org-2' }, MANAGER);
+      expect(cases.page).toHaveBeenLastCalledWith(
+        { state: undefined, organizationId: 'org-1' },
+        0,
+        20,
+        undefined,
+        undefined,
+      );
+    });
+
     // W26: the cases sort on the server by one allowed column (api-design 18).
     it('passes the requested sort to the page, ascending by default', async () => {
       await service.list({ sort: 'assetTag', order: 'desc' }, STAFF);
