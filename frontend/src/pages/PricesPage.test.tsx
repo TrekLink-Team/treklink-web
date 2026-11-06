@@ -91,4 +91,16 @@ describe('PricesPage on CollectionView (screen 6.4, D-096)', () => {
     fireEvent.click(table.getByRole('button', { name: 'Edit SCREEN_DEAD' }));
     expect(screen.getByRole('dialog')).toBeTruthy();
   });
+
+  // D-101, chapter 06 §11.10: the rate amount is the shared money input.
+  it('shows a damage rate amount in the vi-VN form and reads the shorthand', () => {
+    renderPage();
+    const table = within(screen.getByRole('table', { name: 'Damage rates' }));
+    fireEvent.click(table.getByRole('button', { name: 'Edit CASING_CRACKED' }));
+    const amount = within(screen.getByRole('dialog')).getByLabelText(/^Amount \(VND\)/) as HTMLInputElement;
+    expect(amount.value).toBe('200.000');
+    fireEvent.change(amount, { target: { value: '1,5tr' } });
+    expect(amount.value).toBe('1.500.000');
+    expect(within(screen.getByRole('dialog')).getByRole('button', { name: '000 for Amount' })).toBeTruthy();
+  });
 });
