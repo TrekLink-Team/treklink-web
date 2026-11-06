@@ -4,6 +4,7 @@ import {
   invoiceKindLabel,
   invoiceTotals,
   INVOICE_STATUS_LABELS,
+  creditDueText,
   lineTypeLabel,
   type InvoiceDetail,
 } from '../../entities/billing/api';
@@ -68,7 +69,13 @@ export const InvoiceTotalsFooter: React.FC<{ invoice: InvoiceDetail; className?:
     ...(totals.creditsVnd !== 0 ? [{ label: 'Credits and adjustments', amount: totals.creditsVnd }] : []),
     { label: 'Total', amount: totals.totalVnd, strong: true },
     { label: 'Amount paid', amount: totals.paidVnd },
-    { label: 'Balance due', amount: totals.balanceVnd, strong: true },
+    // D-097 amended (billing design section 11.5): an invoice below zero owes the organization, so it
+    // shows the credit due, or the refund once recorded, in place of the balance due.
+    ...(invoice.status === 'CREDIT_DUE'
+      ? [{ label: 'Credit due to organization', amount: invoice.creditDueVnd ?? 0, strong: true }]
+      : invoice.status === 'REFUNDED' && invoice.refund
+        ? [{ label: 'Refunded to organization', amount: invoice.refund.amountVnd, strong: true }]
+        : [{ label: 'Balance due', amount: totals.balanceVnd, strong: true }]),
   ];
   return (
     <dl aria-label="Invoice totals" className={cn('ml-auto flex w-full flex-col gap-1.5 text-sm sm:max-w-sm', className)}>
@@ -141,7 +148,7 @@ export const InvoicePrintDocument: React.FC<{ invoice: InvoiceDetail }> = ({ inv
           ['Issued', formatDateTime(invoice.issuedAt)],
           ['Contract', invoice.contract.code ?? NOT_RECORDED],
           ['Kind', invoiceKindLabel(invoice)],
-          ['Status', INVOICE_STATUS_LABELS[invoice.status]],
+          ['Status', creditDueText(invoice) ?? INVOICE_STATUS_LABELS[invoice.status]],
         ].map(([label, value]) => (
           <div key={label}>
             <dt className="text-label uppercase text-ink-muted">{label}</dt>

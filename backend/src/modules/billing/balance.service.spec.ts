@@ -24,6 +24,7 @@ describe('BalanceService (billing task 2.4, REQ-STA-02, FR-CON-13)', () => {
     invoices = {
       firstChargeableInvoice: jest.fn().mockResolvedValue(null),
       linesOfContract: jest.fn().mockResolvedValue([]),
+      refundedOfContract: jest.fn().mockResolvedValue(0n),
       linesOfOrganization: jest.fn().mockResolvedValue([]),
       contractIdsOfOrganization: jest.fn().mockResolvedValue([]),
       linesDueBetween: jest.fn().mockResolvedValue([]),
@@ -258,6 +259,27 @@ describe('BalanceService (billing task 2.4, REQ-STA-02, FR-CON-13)', () => {
         dueLaterVnd: 0n,
         settled: true,
         owedToOrganizationVnd: 720_000n,
+      });
+    });
+
+    // D-097 amended (design section 11.3): a refund recorded on an invoice lowers what is owed back.
+    it('takes the refunds recorded on the contract off what is owed, never below zero', async () => {
+      invoices.linesOfContract.mockResolvedValue([
+        ...paidTerm(),
+        line(InvoiceLineType.EARLY_END_CREDIT, -720_000n, 0n, NOW),
+      ]);
+      invoices.refundedOfContract.mockResolvedValue(720_000n);
+      await expect(service.balanceSummary('c-1', NOW)).resolves.toMatchObject({
+        settled: true,
+        owedToOrganizationVnd: 0n,
+      });
+      invoices.refundedOfContract.mockResolvedValue(200_000n);
+      await expect(service.balanceSummary('c-1', NOW)).resolves.toMatchObject({
+        owedToOrganizationVnd: 520_000n,
+      });
+      invoices.refundedOfContract.mockResolvedValue(900_000n);
+      await expect(service.afterCredit('c-1', 0n)).resolves.toMatchObject({
+        owedToOrganizationVnd: 0n,
       });
     });
 

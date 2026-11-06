@@ -53,6 +53,9 @@ export enum ErrorCode {
   EFFECTIVE_IN_PAST = 'EFFECTIVE_IN_PAST',
   DUPLICATE_REFERENCE = 'DUPLICATE_REFERENCE',
   OVERPAYMENT = 'OVERPAYMENT',
+  // billing design section 11.4 (D-097 amended): a credit-due invoice whose credit is still set against
+  // the contract's unpaid lines has nothing to refund.
+  NOTHING_OWED = 'NOTHING_OWED',
   NOTHING_DUE = 'NOTHING_DUE',
   PAYMENT_PENDING = 'PAYMENT_PENDING',
   WEBHOOK_UNAUTHENTICATED = 'WEBHOOK_UNAUTHENTICATED',

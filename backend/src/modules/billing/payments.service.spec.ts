@@ -2,6 +2,7 @@ import { InvoiceKind, InvoiceLineType, InvoiceStatus, PaymentMethod, Prisma } fr
 import { ErrorCode } from '../../common/errors';
 import { AUDIT_RECORD } from '../platform/audit/audit-record.event';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
+import { BalanceService } from './balance.service';
 import { InvoicesRepository } from './invoices.repository';
 import { PaymentsRepository } from './payments.repository';
 import { PAYMENT_CONFIRMED, PaymentsService } from './payments.service';
@@ -40,6 +41,7 @@ describe('PaymentsService.recordCounter (billing task 3.1, REQ-EVT-10, UC-22)', 
   let invoices: Record<string, jest.Mock>;
   let payments: Record<string, jest.Mock>;
   let events: { transaction: jest.Mock; emitAfterCommit: jest.Mock };
+  let balances: { balanceSummary: jest.Mock };
   let service: PaymentsService;
 
   beforeEach(() => {
@@ -64,10 +66,12 @@ describe('PaymentsService.recordCounter (billing task 3.1, REQ-EVT-10, UC-22)', 
       transaction: jest.fn((work: (tx: Prisma.TransactionClient) => Promise<unknown>) => work(TX)),
       emitAfterCommit: jest.fn(),
     };
+    balances = { balanceSummary: jest.fn().mockResolvedValue({ owedToOrganizationVnd: 0n }) };
     service = new PaymentsService(
       invoices as unknown as InvoicesRepository,
       payments as unknown as PaymentsRepository,
       events as unknown as TransactionalEvents,
+      balances as unknown as BalanceService,
     );
   });
 
@@ -179,5 +183,69 @@ describe('PaymentsService.recordCounter (billing task 3.1, REQ-EVT-10, UC-22)', 
       [{ confirmedAt: Date }],
     ];
     expect(made.confirmedAt.getTime()).toBeGreaterThanOrEqual(before);
+  });
+
+  // REQ-EVT-17, REQ-ERR-09, AC-11, AC-12 (billing design section 11.4, D-097 amended).
+  describe('markRefunded', () => {
+    const CLOSING = {
+      ...INVOICE,
+      id: 'inv-9',
+      kind: InvoiceKind.CLOSING,
+      termId: null,
+      status: InvoiceStatus.CREDIT_DUE,
+      totalVnd: -720_000n,
+      lines: [],
+    };
+
+    it('records the credit due with the note and audits after commit (AC-11)', async () => {
+      invoices.lockWithLines.mockResolvedValue(CLOSING);
+      balances.balanceSummary.mockResolvedValue({ owedToOrganizationVnd: 720_000n });
+      invoices.markRefunded = jest
+        .fn()
+        .mockResolvedValue({ ...CLOSING, status: InvoiceStatus.REFUNDED, refundedVnd: 720_000n });
+      await service.markRefunded('inv-9', '  Bank transfer FT26110600042 ', STAFF, AT);
+      expect(balances.balanceSummary).toHaveBeenCalledWith('c-1', AT, TX);
+      expect(invoices.markRefunded).toHaveBeenCalledWith(
+        'inv-9',
+        { amountVnd: 720_000n, at: AT, byId: 'staff-1', note: 'Bank transfer FT26110600042' },
+        TX,
+      );
+      expect(events.emitAfterCommit).toHaveBeenCalledWith(
+        AUDIT_RECORD,
+        expect.objectContaining({ action: 'invoice.refunded', subjectId: 'inv-9' }),
+      );
+    });
+
+    it('records only what is owed when other lines took part of the credit', async () => {
+      invoices.lockWithLines.mockResolvedValue(CLOSING);
+      balances.balanceSummary.mockResolvedValue({ owedToOrganizationVnd: 300_000n });
+      invoices.markRefunded = jest.fn().mockResolvedValue(CLOSING);
+      await service.markRefunded('inv-9', 'Cash at the counter', STAFF, AT);
+      expect(invoices.markRefunded).toHaveBeenCalledWith(
+        'inv-9',
+        expect.objectContaining({ amountVnd: 300_000n }),
+        TX,
+      );
+    });
+
+    it('answers NOTHING_OWED while the credit is set against unpaid lines (AC-12)', async () => {
+      invoices.lockWithLines.mockResolvedValue(CLOSING);
+      invoices.markRefunded = jest.fn();
+      await expect(service.markRefunded('inv-9', 'note', STAFF, AT)).rejects.toMatchObject({
+        errorCode: ErrorCode.NOTHING_OWED,
+      });
+      expect(invoices.markRefunded).not.toHaveBeenCalled();
+    });
+
+    it('refuses an invoice that is not CREDIT_DUE, and an unknown one', async () => {
+      invoices.lockWithLines.mockResolvedValue({ ...CLOSING, status: InvoiceStatus.REFUNDED });
+      await expect(service.markRefunded('inv-9', 'note', STAFF, AT)).rejects.toMatchObject({
+        errorCode: ErrorCode.INVALID_STATE_TRANSITION,
+      });
+      invoices.lockWithLines.mockResolvedValue(null);
+      await expect(service.markRefunded('inv-9', 'note', STAFF, AT)).rejects.toMatchObject({
+        errorCode: ErrorCode.NOT_FOUND,
+      });
+    });
   });
 });

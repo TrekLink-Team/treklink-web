@@ -1,10 +1,11 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { PaymentMethod, Prisma } from '@prisma/client';
+import { InvoiceStatus, PaymentMethod, Prisma } from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
-import { InvoicesRepository } from './invoices.repository';
+import { BalanceService, creditDueOf } from './balance.service';
+import { InvoiceRow, InvoicesRepository } from './invoices.repository';
 import { PaymentRow, PaymentsRepository } from './payments.repository';
 
 export const PAYMENT_CONFIRMED = 'payment.confirmed';
@@ -52,7 +53,60 @@ export class PaymentsService {
     private readonly invoices: InvoicesRepository,
     private readonly payments: PaymentsRepository,
     private readonly events: TransactionalEvents,
+    private readonly balances: BalanceService,
   ) {}
+
+  // REQ-EVT-17 (design section 11.4, D-097 amended): the credit due on a CREDIT_DUE invoice was refunded
+  // outside TrekLink. Records the amount owed at that moment with the note, under the invoice lock.
+  async markRefunded(
+    invoiceId: string,
+    note: string,
+    actor: Caller,
+    at: Date = new Date(),
+  ): Promise<InvoiceRow> {
+    return this.events.transaction(async (tx) => {
+      const invoice = await this.invoices.lockWithLines(invoiceId, tx);
+      if (!invoice) {
+        throw new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Invoice not found.');
+      }
+      if (invoice.status !== InvoiceStatus.CREDIT_DUE) {
+        throw new DomainException(
+          HttpStatus.CONFLICT,
+          ErrorCode.INVALID_STATE_TRANSITION,
+          'Only an invoice with a credit due can be marked refunded.',
+        );
+      }
+      const { owedToOrganizationVnd } = await this.balances.balanceSummary(
+        invoice.contractId,
+        at,
+        tx,
+      );
+      const amountVnd = creditDueOf(invoice.totalVnd, owedToOrganizationVnd);
+      if (amountVnd <= 0n) {
+        throw new DomainException(
+          HttpStatus.CONFLICT,
+          ErrorCode.NOTHING_OWED,
+          'Nothing is owed to the organization on this invoice yet: the credit is set against its unpaid invoices.',
+        );
+      }
+      const refunded = await this.invoices.markRefunded(
+        invoice.id,
+        { amountVnd, at, byId: actor.id, note: note.trim() },
+        tx,
+      );
+      this.events.emitAfterCommit(AUDIT_RECORD, {
+        actorId: actor.id,
+        actorRoles: actor.roles,
+        organizationId: invoice.organizationId,
+        action: 'invoice.refunded',
+        subjectType: 'Invoice',
+        subjectId: invoice.id,
+        before: { status: invoice.status },
+        after: { status: refunded.status, refundedVnd: amountVnd.toString(), note: note.trim() },
+      } satisfies AuditRecordEvent);
+      return refunded;
+    });
+  }
 
   // The payments of a contract confirmed so far, oldest first, with the invoice each one paid: the
   // payment section of the handover note (rentals design §4.1). In the caller's transaction when it

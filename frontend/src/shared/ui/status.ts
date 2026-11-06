@@ -107,12 +107,16 @@ export const ORGANIZATION_STATUS: Palette<OrganizationStatus> = {
   CLOSED: { label: 'Closed', tone: 'ended' },
 };
 
-export type InvoiceStatus = 'ISSUED' | 'PARTIALLY_PAID' | 'PAID';
+export type InvoiceStatus = 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'CREDIT_DUE' | 'REFUNDED';
 
+// CREDIT_DUE and REFUNDED: an invoice below zero, which TrekLink owes the organization (billing design
+// section 11, D-097 amended). The badge keeps two words; the amount and "to organization" follow it.
 export const INVOICE_STATUS: Palette<InvoiceStatus> = {
   ISSUED: { label: 'Issued', tone: 'active' },
   PARTIALLY_PAID: { label: 'Partly paid', tone: 'attention' },
   PAID: { label: 'Paid', tone: 'done' },
+  CREDIT_DUE: { label: 'Credit due', tone: 'attention' },
+  REFUNDED: { label: 'Refunded', tone: 'done' },
 };
 
 export type DamageChargeStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'REDUCED' | 'WAIVED';

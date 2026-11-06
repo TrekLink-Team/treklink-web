@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/apiClient';
 import type { SortParams } from '../../shared/api/query';
+import { formatVnd } from '../../shared/lib/format';
 import { INVOICE_STATUS, TONE_CLASSES, type ServiceCreditStatus } from '../../shared/ui/status';
 import { queryString, type Page, type PlanType } from '../contract/api';
 
@@ -48,7 +49,15 @@ export interface Quote {
   totalVnd?: number;
 }
 
-export type InvoiceStatus = 'ISSUED' | 'PARTIALLY_PAID' | 'PAID';
+export type InvoiceStatus = 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'CREDIT_DUE' | 'REFUNDED';
+
+// The refund of a credit due, made outside TrekLink and recorded by Staff (billing api-design 23).
+export interface InvoiceRefund {
+  amountVnd: number;
+  at: string;
+  note: string;
+  byId: string;
+}
 
 export interface Invoice {
   id: string;
@@ -60,6 +69,10 @@ export interface Invoice {
   status: InvoiceStatus;
   totalVnd: number;
   paidVnd: number;
+  // What TrekLink owes the organization on a CREDIT_DUE invoice (billing design section 11.3); null
+  // otherwise. Older answers without the field read as null.
+  creditDueVnd?: number | null;
+  refund?: InvoiceRefund | null;
   issuedAt: string;
 }
 
@@ -237,6 +250,24 @@ export const usePayment = (id: string) =>
     refetchInterval: (query) => (query.state.data?.status === 'PENDING' ? 3000 : false),
   });
 
+// billing api-design 23 (D-097 amended): Staff record that the credit due was refunded outside TrekLink.
+export const markInvoiceRefunded = (invoiceId: string, note: string) =>
+  apiClient<Invoice>(`/invoices/${invoiceId}/refund`, {
+    method: 'POST',
+    body: JSON.stringify({ note }),
+  });
+
+// The credit-due text of every screen and the invoice document (billing REQ-STA-04).
+export const creditDueText = (
+  invoice: Pick<Invoice, 'status' | 'creditDueVnd' | 'refund'>,
+): string | null => {
+  if (invoice.status === 'CREDIT_DUE')
+    return `Credit due to organization: ${formatVnd(invoice.creditDueVnd ?? 0)}`;
+  if (invoice.status === 'REFUNDED' && invoice.refund)
+    return `Refunded to organization: ${formatVnd(invoice.refund.amountVnd)}`;
+  return null;
+};
+
 export const recordCounterPayment = (invoiceId: string, payment: CounterPayment) =>
   apiClient<Payment>(`/invoices/${invoiceId}/payments/counter`, {
     method: 'POST',
@@ -354,6 +385,8 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   ISSUED: 'Issued',
   PARTIALLY_PAID: 'Partly paid',
   PAID: 'Paid',
+  CREDIT_DUE: 'Credit due to organization',
+  REFUNDED: 'Refunded',
 };
 
 // InvoiceKind of backend/prisma/schema.prisma as text (screen 6.1, chapter 06 §8.3). A term invoice
@@ -396,6 +429,8 @@ export const INVOICE_TONES: Record<InvoiceStatus, string> = {
   ISSUED: TONE_CLASSES[INVOICE_STATUS.ISSUED.tone],
   PARTIALLY_PAID: TONE_CLASSES[INVOICE_STATUS.PARTIALLY_PAID.tone],
   PAID: TONE_CLASSES[INVOICE_STATUS.PAID.tone],
+  CREDIT_DUE: TONE_CLASSES[INVOICE_STATUS.CREDIT_DUE.tone],
+  REFUNDED: TONE_CLASSES[INVOICE_STATUS.REFUNDED.tone],
 };
 
 // Line status of screen 6.1, derived on the client; the first matching rule wins.

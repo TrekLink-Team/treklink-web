@@ -32,6 +32,10 @@ const ROW = {
   totalVnd: 100_000n,
   paidVnd: 40_000n,
   issuedAt: AT,
+  refundedVnd: null,
+  refundedAt: null,
+  refundedById: null,
+  refundNote: null,
 };
 
 describe('invoiceNumberYear and invoiceStatusOf', () => {
@@ -44,7 +48,10 @@ describe('invoiceNumberYear and invoiceStatusOf', () => {
     expect(invoiceStatusOf(100n, 0n)).toBe(InvoiceStatus.ISSUED);
     expect(invoiceStatusOf(100n, 40n)).toBe(InvoiceStatus.PARTIALLY_PAID);
     expect(invoiceStatusOf(100n, 100n)).toBe(InvoiceStatus.PAID);
-    expect(invoiceStatusOf(-50n, 0n)).toBe(InvoiceStatus.PAID);
+    // D-097 amended (design section 11.2): a total below zero is a credit due, never PAID.
+    expect(invoiceStatusOf(-50n, 0n)).toBe(InvoiceStatus.CREDIT_DUE);
+    expect(invoiceStatusOf(-50n, 0n, true)).toBe(InvoiceStatus.REFUNDED);
+    expect(invoiceStatusOf(0n, 0n, true)).toBe(InvoiceStatus.PAID);
   });
 });
 
@@ -187,7 +194,7 @@ describe('InvoicesRepository (billing task 1.1)', () => {
         data: [{ ...adjustment, invoiceId: 'inv-1', seq: 1 }],
       });
       expect(tx.invoice.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: { totalVnd: -30_000n, status: InvoiceStatus.PAID } }),
+        expect.objectContaining({ data: { totalVnd: -30_000n, status: InvoiceStatus.CREDIT_DUE } }),
       );
     });
   });
