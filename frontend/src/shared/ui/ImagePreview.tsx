@@ -24,8 +24,11 @@ interface ImagePreviewProps {
 }
 
 /**
- * A non-modal image preview that opens after a short pointer rest, or immediately from click and
- * keyboard activation. It is portaled so a table or details pane cannot clip it.
+ * A non-modal image preview that opens after a short pointer rest, or immediately from click, tap and
+ * keyboard activation (chapter 06 §11.9). It is portaled so a table or details pane cannot clip it.
+ * It closes on Escape, on leaving it with a mouse, on a pointer down anywhere outside it and its
+ * trigger (a phone has no Escape key, WCAG 1.4.13 dismissible), and on a second activation of the
+ * trigger. Focus stays on the trigger, so the preview is a named figure, not a dialog.
  */
 export const ImagePreview: React.FC<ImagePreviewProps> = ({
   src,
@@ -40,6 +43,10 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [open, setOpen] = useState(false);
+  // How the open preview was opened: by a pointer rest, or by a click, tap or key on the trigger. A
+  // second activation closes only a preview the trigger opened, so a mouse that rests and then clicks
+  // keeps it.
+  const openedBy = useRef<'rest' | 'activation' | null>(null);
   const [position, setPosition] = useState<Position | null>(null);
 
   const cancelOpen = useCallback(() => {
@@ -55,6 +62,7 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
   const close = useCallback(() => {
     cancelOpen();
     cancelClose();
+    openedBy.current = null;
     setOpen(false);
     setPosition(null);
   }, [cancelClose, cancelOpen]);
@@ -62,14 +70,22 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
   const openNow = useCallback(() => {
     cancelOpen();
     cancelClose();
+    openedBy.current = 'activation';
     setOpen(true);
   }, [cancelClose, cancelOpen]);
+
+  // A click, a tap or Enter and Space on the trigger.
+  const activate = () => {
+    if (open && openedBy.current === 'activation') close();
+    else openNow();
+  };
 
   const restToOpen = () => {
     cancelClose();
     if (open || openTimer.current !== null) return;
     openTimer.current = setTimeout(() => {
       openTimer.current = null;
+      openedBy.current = 'rest';
       setOpen(true);
     }, IMAGE_PREVIEW_DELAY_MS);
   };
@@ -120,11 +136,20 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') close();
     };
+    // A pointer down outside the preview and its trigger closes it, a tap on a phone included.
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (target && (triggerRef.current?.contains(target) || previewRef.current?.contains(target)))
+        return;
+      close();
+    };
     document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('pointerdown', onPointerDown, true);
     window.addEventListener('resize', place);
     window.addEventListener('scroll', place, true);
     return () => {
       document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('pointerdown', onPointerDown, true);
       window.removeEventListener('resize', place);
       window.removeEventListener('scroll', place, true);
     };
@@ -141,7 +166,7 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
   const onTriggerKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      openNow();
+      activate();
     } else if (event.key === 'Escape') {
       event.preventDefault();
       close();
@@ -154,10 +179,9 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
         ref={triggerRef}
         type="button"
         aria-label={`Preview ${caption} image`}
-        aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? id : undefined}
-        onClick={openNow}
+        onClick={activate}
         onKeyDown={onTriggerKeyDown}
         onPointerEnter={pointerRest}
         onPointerLeave={pointerLeave}
@@ -171,7 +195,6 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
           <figure
             ref={previewRef}
             id={id}
-            role="dialog"
             aria-label={`${caption} image preview`}
             onPointerEnter={cancelClose}
             onPointerLeave={pointerLeave}
