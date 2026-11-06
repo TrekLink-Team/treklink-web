@@ -9,7 +9,7 @@
 | Routes | `/t/counter/:contractId` for an `APPROVED` contract; the same route serves check-in for a contract with devices out (screen 5.5) (`specs/frontend/design.md` §2 and §5) |
 | Roles | TrekLink Staff (and Admin, D-057 rule 7): the whole page. Organization accounts: MSG26. The Org Manager is present at the counter and signs on the Staff member's screen. |
 | Use case, FRs, story | UC-14, UC-20, UC-21; FR-CON-05, FR-CON-06, FR-DEV-05, BR-09, E01-4, E01-5, D-037; US-UC14, US-UC20, US-UC21 |
-| Requirements | `specs/rentals/requirements.md` REQ-EVT-04 to REQ-EVT-06, REQ-EVT-16, REQ-UBI-05, REQ-ERR-04, REQ-ERR-07, REQ-ERR-08, REQ-ERR-10, REQ-EVT-29, REQ-ERR-18; `specs/devices/requirements.md` REQ-EVT-35 to REQ-EVT-37, REQ-EVT-41, REQ-ERR-21 to REQ-ERR-26 (the device connector) |
+| Requirements | `specs/rentals/requirements.md` REQ-EVT-04 to REQ-EVT-06, REQ-EVT-16, REQ-UBI-05, REQ-ERR-04, REQ-ERR-07, REQ-ERR-08, REQ-ERR-10, REQ-EVT-29, REQ-EVT-30, REQ-ERR-18; `specs/devices/requirements.md` REQ-EVT-35 to REQ-EVT-37, REQ-EVT-41, REQ-ERR-21 to REQ-ERR-26 (the device connector) |
 | Wireframe | ![CounterPage handover](5-4-counterpage-handover.svg) |
 
 Scope from the task: rentals api-design 07 to 10 in four steps (design §5): devices with scan, provisioning, battery and GPS check and swap; payment status; preview note; signature pad (PNG) and identity field; nothing stored in the browser after submit
@@ -23,6 +23,7 @@ Since D-096 (2026-11-04) the same four steps also run inside the contract home's
 | Header: contract code, organization, status, plan, variant, quantity, requested start | rentals 03 `code`, `organization.code`, `legalName`, `status`, `planType`, `hardwareVariant.code`, `quantity`, `requestedStartDate` |
 | Reserved devices by asset tag | rentals 03 `devices[].deviceId`, `assetTag` |
 | Organization's current key version (the version to write and record) | organizations 03 `channelKeyVersion` |
+| Key flagged exposed (D-100) | organizations 03 `channelKeyExposedAt` not null; a unit is exposed when its recorded version equals `channelKeyVersion` |
 | Provisioning recorded per device | rentals 09 `result.keyVersion`, `provisionedAt` in this visit; after a reload, rentals 03 `devices[].provisionedKeyVersion` ("Provisioned v{n}", or "Not provisioned yet"); a unit undone in this visit shows "Not provisioned yet" whatever the contract read still says (rentals 19) |
 | Contract version sent by the undo and the handover | rentals 03 `version`, or rentals 19 `result.contractVersion` when an undo answered a higher one |
 | Swap result: released and newly reserved device | rentals 07 `released.assetTag`, `status`; `reserved.assetTag`, `status` |
@@ -31,6 +32,7 @@ Since D-096 (2026-11-04) the same four steps also run inside the contract home's
 | Note preview (unsigned PDF), listing each unit's battery and GPS fix | rentals 08 `pdfBase64`, requested with `checks`: the step 1 readings of every unit with a valid battery (`deviceId`, `batteryPct`, `gpsFixOk`); a unit without one prints "not checked" |
 | Signing Managers to choose from | organizations 12 `items` with `role` `MANAGER` and active, `id`, `fullName` |
 | After completion: devices issued, note hash | rentals 10 `result.devices[].assetTag`, `handoverNoteSha256` |
+| After completion: units that left with the exposed key (D-100) | rentals 10 `result.devices[].keyVersion`, `keyExposed` |
 
 ## Actions
 
@@ -47,6 +49,7 @@ Since D-096 (2026-11-04) the same four steps also run inside the contract home's
 | Set readings for selected | 1 Devices | none; writes the bulk battery, the bulk GPS fix or both into each selected row, and an empty bulk value leaves the row's value as it is | none | "Readings set on {n} units." |
 | Swap (row) | 1 Devices | rentals 07 `POST /api/contracts/:id/devices/:deviceId/swap` | dialog: "Send {assetTag} to maintenance and reserve another {variant}?" with the reason field | toast MSG03; the row is replaced by the new asset tag, which needs its own provisioning and check |
 | Record counter payment (link) | 2 Payment | navigation to screen 6.3 for the first invoice, returning here | none | none |
+| Re-provision {assetTag} (D-100, steps 2 to 4, one per exposed unit) | 2 to 4 | none; opens step 1 and focuses that unit's Dock and provision, which answers `CHANNEL_KEY_EXPOSED` until the key is rotated (organizations 27) | none | step 1 with the unit's provision control focused |
 | Next and Back | all | none | none | none |
 | Complete handover (primary) | 4 Sign | rentals 10 `POST /api/contracts/:id/handover` | none: the signed preview is the confirmation | toast MSG06; the page shows the issued devices and the note download (screen 5.2); the signature, identity text and preview are cleared from memory |
 | Clear signature | 4 Sign | none | none | none |
@@ -68,6 +71,7 @@ Since D-096 (2026-11-04) the same four steps also run inside the contract home's
 | Write failed, read-back differs, unit disconnected or port busy (REQ-ERR-13) | The failed step named on the row, then "Dock {assetTag} again before handover."; nothing recorded |
 | Error `NODE_MISMATCH` (409, rentals 09 and 21) | From rentals 21: as wrong unit docked. From rentals 09, after the unit was written and read back: "The docked unit is {nodeId}, not {assetTag}. Nothing was recorded." (2026-11-03, task 7.4: "Nothing was written" would be false there) |
 | Error `CHANNEL_KEY_EXPOSED` (409, rentals 09, 15 and 21) | The server's `message` on the row ("The organization's channel key is exposed. Rotate it before writing it to a unit."); nothing was written or recorded; the counter asks Staff to rotate the key (organizations 27) before docking again; no SRS code |
+| Key flagged exposed (D-100, rentals REQ-EVT-30) | Step 1: each unit at the exposed version reads "Carries key v{n}, flagged exposed". Steps 2 to 4: an amber status under the step heading, "The organization's key v{n} is flagged exposed. The handover can go ahead; rotate the key and re-provision these units.", with one Re-provision {assetTag} button per unit. The handover is not held. After completion: an amber note "{assetTags} left with the organization's key flagged exposed. Rotate the key and write the new version to that unit at the next visit." (plural "those units") |
 | Error `KEY_VERSION_MISMATCH` (409, rentals 09) | MSG24; the page reloads organizations 03 for the current version |
 | Error `INSUFFICIENT_DEVICES` (409, rentals 07) | MSG11 dialog: no replacement exists, so the handover is held (E01-5) |
 | Error `DEVICE_PROVISIONED`, `DEVICE_NOT_AVAILABLE`, `VARIANT_MISMATCH`, `NODE_MISMATCH` (409, rentals 32) | The server's message in the swap dialog; the row and the connector's row are checked again |
