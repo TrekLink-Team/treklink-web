@@ -82,3 +82,64 @@ None of its own; the uplink and swap dialogs are those of screens 4.2 and 4.6.
 - [x] States: not connected, no Web Serial, every REQ-ERR of §12.13
 - [ ] Wireframe: waits for the renders
 - [x] Accessibility: switcher pressed state, focus return, text status
+
+## Redesign after the leader's UAT (W39, 2026-11-06)
+
+Added by KhoaDD under D-078 for devices design §12.14. The leader's verdict: "a bunch of text and a bunch of
+buttons", and the hub "locks Staff out of its own tools by device status". Where this section and the sections
+above disagree, this section wins.
+
+### Layout
+
+| Width | Placement |
+|---|---|
+| 1100 px and up (1440, 1280) | Header card across the page (render 96 px, opens the focus view; asset tag; status badge; variant; reported firmware with "Update available"; Refresh with "Refreshed {time}"; Connect a unit). Below, two columns: left (minmax 0, 1fr) the field groups as cards in a two-column grid, then the actions; right 22rem the History panel, its list scrolling inside it. The columns scroll inside one region; the header stays |
+| 600 to 1099 px (900) | Header card; one scroll region with the field groups in one column, the actions, then History (its list capped at 24rem and scrolling inside) |
+| Below 600 px (360) | Header card compact (render 64 px, badges wrap); one scroll region: actions first (the main action reachable on the first screen), then the field groups, then History |
+
+The document and `#main` never scroll (chapter 06 §11.1). A scroll region without a focusable child carries
+`tabindex="0"` and a name.
+
+### Field groups
+
+| Group (icon) | Fields |
+|---|---|
+| Identity (`IdCard`) | asset tag, node number and id, owner long and short names, hardware model, build environment |
+| Radio and region (`RadioTower`) | region, modem preset, primary channel name ("Preset default" when empty) |
+| Power (`BatteryMedium`) | a battery gauge (`meter`, value and label "Battery {n} %"), voltage, the source ("from the unit" or "from the server"); "External power" above 100 |
+| Custody and contract (`Handshake`) | status, contract code and status, organization, key version and organization, last reset, next step |
+| Firmware (`Cpu`) | reported by the unit, on record, newest release for the variant |
+
+### Actions
+
+Three labelled groups, each a list of buttons with their reason as text under an unavailable one: Configure
+(Provision or Re-provision, Quick swap, Configure uplink, Restore TrekLink defaults, Reboot), Firmware (Update
+firmware), Danger zone (Factory reset, danger button, in a card with a danger edge). The availability is that of
+devices design §12.14: never the status.
+
+| Control | Confirmation | Success message |
+|---|---|---|
+| Provision or Re-provision (no counter context) | none; it opens `/t/counter/{contractId}` with the connector focused on the unit | as screen 5.4 |
+| Configure uplink | the uplink dialog; for `RESERVED` or `RENTED` the typed asset tag first | "{assetTag} is configured as an uplink to {broker}." |
+| Restore TrekLink defaults | `Dialog` "Restore TrekLink defaults on {assetTag}?": "This writes the owner {assetTag}, puts channel 0 back on the TrekLink default key, and turns Wi-Fi and MQTT off. Region, LoRa preset, node database and firmware stay. The unit restarts once."; typed asset tag for `RESERVED` or `RENTED` | toast "{assetTag} is back on the TrekLink defaults." |
+| Reboot | none, or the typed confirmation for `RESERVED` or `RENTED` | toast "{name} restarted." |
+| Update firmware | the flash panel (screen 4.3 panel, devices design §12.14) in a `Dialog`; the typed confirmation for `RESERVED` or `RENTED` | "{version} written and verified on {assetTag}." |
+| Factory reset | the dialog above; typed asset tag for `RESERVED` or `RENTED`; the custody note for a `RETURNED` unit still in custody | toast "{assetTag} is reset." |
+
+The confirmation field: label "Type {assetTag} to confirm", the confirm button disabled until it matches; the
+dialog names "{assetTag} is {status} on {contractCode} for {organizationCode}.".
+
+### History
+
+A panel "History" lists monitoring api-design 07 for the device (the source of the device page's History),
+newest first, 20 rows with Load more: an icon per kind (state, intake, provisioning, reset, inspection,
+maintenance, hub action, contract, incident), the summary and the time. Its list scrolls inside the panel. An
+unknown unit shows "Register this unit to keep its history."
+
+### States added
+
+| State | What the user sees |
+|---|---|
+| Refresh | Refresh spins while the recognition runs; "Refreshed {time}" after |
+| Confirmation refused (400 `CONFIRMATION_REQUIRED`) | the server's message in the dialog; nothing written |
+| Hub action failed | Alert with the failed step; the action is recorded `FAILED` |

@@ -121,3 +121,19 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [ ] Wireframe: waits for the renders
 - [x] Accessibility: live region, focus return, text status
 - [x] Live data: query keys listed; the map pin is screen 9.1's
+
+## Card footer actions and Refresh (W39, leader UAT 2026-11-06)
+
+Added by KhoaDD under D-078 for devices design §12.14 (REQ-EVT-49, REQ-EVT-50). Where this section and the
+tables above disagree, this section wins.
+
+- Each unit card's footer, left of More actions (...) and Show details (i), carries the main actions in fixed
+  slots: for a registered unit Open in device hub, Update firmware, Reboot (three, so from the third the overflow
+  menu holds them below 600 px); for an unknown unit Register. An unavailable action keeps its slot, disabled,
+  with its reason as the tooltip and the accessible description (chapter 06 §11.4). Update firmware and Reboot
+  open the device hub on the unit with that action, where its dialog and progress live.
+- The panel header carries Refresh (icon button "Refresh the connected units") and "Refreshed {time}" as text. It
+  recognizes every unit again (devices api-design 30) and invalidates the device queries. The same refresh runs by
+  itself after Register device, a provisioning, a quick swap and every hub action, so a card never keeps an old
+  status.
+- Every unit image opens the focus view of devices design §12.14 (REQ-EVT-51).
