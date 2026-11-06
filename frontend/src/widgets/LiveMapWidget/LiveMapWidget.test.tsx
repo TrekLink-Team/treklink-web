@@ -212,6 +212,71 @@ describe('LiveMapWidget', () => {
     }
   });
 
+  // Screen 9.1 on a phone: a marker alone at its spot reports its tap and opens no popup, because the page
+  // shows the device as a card; a tap on the bare map puts the card away.
+  it('reports the tap of a lone marker instead of opening a popup in card mode', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    const onSelect = vi.fn();
+    render(
+      <QueryClientProvider client={client}>
+        <LiveMapWidget
+          markers={[
+            {
+              ...device('TL-0001', [11.5, 108.5]),
+              links: [{ label: 'Position history', to: '/o/devices/x/telemetry' }],
+            },
+          ]}
+          cardMode
+          onSelect={onSelect}
+        />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(
+      (await screen.findByRole('img', { name: 'TL-0001, Battery 80%' })).parentElement as HTMLElement,
+    );
+    expect(onSelect).toHaveBeenCalledWith('TL-0001');
+    expect(document.querySelector('.leaflet-popup-content')).toBeNull();
+  });
+
+  it('keeps the popup list of a stack in card mode, and reports no tap for it', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    giveContainersASize();
+    const onSelect = vi.fn();
+    render(
+      <QueryClientProvider client={client}>
+        <LiveMapWidget
+          markers={[device('TL-0001', [11.5, 108.5]), device('TL-0002', [11.5, 108.5])]}
+          view={{ center: [11.5, 108.5], zoom: 16 }}
+          cardMode
+          onSelect={onSelect}
+        />
+      </QueryClientProvider>,
+    );
+    const first = await screen.findAllByRole('img', { name: /TL-000[12], .*Battery 80%/ });
+    fireEvent.click(first[0].parentElement as HTMLElement);
+    await waitFor(() =>
+      expect(document.querySelector('.leaflet-popup-content')?.textContent).toContain(
+        '2 devices at this spot',
+      ),
+    );
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('opens a popup for a lone marker when card mode is off', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    const onSelect = vi.fn();
+    render(
+      <QueryClientProvider client={client}>
+        <LiveMapWidget markers={[device('TL-0001', [11.5, 108.5])]} onSelect={onSelect} />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(
+      (await screen.findByRole('img', { name: 'TL-0001, Battery 80%' })).parentElement as HTMLElement,
+    );
+    await waitFor(() => expect(document.querySelector('.leaflet-popup-content')).toBeTruthy());
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
   it('leaves a popup link to the browser when no onLink is given', async () => {
     vi.mocked(getMapConfig).mockResolvedValue(config);
     renderWidget([

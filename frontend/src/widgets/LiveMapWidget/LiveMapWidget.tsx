@@ -325,7 +325,19 @@ const LeafletMap: React.FC<{
   onLink?: (link: MapLink) => void;
   view?: MapView;
   compact?: boolean;
-}> = ({ config, markers, selectedId, track, onLink, view, compact = false }) => {
+  cardMode?: boolean;
+  onSelect?: (id: string | null) => void;
+}> = ({
+  config,
+  markers,
+  selectedId,
+  track,
+  onLink,
+  view,
+  compact = false,
+  cardMode = false,
+  onSelect,
+}) => {
   const [map, setMap] = useState<L.Map | null>(null);
   const [tilesFailed, setTilesFailed] = useState(false);
   const markerRefs = useRef<Map<string, L.Marker>>(new Map());
@@ -338,6 +350,14 @@ const LeafletMap: React.FC<{
   useEffect(() => {
     onLinkRef.current = onLink;
   }, [onLink]);
+  // On a phone the page shows a single device as a card under the map (screen 9.1), so a marker alone at
+  // its spot reports the tap instead of opening a popup. A stack or a cluster still opens its list.
+  const onSelectRef = useRef(onSelect);
+  const cardModeRef = useRef(cardMode);
+  const cardIds = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
   // The opening view and the compact flag are read once, when the map is built; a later view moves the
   // map in the effect below rather than rebuilding it.
   const opening = useRef({ view, compact });
@@ -453,6 +473,7 @@ const LeafletMap: React.FC<{
     const tracedBadges = badges.current;
     const tracedKeys = popupKeys.current;
     const tracedData = data.current;
+    const tracedCards = cardIds.current;
     return () => {
       glider?.cancelAll();
       tracked.clear();
@@ -461,6 +482,7 @@ const LeafletMap: React.FC<{
       tracedBadges.clear();
       tracedKeys.clear();
       tracedData.clear();
+      tracedCards.clear();
       map.remove();
     };
   }, [map, glider]);
@@ -582,9 +604,25 @@ const LeafletMap: React.FC<{
         marker.setZIndexOffset(
           zOffsetOf(stateOf(m)) + (stacked && index === 0 ? Z_PER_RANK / 2 : 0),
         );
+        // A marker alone at its spot is a card on a phone: no popup, and the tap goes to the page.
+        const card = cardModeRef.current && !stacked;
+        if (card) {
+          if (marker.getPopup()) {
+            marker.closePopup();
+            marker.unbindPopup();
+            popupKeys.current.delete(id);
+          }
+          cardIds.current.add(id);
+        } else {
+          if (!marker.getPopup()) {
+            marker.bindPopup('', { offset: [0, -4] });
+            popupKeys.current.delete(id);
+          }
+          cardIds.current.delete(id);
+        }
         const contentKey = stackKey ?? looks.current.get(id) ?? '';
         Object.assign(marker.getPopup()?.options ?? {}, popupFit(map));
-        if (popupKeys.current.get(id) !== contentKey) {
+        if (!card && popupKeys.current.get(id) !== contentKey) {
           const close = () => {
             map.closePopup();
             marker.getElement()?.focus();
@@ -654,6 +692,15 @@ const LeafletMap: React.FC<{
       marker.on('popupopen', (event) => {
         event.popup.getElement()?.querySelector<HTMLElement>('[tabindex="-1"]')?.focus();
       });
+      marker.on('click', () => {
+        if (cardIds.current.has(m.id)) onSelectRef.current?.(m.id);
+      });
+      // Leaflet turns Enter into a click only for a marker with a popup bound, which a card has not.
+      marker.on('keypress', (event: L.LeafletKeyboardEvent) => {
+        if (event.originalEvent.key === 'Enter' && cardIds.current.has(m.id)) {
+          onSelectRef.current?.(m.id);
+        }
+      });
       markerRefs.current.set(m.id, marker);
       looks.current.set(m.id, look);
     }
@@ -679,6 +726,24 @@ const LeafletMap: React.FC<{
       map.off('zoomend viewreset', layoutMarkers);
     };
   }, [map, layoutMarkers]);
+
+  // Crossing the phone breakpoint turns popups into cards and back, so the markers are laid out again.
+  useEffect(() => {
+    cardModeRef.current = cardMode;
+    layoutMarkers();
+  }, [cardMode, layoutMarkers]);
+
+  // A tap on the map outside any marker puts the card away.
+  useEffect(() => {
+    if (!map) return;
+    const away = () => {
+      if (cardModeRef.current) onSelectRef.current?.(null);
+    };
+    map.on('click', away);
+    return () => {
+      map.off('click', away);
+    };
+  }, [map]);
 
   // The track of a history screen: a line through the positions, with the map fitted to it. Nothing is
   // drawn for fewer than two points, and the line goes when the track does.
@@ -744,10 +809,24 @@ export const LiveMapWidget: React.FC<{
   view?: MapView;
   /** A small map inside a page: the layer control starts collapsed, and the wheel scrolls the page. */
   compact?: boolean;
+  /** A phone: a marker alone at its spot reports its tap to `onSelect` instead of opening a popup, and
+   * a tap on the bare map reports null. The page shows the device as a card (screen 9.1). */
+  cardMode?: boolean;
+  onSelect?: (id: string | null) => void;
   /** Size of the map box. The default keeps the interim dashboard's height; a full-bleed map page
    * passes `h-full` inside MapWorkspace. */
   className?: string;
-}> = ({ markers = [], selectedId = null, track, onLink, view, compact, className }) => {
+}> = ({
+  markers = [],
+  selectedId = null,
+  track,
+  onLink,
+  view,
+  compact,
+  cardMode,
+  onSelect,
+  className,
+}) => {
   const config = useQuery({
     queryKey: MAP_CONFIG_KEY,
     queryFn: getMapConfig,
@@ -773,6 +852,8 @@ export const LiveMapWidget: React.FC<{
           onLink={onLink}
           view={view}
           compact={compact}
+          cardMode={cardMode}
+          onSelect={onSelect}
         />
       )}
       {config.isPending && (

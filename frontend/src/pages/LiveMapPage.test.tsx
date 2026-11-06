@@ -590,3 +590,104 @@ describe('LiveMapPage (screen 9.1)', () => {
     expect((await screen.findByRole('alert')).textContent).toBe('You do not have access to this.');
   });
 });
+
+// Screen 9.1 below 600 px (chapter 06 section 10.5): the device panel is a bottom sheet with three snap
+// positions, and one device shows as a card under the map instead of a popup. A matchMedia that answers
+// for a 360 px window.
+describe('LiveMapPage at 360 px (screen 9.1)', () => {
+  const windowOf = (width: number) =>
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: Number(/min-width:\s*(\d+)px/.exec(query)?.[1] ?? 0) <= width,
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+  beforeEach(() => windowOf(360));
+  afterEach(() => vi.unstubAllGlobals());
+
+  const sheet = () => screen.getByRole('complementary', { name: 'Devices' });
+  const handle = () => screen.getByRole('button', { name: /1 device, 0 SOS open/ });
+
+  it('rests the panel at its peek with the device and SOS count, and opens it in three steps', async () => {
+    show('o');
+    await marker('TL-0009, Le Thi E');
+    expect(sheet().getAttribute('data-sheet')).toBe('peek');
+    expect(within(sheet()).queryByLabelText('Search devices')).toBeNull();
+    fireEvent.click(handle());
+    expect(sheet().getAttribute('data-sheet')).toBe('half');
+    expect(within(sheet()).getByLabelText('Search devices')).toBeTruthy();
+    expect(within(sheet()).getByText('1 live, 0 offline, 0 not heard since handover')).toBeTruthy();
+    fireEvent.click(handle());
+    expect(sheet().getAttribute('data-sheet')).toBe('full');
+    fireEvent.click(handle());
+    expect(sheet().getAttribute('data-sheet')).toBe('peek');
+  });
+
+  it('keeps the organization filter in the sheet on the fleet map', async () => {
+    show('t');
+    await marker('TL-0009, Le Thi E');
+    expect(screen.queryByLabelText('Organization')).toBeNull();
+    fireEvent.click(handle());
+    expect(await within(sheet()).findByLabelText('Organization')).toBeTruthy();
+  });
+
+  it('shows a tapped marker as a card with 44 px links and no popup', async () => {
+    snapshot = {
+      cursor: 100,
+      devices: [device({ openIncident: { id: 'i-7', code: 'INC-7', state: 'NOTIFY_PRIMARY' } })],
+      fieldStations: [],
+    };
+    showWithHistory('o');
+    fireEvent.click(
+      (await screen.findByRole('img', { name: /^TL-0009, SOS, / })).parentElement as HTMLElement,
+    );
+    const card = await screen.findByRole('region', { name: 'TL-0009 details' });
+    expect(document.querySelector('.leaflet-popup-content')).toBeNull();
+    const open = within(card).getByRole('link', { name: 'Open incident INC-7' });
+    expect(open.getAttribute('href')).toBe('/o/incidents/i-7');
+    expect(open.className).toContain('min-h-11');
+    const history = within(card).getByRole('link', { name: 'Position history' });
+    expect(history.className).toContain('min-h-11');
+    fireEvent.click(history);
+    expect(await screen.findByText('history /o/devices/d-9/telemetry d-9 TL-0009')).toBeTruthy();
+  });
+
+  it('puts the card away with its close button or Escape', async () => {
+    show('o');
+    fireEvent.click((await marker('TL-0009, Le Thi E')).parentElement as HTMLElement);
+    const card = await screen.findByRole('region', { name: 'TL-0009 details' });
+    fireEvent.click(within(card).getByRole('button', { name: 'Close device card' }));
+    expect(screen.queryByRole('region', { name: 'TL-0009 details' })).toBeNull();
+    fireEvent.click((await marker('TL-0009, Le Thi E')).parentElement as HTMLElement);
+    fireEvent.keyDown(await screen.findByRole('region', { name: 'TL-0009 details' }), {
+      key: 'Escape',
+    });
+    expect(screen.queryByRole('region', { name: 'TL-0009 details' })).toBeNull();
+  });
+
+  it('shows the card of a device chosen in the sheet and drops the sheet back to its peek', async () => {
+    show('o');
+    await marker('TL-0009, Le Thi E');
+    fireEvent.click(handle());
+    fireEvent.click(within(sheet()).getByRole('button', { name: /^TL-0009/ }));
+    expect(await screen.findByRole('region', { name: 'TL-0009 details' })).toBeTruthy();
+    expect(sheet().getAttribute('data-sheet')).toBe('peek');
+  });
+
+  it('puts the card away when the sheet is opened over it', async () => {
+    show('o');
+    fireEvent.click((await marker('TL-0009, Le Thi E')).parentElement as HTMLElement);
+    await screen.findByRole('region', { name: 'TL-0009 details' });
+    fireEvent.click(handle());
+    expect(screen.queryByRole('region', { name: 'TL-0009 details' })).toBeNull();
+    expect(sheet().getAttribute('data-sheet')).toBe('half');
+  });
+
+  it('keeps the list beside the map, not a sheet, from 600 px', async () => {
+    windowOf(1280);
+    show('o');
+    await marker('TL-0009, Le Thi E');
+    expect(sheet().hasAttribute('data-sheet')).toBe(false);
+    expect(within(sheet()).getByLabelText('Search devices')).toBeTruthy();
+  });
+});
