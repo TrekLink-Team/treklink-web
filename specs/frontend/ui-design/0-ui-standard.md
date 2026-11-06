@@ -71,6 +71,17 @@ The target is WCAG 2.2 AA in both themes (Canopy light, Volt dark), at 1440 px a
 Field-level errors are built (`Field`); the error summary component is not yet, and lands with the
 first form that needs it in W29.
 
+**Money input (chapter 06 §11.10, D-101, leader ruling 2026-11-06).** Every price, rate, cost and amount
+field is the shared `MoneyInput` of `shared/ui`; no money field is a plain text or number input.
+
+| Rule | Built in |
+|---|---|
+| The amount reads in the vi-VN form `1.000.000 ₫`: dots group the thousands as the person types, the caret stays after the digit it followed, and `₫` is a fixed suffix outside the editable text. The value sent to the API stays an integer of VND, as before; the dots and `₫` are display only. | `MoneyInput`, `shared/lib/money.ts` |
+| Paste is tolerant: `1.000.000 ₫`, `1,000,000`, `1000000đ` and `1 000 000 VND` all read as 1000000; a fraction after the thousands (`1.000.000,50`) is dropped, as VND has no minor unit. | `parseMoneyText` |
+| Shorthand: `150k` reads as 150000, `1.5tr` and `1,5tr` as 1500000 (`tr` for triệu), converted when the unit is typed. | `parseMoneyText` |
+| A "000" button beside the field appends three zeros; preset chips, when a screen offers them, set the amount in one press. Each button's name starts with its visible text and names the field ("000 for Amount received"). | `MoneyInput` `presets` |
+| A payment amount field (the counter payment) offers a "Secure keyboard" toggle, off by default. On, the field takes input only from an on-screen numpad shown under it: keys of at least 44 by 44 px with T9-style letter hints, one tab stop with the arrow keys moving through the grid, Enter or Space pressing a key, Backspace deleting, digits typed on a keyboard still accepted, a polite live readout of the amount, and Escape closing it with focus back on the toggle. | `MoneyInput` `secureKeyboard` |
+
 ## 5. Dark mode
 
 | Rule | Source |
