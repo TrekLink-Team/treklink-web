@@ -25,7 +25,7 @@ export const OrganizationDetailPage: React.FC = () => {
     return (
       <div role="alert" className="flex flex-col items-center gap-3 py-16">
         <p className="text-lg font-semibold text-ink">{messageOf(failure)}</p>
-        <Link to="/t/organizations" className={LINK}>
+        <Link to="/t/organizations" className={`${LINK} inline-flex min-h-6 items-center`}>
           Back to organizations
         </Link>
       </div>
@@ -56,7 +56,7 @@ export const OrganizationDetailPage: React.FC = () => {
         title={data.legalName}
         description={`${data.code}. Changes to the organization are made from the queue.`}
         actions={
-          <Link to="/t/organizations" className={LINK}>
+          <Link to="/t/organizations" className={`${LINK} inline-flex min-h-6 items-center`}>
             Back to organizations
           </Link>
         }

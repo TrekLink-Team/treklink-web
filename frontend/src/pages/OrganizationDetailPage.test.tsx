@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../shared/api/apiClient';
@@ -117,7 +117,10 @@ describe('OrganizationDetailPage (screen 3.2, read-only roles of 3.7)', () => {
   beforeEach(() => {
     api.mockReset();
   });
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   it('shows the record, the verification, the status history and the roles read only', async () => {
     serve({
@@ -145,6 +148,45 @@ describe('OrganizationDetailPage (screen 3.2, read-only roles of 3.7)', () => {
     expect(api.mock.calls.every((call) => !(call[1] as RequestInit | undefined)?.method)).toBe(
       true,
     );
+  });
+
+  it('shows one role at a time in a select below 768 px, every box disabled', async () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
+    );
+    serve({
+      [`/organizations/${ID}`]: () => organization(),
+      [`/organizations/${ID}/transitions`]: () => history,
+      [`/organizations/${ID}/roles`]: () => roles,
+    });
+    renderPage();
+
+    const select = (await screen.findByLabelText('Role')) as HTMLSelectElement;
+    expect(screen.queryByRole('region', { name: 'Permissions by role' })).toBeNull();
+    expect(within(select).getAllByRole('option')).toHaveLength(2);
+    const manager = await screen.findByRole('heading', { name: 'ORG_MANAGER' });
+    const boxes = within(manager.closest('section, div') as HTMLElement).queryAllByRole('checkbox');
+    expect(boxes.length).toBeGreaterThan(0);
+
+    fireEvent.change(select, { target: { value: select.options[1].value } });
+    expect(await screen.findByRole('heading', { name: 'ORG_OPERATOR' })).toBeTruthy();
+    const all = screen.getAllByRole('checkbox') as HTMLInputElement[];
+    expect(all.every((box) => box.disabled)).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Save permissions' })).toBeNull();
+  });
+
+  it('gives the way back a 24 px target', async () => {
+    serve({
+      [`/organizations/${ID}`]: () => organization(),
+      [`/organizations/${ID}/transitions`]: () => history,
+      [`/organizations/${ID}/roles`]: () => roles,
+    });
+    renderPage();
+
+    expect(
+      (await screen.findByRole('link', { name: 'Back to organizations' })).className,
+    ).toContain('min-h-6');
   });
 
   it('says so when the organization was not verified at the counter', async () => {
