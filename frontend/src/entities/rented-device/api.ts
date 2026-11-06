@@ -2,7 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/apiClient';
 import { queryString, type Page } from '../../shared/api/query';
 import type { ContractStatus, PlanType } from '../contract/api';
-import type { UnitState } from '../live-map/api';
+
+// API 09 lists units in organization custody. Staff-only DOCKED map entries are outside this read.
+export type RentedDeviceState = 'LIVE' | 'OFFLINE' | 'NOT_HEARD';
 
 export interface DeviceGroupRef {
   id: string;
@@ -41,7 +43,7 @@ export interface RentedDevice {
   contract: { id: string; code: string; planType: PlanType; status: ContractStatus };
   contractDeviceId: string;
   handedOverAt: string;
-  state: UnitState;
+  state: RentedDeviceState;
   batteryPct: number | null;
   lastSeenAt: string | null;
   group: DeviceGroupRef | null;
@@ -53,7 +55,7 @@ export interface RentedDevice {
 export interface RentedDeviceFilters {
   contractId?: string;
   groupId?: string;
-  state?: UnitState;
+  state?: RentedDeviceState;
   pageNumber?: number;
 }
 
