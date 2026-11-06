@@ -308,9 +308,11 @@ describe('ContractDetailPage', () => {
     // Record return is the primary action; Close contract waits in More actions with its reason.
     expect(within(actionRow()).getByRole('button', { name: 'Record return' })).toBeTruthy();
     fireEvent.click(within(actionRow()).getByRole('button', { name: 'More actions' }));
-    const close = screen.getByRole('menuitem', { name: 'Close contract' });
+    const close = screen.getByRole('menuitem', {
+      name: 'Close contract',
+      description: 'TL-0011 is not back. Check it in, or report it lost.',
+    });
     expect(close.getAttribute('aria-disabled')).toBe('true');
-    expect(screen.getByText('TL-0011 is not back. Check it in, or report it lost.', { selector: '[role="menuitem"] span' })).toBeTruthy();
     fireEvent.keyDown(close, { key: 'Escape' });
     fireEvent.click(screen.getByRole('button', { name: 'Report TL-0011 lost' }));
     expect(screen.getByRole('dialog', { name: 'Report TL-0011 lost' })).toBeTruthy();

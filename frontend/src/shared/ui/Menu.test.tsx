@@ -114,6 +114,32 @@ describe('Menu (menu button pattern)', () => {
     expect(screen.getByRole('menu')).toBeTruthy();
   });
 
+  it('shows the reason after a disabled click without relying on browser focus', () => {
+    const onSelect = vi.fn();
+    render(<Menu label="Actions for TL-0042" items={items(onSelect)} />);
+    open();
+    const retire = screen.getByRole('menuitem', { name: 'Retire device' });
+    const reason = document.getElementById(retire.getAttribute('aria-describedby')!);
+    expect(reason?.classList.contains('sr-only')).toBe(true);
+    fireEvent.click(retire);
+    expect(reason?.classList.contains('sr-only')).toBe(false);
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(screen.getByRole('menu')).toBeTruthy();
+  });
+
+  it('shows a disabled reason on hover and hides it when the pointer leaves', () => {
+    render(<Menu label="Actions for TL-0042" items={items()} />);
+    open();
+    const retire = screen.getByRole('menuitem', { name: 'Retire device' });
+    const edit = screen.getByRole('menuitem', { name: 'Edit device' });
+    const reason = document.getElementById(retire.getAttribute('aria-describedby')!);
+    expect(reason?.classList.contains('sr-only')).toBe(true);
+    fireEvent.mouseOver(retire);
+    expect(reason?.classList.contains('sr-only')).toBe(false);
+    fireEvent.mouseOut(retire, { relatedTarget: edit });
+    expect(reason?.classList.contains('sr-only')).toBe(true);
+  });
+
   it('closes on Tab and on a pointer press outside, without taking focus back', () => {
     render(
       <>

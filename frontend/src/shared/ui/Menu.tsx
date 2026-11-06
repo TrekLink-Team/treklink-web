@@ -164,7 +164,9 @@ export const Menu: React.FC<MenuProps> = ({
 
   const choose = (index: number) => {
     const item = items[index];
-    if (!item || item.disabled) return;
+    if (!item) return;
+    setActive(index);
+    if (item.disabled) return;
     close(true);
     item.onSelect();
   };

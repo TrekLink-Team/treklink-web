@@ -109,7 +109,7 @@ collapsed by default.
   sit side by side, preserving at least one complete device row below the pinned table header.
   The 2026-11-05 review checked both themes at 1440, 1280, 900, 360 and 320 px widths and at
   318 by 236 CSS px, a 400 percent reflow-equivalent viewport. Screenshots and limits are recorded in
-  [the PR review evidence](../../../docs/review-evidence/pr-395/README.md).
+  [the PR review evidence](../../../docs/evidence/pr-395/README.md).
 - 360 px layout: the tree becomes a group select above the table; the table scrolls sideways (the `DataTable`
   narrow layout); dialogs open full screen with full-width buttons at least 44 px high.
 - Tab order and focus after each action: tree, filters, table. The tree is a `tree` with `treeitem` nodes and
