@@ -1046,9 +1046,15 @@ flash outside a record is not offered, so a unit on a contract is never flashed 
   §3.3), so the backend reads the releases and serves the images: devices api-design 28 lists the releases
   for a variant, 29 returns one image after comparing its SHA-256 with the manifest.
 - Parameters (`platform` configuration matrix): `devices.firmwareReleaseRepo` (`TrekLink-Team/treklink-firmware`)
-  and `devices.firmwareReleaseCacheSeconds` (`300`). The repository is public, so the backend calls the GitHub
-  API without a token (built 2026-11-06, task 8.2): 60 unauthenticated requests an hour per address, one list
-  read and one manifest read per release per cache window. No `GITHUB_TOKEN` is read.
+  and `devices.firmwareReleaseCacheSeconds` (`300`). The repository is public, so no token is needed, but GitHub
+  allows 60 unauthenticated API requests an hour per address, and a shared host (the Vercel staging) shares that
+  address with others: the review of treklink-web#404 saw 403 "API rate limit exceeded" from one (leader ruling
+  2026-11-06). So the reader keeps a successful release list for `devices.firmwareReleaseCacheSeconds`, keeps a
+  failed read for 60 s (`FAILURE_CACHE_MS`, a technical constant like `MAX_IMAGE_BYTES`) and answers 502
+  `FIRMWARE_SOURCE_UNAVAILABLE` from it without calling GitHub again, and sends `Authorization: Bearer
+  <GITHUB_TOKEN>` on its GitHub API calls when the optional environment variable `GITHUB_TOKEN` is set (5000
+  requests an hour; a read-only token with no scope is enough for the public repository). The manifest and image
+  downloads go through the release asset links, which the API limit does not count, and never carry the token.
 - Manifest shape (`treklink-manifest.json`), as firmware task 8.1 publishes it (treklink-firmware#30; spec edit of
   2026-11-06 on the orchestrator's ruling, replacing the shape first written that day):
 

@@ -116,6 +116,7 @@ Environment rows need a restart. Business parameters of every module are in the 
 | `MQTT_AUTH_HOOK_SECRET` | none, required (owned by `gateway-sync`, validated here) | env | no |
 | `FIELD_STATION_RELEASE_DIR` | none, optional; the directory with the Field Station `release.json` and executables, without it the release endpoint answers 503 `RELEASE_UNAVAILABLE` (owned by `organizations`, D-039) | env | no |
 | `FIELD_STATION_BROKER_URL` | defaults to `MQTT_BROKER_URL`; the broker address a new Field Station credential is given (owned by `organizations`) | env | no |
+| `GITHUB_TOKEN` | none, optional; a read-only GitHub token (no scope needed: the firmware repository is public) that the firmware release reader sends on its GitHub API calls to get past the unauthenticated limit of 60 requests an hour per address on a shared host (owned by `devices`, design §9.1; leader ruling 2026-11-06) | env | no |
 | `SEPAY_WEBHOOK_API_KEY` | none, optional until the SePay sandbox account exists; without it the webhook answers 401 to every call (owned by `billing`, validated here) | env | no |
 | `SEPAY_QR_BASE_URL` | `https://qr.sepay.vn/img` (owned by `billing`) | env | no |
 | `SEPAY_BANK_CODE` | `MBBank`, a bank short name of `https://qr.sepay.vn/banks.json` (owned by `billing`) | env | no |

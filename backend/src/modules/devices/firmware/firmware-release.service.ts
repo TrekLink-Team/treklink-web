@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DomainException, ErrorCode } from '../../../common/errors';
+import { ValidatedEnvironment } from '../../platform/config/environment-variables';
 import { ParameterService } from '../../platform/parameters/parameter.service';
 import { DevicesService } from '../devices.service';
 import { FIRMWARE_HTTP, type FirmwareHttp } from './firmware-http.port';
@@ -14,6 +16,10 @@ export const MANIFEST_ASSET = 'treklink-manifest.json';
 // A Vercel Function answers at most 4.5 MB; base64 adds a third, so the raw image stays under this
 // (design section 9.1).
 export const MAX_IMAGE_BYTES = 3_300_000;
+// How long a failed read of the release list is kept, so the hub does not call GitHub again on every
+// open while the unauthenticated rate limit is spent (design section 9.1, leader ruling 2026-11-06). A
+// technical constant like MAX_IMAGE_BYTES, not a business parameter.
+export const FAILURE_CACHE_MS = 60_000;
 const GITHUB_API = 'https://api.github.com';
 const API_HEADERS = {
   Accept: 'application/vnd.github+json',
@@ -157,12 +163,22 @@ export const md5ForVerify = (bytes: Uint8Array): string => {
 export class FirmwareReleaseService {
   private readonly logger = new Logger(FirmwareReleaseService.name);
   private cache: { repo: string; at: number; releases: Release[] } | null = null;
+  // The last failed read of the release list, kept for FAILURE_CACHE_MS.
+  private failure: { repo: string; at: number } | null = null;
 
   constructor(
     private readonly parameters: ParameterService,
     private readonly devices: DevicesService,
     @Inject(FIRMWARE_HTTP) private readonly http: FirmwareHttp,
+    private readonly config: ConfigService<ValidatedEnvironment, true>,
   ) {}
+
+  // The GitHub API headers, with the optional read-only GITHUB_TOKEN when it is set. Only the API calls
+  // carry it: the asset downloads are not counted by the API limit and follow redirects to another host.
+  private apiHeaders(): Record<string, string> {
+    const token = this.config.get('GITHUB_TOKEN', { infer: true })?.trim();
+    return token ? { ...API_HEADERS, Authorization: `Bearer ${token}` } : API_HEADERS;
+  }
 
   // api-design 28: the releases, newest first, that carry `variantCode` when one is given. `isBaseline`
   // marks the release whose version is the variant's `firmwareBaseline` (any variant's without a filter).
@@ -260,7 +276,8 @@ export class FirmwareReleaseService {
   }
 
   // The release list with each manifest, kept for `devices.firmwareReleaseCacheSeconds` (0 reads every
-  // time). A release without a valid manifest asset is skipped and logged; an unreadable source is 502.
+  // time). A release without a valid manifest asset is skipped and logged; an unreadable source is 502,
+  // and that failure is kept for FAILURE_CACHE_MS.
   private async releases(now: number): Promise<Release[]> {
     const [repo, cacheSeconds] = await Promise.all([
       this.parameters.get('devices.firmwareReleaseRepo'),
@@ -273,18 +290,25 @@ export class FirmwareReleaseService {
     const cached = this.cache;
     if (cached && cached.repo === repo && now - cached.at < cacheSeconds * 1000)
       return cached.releases;
+    // A read that failed inside the last FAILURE_CACHE_MS answers 502 again without calling GitHub.
+    const failed = this.failure;
+    if (failed && failed.repo === repo && now - failed.at < FAILURE_CACHE_MS) throw unavailable();
 
     let listed: unknown;
     try {
       listed = await this.http.json(
         `${GITHUB_API}/repos/${repo}/releases?per_page=30`,
-        API_HEADERS,
+        this.apiHeaders(),
       );
     } catch (error) {
       this.logger.warn(`Firmware releases of ${repo}: ${String(error)}`);
+      this.failure = { repo, at: now };
       throw unavailable();
     }
-    if (!Array.isArray(listed)) throw unavailable();
+    if (!Array.isArray(listed)) {
+      this.failure = { repo, at: now };
+      throw unavailable();
+    }
 
     const releases: Release[] = [];
     for (const raw of listed) {
@@ -325,6 +349,7 @@ export class FirmwareReleaseService {
     }
     releases.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
     this.cache = { repo, at: now, releases };
+    this.failure = null;
     return releases;
   }
 }
