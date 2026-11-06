@@ -176,6 +176,23 @@ describe('OrganizationDetailPage (screen 3.2, read-only roles of 3.7)', () => {
     expect(screen.queryByRole('button', { name: 'Save permissions' })).toBeNull();
   });
 
+  it('is a fit page: the header stays and one focusable region holds the body (chapter 06 §11.1)', async () => {
+    serve({
+      [`/organizations/${ID}`]: () => organization(),
+      [`/organizations/${ID}/transitions`]: () => history,
+      [`/organizations/${ID}/roles`]: () => roles,
+    });
+    renderPage();
+
+    const body = await screen.findByRole('region', { name: 'Organization details' });
+    expect(body.getAttribute('tabindex')).toBe('0');
+    expect(body.className).toContain('overflow-y-auto');
+    const page = body.closest('section');
+    expect(page?.hasAttribute('data-fit-page')).toBe(true);
+    expect(within(body).getByRole('heading', { name: 'Record' })).toBeTruthy();
+    expect(within(body).queryByRole('heading', { name: 'ACME Trek Co., Ltd.' })).toBeNull();
+  });
+
   it('gives the way back a 24 px target', async () => {
     serve({
       [`/organizations/${ID}`]: () => organization(),

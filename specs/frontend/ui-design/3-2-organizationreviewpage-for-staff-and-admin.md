@@ -37,7 +37,7 @@ The panel reads the selected row of the list; organizations 03 (the detail) is n
 | Status history, one line per change ("No status change yet." when empty) | organizations 11 |
 | Roles and permissions, read only: the grid of screen 3.7 with every cell disabled, no toolbar, no reset | organizations 33 |
 
-States: skeletons while loading; MSG26 with a link back to the queue for a 403 or 404 on the record; an error with Try again for the roles alone, which leaves the record on screen. Below 768 px the roles show one at a time from a select, as on 3.7, because the grid leaves no room for a role column at 360 px. The way back to the queue is a 24 px target (WCAG 2.5.8).
+States: skeletons while loading; MSG26 with a link back to the queue for a 403 or 404 on the record; an error with Try again for the roles alone, which leaves the record on screen. Below 768 px the roles show one at a time from a select, as on 3.7, because the grid leaves no room for a role column at 360 px. The way back to the queue is a 24 px target (WCAG 2.5.8). The page is a fit page (chapter 06 §11.1, ui standard §7): the header stays, and the body (record, verification, history, roles) is the one focusable scroll region labelled "Organization details", so `#main` does not scroll (review of treklink-web#389).
 
 ## Actions
 
