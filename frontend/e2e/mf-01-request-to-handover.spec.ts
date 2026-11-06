@@ -1,6 +1,16 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures';
-import { expectToast, homeAction, openFromSidebar, showOnly, signIn, titleStatus, vnd } from './support/session';
+import {
+  expectToast,
+  homeAction,
+  moneyText,
+  openFromSidebar,
+  showOnly,
+  signIn,
+  titleStatus,
+  typeMoney,
+  vnd,
+} from './support/session';
 
 // MF-01, demo script §2b: the Manager requests a contract, Staff approve it and run the counter
 // handover (devices, payment, preview note, signature), then the Manager creates a Field Station
@@ -143,14 +153,14 @@ test('MF-01 steps 5 to 12: Staff approve and hand over at the counter', async ({
   await actions.getByRole('button', { name: 'Next' }).click();
 
   // Step 9: the holding fee. Before 09:00 local it is not due yet and the prefill is the whole term
-  // fee, so the presenter types 1125000 (script step 9, both branches).
+  // fee, so the presenter types 1125000 and the field shows 1.125.000 (script step 9, both branches).
   await page.getByRole('button', { name: 'Record a counter payment' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toContainText(`contract ${contractCode}, ORG-0001`);
   const amount = dialog.getByLabel('Amount received (VND)');
-  if ((await amount.inputValue()) !== '1125000') {
+  if ((await amount.inputValue()) !== moneyText(1_125_000)) {
     await expect(dialog).toContainText(`Due later: ${vnd(2_250_000)}`);
-    await amount.fill('1125000');
+    await typeMoney(amount, 1_125_000);
   } else {
     await expect(dialog).toContainText(`Due now: ${vnd(1_125_000)}`);
     await expect(dialog).toContainText(`Due later: ${vnd(1_125_000)}`);
