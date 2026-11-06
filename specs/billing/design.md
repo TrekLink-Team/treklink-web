@@ -1008,7 +1008,7 @@ stateDiagram-v2
     note right of REFUNDED: From CREDIT_DUE or REFUNDED, a total lifted to zero or above follows the payments again, PAID, PARTIALLY_PAID or ISSUED
 ```
 
-***Figure 11***: invoice status, with the credit-due states of D-097 amended.
+***Figure 18***: invoice status, with the credit-due states of D-097 amended.
 
 ### 11.3 How much is owed
 
