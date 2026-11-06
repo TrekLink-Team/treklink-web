@@ -21,7 +21,8 @@ Scope from the task: rentals api-design 14 to 17; check-in by scan (MSG07); insp
 | Header: code, organization, status, return due | rentals 03 `code`, `organization.code`, `status`, `returnDueAt` |
 | Devices: asset tag, back time, lost | rentals 03 `devices[].assetTag`, `checkedInAt`, `lostAt` |
 | Check-in result: tags taken, returned of total, contract state, late fee | rentals 14 `checkedIn`, `returned`, `total`, `contractStatus`, `lateFeeVnd` |
-| Inspection result, device state, damage charge and its state | rentals 16 `inspection.result`, `damageCodes`; `device.status`; `damageCharge.amountVnd`, `status` |
+| Inspection result and immediate device state | rentals 16 `inspection.result`, `damageCodes`, `device.status` after submit; rentals 03 `devices[].inspection.id`, `result`, `at` after reload |
+| Persisted damage amount and decision | billing 16 `GET /api/damage-charges?contractId=:id`, every result page, joined by `items[].inspectionId` to the row's inspection id; `finalVnd` when non-null, otherwise `amountVnd`, with `status`. The rentals 16 `damageCharge` is the immediate fallback until this saved read returns |
 | Damage codes with label and amount | billing 05 `[].code`, `label`, `amountVnd`, filtered by the contract's variant |
 | Replacement choices: available units of the variant | devices 06 with status `AVAILABLE` and the contract's variant, `items[].id`, `assetTag` |
 | Organization's current key version for the replacement | organizations 03 `channelKeyVersion` |
@@ -47,6 +48,9 @@ Scope from the task: rentals api-design 14 to 17; check-in by scan (MSG07); insp
 | State | What the user sees |
 |---|---|
 | Loading | Header and device table skeletons; each action shows its pending state and is disabled until the server answers |
+| Loading saved damage details | Keep the inspection badge and any immediate charge response. Without a matching charge yet, show "Loading damage charge…" and Open damage charges (`/t/damage-charges`). Read only while Reset and inspection is selected and at least one row has a `DAMAGED` result |
+| Saved damage read fails | Keep the inspection and any already known charge. Show "Could not load damage charges." with Try again, which refetches the contract charge query. Without a matching charge show "Damage charge details unavailable." and Open damage charges. A failure on any page does not publish a partial set as complete |
+| Saved damage decision | `PENDING_APPROVAL`: proposed amount and "waiting for an Admin". `APPROVED`: final amount and "on the closing invoice". `REDUCED`: final amount and "reduced, on the closing invoice". `WAIVED`: zero and "waived". The saved decision for the exact inspection takes precedence over this tab's earlier response, not an older inspection of the same unit |
 | Empty | Not applicable: the contract always has devices |
 | Monthly `ACTIVE` contract | Check-in is disabled with "A running monthly contract cannot return devices. Give notice first." (REQ-STA-01); replacement stays available |
 | Error `VALIDATION_FAILED` (400, rentals 14 to 17, devices 10) | MSG02 under the field the server names |
@@ -86,14 +90,15 @@ replacement signature is cleared from memory after submit, as for the handover (
 
 - 360 px layout: the counter runs on a desktop or tablet; on a narrow screen the tabs become a select, the device table becomes one card per device with its row actions, and dialogs open full screen.
 - Tab order and focus after each action: the scan field keeps focus after each scan and announces the tag added; after Check in, focus moves to the MSG07 result. Row actions follow the asset tag in each row. The inspect and replacement dialogs trap focus and return it to their row. The result and damage controls are labelled groups; the signature pad has a text alternative.
-- WebSocket events and invalidated query keys: no live events on TrekLink counter screens. Query keys `['contract', id]`, `['contract-balance', id]`, `['contract', id, 'close-check']` (refetched on window focus), `['damage-rates', variantId]`, `['devices', { status: 'AVAILABLE', variantId }]`; every mutation invalidates `['contract', id]` and `['contract-balance', id]`.
+- WebSocket events and invalidated query keys: no live events on TrekLink counter screens. Query keys `['contract', id]`, `['contract-balance', id]`, `['contract', id, 'close-check']` (refetched on window focus), `['damage-rates', variantId]`, `['devices', { status: 'AVAILABLE', variantId }]`, and `['damage-charges', 'contract', id]` for the saved inspection charges. The counter's refresh after check-in, reset and inspection invalidates the contract detail, balance, `['contracts']` lists and this contract charge key. Invalidating the detail also refreshes its nested close-check key.
+- `useContractDamageCharges` reads billing 16 sequentially from page 1 through `totalPages`, always with this contract's `contractId`; it does not filter out final decisions. It is enabled only on Reset and inspection with a damaged return. Stale results refetch when the query mounts or is enabled again, including after reload or returning to this tab. Try again explicitly calls `refetch`. It uses the application's `refetchOnWindowFocus: false` and one automatic retry, with no polling. A decision in another window is visible after reopening this tab or reloading, not a promised window-focus refresh. A decision on the charge page in the same query client invalidates the `['damage-charges']` prefix, including this query.
 
 ## Checklist
 
 Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked by the owner before review.
 
 - [x] Route and roles match `design.md` §2; organization accounts get MSG26
-- [x] Data: every field names rentals 03, 14 to 17, devices 06 and 10, billing 05 and 10, or organizations 03
+- [x] Data: every field names rentals 03, 14 to 17, devices 06 and 10, billing 05, 10 and 16, or organizations 03
 - [x] Actions: check-in (MSG07), reset, inspection, replacement with signature, close (MSG29 on blockers)
 - [x] States: loading, monthly-active rule, every error code of rentals 14 to 17 and devices 10, 403 and 404, success
 - [x] Forms: every field with type, requirement and rule; at most four per dialog
