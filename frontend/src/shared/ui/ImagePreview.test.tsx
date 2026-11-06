@@ -115,4 +115,18 @@ describe('ImagePreview, the image focus view', () => {
     act(() => vi.advanceTimersByTime(IMAGE_PREVIEW_DELAY_MS));
     expect(view()).toBeTruthy();
   });
+
+  it('returns focus to the element that had it when a hover-only view closes, never to the body', () => {
+    vi.useFakeTimers();
+    renderPreview(true);
+    const before = screen.getByRole('button', { name: 'Before' });
+    before.focus();
+    fireEvent.pointerEnter(screen.getByText('Thumbnail').parentElement as HTMLElement, { pointerType: 'mouse' });
+    act(() => vi.advanceTimersByTime(IMAGE_PREVIEW_DELAY_MS));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close the TrekLink v3 image' }));
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(view()).toBeNull();
+    expect(document.activeElement).toBe(before);
+  });
 });

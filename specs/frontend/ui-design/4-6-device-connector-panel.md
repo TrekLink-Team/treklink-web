@@ -130,7 +130,8 @@ tables above disagree, this section wins.
 - Each unit card's footer, left of More actions (...) and Show details (i), carries the main actions in fixed
   slots: for a registered unit Open in device hub, Update firmware, Reboot, shown as Hub, Firmware and Reboot (short
   visible labels inside the full names); for an unknown unit Register in the slot of Open in device hub. They never
-  move into the overflow menu; below 600 px every action is in the card's Actions menu (chapter 06 §10.5). An unavailable action keeps its slot, disabled,
+  move into the overflow menu. Below 600 px they stay visible as labelled 44 px buttons and the card's Actions menu holds
+  Show details and the other actions (chapter 06 §10.5, leader 2026-11-07). An unavailable action keeps its slot, disabled,
   with its reason as the tooltip and the accessible description (chapter 06 §11.4). Update firmware and Reboot
   open the device hub on the unit with that action, where its dialog and progress live.
 - The panel header carries Refresh (icon button "Refresh the connected units") and "Refreshed {time}" as text. It

@@ -171,6 +171,28 @@ describe('FlashFirmwarePanel (devices task 8.3, screen 4.3)', () => {
     });
   });
 
+  it('says the unit already runs the release when the success record fails after a verified write (design 12.14)', async () => {
+    const images = api.getMockImplementation() as (endpoint: string, init?: { body?: string }) => Promise<unknown>;
+    api.mockImplementation((endpoint: string, init?: { body?: string }) =>
+      endpoint === '/devices/d-42/hub-actions/ha-1/finish'
+        ? Promise.reject(new ApiError(503, 'SERVICE_UNAVAILABLE', 'The server is not reachable.'))
+        : images(endpoint, init),
+    );
+    open();
+    await screen.findByLabelText('Release');
+    fireEvent.click(flashButton());
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toBe(
+        'TL-0042 already runs 2.7.26-treklink.2: the write was verified. The record of the flash is missing (The server is not reachable.), so the firmware on record still shows the old version. Do not flash it again; correct the firmware version on its device page.',
+      ),
+    );
+    expect(withPort).toHaveBeenCalledTimes(1);
+    // Only the success finish was tried: the action is not recorded as failed.
+    const finishes = api.mock.calls.filter(([endpoint]) => endpoint === '/devices/d-42/hub-actions/ha-1/finish');
+    expect(finishes).toHaveLength(1);
+    expect(screen.queryByText(/written and verified on/)).toBeNull();
+  });
+
   it('writes nothing when the server refuses the start (REQ-ERR-34)', async () => {
     const images = api.getMockImplementation() as (endpoint: string, init?: { body?: string }) => Promise<unknown>;
     api.mockImplementation((endpoint: string, init?: { body?: string }) =>

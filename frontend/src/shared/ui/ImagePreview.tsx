@@ -38,6 +38,9 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
   const triggerRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The element that had focus when the view opened: the trigger, or for a hover-only thumbnail (a span, which
+  // takes no focus) the row or control the user was on. Focus goes back there on close, never to the body.
+  const returnFocus = useRef<HTMLElement | null>(null);
   const [open, setOpen] = useState(false);
 
   const cancelOpen = useCallback(() => {
@@ -48,20 +51,30 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
   const close = useCallback(() => {
     cancelOpen();
     setOpen(false);
-    // Focus returns to the image that opened the view (WCAG 2.4.3).
-    triggerRef.current?.focus({ preventScroll: true });
+    // Focus returns where it was when the view opened (WCAG 2.4.3): the image's own button, else the element saved
+    // on open, else the trigger when it can take focus.
+    const target = returnFocus.current ?? triggerRef.current;
+    returnFocus.current = null;
+    if (target?.isConnected) target.focus({ preventScroll: true });
   }, [cancelOpen]);
+
+  const show = useCallback(() => {
+    const active = document.activeElement;
+    returnFocus.current =
+      active instanceof HTMLElement && active !== document.body ? active : (triggerRef.current ?? null);
+    setOpen(true);
+  }, []);
 
   const openNow = useCallback(() => {
     cancelOpen();
-    setOpen(true);
-  }, [cancelOpen]);
+    show();
+  }, [cancelOpen, show]);
 
   const restToOpen = (event: React.PointerEvent<HTMLElement>) => {
     if (event.pointerType === 'touch' || open || openTimer.current !== null) return;
     openTimer.current = setTimeout(() => {
       openTimer.current = null;
-      setOpen(true);
+      show();
     }, IMAGE_PREVIEW_DELAY_MS);
   };
 

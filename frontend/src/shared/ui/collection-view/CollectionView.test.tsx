@@ -802,6 +802,27 @@ describe('details pane placement (chapter 06 §9.8, §10.8)', () => {
     expect(document.activeElement).toBe(show);
   });
 
+  it('keeps the main quick actions visible on a phone card, labelled and 44 px high, and the rest in Actions (W39)', () => {
+    atWidth(360);
+    const hub = vi.fn();
+    renderView({
+      defaultView: 'largeCards',
+      itemActions: [
+        { key: 'hub', inline: true, label: 'Open in hub', cardLabel: 'Hub', icon: <Pencil />, onSelect: hub },
+        { key: 'edit', label: 'Edit', icon: <Pencil />, onSelect: edit },
+      ],
+    });
+    const button = screen.getByRole('button', { name: 'Open in hub TL-0001' });
+    expect(button.textContent).toBe('Hub');
+    expect(button.className).toContain('h-11');
+    fireEvent.click(button);
+    expect(hub).toHaveBeenCalledWith(UNITS[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for TL-0001' }));
+    const items = screen.getAllByRole('menuitem').map((item) => item.textContent);
+    expect(items).toContain('Edit');
+    expect(items).not.toContain('Open in hub');
+  });
+
   it('opens a bottom sheet below 600 px, from Show details first in the item Actions menu', () => {
     atWidth(360);
     renderView();

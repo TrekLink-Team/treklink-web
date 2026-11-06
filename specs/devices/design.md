@@ -1864,7 +1864,9 @@ flash panel of §9.2 opens on any registered unit and:
 5. records the end with api-design 34: `SUCCEEDED` after a verified write, which also sets `Device.firmwareVersion`
    to the release version (no `expectedVersion`: the flash itself is the evidence), or `FAILED` with the failed
    step. A start that the server refuses writes nothing to the unit; an end that the server refuses after a
-   verified write is shown with the server's message, and the unit keeps the new image.
+   verified write is shown with the server's message, and the panel says the unit already runs the new image and the
+record of the flash is missing (it stays `STARTED` and the firmware on record is unchanged): Staff do not flash it
+again and correct the firmware version on the device page (api-design 08).
 
 When the unit has an `OPEN` `FIRMWARE_UPDATE` record, the panel also offers "Complete the record" after a
 verified write, as §9.2 step 6 does. The "update available" badge of the hub header shows when the newest release
@@ -1882,8 +1884,9 @@ row. No status is refused.
 **api-design 34, finish a hub action.** `POST /api/devices/:id/hub-actions/:actionId/finish`, `device.operate`.
 Body: `outcome` (`SUCCEEDED` or `FAILED`), `failure` (the failed step, at most 300 characters, for `FAILED`). A row
 that is not `STARTED` is 409 `HUB_ACTION_FINISHED`; another device's row is 404. On `SUCCEEDED`:
-`FACTORY_RESET` and `RESTORE_DEFAULTS` clear `keyVersion` and `keyOrganizationId` (the unit no longer carries the
-organization key; the counter provisions it again) and `FACTORY_RESET` inserts the return reset as above;
+`FACTORY_RESET` and `RESTORE_DEFAULTS` clear `keyVersion`, `keyOrganizationId` and `provisionedAt` (the unit no
+longer carries the organization key; the counter provisions it again) and `FACTORY_RESET` inserts the return reset
+as above;
 `FIRMWARE_UPDATE` sets `firmwareVersion` to `firmwareTo`. Every change bumps the device `version`. The audit entry
 `device.hub_action.finished` goes out after commit with the outcome and what changed.
 
