@@ -942,31 +942,31 @@ export const CounterPage: React.FC<{
           </div>
         )}
 
-        {step > 0 && exposedDevices.length > 0 && (
-          <div role="status" className={`${WARNING} mb-5 flex flex-col gap-2`}>
-            <p>
-              The organization&apos;s key v{keyVersion} is flagged exposed. The handover can go ahead; rotate
-              the key and re-provision these units.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {exposedDevices.map((device) => (
-                <button
-                  key={device.deviceId}
-                  type="button"
-                  className={SECONDARY_BUTTON}
-                  onClick={() => reprovision(device)}
-                >
-                  Re-provision {tagOf(device)}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         <div className={CARD}>
           <h2 ref={heading} tabIndex={-1} className="mb-4 text-lg font-bold text-ink">
             {step + 1}. {STEPS[step]}
           </h2>
+          {/* Under the step heading, which takes focus on each step, so a phone shows it too (D-100). */}
+          {step > 0 && exposedDevices.length > 0 && (
+            <div role="status" className={`${WARNING} mb-5 flex flex-col gap-2`}>
+              <p>
+                The organization&apos;s key v{keyVersion} is flagged exposed. The handover can go ahead; rotate
+                the key and re-provision these units.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {exposedDevices.map((device) => (
+                  <button
+                    key={device.deviceId}
+                    type="button"
+                    className={SECONDARY_BUTTON}
+                    onClick={() => reprovision(device)}
+                  >
+                    Re-provision {tagOf(device)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {step === 0 && (
             <div className="flex flex-col gap-4">
