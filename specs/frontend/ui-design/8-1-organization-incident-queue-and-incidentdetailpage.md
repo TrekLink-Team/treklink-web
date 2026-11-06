@@ -16,7 +16,7 @@ Scope: incidents API 01 to 07 and 12 to 14. Numbers below refer to the [API inde
 
 ## Layout
 
-Queue: workspace header, global alert region, title, filters, server-paged incident list. Default `open=true` includes `RESOLVED` and `FALSE_ALARM` until `CLOSED`. Supported filters: state, open, Device ID and Created from. Device ID means UUID, not an unsupported asset-tag search. Apply or Reset returns to page 1. Back from detail restores filters, page and scroll.
+Queue: workspace header, global alert region, title, filters, server-paged incident list. Default: no `open` filter, so every incident shows (chapter 06 §11.7, leader ruling 2026-11-06); Open only sends `open=true`, which includes `RESOLVED` and `FALSE_ALARM` until `CLOSED`. Supported filters: state, open, Device ID and Created from. Device ID means UUID, not an unsupported asset-tag search. Apply or Reset returns to page 1. Back from detail restores filters, page and scroll.
 
 Detail: summary and action card first, evidence panels afterwards. Desktop uses two columns; mobile opens the detail route as a full-width page. The primary action changes with state and owner. There is no manual Create, Escalate, Reopen or Close incident control.
 
@@ -154,8 +154,8 @@ the incident page. Endpoints and messages are unchanged.
 ## Queue filters (review of treklink-web#350, 2026-11-04)
 
 Added by KhoaDD. In the organization queue the state and Open only combine in the Show dropdown (incidents
-01 `state` and `open`): one state or all states, and "Incidents: Open only" (the default) or "Open or
-closed". Clear search and filter drops both, so every incident shows.
+01 `state` and `open`): one state or all states, and "Incidents: Open or closed" (the default since 2026-11-06, chapter 06
+§11.7, leader ruling) or "Open only". Clear search and filter drops both, so every incident shows.
 
 ## Incident page at 360 px (D-096, 2026-11-04)
 

@@ -18,7 +18,7 @@ Scope: unrouted/escalated queue, read-only incident evidence and false alarm fro
 
 Shared TrekLink shell and global alert region, then two client-side tabs: Incident queue and [Authority reports](8-3-authority-reports.md). Both use `/t/incidents`. A selected row opens a labelled detail region on the same page, beside the desktop list.
 
-Default: API 01 `state=UNROUTED&state=ESCALATED`, page 1, size 20. Filters: Both/Unrouted/Escalated, optional Device ID and Created from. All incidents clears the state restriction for historical inspection; its heading distinguishes it from the active queue. Apply/reset returns to page 1. Server scope always decides access.
+Default: API 01 with no `state`, page 1, size 20: All incidents (chapter 06 §11.7, leader ruling 2026-11-06). Filters: Unrouted and escalated (`state=UNROUTED&state=ESCALATED`, the active queue), Unrouted, Escalated, optional Device ID and Created from; the chosen scope names the list. Apply/reset returns to page 1. Server scope always decides access.
 
 Primary selected-record action: Record authority report for `UNROUTED` or `ESCALATED`. It opens task 8.3 with that incident. Secondary false alarm appears only for `UNROUTED`. A retained owner on `ESCALATED` stays visible; Staff never get Acknowledge, Response under way, Add status or Resolve.
 
@@ -63,7 +63,8 @@ When a successful action removes a row from the queue, keep a success notice nam
 | State | What the user sees |
 |---|---|
 | Loading | Independent queue/detail/panel skeletons with `aria-busy`; one panel never blocks the queue. |
-| Empty default queue | "No unrouted or escalated incidents need attention." Refresh and All incidents remain available; screen copy without a MSG code (D-057 rule 6). |
+| Empty list (All incidents, no filter) | "No incidents recorded."; screen copy without a MSG code (D-057 rule 6). |
+| Empty active queue (Unrouted and escalated, no other filter) | "No unrouted or escalated incidents need attention." Refresh and All incidents remain available (D-057 rule 6). |
 | Empty filtered list | MSG01 "No results match your filters." plus Reset. |
 | `VALIDATION_FAILED` (400, API 01/07) | MSG02 under known invalid fields; server-only error at form level. Preserve reason and filters. |
 | `UNAUTHENTICATED` (401, all calls) | One shared refresh; sign-in on failure and clear protected caches/socket. |

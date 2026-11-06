@@ -16,7 +16,7 @@ Scope: incidents API 08 to 11, linked through [API index](../../incidents/api-de
 
 ## Layout
 
-Use task 8.2's shell/tabs at `/t/incidents`. Report tab: title, primary Record report, Open cases only, Refresh, server-paged table. Default `open=true`; unchecking omits `open` to show all. Do not assume `open=false` means closed-only. There is no unsupported agency/date/subject/sort filter.
+Use task 8.2's shell/tabs at `/t/incidents`. Report tab: title, primary Record report, Open cases only, Refresh, server-paged table. Default: no `open`, all reports (chapter 06 §11.7, leader ruling 2026-11-06); Open cases only sends `open=true`. Do not assume `open=false` means closed-only. There is no unsupported agency/date/subject/sort filter.
 
 Record report opens at most two steps: select kind and eligible subject, then agency/reference/report time/optional note. A validated incident or contract entry context skips selection. Subject stays visible read-only during entry. An incident must be `UNROUTED` or `ESCALATED`; a contract must be `DEFAULTED`. Recheck current eligibility before opening.
 
@@ -132,7 +132,7 @@ order kept (D-059 rule 7), so no column sorts.
 ## Reports on CollectionView (D-096, 2026-11-04)
 
 Added by KhoaDD. The report table renders through `CollectionView` (chapter 06 §9). The Open cases only
-checkbox becomes the Show filter of the command bar, "Open cases only" (the default, `open=true`) or "All
-reports" (no `open`), still on the server; Refresh is a command of the same bar. The reference is each
+checkbox becomes the Show filter of the command bar, "All reports" (no `open`, the default since 2026-11-06,
+chapter 06 §11.7, leader ruling) or "Open cases only" (`open=true`), still on the server; Refresh is a command of the same bar. The reference is each
 report's title, Record case closed is the item action of an open case, and the subject link stays in its
 column and the details pane.

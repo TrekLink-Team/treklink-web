@@ -142,7 +142,7 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 ## Members on CollectionView (D-096, 2026-11-04)
 
 Added by KhoaDD. The member list of `/o/members` renders through `CollectionView` (chapter 06 §9): the
-"Show deactivated" checkbox becomes its Show filter (Active members, Active and deactivated; organizations
-api-design 12 `includeDeactivated`), and Resend invitation, Change role and Deactivate are item actions
+"Show deactivated" checkbox becomes its Show filter (All members, the default since 2026-11-06 under chapter 06
+§11.7, leader ruling; Active members; organizations api-design 12 `includeDeactivated`), and Resend invitation, Change role and Deactivate are item actions
 with tooltips, named "Resend invitation to {name}", "Change role of {name}" and "Deactivate {name}". At
 360 px they gather in one Actions menu per member (chapter 06 §10.5). Endpoints and messages are unchanged.
