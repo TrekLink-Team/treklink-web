@@ -115,6 +115,8 @@ afterEach(() => {
       context: null,
       registerFrom: null,
       flashPanel: null,
+      hubIntent: null,
+      hubUnit: null,
     });
   });
 });
@@ -144,11 +146,42 @@ describe('ConnectorPanel (screen 4.6)', () => {
     // The count is drawn from data-count, so the visible text stays inside the name (WCAG 2.5.3).
     expect(devices.querySelector('[data-count]')?.getAttribute('data-count')).toBe('2');
     expect(devices.textContent).toBe('Devices');
-    expect(rowAction('New device: register it?', `Unknown unit !${B.toString(16)}`)).toBeTruthy();
-    closeMenu();
+    // The card footer's main actions (design section 12.14, AC-49): labelled, before More actions and Show details.
+    const unknownRegister = screen.getByRole('button', { name: `Register Unknown unit !${B.toString(16)}` });
+    expect(unknownRegister.textContent).toBe('Register');
+    for (const label of ['Open in device hub', 'Update firmware', 'Reboot']) {
+      const button = screen.getByRole('button', { name: `${label} TL-0042` });
+      expect(button.textContent).toBe(label);
+    }
+    const footer = screen.getByRole('button', { name: 'Reboot TL-0042' }).closest('li') as HTMLElement;
+    const order = within(footer)
+      .getAllByRole('button')
+      .map((button) => button.getAttribute('aria-label'))
+      .filter((name): name is string => Boolean(name));
+    expect(order.slice(-5)).toEqual([
+      'Open in device hub TL-0042',
+      'Update firmware TL-0042',
+      'Reboot TL-0042',
+      'More actions for TL-0042',
+      'Show details of TL-0042',
+    ]);
     expect(rowAction('Configure uplink', 'TL-0042')).toBeTruthy();
     closeMenu();
     expect(screen.getByText('Available')).toBeTruthy();
+  });
+
+  it('opens the device hub on the unit and starts Reboot there (design section 12.14)', async () => {
+    renderPanel();
+    const { connectorRegistry } = await import('../model/ConnectorRegistry');
+    await act(async () => {
+      await connectorRegistry(recognizeUnits, { handshakeMs: 600, writeMs: 500, restartDelayMs: 40, restartDeadlineMs: 300, retryMs: 20 }).start();
+    });
+    const reboot = await screen.findByRole('button', { name: 'Reboot TL-0042' }, { timeout: 4000 });
+    fireEvent.click(reboot);
+    const state = useConnectorStore.getState();
+    expect(state.hubIntent).toMatchObject({ action: 'reboot' });
+    expect(state.hubUnit).toBe(state.hubIntent?.connectionId);
+    expect(state.open).toBe(false);
   });
 
   it('opens the device view with the unit read and the labelled slot when the render is missing (AC-37)', async () => {
@@ -208,10 +241,11 @@ describe('ConnectorPanel uplink and flash (devices task 10.10, design section 12
     try {
       renderPanel();
       await start();
-      const button = rowAction('Update firmware', 'TL-0042');
+      const button = screen.getByRole('button', { name: 'Update firmware TL-0042' });
       expect(button.getAttribute('aria-disabled')).toBe('true');
       expect(screen.getAllByText('No firmware release is published yet.').length).toBeGreaterThan(0);
       fireEvent.click(button);
+      expect(useConnectorStore.getState().hubIntent).toBeNull();
       expect(screen.queryByText('Flash panel')).toBeNull();
     } finally {
       firmware.releases = [{ version: '2.7.26-treklink.2', publishedAt: '2026-10-20T03:15:00Z', isBaseline: true, variants: [{ variantCode: 'treklink-v3', chip: 'esp32', app: { offset: 65536, sizeBytes: 8 }, factory: { offset: 0, sizeBytes: 8 } }] }];
@@ -243,34 +277,20 @@ describe('ConnectorPanel uplink and flash (devices task 10.10, design section 12
     };
     renderPanel();
     await start();
-    const button = rowAction('Update firmware', 'TL-0042');
+    const button = screen.getByRole('button', { name: 'Update firmware TL-0042' });
     // Unavailable with its reason: in the tooltip and the description, and as text on the row (§9.8).
     expect(button.getAttribute('aria-disabled')).toBe('true');
     expect(screen.getAllByText('Firmware releases are not published yet').length).toBeGreaterThan(0);
     expect(button.getAttribute('aria-describedby')).toBeTruthy();
-    closeMenu();
 
-    const seen: { record?: string | null; locked?: boolean; runs: number } = { runs: 0 };
-    const FakeFlash: React.FC<import('../model/connectorStore').FlashPanelProps> = ({ device, withPort }) => {
-      React.useEffect(() => {
-        seen.runs += 1;
-        seen.record = device.maintenanceRecordId;
-        void withPort(async () => {
-          const { connectorRegistry } = await import('../model/ConnectorRegistry');
-          seen.locked = connectorRegistry(recognizeUnits).getSnapshot().writing !== null;
-        }).catch(() => undefined);
-      }, [device, withPort]);
-      return <p>Flash panel for {device.assetTag}</p>;
-    };
+    // Once the panel registers, Update firmware opens the hub on the unit, which runs the flash through its
+    // dialogs (design section 12.14).
+    const FakeFlash: React.FC = () => <p>Flash panel</p>;
     act(() => useConnectorStore.getState().registerFlashPanel(FakeFlash));
-    const enabled = rowAction('Update firmware', 'TL-0042');
-    expect(enabled.getAttribute('aria-disabled')).toBeNull();
-    expect(screen.queryByText('Firmware releases are not published yet')).toBeNull();
+    const enabled = screen.getByRole('button', { name: 'Update firmware TL-0042' });
+    await waitFor(() => expect(enabled.getAttribute('aria-disabled')).toBeNull());
     fireEvent.click(enabled);
-    expect(await screen.findByText('Flash panel for TL-0042')).toBeTruthy();
-    await waitFor(() => expect(seen).toMatchObject({ record: 'mr-1', locked: true }));
-    // The props are stable: the panel's effect ran once although the registry changed meanwhile.
-    expect(seen.runs).toBe(1);
+    expect(useConnectorStore.getState().hubIntent).toMatchObject({ action: 'flash' });
   });
 });
 

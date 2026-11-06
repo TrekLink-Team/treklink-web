@@ -468,6 +468,10 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
             onForget={setForgetting}
             onReconnect={() => void registry.reconnectOffer?.reconnect()}
             onStopReconnect={() => registry.reconnectOffer?.stop()}
+            onOpenHub={(connection, action) => {
+              useConnectorStore.getState().openHub(connection.id, action);
+              navigate('/t/device-hub');
+            }}
           />
         </>
       )}

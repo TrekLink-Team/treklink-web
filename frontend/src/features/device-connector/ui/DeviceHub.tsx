@@ -41,7 +41,7 @@ import { factoryResetMessage, rebootMessage } from '../actions/messages';
 import { useDocking } from '../actions/useDocking';
 import type { Connection, ConnectionState } from '../model/ConnectorRegistry';
 import { useConnectorStore, type FlashPanel, type FlashPanelProps } from '../model/connectorStore';
-import { HUB_GROUPS, hubActionsFor, type HubAction, type HubConfirm } from '../model/hubActions';
+import { HUB_GROUPS, HUB_LABELS, hubActionsFor, type HubAction, type HubConfirm } from '../model/hubActions';
 import { STATE_TEXT, unitName } from '../model/text';
 import { useConnector, useConnectorRefresh } from '../model/useConnector';
 import { useFlashAvailability } from '../model/useFlashAvailability';
@@ -329,6 +329,28 @@ export const DeviceHub: React.FC<{ timings?: DockTimings }> = ({ timings }) => {
         view(connection.id);
     }
   };
+
+  // A card's Update firmware or Reboot opened the hub on its unit (design section 12.14): run it once the unit is
+  // read, through the same dialogs as the buttons here.
+  const hubIntent = useConnectorStore((state) => state.hubIntent);
+  const clearHubIntent = useConnectorStore((state) => state.clearHubIntent);
+  const intended =
+    hubIntent && selected?.id === hubIntent.connectionId
+      ? actions.find((action) => action.kind === hubIntent.action)
+      : undefined;
+  useEffect(() => {
+    if (!hubIntent || !selected || !intended) return;
+    if (selected.state !== 'ready') return;
+    clearHubIntent();
+    const connection = selected;
+    const action = intended;
+    // After this render, as the page's own buttons do: the action opens its dialog or runs.
+    void Promise.resolve().then(() => {
+      if (action.available) onAction(connection, action);
+      else setFailure(`${HUB_LABELS[action.kind]}: ${action.reason ?? 'not available now.'}`);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per intent, when the unit is ready
+  }, [hubIntent, selected?.id, selected?.state, intended?.available]);
 
   if (!snapshot.supported) {
     return (

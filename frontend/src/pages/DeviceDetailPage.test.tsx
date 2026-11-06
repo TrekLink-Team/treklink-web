@@ -211,7 +211,7 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     expect(image.getAttribute('src')).toBe('/variants/treklink-v3-detail.png');
     expect(image.getAttribute('width')).toBe('160');
     fireEvent.click(screen.getByRole('button', { name: 'Preview TrekLink v3 image' }));
-    const preview = screen.getByRole('figure', { name: 'TrekLink v3 image preview' });
+    const preview = screen.getByRole('dialog', { name: 'TrekLink v3' });
     expect(preview.querySelector('img')?.getAttribute('src')).toBe('/variants/treklink-v3-detail.png');
   });
 

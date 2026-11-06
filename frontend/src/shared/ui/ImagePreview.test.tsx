@@ -4,168 +4,115 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { IMAGE_PREVIEW_DELAY_MS, ImagePreview } from './ImagePreview';
 
-const renderPreview = () =>
+// The image focus view of devices design section 12.14 (REQ-EVT-51, AC-50): opened after a 500 ms rest, a click,
+// a tap or Enter and Space; centred over a dimmed backdrop at no more than 90 % of the viewport; a modal dialog that
+// traps focus and returns it to the image; closed by Escape, a click or tap outside, or Close.
+
+const renderPreview = (hoverOnly = false) =>
   render(
-    <ImagePreview src="/variants/v3-detail.webp" alt="TrekLink v3 unit" caption="TrekLink v3">
-      <span>Thumbnail</span>
-    </ImagePreview>,
+    <>
+      <button type="button">Before</button>
+      <ImagePreview src="/variants/v3-detail.webp" alt="TrekLink v3 unit" caption="TrekLink v3" hoverOnly={hoverOnly}>
+        <span>Thumbnail</span>
+      </ImagePreview>
+    </>,
   );
+
+const view = () => screen.queryByRole('dialog', { name: 'TrekLink v3' });
 
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
 });
 
-describe('ImagePreview', () => {
-  it('waits 500 ms before opening on pointer rest', () => {
+describe('ImagePreview, the image focus view', () => {
+  it('waits 500 ms before opening on a pointer rest', () => {
     vi.useFakeTimers();
     renderPreview();
     const trigger = screen.getByRole('button', { name: 'Preview TrekLink v3 image' });
 
-    fireEvent.pointerEnter(trigger);
+    fireEvent.pointerEnter(trigger, { pointerType: 'mouse' });
     act(() => vi.advanceTimersByTime(IMAGE_PREVIEW_DELAY_MS - 1));
-    expect(screen.queryByRole('figure', { name: 'TrekLink v3 image preview' })).toBeNull();
+    expect(view()).toBeNull();
 
     act(() => vi.advanceTimersByTime(1));
-    expect(screen.getByRole('figure', { name: 'TrekLink v3 image preview' })).toBeTruthy();
+    expect(view()).toBeTruthy();
   });
 
-  it('cancels the delayed preview when the pointer leaves early', () => {
+  it('cancels the delayed view when the pointer leaves early', () => {
     vi.useFakeTimers();
     renderPreview();
     const trigger = screen.getByRole('button', { name: 'Preview TrekLink v3 image' });
 
-    fireEvent.pointerEnter(trigger);
+    fireEvent.pointerEnter(trigger, { pointerType: 'mouse' });
     act(() => vi.advanceTimersByTime(IMAGE_PREVIEW_DELAY_MS - 1));
-    fireEvent.pointerLeave(trigger);
+    fireEvent.pointerLeave(trigger, { pointerType: 'mouse' });
     act(() => vi.advanceTimersByTime(IMAGE_PREVIEW_DELAY_MS));
 
-    expect(screen.queryByRole('figure', { name: 'TrekLink v3 image preview' })).toBeNull();
+    expect(view()).toBeNull();
   });
 
-  it('opens immediately on click and closes on Escape', () => {
+  it('opens centred, at most 90 % of the viewport, over a dimmed backdrop, with the caption', () => {
+    renderPreview();
+    fireEvent.click(screen.getByRole('button', { name: 'Preview TrekLink v3 image' }));
+
+    const dialog = view() as HTMLElement;
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(dialog.className).toContain('inset-0');
+    expect(dialog.className).toContain('bg-scrim');
+    const image = screen.getByRole('img', { name: 'TrekLink v3 unit' });
+    expect(image.getAttribute('src')).toBe('/variants/v3-detail.webp');
+    expect(image.className).toContain('max-w-[90vw]');
+    expect(image.className).toContain('max-h-[calc(90dvh-3rem)]');
+    expect(screen.getByText('TrekLink v3').tagName).toBe('FIGCAPTION');
+  });
+
+  it('moves focus inside, keeps it there, and returns it to the image on Escape', () => {
     renderPreview();
     const trigger = screen.getByRole('button', { name: 'Preview TrekLink v3 image' });
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: 'Enter' });
 
-    fireEvent.click(trigger);
-    expect(screen.getByRole('figure', { name: 'TrekLink v3 image preview' })).toBeTruthy();
+    const close = screen.getByRole('button', { name: 'Close the TrekLink v3 image' });
+    expect(document.activeElement).toBe(close);
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(document.activeElement).toBe(close);
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(close);
+
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByRole('figure', { name: 'TrekLink v3 image preview' })).toBeNull();
-  });
-
-  it('stays open while the pointer moves onto the preview and closes after leaving it', () => {
-    vi.useFakeTimers();
-    renderPreview();
-    const trigger = screen.getByRole('button', { name: 'Preview TrekLink v3 image' });
-
-    fireEvent.pointerEnter(trigger);
-    act(() => vi.advanceTimersByTime(IMAGE_PREVIEW_DELAY_MS));
-    const preview = screen.getByRole('figure', { name: 'TrekLink v3 image preview' });
-    fireEvent.pointerLeave(trigger);
-    fireEvent.pointerEnter(preview);
-    act(() => vi.runOnlyPendingTimers());
-    expect(screen.getByRole('figure', { name: 'TrekLink v3 image preview' })).toBeTruthy();
-
-    fireEvent.pointerLeave(preview);
-    act(() => vi.runOnlyPendingTimers());
-    expect(screen.queryByRole('figure', { name: 'TrekLink v3 image preview' })).toBeNull();
-  });
-
-  it('keeps a click-opened preview visible after a touch pointer leaves', () => {
-    vi.useFakeTimers();
-    renderPreview();
-    const trigger = screen.getByRole('button', { name: 'Preview TrekLink v3 image' });
-
-    fireEvent.click(trigger);
-    fireEvent.pointerLeave(trigger, { pointerType: 'touch' });
-    act(() => vi.runOnlyPendingTimers());
-
-    expect(screen.getByRole('figure', { name: 'TrekLink v3 image preview' })).toBeTruthy();
-  });
-
-  it.each(['Enter', ' '])('opens from the %s key while the trigger has focus', (key) => {
-    renderPreview();
-    const trigger = screen.getByRole('button', { name: 'Preview TrekLink v3 image' });
-    trigger.focus();
-
-    fireEvent.keyDown(trigger, { key });
-
-    expect(screen.getByRole('figure', { name: 'TrekLink v3 image preview' })).toBeTruthy();
-  });
-
-  // Review of treklink-web#405: a phone has no Escape key, so a tapped preview must close by touch.
-  it('closes a tapped preview on a tap outside it, and stays open on a tap inside it', () => {
-    renderPreview();
-    const trigger = screen.getByRole('button', { name: 'Preview TrekLink v3 image' });
-    fireEvent.pointerDown(trigger, { pointerType: 'touch' });
-    fireEvent.click(trigger);
-    const preview = screen.getByRole('figure', { name: 'TrekLink v3 image preview' });
-    fireEvent.pointerDown(preview, { pointerType: 'touch' });
-    expect(screen.getByRole('figure', { name: 'TrekLink v3 image preview' })).toBeTruthy();
-    fireEvent.pointerDown(document.body, { pointerType: 'touch' });
-    expect(screen.queryByRole('figure', { name: 'TrekLink v3 image preview' })).toBeNull();
-  });
-
-  it('closes on a second click or Enter on the trigger', () => {
-    renderPreview();
-    const trigger = screen.getByRole('button', { name: 'Preview TrekLink v3 image' });
-    fireEvent.click(trigger);
-    expect(trigger.getAttribute('aria-expanded')).toBe('true');
-    fireEvent.click(trigger);
-    expect(screen.queryByRole('figure', { name: 'TrekLink v3 image preview' })).toBeNull();
-    expect(trigger.getAttribute('aria-expanded')).toBe('false');
-    fireEvent.keyDown(trigger, { key: 'Enter' });
-    fireEvent.keyDown(trigger, { key: 'Enter' });
-    expect(screen.queryByRole('figure', { name: 'TrekLink v3 image preview' })).toBeNull();
-  });
-
-  it('keeps a preview opened by a mouse rest when the mouse then clicks the trigger', () => {
-    vi.useFakeTimers();
-    renderPreview();
-    const trigger = screen.getByRole('button', { name: 'Preview TrekLink v3 image' });
-    fireEvent.pointerEnter(trigger);
-    act(() => vi.advanceTimersByTime(IMAGE_PREVIEW_DELAY_MS));
-    fireEvent.click(trigger);
-    expect(screen.getByRole('figure', { name: 'TrekLink v3 image preview' })).toBeTruthy();
-  });
-
-  it('is a named figure with focus left on the trigger, not a dialog', () => {
-    renderPreview();
-    const trigger = screen.getByRole('button', { name: 'Preview TrekLink v3 image' });
-    trigger.focus();
-    fireEvent.keyDown(trigger, { key: 'Enter' });
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(trigger.getAttribute('aria-haspopup')).toBeNull();
-    expect(trigger.getAttribute('aria-controls')).toBe(
-      screen.getByRole('figure', { name: 'TrekLink v3 image preview' }).id,
-    );
+    expect(view()).toBeNull();
     expect(document.activeElement).toBe(trigger);
   });
 
-  // A thumbnail inside a row that is itself a link or a button never swallows the row's click.
+  it('opens on Space and closes with Close', () => {
+    renderPreview();
+    const trigger = screen.getByRole('button', { name: 'Preview TrekLink v3 image' });
+    fireEvent.keyDown(trigger, { key: ' ' });
+    fireEvent.click(screen.getByRole('button', { name: 'Close the TrekLink v3 image' }));
+    expect(view()).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('opens on a tap and closes on the next tap, on the image or outside it', () => {
+    renderPreview();
+    const trigger = screen.getByRole('button', { name: 'Preview TrekLink v3 image' });
+    fireEvent.pointerEnter(trigger, { pointerType: 'touch' });
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('img', { name: 'TrekLink v3 unit' }));
+    expect(view()).toBeNull();
+
+    fireEvent.click(trigger);
+    fireEvent.click(view() as HTMLElement);
+    expect(view()).toBeNull();
+  });
+
   it('is no control of its own in hover-only mode and opens after the rest', () => {
     vi.useFakeTimers();
-    const onRow = vi.fn();
-    render(
-      <button type="button" onClick={onRow}>
-        <ImagePreview
-          src="/variants/v3-detail.webp"
-          alt="TrekLink v3 unit"
-          caption="TrekLink v3"
-          hoverOnly
-        >
-          <span>Thumbnail</span>
-        </ImagePreview>
-        TL-0042
-      </button>,
-    );
-    expect(screen.getAllByRole('button')).toHaveLength(1);
-    const thumbnail = screen.getByText('Thumbnail');
-    fireEvent.click(thumbnail);
-    expect(onRow).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('figure')).toBeNull();
-    fireEvent.pointerEnter(thumbnail.parentElement as HTMLElement);
+    renderPreview(true);
+    expect(screen.queryByRole('button', { name: 'Preview TrekLink v3 image' })).toBeNull();
+    fireEvent.pointerEnter(screen.getByText('Thumbnail').parentElement as HTMLElement, { pointerType: 'mouse' });
     act(() => vi.advanceTimersByTime(IMAGE_PREVIEW_DELAY_MS));
-    expect(screen.getByRole('figure', { name: 'TrekLink v3 image preview' })).toBeTruthy();
+    expect(view()).toBeTruthy();
   });
 });

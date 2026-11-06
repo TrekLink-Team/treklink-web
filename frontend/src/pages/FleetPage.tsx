@@ -28,6 +28,7 @@ import { cn } from '../shared/ui/cn';
 import { ScrollStrip } from '../shared/ui/ScrollStrip';
 import {
   CollectionView,
+  type CollectionAction,
   type CollectionBulkAction,
   type CollectionField,
   type CollectionTransition,
@@ -44,7 +45,8 @@ import { VariantCard } from '../entities/variant/VariantCard';
 import { VariantSubtitle, VariantTile } from '../entities/variant/VariantTile';
 import { VariantImage } from '../entities/variant/VariantImage';
 import { ALERT, ERROR_TEXT, WARNING } from '../shared/ui/styles';
-import { ClipboardCheck, Cpu, RotateCcw } from 'lucide-react';
+import { ClipboardCheck, Cpu, Download, FileText, LayoutDashboard, Power, RotateCcw, SearchX, Wrench } from 'lucide-react';
+import { ReportLossDialog } from '../features/report-loss/ReportLossDialog';
 import { intakeDockMessage } from '../features/device-connector/actions/messages';
 import { useDocking } from '../features/device-connector/actions/useDocking';
 import {
@@ -390,7 +392,7 @@ export const FleetPage: React.FC = () => {
   const [registering, setRegistering] = useState(false);
   const registerFrom = useConnectorStore((state) => state.registerFrom);
   const setRegisterFrom = useConnectorStore((state) => state.setRegisterFrom);
-  const { registry } = useConnector();
+  const { registry, snapshot: connector } = useConnector();
   const { refresh: refreshConnector } = useConnectorRefresh();
   useConnectorContext(registering || params.get('register') === '1' ? INTAKE : FLEET);
   // The connector's "New device: register it?" lands here with `?register=1` (REQ-EVT-33); closing the
@@ -457,6 +459,81 @@ export const FleetPage: React.FC = () => {
     showToast(MSG03);
     void refreshDevices();
   };
+
+  // The card footer's actions (devices design section 12.14, REQ-EVT-50): a unit connected over USB in this browser
+  // gets the device hub's actions, which run in the hub on that unit; one that is not gets the next sensible action
+  // for its state, or Open in hub disabled with the reason. The table's row actions keep the same order.
+  const connectedOf = (device: Device) =>
+    connector.connections.find(
+      (connection) =>
+        connection.state === 'ready' &&
+        connection.unit?.nodeNum === device.nodeNum &&
+        connection.recognized?.device?.id === device.id,
+    ) ?? null;
+  const notConnected = (device: Device) => `Connect ${device.assetTag} over USB to use the hub.`;
+  const openHubOn = (device: Device, action?: 'reboot' | 'flash') => {
+    const connection = connectedOf(device);
+    if (!connection) return;
+    useConnectorStore.getState().openHub(connection.id, action);
+    navigate('/t/device-hub');
+  };
+  const [reportingLoss, setReportingLoss] = useState<Device | null>(null);
+  const hubActions: CollectionAction<Device>[] = [
+    {
+      key: 'page',
+      inline: true,
+      label: 'Open device page',
+      icon: <FileText />,
+      onSelect: (device) => navigate(`/t/devices/${device.id}`),
+    },
+    {
+      key: 'hub',
+      slot: 'next',
+      inline: true,
+      label: 'Open in hub',
+      icon: <LayoutDashboard />,
+      allowed: (device) =>
+        Boolean(connectedOf(device)) || (device.status !== 'MAINTENANCE' && device.status !== 'RENTED'),
+      unavailableReason: (device) => (connectedOf(device) ? undefined : notConnected(device)),
+      onSelect: (device) => openHubOn(device),
+    },
+    {
+      key: 'service',
+      slot: 'next',
+      inline: true,
+      label: 'Record service',
+      icon: <Wrench />,
+      allowed: (device) => !connectedOf(device) && device.status === 'MAINTENANCE',
+      onSelect: () => navigate('/t/maintenance'),
+    },
+    {
+      key: 'loss',
+      slot: 'next',
+      inline: true,
+      label: 'Report loss',
+      icon: <SearchX />,
+      allowed: (device) => !connectedOf(device) && device.status === 'RENTED',
+      onSelect: (device) => setReportingLoss(device),
+    },
+    {
+      key: 'flash',
+      inline: true,
+      label: 'Update firmware',
+      icon: <Download />,
+      allowed: (device) => Boolean(connectedOf(device)),
+      unavailableReason: (device) => (connectedOf(device) ? undefined : notConnected(device)),
+      onSelect: (device) => openHubOn(device, 'flash'),
+    },
+    {
+      key: 'reboot',
+      inline: true,
+      label: 'Reboot',
+      icon: <Power />,
+      allowed: (device) => Boolean(connectedOf(device)),
+      unavailableReason: (device) => (connectedOf(device) ? undefined : notConnected(device)),
+      onSelect: (device) => openHubOn(device, 'reboot'),
+    },
+  ];
 
   const itemsOf = (devices: Device[]): BulkItem[] =>
     devices.map((device) => ({ id: device.id, label: device.assetTag }));
@@ -603,6 +680,7 @@ export const FleetPage: React.FC = () => {
         fields={fields}
         noun={{ one: 'device', other: 'devices' }}
         itemActions={[
+          ...hubActions,
           {
             key: 'intake',
             label: ACTION_LABEL.intake,
@@ -735,6 +813,19 @@ export const FleetPage: React.FC = () => {
           }
           onFinished={() => void refreshDevices()}
           onClose={() => setBulk(null)}
+        />
+      )}
+      {reportingLoss && (
+        <ReportLossDialog
+          deviceId={reportingLoss.id}
+          assetTag={reportingLoss.assetTag}
+          scope="t"
+          onClose={() => setReportingLoss(null)}
+          onReported={(reported) => {
+            setReportingLoss(null);
+            void refreshDevices();
+            navigate(`/t/loss-cases/${reported.id}`);
+          }}
         />
       )}
       {registerOpen && (
