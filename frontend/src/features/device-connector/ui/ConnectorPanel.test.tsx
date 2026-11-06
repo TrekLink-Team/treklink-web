@@ -149,9 +149,10 @@ describe('ConnectorPanel (screen 4.6)', () => {
     // The card footer's main actions (design section 12.14, AC-49): labelled, before More actions and Show details.
     const unknownRegister = screen.getByRole('button', { name: `Register Unknown unit !${B.toString(16)}` });
     expect(unknownRegister.textContent).toBe('Register');
-    for (const label of ['Open in device hub', 'Update firmware', 'Reboot']) {
+    // Short visible labels in the card, each part of the full name (WCAG 2.5.3).
+    for (const [label, shown] of [['Open in device hub', 'Hub'], ['Update firmware', 'Firmware'], ['Reboot', 'Reboot']]) {
       const button = screen.getByRole('button', { name: `${label} TL-0042` });
-      expect(button.textContent).toBe(label);
+      expect(button.textContent).toBe(shown);
     }
     const footer = screen.getByRole('button', { name: 'Reboot TL-0042' }).closest('li') as HTMLElement;
     const order = within(footer)

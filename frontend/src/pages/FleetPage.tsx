@@ -481,6 +481,7 @@ export const FleetPage: React.FC = () => {
   const hubActions: CollectionAction<Device>[] = [
     {
       key: 'page',
+      cardLabel: 'Device page',
       inline: true,
       label: 'Open device page',
       icon: <FileText />,
@@ -488,6 +489,7 @@ export const FleetPage: React.FC = () => {
     },
     {
       key: 'hub',
+      cardLabel: 'Hub',
       slot: 'next',
       inline: true,
       label: 'Open in hub',
@@ -499,6 +501,7 @@ export const FleetPage: React.FC = () => {
     },
     {
       key: 'service',
+      cardLabel: 'Service',
       slot: 'next',
       inline: true,
       label: 'Record service',
@@ -517,6 +520,7 @@ export const FleetPage: React.FC = () => {
     },
     {
       key: 'flash',
+      cardLabel: 'Firmware',
       inline: true,
       label: 'Update firmware',
       icon: <Download />,

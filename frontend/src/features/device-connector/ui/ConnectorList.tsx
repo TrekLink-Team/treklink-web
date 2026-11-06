@@ -209,6 +209,7 @@ export const ConnectorList: React.FC<Props> = ({
           slot: 'main',
           inline: true,
           label: 'Open in device hub',
+          cardLabel: 'Hub',
           icon: <LayoutDashboard />,
           allowed: (connection) => Boolean(connection.recognized?.device) || !connection.recognized,
           unavailableReason: (connection) => (ready(connection) ? undefined : STATE_TEXT[connection.state]),
@@ -224,6 +225,7 @@ export const ConnectorList: React.FC<Props> = ({
           key: 'hub-flash',
           inline: true,
           label: 'Update firmware',
+          cardLabel: 'Firmware',
           icon: <Download />,
           allowed: (connection) => Boolean(connection.recognized?.device),
           unavailableReason: (connection) => {

@@ -62,6 +62,11 @@ export interface CollectionAction<T> {
    * overflow menu still holds the other actions once they are three or more (chapter 06 §11.4).
    */
   inline?: boolean;
+  /**
+   * The visible label of a main quick action in a card footer, when the verb is long ("Hub" for "Open in device
+   * hub"). It must be part of `label`, which stays the tooltip and starts the accessible name (WCAG 2.5.3).
+   */
+  cardLabel?: string;
 }
 
 /**

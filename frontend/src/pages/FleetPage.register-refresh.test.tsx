@@ -180,7 +180,7 @@ describe('Register device refreshes the connected units (AC-48)', () => {
       expect(within(card).getByRole('button', { name: 'Reboot Treklink a264' }).getAttribute('aria-disabled')).toBeNull(),
     );
     expect(within(card).getByRole('button', { name: 'Open in hub Treklink a264' }).getAttribute('aria-disabled')).toBeNull();
-    expect(within(card).getByRole('button', { name: 'Update firmware Treklink a264' }).textContent).toBe('Update firmware');
+    expect(within(card).getByRole('button', { name: 'Update firmware Treklink a264' }).textContent).toBe('Firmware');
     // Another unit, not connected, keeps the slots disabled with the reason.
     const other = within(screen.getByRole('list', { name: 'Devices' })).getAllByRole('listitem')[1];
     expect(within(other).getByRole('button', { name: 'Reboot TL-0002' }).getAttribute('aria-disabled')).toBe('true');
