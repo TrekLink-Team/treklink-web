@@ -1,0 +1,118 @@
+{
+  "date": "2026-11-06",
+  "timezone": "Asia/Ho_Chi_Minh",
+  "site": "https://treklink-web.vercel.app",
+  "runner": "Automated headless Chrome",
+  "contract": "RC-2026-0002",
+  "contractId": "c9911f57-ca8d-4afa-8bd0-70fb3ffde1e6",
+  "invoice": "INV-2026-000006",
+  "invoiceId": "ed99d959-0765-44a7-a6ad-c274a65710a8",
+  "lossCase": "LOSS-0001",
+  "damageApprovalThresholdVnd": 500000,
+  "damageVnd": 700000,
+  "lossVnd": 2500000,
+  "earlyEndCreditVnd": 750000,
+  "closingTotalVnd": 2450000,
+  "receipt": "WF05-DS05B-20261106-RC0002",
+  "paymentIsSandbox": false,
+  "finalContractStatus": "CLOSED",
+  "dueNowVnd": 0,
+  "dueLaterVnd": 0,
+  "tl0017": "MAINTENANCE",
+  "tl0018": "RETIRED",
+  "findings": [
+    "TrekLink-Team/treklink-web#406",
+    "TrekLink-Team/treklink-web#407"
+  ],
+  "ds05a": "BLOCKED, separate fixture not confirmed",
+  "mutations": [
+    {
+      "atUtc": "2026-11-06T00:47:39.9500000Z",
+      "role": "TrekLink Staff",
+      "method": "POST",
+      "path": "/api/contracts/c9911f57-ca8d-4afa-8bd0-70fb3ffde1e6/end",
+      "status": 200,
+      "isSuccess": true
+    },
+    {
+      "atUtc": "2026-11-06T00:47:40.9870000Z",
+      "role": "TrekLink Staff",
+      "method": "POST",
+      "path": "/api/contracts/c9911f57-ca8d-4afa-8bd0-70fb3ffde1e6/check-ins",
+      "status": 200,
+      "isSuccess": true
+    },
+    {
+      "atUtc": "2026-11-06T00:49:44.3340000Z",
+      "role": "TrekLink Staff",
+      "method": "POST",
+      "path": "/api/devices/2e39f188-621f-4685-9e41-4136895c0bb1/reset",
+      "status": 201,
+      "isSuccess": true
+    },
+    {
+      "atUtc": "2026-11-06T00:51:16.1180000Z",
+      "role": "TrekLink Staff",
+      "method": "POST",
+      "path": "/api/contracts/c9911f57-ca8d-4afa-8bd0-70fb3ffde1e6/devices/2e39f188-621f-4685-9e41-4136895c0bb1/inspection",
+      "status": 201,
+      "isSuccess": true
+    },
+    {
+      "atUtc": "2026-11-06T00:53:31.9520000Z",
+      "role": "TrekLink Staff",
+      "method": "POST",
+      "path": "/api/devices/54bda5ee-59c4-4d7d-94c0-dfe35b411880/loss-cases",
+      "status": 201,
+      "isSuccess": true
+    },
+    {
+      "atUtc": "2026-11-06T00:53:33.2280000Z",
+      "role": "TrekLink Staff",
+      "method": "POST",
+      "path": "/api/loss-cases/450440eb-83b4-4dde-9ddb-825dd3b7a7d0/triage",
+      "status": 200,
+      "isSuccess": true
+    },
+    {
+      "atUtc": "2026-11-06T00:53:33.6720000Z",
+      "role": "TrekLink Staff",
+      "method": "POST",
+      "path": "/api/loss-cases/450440eb-83b4-4dde-9ddb-825dd3b7a7d0/confirm",
+      "status": 200,
+      "isSuccess": true
+    },
+    {
+      "atUtc": "2026-11-06T00:54:22.3340000Z",
+      "role": "TrekLink Admin",
+      "method": "POST",
+      "path": "/api/loss-cases/450440eb-83b4-4dde-9ddb-825dd3b7a7d0/decision",
+      "status": 200,
+      "isSuccess": true
+    },
+    {
+      "atUtc": "2026-11-06T00:54:59.0920000Z",
+      "role": "TrekLink Admin",
+      "method": "POST",
+      "path": "/api/damage-charges/403bdf84-1862-4794-b5c4-2902f953adcf/decision",
+      "status": 200,
+      "isSuccess": true
+    },
+    {
+      "atUtc": "2026-11-06T00:55:48.8070000Z",
+      "role": "TrekLink Staff",
+      "method": "POST",
+      "path": "/api/invoices/ed99d959-0765-44a7-a6ad-c274a65710a8/payments/counter",
+      "status": 201,
+      "isSuccess": true
+    },
+    {
+      "atUtc": "2026-11-06T00:55:50.2450000Z",
+      "role": "TrekLink Staff",
+      "method": "POST",
+      "path": "/api/contracts/c9911f57-ca8d-4afa-8bd0-70fb3ffde1e6/close",
+      "status": 200,
+      "isSuccess": true
+    }
+  ]
+}
