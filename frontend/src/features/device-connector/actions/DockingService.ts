@@ -251,6 +251,7 @@ export class DockingService {
         back.unit.shortName !== owner.shortName && 'owner short name',
         back.loraRegion() !== region && 'region',
         !back.primaryKeyIsDefault() && 'channel key',
+        back.secondaryChannelCount() > 0 && 'secondary channels off',
         !back.networkOff() && 'Wi-Fi and MQTT off',
       ].filter((item): item is string => Boolean(item));
       if (differs.length > 0) {
@@ -262,8 +263,9 @@ export class DockingService {
     }
   }
 
-  // Restore TrekLink defaults (devices design section 12.14, REQ-EVT-47): owner, channel 0 default, Wi-Fi and MQTT
-  // off in one transaction, one restart, and the read-back. The firmware and the node database stay.
+  // Restore TrekLink defaults (devices design section 12.14, REQ-EVT-47): owner, channel 0 default, every secondary
+  // channel disabled, Wi-Fi and MQTT off in one transaction, one restart, and the read-back. The firmware and the
+  // node database stay.
   async restoreDefaults(expected: ExpectedUnit, hooks: DockHooks): Promise<{ nodeNum: number }> {
     const session = await this.confirmUnit(expected);
     const owner = ownerFor(expected.assetTag);
@@ -281,6 +283,7 @@ export class DockingService {
         back.unit.longName !== owner.longName && 'owner long name',
         back.unit.shortName !== owner.shortName && 'owner short name',
         !back.primaryKeyIsDefault() && 'channel key',
+        back.secondaryChannelCount() > 0 && 'secondary channels off',
         !back.networkOff() && 'Wi-Fi and MQTT off',
       ].filter((item): item is string => Boolean(item));
       if (differs.length > 0) {

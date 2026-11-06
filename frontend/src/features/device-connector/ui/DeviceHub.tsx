@@ -663,8 +663,8 @@ export const DeviceHub: React.FC<{ timings?: DockTimings }> = ({ timings }) => {
         >
           <p className="text-body text-ink">
             This writes the owner {pending.connection.recognized.device.assetTag}, puts channel 0 back on the TrekLink
-            default key, and turns Wi-Fi and MQTT off. Region, LoRa preset, node database and firmware stay. The unit
-            restarts once.
+            default key, removes any other channel and its key, and turns Wi-Fi and MQTT off. Region, LoRa preset, node
+            database and firmware stay. The unit restarts once, and its record no longer shows it provisioned.
           </p>
         </HubActionDialog>
       )}

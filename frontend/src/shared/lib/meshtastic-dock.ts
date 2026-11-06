@@ -15,6 +15,8 @@
 export const CONFIG_ONLY_NONCE = 69420;
 const BAUD_RATE = 115200;
 const PRIMARY_ROLE = 1;
+// `Channel.Role.DISABLED`: the firmware ignores the channel.
+const DISABLED_ROLE = 0;
 
 // The timings are estimates, not measured on hardware: a commit restarts the unit 7 s later
 // (firmware `configuration.h:372`), and an ESP32 boots in a few seconds.
@@ -106,6 +108,8 @@ export interface DockSession {
   primaryKeyIsDefault(): boolean;
   // Whether Wi-Fi and MQTT are both off, as after a factory reset.
   networkOff(): boolean;
+  // How many of channels 1 to 7 are enabled (any role but DISABLED), as read. A TrekLink unit uses channel 0 only.
+  secondaryChannelCount(): number;
   // `reboot_seconds` (devices design section 12.13); the unit restarts after `seconds`.
   reboot(seconds: number): Promise<void>;
   // `factory_reset_config` (devices design section 12.13); the unit restarts 7 s later.
@@ -298,6 +302,8 @@ class Session implements DockSession {
   unit!: UnitReading;
   private user: ProtoMessage | null = null;
   private channel: ChannelMessage | null = null;
+  // Channels 1 to 7 as read, kept while the session is open for Restore TrekLink defaults (design section 12.14).
+  private secondaries: ChannelMessage[] = [];
   private networkConfig: ProtoMessage | null = null;
   private loraConfig: ProtoMessage | null = null;
   private mqttConfig: ProtoMessage | null = null;
@@ -341,6 +347,9 @@ class Session implements DockSession {
       });
       events.onChannelPacket.subscribe((channel: ChannelMessage) => {
         if (channel.index === 0) this.channel = channel;
+        else if (Number(channel.index) > 0) {
+          this.secondaries = [...this.secondaries.filter((entry) => entry.index !== channel.index), channel];
+        }
       });
       events.onConfigPacket.subscribe((config: ProtoMessage) => {
         const kind = (config.payloadVariant as Variant).case;
@@ -409,6 +418,10 @@ class Session implements DockSession {
     const network = (this.networkConfig?.payloadVariant as Variant | undefined)?.value ?? {};
     const mqtt = (this.mqttConfig?.payloadVariant as Variant | undefined)?.value ?? {};
     return network.wifiEnabled !== true && mqtt.enabled !== true;
+  }
+
+  secondaryChannelCount() {
+    return this.secondaries.filter((channel) => Number(channel.role ?? 0) !== DISABLED_ROLE).length;
   }
 
   primaryKeyEquals(key: Uint8Array) {
@@ -529,6 +542,16 @@ class Session implements DockSession {
         },
       } as never),
     );
+    // Every enabled secondary channel goes: an organization's channel there would still carry its key.
+    for (const secondary of this.secondaries.filter((channel) => Number(channel.role ?? 0) !== DISABLED_ROLE)) {
+      await this.admin(`set_channel ${String(secondary.index)}`, () =>
+        this.device.setChannel({
+          ...secondary,
+          role: DISABLED_ROLE,
+          settings: { ...(secondary.settings ?? {}), psk: new Uint8Array(0), name: '', uplinkEnabled: false, downlinkEnabled: false },
+        } as never),
+      );
+    }
     await this.admin('set_config network', () =>
       this.device.setConfig({
         ...network,
@@ -646,6 +669,7 @@ class Session implements DockSession {
     this.closed = true;
     this.user = null;
     this.channel = null;
+    this.secondaries = [];
     this.networkConfig = null;
     this.loraConfig = null;
     this.mqttConfig = null;

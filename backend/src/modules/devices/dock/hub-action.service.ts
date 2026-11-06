@@ -209,6 +209,7 @@ export class HubActionService {
         before: {
           keyVersion: unit.keyVersion,
           keyOrganizationId: unit.keyOrganizationId,
+          provisionedAt: unit.provisionedAt,
           firmwareVersion: unit.firmwareVersion,
         },
         after: {
@@ -250,6 +251,8 @@ export class HubActionService {
         at,
         tx,
       );
+      // insertReset clears the key; the provisioning time goes too, so the record says what the unit carries.
+      await this.actions.clearKey(unit.id, tx);
       return { returnReset: true, keyCleared: true };
     }
     if (

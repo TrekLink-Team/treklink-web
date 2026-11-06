@@ -117,6 +117,8 @@ export interface UnitState {
   psk: Uint8Array;
   channelName: string;
   uplinkEnabled: boolean;
+  // Channels 1 to 7 (`Channel.role` 2 is SECONDARY, 0 DISABLED); the defaults have none.
+  secondaryChannels: { index: number; role: number; name: string; psk: Uint8Array }[];
   wifiEnabled: boolean;
   wifiSsid: string;
   wifiPsk: string;
@@ -149,6 +151,7 @@ export const unitState = (change: Partial<UnitState> = {}): UnitState => ({
   psk: new Uint8Array([1]),
   channelName: '',
   uplinkEnabled: false,
+  secondaryChannels: [],
   wifiEnabled: false,
   wifiSsid: '',
   wifiPsk: '',
@@ -187,6 +190,8 @@ export interface UnitBehaviour {
   loseMqttAddressOnCommit?: boolean;
   // Does not keep the LoRa region on commit.
   loseRegionOnCommit?: boolean;
+  // Keeps its secondary channels through the commit (a read-back that differs).
+  keepSecondaryChannelsOnCommit?: boolean;
   // How the commit restart looks from the browser: the port stays (a USB to UART bridge, v3), the port
   // drops and comes back as a granted port (native USB, v4), or the unit never comes back.
   restart?: 'port-stays' | 'port-returns' | 'never-returns';
@@ -406,7 +411,7 @@ export class FakeUnit {
     switch (write.variant) {
       case 'begin_edit_settings':
         this.inTransaction = true;
-        this.pending = { ...this.state, mqtt: { ...this.state.mqtt } };
+        this.pending = { ...this.state, mqtt: { ...this.state.mqtt }, secondaryChannels: [...this.state.secondaryChannels] };
         return;
       case 'set_owner': {
         const user = value(32);
@@ -416,7 +421,18 @@ export class FakeUnit {
       case 'set_channel': {
         const channel = value(33);
         const settings = channel && nested(channel, 2);
-        if (channel && num(channel, 1) === 0 && settings) {
+        const index = channel ? num(channel, 1) : 0;
+        if (channel && index > 0) {
+          // A secondary channel: written, or removed when its role is DISABLED (0, absent on the wire).
+          const others = target.secondaryChannels.filter((entry) => entry.index !== index);
+          const role = num(channel, 3);
+          target.secondaryChannels =
+            role === 0
+              ? others
+              : [...others, { index, role, name: settings ? text(settings, 3) : '', psk: settings ? bytesOf(settings, 2).slice() : new Uint8Array() }];
+          return;
+        }
+        if (channel && index === 0 && settings) {
           Object.assign(target, {
             psk: bytesOf(settings, 2).slice(),
             channelName: text(settings, 3),
@@ -469,6 +485,7 @@ export class FakeUnit {
           if (this.behaviour.losePskOnCommit) this.state.psk = before.psk;
           if (this.behaviour.loseMqttAddressOnCommit) this.state.mqtt.address = before.mqtt.address;
           if (this.behaviour.loseRegionOnCommit) this.state.region = before.region;
+          if (this.behaviour.keepSecondaryChannelsOnCommit) this.state.secondaryChannels = before.secondaryChannels;
         }
         this.pending = null;
         this.inTransaction = false;
@@ -531,6 +548,18 @@ export class FakeUnit {
         [3, 1],
       ])],
     ]);
+    for (const channel of s.secondaryChannels) {
+      out([
+        [10, message([
+          [1, channel.index],
+          [2, message([
+            [2, channel.psk],
+            [3, channel.name],
+          ])],
+          [3, channel.role],
+        ])],
+      ]);
+    }
     out([
       [5, message([
         [4, message([

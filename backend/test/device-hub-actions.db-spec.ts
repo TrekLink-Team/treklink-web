@@ -49,7 +49,8 @@ describe('HubActionService on Postgres', () => {
         registeredById: staff.id,
         status,
         statusChangedAt: new Date('2026-11-05T00:00:00.000Z'),
-        keyVersion: 3,
+        keyVersion: 1,
+        provisionedAt: new Date('2026-11-03T02:00:00.000Z'),
       },
     });
     return { id: device.id, assetTag: device.assetTag, nodeNum: Number(nodeNum) };
@@ -106,7 +107,24 @@ describe('HubActionService on Postgres', () => {
     });
     const row = await prisma.device.findUniqueOrThrow({ where: { id: device.id } });
     expect(row.keyVersion).toBeNull();
+    expect(row.provisionedAt).toBeNull();
     expect(await prisma.deviceReset.count({ where: { deviceId: device.id } })).toBe(1);
+  });
+
+  it('clears the provisioning of treklink a274 when the TrekLink defaults are restored (finding of 2026-11-06)', async () => {
+    // An AVAILABLE unit still recorded as provisioned with key version 1 (the hub's provisioning of 11-03).
+    const device = await unit(DeviceStatus.AVAILABLE);
+    const started = await service.start(
+      device.id,
+      { action: HubActionKind.RESTORE_DEFAULTS, nodeNum: device.nodeNum },
+      staff,
+    );
+
+    await service.finish(device.id, started.id, { outcome: 'SUCCEEDED' }, staff);
+
+    const row = await prisma.device.findUniqueOrThrow({ where: { id: device.id } });
+    expect([row.keyVersion, row.keyOrganizationId, row.provisionedAt]).toEqual([null, null, null]);
+    expect(await prisma.deviceReset.count({ where: { deviceId: device.id } })).toBe(0);
   });
 
   it('sets the firmware on record after a flash of an available unit, and refuses a second finish', async () => {
@@ -124,7 +142,7 @@ describe('HubActionService on Postgres', () => {
 
     const row = await prisma.device.findUniqueOrThrow({ where: { id: device.id } });
     expect(row.firmwareVersion).toBe('2.7.26-treklink.1');
-    expect(row.keyVersion).toBe(3);
+    expect(row.keyVersion).toBe(1);
     await expect(
       service.finish(device.id, started.id, { outcome: 'FAILED' }, staff),
     ).rejects.toMatchObject({
