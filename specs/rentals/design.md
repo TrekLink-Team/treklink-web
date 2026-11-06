@@ -147,6 +147,17 @@ arithmetic.
 5. `HandoverService.complete` checks the first payment through `billing`, readiness through `devices`,
    renders the PDF with the signature, stores it under `HANDOVER_NOTE_STORAGE_DIR` with its SHA-256, and
    commits the `RENTED` devices and `ACTIVE` together.
+6. **A key flagged exposed (D-100, leader ruling 2026-11-06, REQ-EVT-30).** The handover reads the
+   organization's key version and exposure in one call (`OrganizationsService.channelKeyState`). A flag set
+   after the units were provisioned does not block the handover: the units still carry the organization's
+   current version, which is what REQ-EVT-05 checks. The answer (api-design 10) adds `devices`, one entry per
+   unit handed over with `deviceId`, `assetTag`, `keyVersion` and `keyExposed` (the flag is set and the unit
+   carries the current version). The counter reads the same flag from the organization (organizations
+   api-design 03 `channelKeyExposedAt`) before signing, warns on each such unit and offers "Re-provision
+   {assetTag}", which returns to the Devices step on that unit's provision control; provisioning answers 409
+   `CHANNEL_KEY_EXPOSED` until the key is rotated (devices REQ-ERR-20), and after the rotation the unit
+   provisions at the new version. After the handover the contract is `ACTIVE` and api-design 09 no longer
+   applies, so the done panel names the units that left with the exposed key, without an action.
 
 **Undoing a provisioning record** (api-design 19, REQ-EVT-16, REQ-ERR-10; dry run 2026-10-30, defect 5).
 A provisioning recorded on the wrong unit is undone at the counter before the handover. The permission is

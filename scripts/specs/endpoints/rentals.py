@@ -302,8 +302,10 @@ ENDPOINTS = [
        "checked, every reserved device provisioned with the organization's current key and its handover "
        "check passed, and the drawn signature. Stamps the signature into the note, stores the PDF and its "
        "SHA-256, then moves the contract to `ACTIVE` and its devices to `RENTED` in one "
-       "transaction (FR-CON-05, FR-CON-06, BR-09, D-037).",
-       "UC-20, UC-21, FR-CON-05, FR-CON-06, FR-DEV-01, FR-DEV-05, BR-09, E01-4, MSG06, MSG19, MSG23, MSG24",
+       "transaction (FR-CON-05, FR-CON-06, BR-09, D-037). A key flagged exposed after the units were "
+       "provisioned does not block it: the answer flags each such unit so the counter warns (D-100).",
+       "UC-20, UC-21, FR-CON-05, FR-CON-06, FR-DEV-01, FR-DEV-05, BR-09, E01-4, MSG06, MSG19, MSG23, MSG24, "
+       "D-100, REQ-EVT-30",
        path=[C_PATH],
        body=[["signedByMemberId", "Org Manager signing", "uuid", "yes", f"`{USER_ID}`"],
              ["identityChecked", "Document type and last digits seen", "string", "yes", "`CCCD ...4821`"],
@@ -313,7 +315,12 @@ ENDPOINTS = [
              VERSION],
        sample={"signedByMemberId": USER_ID, "identityChecked": "CCCD ...4821", "signaturePng": "iVBORw0KGgo...",
                "deviceChecks": [{"deviceId": DEVICE_ID, "batteryPct": 96, "gpsFixOk": True}], "expectedVersion": 2},
-       response={**CONTRACT, "handoverNoteSha256": "9f2c...e1", "devices": [CDEV]},
+       response={**CONTRACT, "devicesHandedOver": 1,
+                 "devices": [{"deviceId": DEVICE_ID, "assetTag": "TL-0042", "keyVersion": 1, "keyExposed": True}]},
+       fields=[["devicesHandedOver", "How many units were handed over", "int", "`1`"],
+               ["devices", "Each unit handed over with the key version it carries and `keyExposed`, true when the "
+                "organization's key is flagged exposed and the unit carries that version (D-100, REQ-EVT-30)",
+                "object[]", "see sample"]],
        message="Handover complete. 10 devices issued under contract RC-2026-0042.", entity="Contract",
        errors=[(409, "FIRST_PAYMENT_MISSING", "The holding fee or day-plan fee is not confirmed",
                 "The first payment is not recorded yet."),
