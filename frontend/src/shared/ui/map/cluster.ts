@@ -14,12 +14,15 @@ export const CLUSTER_UNTIL_ZOOM = 14;
 /** The drawn size of a cluster badge, in CSS px: the 44 px touch target of the UI standard. */
 export const CLUSTER_BADGE_PX = 44;
 
-/** Most severe first: SOS, the other incident states, not heard, offline, live. */
+/** Most severe first: SOS, the other incident states, not heard, offline, docked, live. */
 export const SEVERITY_ORDER: readonly MarkerState[] = [
   'sos',
   'attention',
   'unheard',
   'stale',
+  // A unit docked at the counter outside any custody (devices design section 12.8): no alert, so it ranks
+  // just above live.
+  'docked',
   'fresh',
 ];
 
@@ -94,6 +97,7 @@ const COUNT_WORD: Record<MarkerState, [string, string]> = {
   attention: ['needs attention', 'need attention'],
   unheard: ['not heard since handover', 'not heard since handover'],
   stale: ['offline', 'offline'],
+  docked: ['docked at the counter', 'docked at the counter'],
   fresh: ['live', 'live'],
 };
 
