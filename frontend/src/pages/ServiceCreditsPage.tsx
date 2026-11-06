@@ -364,7 +364,12 @@ export const ServiceCreditsPage: React.FC = () => {
         hideCommandBar={false}
         pageInfo={pageInfoOf(credits.data)}
         details={{ href: (credit) => `/t/contracts/${credit.contractId}`, hrefLabel: 'Open the contract' }}
-        emptyState={{ title: status === '' ? 'No service credits recorded.' : (EMPTY[status] ?? 'No service credits match these filters.') }}
+        emptyState={{
+          title:
+            status === ''
+              ? 'No service credits recorded.'
+              : (EMPTY[status] ?? 'No service credits match these filters.'),
+        }}
         noMatch={{ title: EMPTY[status] ?? 'No service credits match these filters.' }}
         footer={
           credits.data && credits.data.totalPages > 1 ? (
