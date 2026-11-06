@@ -111,7 +111,7 @@ Queue filters: optional state enum, open boolean, device UUID and ISO datetime `
 
 ## Mobile, accessibility, live data
 
-- **360 px:** separate queue and detail screens are drawn at 360 px. Use 16 px side padding, full-width cards, controls at least 44 px high. State stays visible; More filters expands the Device ID, Created from, Open-only and Reset controls in one column, pushing the list down. Detail opens its route, not a narrow side panel. Alert, primary action and disclaimer precede evidence. Long text wraps; no page-level horizontal scroll.
+- **360 px:** separate queue and detail screens are drawn at 360 px. Use 16 px side padding, full-width cards, controls at least 44 px high. State stays visible. See the [November 6 filter dialog note](#organization-queue-filter-dialog-2026-11-06) for the current controls. Detail opens its route, not a narrow side panel. Alert, primary action and disclaimer precede evidence. Long text wraps; no page-level horizontal scroll.
 - **Nested detail panels:** status updates and authority reports are separate disclosures, ordered newest first as returned by API 02. Desktop expanded rows are drawn; mobile disclosures expand into full-width cards and push later evidence down. Status author/time precede note text; authority agency/reference precede reported time and Open/Closed. Full references remain available without truncation. No author, authority or case-close control is inferred from a display row.
 - **Keyboard/focus:** skip link, alert action, navigation, filters, Apply/Reset, rows, pager. Detail: Back, heading/summary, primary, secondary actions, evidence. Enter submits; Escape closes a dialog and restores its trigger. Trap modal focus below the visible alert; a Close control restores access to the banner. Announce new alerts without moving focus. After acknowledge focus owner/state summary; other actions return focus to their card. Errors focus first invalid field or form summary; dirty navigation asks before discard.
 - **Visual feedback:** text labels accompany badges and icons, including "Device silent" and Back to incidents. Pending label appears within 1 second and disables repeat submit. Respect reduced motion for pulse. Target 4.5:1 normal text and 3:1 focus contrast. Times use viewer timezone, UTC+7 default, with zone on focus/hover.
@@ -165,3 +165,13 @@ to the bottom, so the primary action stays in view above the evidence: the first
 (Acknowledge, Response under way, Add status, as the States table names it) is the widest button and More actions holds the rest,
 Declare false alarm last after a separator. While an action form is open the bar leaves, as the buttons
 do on a wide screen. From 600 px the page is unchanged.
+
+## Organization queue filter dialog (2026-11-06)
+
+In [PR #423](https://github.com/TrekLink-Team/treklink-web/pull/423), **Filter incidents** opens the
+shared dialog used by the Staff queue. At 360 px it fills the screen. **Device ID** accepts a UUID
+and **Created from** accepts a local date and time with the viewer's timezone displayed. Apply
+filters converts the date to ISO for API 01 and returns to page 1. Reset filters clears these two
+fields and returns to page 1 while keeping the Show choices. Cancel or Escape closes the dialog
+without applying changes and returns focus to its trigger. State and **Open only** remain in Show.
+This implementation replaces the inline More filters disclosure depicted in the original wireframe.
