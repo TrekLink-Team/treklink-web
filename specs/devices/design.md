@@ -1032,6 +1032,9 @@ A unit gets new firmware inside the existing `FIRMWARE_UPDATE` maintenance recor
 opens the record when `firmwareVersion` differs from the variant's `firmwareBaseline`, Staff flash the unit
 from the record, and completing the record writes `Device.firmwareVersion` as today (REQ-EVT-22, AC-12). A
 flash outside a record is not offered, so a unit on a contract is never flashed (BR-45).
+Amended 2026-11-06 (§12.14, leader UAT): the device hub flashes any registered unit from the latest release
+without a record and records the flash itself (api-design 33 and 34); the record path below stays for the weekly
+scan's `FIRMWARE_UPDATE` records.
 
 ### 9.1 Where the images come from
 
@@ -1631,6 +1634,9 @@ same night. The options not chosen are kept for their rationale.
 > recommended option and wait for the leader's ruling; the options not chosen are kept. Requirements:
 > REQ-EVT-44 to REQ-EVT-46, REQ-ERR-32, REQ-ERR-33, AC-41 to AC-44; amends REQ-UBI-08 and REQ-UBI-09. Screen 4.7.
 > This section lifts the "no factory reset" exclusion of §12.1 for the reset of a returned unit only.
+> **Amended 2026-11-06 by §12.14** (leader UAT): the status-based availability of the Actions table and of
+> REQ-ERR-32 is withdrawn; every action is available in every status, with the typed confirmation of §12.14 for
+> `RESERVED` and `RENTED`, and every action, Reboot included, writes its audit entry through api-design 33 and 34.
 
 **Why a page.** The panel of §12.2 is 360 px wide; the brief asks for "one device page with everything about
 it and its maintenance actions", laid out like a phone utility: the unit on the left, its facts and actions on
@@ -1766,3 +1772,148 @@ connected, no Web Serial); backend unit tests for the `nodeNum` check and the au
 | Q8 | Which firmware command wipes a returned unit? | A. `factory_reset_config` (99), then owner and region written back in one transaction (two restarts). B. `factory_reset_device` (94): the same and an NVS erase, which also drops the Wi-Fi and BLE data the ESP32 keeps there. C. No factory command: write owner, a random channel key, Wi-Fi off and MQTT off in one transaction, and `nodedb_reset` (100) | A: one command clears everything api-design 10's three steps name and keeps the unit's private key; B erases more than the brief asks; C needs four writes to reach what A does in one |
 | Q9 | The brief's "refuse while its contract is not closed": the unit's custody row, or the contract itself? | A. The custody row: the unit must be checked in (`RETURNED`, the existing api-design 10 guard). B. The contract `CLOSED` | A: the inspection needs the reset first (REQ-ERR-02) and a damage charge needs a contract not yet `CLOSED` (rentals REQ-EVT-11), so B would stop damage being charged |
 | Q10 | Battery in the device info: §12.12 Q4 chose the server projection; the brief asks for battery and voltage read live | A. The unit's `DeviceMetrics` when present, labelled "from the unit", else the server projection. B. The server projection only (Q4 as decided) | A: the fact is now cited above; a unit that has not measured yet shows the server value |
+
+### 12.14 The device hub after the leader's UAT of 2026-11-06 (W39)
+
+> **Status**: Spec, 2026-11-06 (KhoaDD under D-078, branch `feat/device-hub-uat-1106`). Source: the leader's UAT of
+> the staging hub at 23:30 with two v2 units (treklink a274, `!0aa3a274`; Treklink a264, `!0aa3a264`, on the release
+> image `v2.7.26-treklink.1`) and the rule of 23:45. Requirements: REQ-EVT-44 to REQ-EVT-46 amended, REQ-EVT-47 to
+> REQ-EVT-51, REQ-ERR-32 amended, REQ-ERR-34, AC-43 and AC-44 amended, AC-45 to AC-51. Supersedes the
+> status-based availability of the §12.13 Actions table, the "no flash outside a record" sentence of §9 and the
+> `OPEN` `FIRMWARE_UPDATE` condition of §12.3 and §12.7 for the hub. Screens 4.2, 4.6 and 4.7.
+
+**The rule (leader, 2026-11-06 23:45).** The hub is the on-site utility, and TrekLink Staff may do anything to a
+unit in their hands, rented or not: a rented unit can be brought back to the counter to be reflashed. Every hub
+action (Factory reset, Update firmware, Configure uplink, Reboot, Provision, Re-provision, Restore TrekLink
+defaults) is available to Staff in every device status. Status never disables an action. It only adds a warning:
+for a `RESERVED` or `RENTED` unit the action's dialog names the contract and the organization and asks the user to
+type the asset tag to confirm. Every action writes its audit entry.
+
+What may still disable an action is never the status: the unit is not read yet, another unit holds the write lock
+(REQ-UBI-09), the caller is not TrekLink Staff, the unit is not registered (the action needs its record), there is
+no release for its variant, or there is no contract to provision for. Each keeps its slot with the reason as text
+(chapter 06 §11.4).
+
+**Actions on the hub page** (replaces the §12.13 Actions table; order as shown, grouped):
+
+| Group | Action | Available when | Server record |
+|---|---|---|---|
+| Configure | Provision, or Re-provision when the unit carries a key version | the `counter` context row of §12.3 provisions in place; elsewhere a unit with a live contract (api-design 30 `contract`) opens that contract's counter focused on the unit; no contract: "No contract to provision for. Reserve {assetTag} on a contract first." | rentals api-design 09 as today (its own record and audit) |
+| Configure | Quick swap | the `counter` context, as §12.6 | rentals api-design 32 as today |
+| Configure | Configure uplink | a registered unit | api-design 33 and 34, `UPLINK` |
+| Configure | Restore TrekLink defaults | a registered unit | api-design 33 and 34, `RESTORE_DEFAULTS` |
+| Configure | Reboot | any read unit | api-design 33 and 34, `REBOOT`, for a registered unit; nothing for an unknown unit |
+| Firmware | Update firmware | a registered unit whose variant a published release carries (api-design 28) | api-design 33 and 34, `FIRMWARE_UPDATE` |
+| Danger zone | Factory reset | a registered unit | api-design 33 and 34, `FACTORY_RESET` |
+
+**Confirmation.** For a `RESERVED` or `RENTED` unit every action opens a `Dialog` (Reboot included, which otherwise
+has none): "{assetTag} is {Reserved or Rented} on {contractCode} for {organizationCode}.", what the action does to
+the unit, and a text field "Type {assetTag} to confirm"; the confirm button stays disabled until the field equals
+the asset tag (case-insensitive, trimmed). The typed value is sent as `confirmAssetTag` on api-design 33, which
+refuses a missing or different value with 400 `CONFIRMATION_REQUIRED` before anything is written to the unit. A
+`RETURNED` unit still in custody (api-design 30 `contract` set) gets the same contract line without the typed
+field, with "This is not recorded as the reset of the return while the unit is in custody."
+
+**Restore TrekLink defaults (REQ-EVT-47).** For a unit that cannot message the rest of the fleet (the leader's
+a274, probably a stale organization channel). Without erasing the firmware and without the factory reset's two
+restarts, in one edit transaction under the write lock: `set_owner` with the asset tag and its last four
+characters (§8.6 decision 2); `set_channel` 0 back to the firmware default (name empty, PSK one byte `0x01`, uplink
+and downlink off; `Channels.cpp:135-137`); `set_config` network with Wi-Fi off; `set_module_config` MQTT off.
+Region, LoRa preset, node database and every other setting stay. `commit_edit_settings` restarts the unit once;
+the read-back must show the same `nodeNum`, the owner names, the default PSK, Wi-Fi off and MQTT off, or names the
+check that differs and records the action `FAILED` (REQ-ERR-34). The hub shows the region and modem preset of the
+unit, so a preset that differs from the rest of the fleet is visible (the fleet's preset is not recorded; leader
+question of 2026-11-06).
+
+**Factory reset in any status (REQ-EVT-46 amended).** The §12.13 steps 2 to 6 on the unit, in every status. The
+return reset of api-design 10 is no longer called by the hub: api-design 34 `SUCCEEDED` inserts the return reset
+itself when the unit is `RETURNED`, out of custody and not yet reset for this return, so the return loop advances
+as before; otherwise the action is recorded only as a hub action. The region `UNSET` refusal of §12.13 step 2
+stays: it is a fact of the unit, not a status.
+
+**Update firmware from the latest release (REQ-EVT-48).** No firmware update record has to be opened first. The
+flash panel of §9.2 opens on any registered unit and:
+
+1. lists the releases of api-design 28 that carry the variant, the newest preselected (the variant baseline is
+   marked), and shows the release version beside the version the unit reports and the version on record, with
+   "Newer than the unit", "Same as the unit" or "Older than the unit";
+2. keeps NVS: the default is the app image at `0x10000` (mode Update). Ticking "Full factory image (erases the
+   unit's settings)" writes the factory image at `0x0` after the confirmation of §9.2 step 1;
+3. fetches the image (api-design 29, whose SHA-256 the server compares with the manifest, 502
+   `FIRMWARE_IMAGE_INVALID` otherwise), and shows the SHA-256 the server checked;
+4. records the start with api-design 33 (`FIRMWARE_UPDATE`, from the version the unit reports, to the release
+   version, `fullImage`), then flashes with the progress as bytes written of the total and as a percent;
+5. records the end with api-design 34: `SUCCEEDED` after a verified write, which also sets `Device.firmwareVersion`
+   to the release version (no `expectedVersion`: the flash itself is the evidence), or `FAILED` with the failed
+   step. A start that the server refuses writes nothing to the unit; an end that the server refuses after a
+   verified write is shown with the server's message, and the unit keeps the new image.
+
+When the unit has an `OPEN` `FIRMWARE_UPDATE` record, the panel also offers "Complete the record" after a
+verified write, as §9.2 step 6 does. The "update available" badge of the hub header shows when the newest release
+for the variant is newer than the version the unit reports (versions compared by their numeric parts, then the
+`-treklink.N` suffix).
+
+**api-design 33, start a hub action.** `POST /api/devices/:id/hub-actions`, `device.operate` (TrekLink Staff; Admin
+inherits). Body: `action` (`REBOOT`, `FACTORY_RESET`, `RESTORE_DEFAULTS`, `UPLINK`, `FIRMWARE_UPDATE`), `nodeNum`
+(the docked unit, 409 `NODE_MISMATCH` otherwise), `confirmAssetTag` (required for `RESERVED` and `RENTED`, 400
+`CONFIRMATION_REQUIRED`), and for `FIRMWARE_UPDATE` `firmwareTo` (required) and `fullImage` (default false). It
+inserts a `device_hub_actions` row `STARTED` with the device status and live contract at the time and the firmware
+the unit had on record, and writes the audit entry `device.hub_action.started` after commit. Answers 201 with the
+row. No status is refused.
+
+**api-design 34, finish a hub action.** `POST /api/devices/:id/hub-actions/:actionId/finish`, `device.operate`.
+Body: `outcome` (`SUCCEEDED` or `FAILED`), `failure` (the failed step, at most 300 characters, for `FAILED`). A row
+that is not `STARTED` is 409 `HUB_ACTION_FINISHED`; another device's row is 404. On `SUCCEEDED`:
+`FACTORY_RESET` and `RESTORE_DEFAULTS` clear `keyVersion` and `keyOrganizationId` (the unit no longer carries the
+organization key; the counter provisions it again) and `FACTORY_RESET` inserts the return reset as above;
+`FIRMWARE_UPDATE` sets `firmwareVersion` to `firmwareTo`. Every change bumps the device `version`. The audit entry
+`device.hub_action.finished` goes out after commit with the outcome and what changed.
+
+**Record.** New table `device_hub_actions` (migration `20261106230000_device_hub_actions`): `id`, `deviceId`,
+`action` (enum `HubActionKind`), `outcome` (enum `HubActionOutcome`: `STARTED`, `SUCCEEDED`, `FAILED`), `nodeNum`,
+`deviceStatus` (the status at the start), `contractId` and `contractCode` (the live contract at the start, or
+null), `firmwareFrom`, `firmwareTo`, `fullImage`, `failure`, `actorId`, `startedAt`, `finishedAt`; indexes on
+`(deviceId, startedAt)` and `actorId`. Rows are never deleted. The device history (`DevicesService.trail`,
+monitoring api-design 07) lists each finished or started row as kind `HUB` with its summary ("Firmware update
+2.7.26-treklink.1, succeeded", "Factory reset in the device hub, failed: read-back"). No new permission:
+`device.operate` already covers the writes.
+
+**Status refresh (REQ-EVT-49).** After Register device (api-design 05), a provisioning, a quick swap, any hub
+action and a flash, the client invalidates the device lists (`['devices']`), the device and its history
+(`['device', id]`, `['device-history', id]`) and asks the connector to recognize the units again (api-design 30),
+so the connected units panel and the hub show the new status without a reload. The panel and the hub carry a
+Refresh button with "Refreshed {time}" that does the same on demand. The registration path is checked end to end
+with the fake dock: a unit on the release image read, registered from the Register device page, then shown
+`In intake` in the panel and the hub.
+
+**Connected units panel and devices list cards (REQ-EVT-50).** The card footer, left of More actions (...) and
+Show details (i), carries the main per-unit actions in fixed slots (chapter 06 §11.4: a fixed order, new actions
+join at the inline start, an unavailable action keeps its slot disabled with its reason, an overflow menu once
+three or more are offered):
+
+| Where | Actions, in order |
+|---|---|
+| Connected units panel, registered unit | Open in device hub, Update firmware, Reboot (three, so the overflow holds Update firmware and Reboot below 600 px) |
+| Connected units panel, unknown unit | Register |
+| Devices list cards (Grid, Small, Medium, Large), unit connected over USB in this browser | Open device page, Open in hub, Update firmware, Reboot |
+| Devices list cards, unit not connected | Open device page, then by state: Record service (`MAINTENANCE`, opens the maintenance page on the device), Report loss (`RENTED`, opens the loss case form), otherwise a disabled Open in hub with "Connect {assetTag} over USB to use the hub." |
+
+The table's row actions keep the same order.
+
+**Image focus view (REQ-EVT-51).** Every device and variant image (hub, device page, lists, connected units) opens a
+focus view: after the pointer rests 500 ms, on a click, or on Enter or Space, the image is shown centred over the
+whole page at the largest size that fits (at most 90 % of the viewport width and height), over a dimmed backdrop,
+with the variant name as caption. Escape, a click outside the image or Close closes it; focus is trapped inside
+and returned to the image that opened it. On a touch screen a tap opens it and a tap closes it. It replaces the
+hover preview of treklink-web#405, whose size was barely above the thumbnail.
+
+**Hub layout (screen 4.7, replaces the §12.13 Layout table).** A header card with the render (opens the focus
+view), the asset tag, the status badge, the variant, the firmware the unit reports and an "Update available"
+badge, Refresh with its time, and Connect a unit. Below, field groups with icons: Identity (asset tag, node
+number and id, owner names, hardware model, build), Radio and region (region, modem preset, primary channel),
+Power (a battery gauge with the percent, the voltage, the source), Custody and contract (status, contract,
+organization, key version, last reset, next step), Firmware (reported, on record, latest release). A History panel
+lists the device history (monitoring api-design 07, the source of the device page) newest first with an icon per
+kind and the time, scrolling inside its own region. The actions sit in three labelled groups, Configure, Firmware
+and Danger zone. The document and `#main` never scroll; the field groups and the history scroll inside their
+regions at 1440, 1280, 900 and 360 px.

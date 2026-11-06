@@ -638,6 +638,71 @@ ENDPOINTS = [
        steps=["End the open session as RELEASED", "Emit device.undocked after commit when one was open"],
        controller="DevicesController", service="DockSessionService", call="undock(id, actor)",
        seq=["Svc->>DB: UPDATE device_dock_sessions SET endedAt, endReason RELEASED WHERE endedAt IS NULL"]),
+
+    ep("POST", "/api/devices/:id/hub-actions", "Start a hub action", "TrekLink Staff",
+       "Records that the device hub starts an action on the docked unit (design §12.14, leader UAT 2026-11-06): "
+       "`REBOOT`, `FACTORY_RESET`, `RESTORE_DEFAULTS`, `UPLINK` or `FIRMWARE_UPDATE`. Every device status is accepted; "
+       "the status only adds the confirmation: for a `RESERVED` or `RENTED` unit `confirmAssetTag` must equal the "
+       "asset tag (case-insensitive, trimmed), which the hub's dialog asks the user to type. The docked `nodeNum` "
+       "must be the device's. The row keeps the status, the live contract and the firmware on record at the start. "
+       "The hub sends this before it writes anything to the unit, and api-design 34 when the action ends. Writes "
+       "the audit entry `device.hub_action.started` after commit. Permission `device.operate`.",
+       "UC-14, FR-DEV-07, FR-DEV-21, D-078",
+       path=[DEV_PATH],
+       body=[["action", "`REBOOT`, `FACTORY_RESET`, `RESTORE_DEFAULTS`, `UPLINK` or `FIRMWARE_UPDATE`", "enum", "yes",
+              "`FIRMWARE_UPDATE`"],
+             ["nodeNum", "The docked unit's node number", "int", "yes", "`2763113171`"],
+             ["confirmAssetTag", "The asset tag the user typed; required while the unit is `RESERVED` or `RENTED`",
+              "string", "no", "`TL-0042`"],
+             ["firmwareTo", "The release version written; required for `FIRMWARE_UPDATE`", "string", "no",
+              "`2.7.26-treklink.1`"],
+             ["fullImage", "The factory image at `0x0` instead of the app image (erases NVS); `FIRMWARE_UPDATE` only",
+              "bool", "no", "`false`"]],
+       sample={"action": "FIRMWARE_UPDATE", "nodeNum": 2763113171, "confirmAssetTag": "TL-0042",
+               "firmwareTo": "2.7.26-treklink.1", "fullImage": False},
+       response={"id": "4b3a2918-0716-4e5d-9c4b-3a2918071605", "deviceId": DEVICE_ID, "action": "FIRMWARE_UPDATE",
+                 "outcome": "STARTED", "deviceStatus": "RENTED", "contractCode": "RC-2026-0040",
+                 "firmwareFrom": "2.7.19-treklink.3", "firmwareTo": "2.7.26-treklink.1", "fullImage": False,
+                 "failure": None, "startedAt": NOW, "finishedAt": None},
+       status=201, message="Hub action started", entity="Device",
+       errors=[(400, "CONFIRMATION_REQUIRED", "The unit is RESERVED or RENTED and confirmAssetTag is missing or differs",
+                "Type TL-0042 to confirm: it is rented on RC-2026-0040."),
+               (400, "VALIDATION_FAILED", "firmwareTo missing for FIRMWARE_UPDATE", "firmwareTo is required."),
+               (409, "NODE_MISMATCH", "The docked nodeNum differs from the device record",
+                "The docked unit is !0004351c, not TL-0042.")],
+       steps=["Lock the device row", "Compare the nodeNum with the device record",
+              "Require the typed asset tag for RESERVED or RENTED", "Read the live contract",
+              "Insert device_hub_actions STARTED", "Audit device.hub_action.started after commit"],
+       controller="DevicesController", service="HubActionService", call="start(id, dto, actor)",
+       seq=["Svc->>DB: SELECT device FOR UPDATE", "Svc->>Rentals: liveContractsOf(deviceId)",
+            "Svc->>DB: INSERT device_hub_actions"]),
+
+    ep("POST", "/api/devices/:id/hub-actions/:actionId/finish", "Finish a hub action", "TrekLink Staff",
+       "Records how a hub action of api-design 33 ended (design §12.14). On `SUCCEEDED`: `FACTORY_RESET` and "
+       "`RESTORE_DEFAULTS` clear `keyVersion` and `keyOrganizationId`, because the unit no longer carries the "
+       "organization key; `FACTORY_RESET` also inserts the return reset (as api-design 10 does) when the unit is "
+       "`RETURNED`, out of custody and not yet reset for this return; `FIRMWARE_UPDATE` sets `firmwareVersion` to "
+       "the row's `firmwareTo`. Each change bumps the device `version`. On `FAILED` only the row changes, with the "
+       "failed step. Writes the audit entry `device.hub_action.finished` after commit. Permission `device.operate`.",
+       "UC-14, FR-DEV-07, FR-DEV-21, D-078",
+       path=[DEV_PATH, ["actionId", "Hub action id from api-design 33", "uuid", "`4b3a2918-0716-4e5d-9c4b-3a2918071605`"]],
+       body=[["outcome", "`SUCCEEDED` or `FAILED`", "enum", "yes", "`SUCCEEDED`"],
+             ["failure", "The failed step, at most 300 characters; for `FAILED`", "string", "no",
+              "`The read-back differs: channel key.`"]],
+       sample={"outcome": "SUCCEEDED"},
+       response={"id": "4b3a2918-0716-4e5d-9c4b-3a2918071605", "deviceId": DEVICE_ID, "action": "FIRMWARE_UPDATE",
+                 "outcome": "SUCCEEDED", "deviceStatus": "RENTED", "contractCode": "RC-2026-0040",
+                 "firmwareFrom": "2.7.19-treklink.3", "firmwareTo": "2.7.26-treklink.1", "fullImage": False,
+                 "failure": None, "startedAt": NOW, "finishedAt": NOW, "returnReset": False},
+       message="Hub action finished", entity="Device",
+       errors=[(404, "NOT_FOUND", "No such hub action on this device", "The hub action was not found."),
+               (409, "HUB_ACTION_FINISHED", "The action is already SUCCEEDED or FAILED",
+                "This hub action is already finished.")],
+       steps=["Lock the device row", "Read the STARTED row of this device", "Set the outcome and finishedAt",
+              "On SUCCEEDED apply the action's effect to the device", "Audit device.hub_action.finished after commit"],
+       controller="DevicesController", service="HubActionService", call="finish(id, actionId, dto, actor)",
+       seq=["Svc->>DB: SELECT device FOR UPDATE", "Svc->>DB: SELECT device_hub_actions",
+            "Svc->>DB: UPDATE device_hub_actions; UPDATE devices; INSERT device_resets when due"]),
 ]
 
 NOTES = ("Route order: `GET /api/devices/availability` and `GET /api/devices/by-node` are declared before "

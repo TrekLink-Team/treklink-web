@@ -193,3 +193,29 @@ Added by KhoaDD with the device hub spec. Where this section and the tables abov
   answer. ...", "Uplink not applied", "Waiting for the restart") are shown by the connector's row as well as here.
 - The device page shows "Connected now" beside the header when the connector holds this device's unit, with Show
   in connector.
+
+## Card footer actions and the image focus view (W39, leader UAT 2026-11-06)
+
+Added by KhoaDD under D-078 for devices design §12.14 (REQ-EVT-50, REQ-EVT-51). Where this section and the
+tables above disagree, this section wins.
+
+The card views of the fleet (Grid, Small, Medium, Large cards) fill the footer slot left of More actions (...) and
+Show details (i) with the device's actions, in the order of the table's row actions:
+
+| Unit | Footer actions, in order |
+|---|---|
+| Connected over USB in this browser (the connector holds a ready connection with its `nodeNum`) | Open device page, Open in hub, Update firmware, Reboot |
+| Not connected, `MAINTENANCE` | Open device page, Record service (opens `/t/maintenance` on the device) |
+| Not connected, `RENTED` | Open device page, Report loss (opens the device page's loss case form) |
+| Not connected, any other state | Open device page, Open in hub disabled with "Connect {assetTag} over USB to use the hub." |
+
+Two actions show as icon buttons with their tooltips; three or more keep the first in its slot and move the rest
+into the overflow menu (chapter 06 §11.4). An unavailable action keeps its slot disabled with its reason as the
+tooltip and the accessible description. The table's row actions list the same actions in the same order before
+the state actions of W29. Update firmware and Reboot run in the device hub on the unit (they open `/t/device-hub`
+with the unit selected and the action started), so the list never writes to a unit itself.
+
+Every device and variant image (the fleet's thumbnails, the details pane, the device page's variant card) opens
+the focus view of devices design §12.14: after a 500 ms rest, a click, or Enter or Space, centred at no more than
+90 % of the viewport over a dimmed backdrop, caption the variant name; Escape, a click outside or Close closes it
+and focus returns to the image; on a phone a tap opens and a tap closes it.
