@@ -191,6 +191,10 @@ describe('OrganizationDetailPage (screen 3.2, read-only roles of 3.7)', () => {
     expect(page?.hasAttribute('data-fit-page')).toBe(true);
     expect(within(body).getByRole('heading', { name: 'Record' })).toBeTruthy();
     expect(within(body).queryByRole('heading', { name: 'ACME Trek Co., Ltd.' })).toBeNull();
+    // The wide grid has a ceiling, so its own box scrolls and does not push the page (review of #389).
+    const grid = await within(body).findByRole('region', { name: 'Permissions by role' });
+    expect(grid.parentElement?.hasAttribute('data-roles-grid-frame')).toBe(true);
+    expect(grid.parentElement?.className).toContain('max-h-[32rem]');
   });
 
   it('gives the way back a 24 px target', async () => {
