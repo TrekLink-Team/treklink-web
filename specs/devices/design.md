@@ -1814,16 +1814,34 @@ refuses a missing or different value with 400 `CONFIRMATION_REQUIRED` before any
 `RETURNED` unit still in custody (api-design 30 `contract` set) gets the same contract line without the typed
 field, with "This is not recorded as the reset of the return while the unit is in custody."
 
-**Restore TrekLink defaults (REQ-EVT-47).** For a unit that cannot message the rest of the fleet (the leader's
-a274, probably a stale organization channel). Without erasing the firmware and without the factory reset's two
-restarts, in one edit transaction under the write lock: `set_owner` with the asset tag and its last four
-characters (§8.6 decision 2); `set_channel` 0 back to the firmware default (name empty, PSK one byte `0x01`, uplink
-and downlink off; `Channels.cpp:135-137`); `set_config` network with Wi-Fi off; `set_module_config` MQTT off.
-Region, LoRa preset, node database and every other setting stay. `commit_edit_settings` restarts the unit once;
-the read-back must show the same `nodeNum`, the owner names, the default PSK, Wi-Fi off and MQTT off, or names the
-check that differs and records the action `FAILED` (REQ-ERR-34). The hub shows the region and modem preset of the
-unit, so a preset that differs from the rest of the fleet is visible (the fleet's preset is not recorded; leader
-question of 2026-11-06).
+**Restore TrekLink defaults (REQ-EVT-47).** For a unit that cannot message the rest of the fleet. The leader's
+read-only check of 2026-11-06 found the cause on treklink a274: its channel 0 carries the organization key the hub's
+provisioning wrote on 11-03 (key version 1, PSK 32 bytes), while the fleet and a264 use the default one-byte key;
+the LoRa config is the same on both (`MY_433`, `LONG_FAST`, channel number 0). Without erasing the firmware and
+without the factory reset's two restarts, in one edit transaction under the write lock: `set_owner` with the asset
+tag and its last four characters (§8.6 decision 2, the owner fields the provisioning writes); `set_channel` 0 back
+to the firmware default (name empty, PSK one byte `0x01`, uplink and downlink off; `Channels.cpp:135-137`);
+`set_channel` with role `DISABLED`, an empty PSK and name for every enabled channel 1 to 7 (a TrekLink unit uses
+channel 0 only, so a secondary channel can only hold another network's key); `set_config` network with Wi-Fi off;
+`set_module_config` MQTT off. Region, LoRa preset, node database and every other setting stay.
+`commit_edit_settings` restarts the unit once; the read-back must show the same `nodeNum`, the owner names, the
+default PSK, no enabled secondary channel, Wi-Fi off and MQTT off, or names the check that differs and records the
+action `FAILED` (REQ-ERR-34). The factory reset's read-back checks the secondary channels too.
+
+**The record follows the unit.** api-design 34 `SUCCEEDED`, sent the moment the read-back passes, clears in one
+transaction `keyVersion`, `keyOrganizationId` and `provisionedAt`, as rentals api-design 19's undo does, for both
+Restore TrekLink defaults and Factory reset (a return reset included), so the device no longer reads as
+provisioned; the `DeviceProvisioning` rows stay as history. Its audit entry `device.hub_action.finished` carries
+the key version, organization and provisioning time before. A finish that cannot reach the server after a passed
+read-back leaves the unit restored and the record as it was; the hub says the record is missing and the action
+stays `STARTED` in the history.
+
+**Sensor health is not in the unit's report.** The leader asked whether the hub could show sensor health (a264's
+ICM-20948 does not answer on I2C at `0x68` or `0x69`). The config handshake carries no sensor list or sensor
+state: `DeviceMetadata` has firmware and state versions, `canShutdown`, `hasWifi`, `hasBluetooth`, `hasEthernet`,
+`role`, `position_flags`, `hw_model`, `hasRemoteHardware`, `hasPKC` and `excluded_modules`; `MyNodeInfo` and
+`DeviceMetrics` carry none either (`@meshtastic/core` 2.6.7 schemas, read 2026-11-06). The hub shows none until
+the firmware reports it (a firmware change, not in this scope).
 
 **Factory reset in any status (REQ-EVT-46 amended).** The §12.13 steps 2 to 6 on the unit, in every status. The
 return reset of api-design 10 is no longer called by the hub: api-design 34 `SUCCEEDED` inserts the return reset

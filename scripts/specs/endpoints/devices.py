@@ -679,8 +679,8 @@ ENDPOINTS = [
 
     ep("POST", "/api/devices/:id/hub-actions/:actionId/finish", "Finish a hub action", "TrekLink Staff",
        "Records how a hub action of api-design 33 ended (design §12.14). On `SUCCEEDED`: `FACTORY_RESET` and "
-       "`RESTORE_DEFAULTS` clear `keyVersion` and `keyOrganizationId`, because the unit no longer carries the "
-       "organization key; `FACTORY_RESET` also inserts the return reset (as api-design 10 does) when the unit is "
+       "`RESTORE_DEFAULTS` clear `keyVersion`, `keyOrganizationId` and `provisionedAt`, because the unit no longer "
+       "carries the organization key (as rentals api-design 19's undo leaves a device); `FACTORY_RESET` also inserts the return reset (as api-design 10 does) when the unit is "
        "`RETURNED`, out of custody and not yet reset for this return; `FIRMWARE_UPDATE` sets `firmwareVersion` to "
        "the row's `firmwareTo`. Each change bumps the device `version`. On `FAILED` only the row changes, with the "
        "failed step. Writes the audit entry `device.hub_action.finished` after commit. Permission `device.operate`.",
@@ -699,7 +699,7 @@ ENDPOINTS = [
                (409, "HUB_ACTION_FINISHED", "The action is already SUCCEEDED or FAILED",
                 "This hub action is already finished.")],
        steps=["Lock the device row", "Read the STARTED row of this device", "Set the outcome and finishedAt",
-              "On SUCCEEDED apply the action's effect to the device", "Audit device.hub_action.finished after commit"],
+              "On SUCCEEDED apply the action's effect to the device (key, provisioning time, firmware)", "Audit device.hub_action.finished after commit"],
        controller="DevicesController", service="HubActionService", call="finish(id, actionId, dto, actor)",
        seq=["Svc->>DB: SELECT device FOR UPDATE", "Svc->>DB: SELECT device_hub_actions",
             "Svc->>DB: UPDATE device_hub_actions; UPDATE devices; INSERT device_resets when due"]),

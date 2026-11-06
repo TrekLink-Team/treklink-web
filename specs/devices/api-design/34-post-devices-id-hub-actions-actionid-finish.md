@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Records how a hub action of api-design 33 ended (design §12.14). On `SUCCEEDED`: `FACTORY_RESET` and `RESTORE_DEFAULTS` clear `keyVersion` and `keyOrganizationId`, because the unit no longer carries the organization key; `FACTORY_RESET` also inserts the return reset (as api-design 10 does) when the unit is `RETURNED`, out of custody and not yet reset for this return; `FIRMWARE_UPDATE` sets `firmwareVersion` to the row's `firmwareTo`. Each change bumps the device `version`. On `FAILED` only the row changes, with the failed step. Writes the audit entry `device.hub_action.finished` after commit. Permission `device.operate`.
+Records how a hub action of api-design 33 ended (design §12.14). On `SUCCEEDED`: `FACTORY_RESET` and `RESTORE_DEFAULTS` clear `keyVersion`, `keyOrganizationId` and `provisionedAt`, because the unit no longer carries the organization key (as rentals api-design 19's undo leaves a device); `FACTORY_RESET` also inserts the return reset (as api-design 10 does) when the unit is `RETURNED`, out of custody and not yet reset for this return; `FIRMWARE_UPDATE` sets `firmwareVersion` to the row's `firmwareTo`. Each change bumps the device `version`. On `FAILED` only the row changes, with the failed step. Writes the audit entry `device.hub_action.finished` after commit. Permission `device.operate`.
 
 ## API Specification
 
@@ -207,7 +207,7 @@ flowchart TB
     P0 --> P1
     P2["Set the outcome and finishedAt"]
     P1 --> P2
-    P3["On SUCCEEDED apply the action's effect to the device"]
+    P3["On SUCCEEDED apply the action's effect to the device (key, provisioning time, firmware)"]
     P2 --> P3
     P4["Audit device.hub_action.finished after commit"]
     P3 --> P4
