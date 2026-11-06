@@ -1,6 +1,7 @@
 # PR 395 viewport review
 
-Checked on 2026-11-05 using local Chromium, the implemented Manager console and mocked API data:
+Checked on 2026-11-05 and repeated on 2026-11-06 after rebasing onto dev ba271efb, using local Chromium,
+the implemented Manager console and mocked API data:
 25 groups, 20 device rows and 40 total paginated results. This is UI review evidence, not a staging run.
 
 All 28 viewport/theme combinations passed layout assertions and axe checks tagged WCAG 2 A/AA,
@@ -48,6 +49,10 @@ reason as its accessible description, and Enter neither opened a dialog nor clos
 reported zero violations and the menu bounds stayed entirely inside the viewport after the hint
 appeared. The reason is outside the button's visible label in the shared Menu, and placement is
 recomputed when focus or hover changes the hint size.
+
+The repeated run passed all 28 viewport cases and four opened-menu cases with zero reported axe
+violations. Representative desktop, short-phone and disabled-menu screenshots were visually inspected.
+The shared Menu component tests also cover a disabled click without focus and mouse hover/unhover.
 
 | Opened menu | Light | Dark |
 |---|---|---|
