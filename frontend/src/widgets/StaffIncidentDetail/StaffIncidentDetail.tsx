@@ -186,6 +186,7 @@ export const StaffIncidentDetail: React.FC<{
         {reporting && (
           <ReportDialog
             entry={{ kind: 'incident', id: incident.id }}
+            protectNavigation
             onClose={() => setReporting(false)}
           />
         )}
@@ -194,7 +195,7 @@ export const StaffIncidentDetail: React.FC<{
             Declare false alarm
           </Button>
         )}
-        {falseAlarm && incident.state === 'UNROUTED' && (
+        {falseAlarm && (
           <StaffFalseAlarmDialog
             incident={incident}
             onClose={() => setFalseAlarm(false)}
@@ -246,8 +247,8 @@ export const StaffIncidentDetail: React.FC<{
             </ol>
           )}
         </section>
-        {page && <TransitionTrail incidentId={incident.id} onLostAccess={refetch} />}
-        {page && <AlertLog incidentId={incident.id} onLostAccess={refetch} />}
+        <TransitionTrail incidentId={incident.id} onLostAccess={refetch} headingLevel={page ? 2 : 3} />
+        <AlertLog incidentId={incident.id} onLostAccess={refetch} headingLevel={page ? 2 : 3} />
       </IncidentBody>
       {page && !wide && <RecordActionBar label="Incident actions" actions={actions} />}
       {!page && (

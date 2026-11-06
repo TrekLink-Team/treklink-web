@@ -1,21 +1,27 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { createMemoryRouter, Route, RouterProvider, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext } from '../app/providers/useAuth';
+import { UnsavedChangesProvider } from '../app/providers/UnsavedChangesProvider';
 import type { SessionUser } from '../entities/session/model';
 import { ApiError } from '../shared/api/apiClient';
 import { useToast } from '../shared/ui/toastStore';
 import { IncidentDetailPage } from './IncidentDetailPage';
-import { IncidentsPage } from './IncidentsPage';
+import { IncidentsPage, OrganizationIncidentsLayout } from './IncidentsPage';
 
 const api = vi.fn();
+const episodeApi = vi.fn();
 vi.mock('../shared/api/apiClient', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../shared/api/apiClient')>()),
   apiClient: (...args: unknown[]) =>
-    args[0] === '/groups' ? Promise.resolve({ groups: [], maxDepth: 3 }) : api(...args),
+    args[0] === '/groups'
+      ? Promise.resolve({ groups: [], maxDepth: 3 })
+      : String(args[0]).endsWith('/events')
+        ? episodeApi(...args)
+        : api(...args),
 }));
 
 const ME = { id: 'u-me', fullName: 'Me', roles: ['ORG_OPERATOR'] } as SessionUser;
@@ -118,31 +124,90 @@ const page = (items: unknown[]) => ({
   totalPages: items.length > 0 ? 2 : 0,
 });
 
-const renderAt = (path: string, user: SessionUser = ME) =>
+const renderAt = (path: string, user: SessionUser = ME, previous?: string) => {
+  const router = createMemoryRouter(
+    [{
+      path: '*',
+      element: (
+        <UnsavedChangesProvider canBlock={() => true}>
+          <Routes>
+            <Route path="/o/incidents" element={<OrganizationIncidentsLayout />}>
+              <Route index element={<IncidentsPage />} />
+              <Route path=":id" element={<IncidentDetailPage />} />
+            </Route>
+            <Route path="/o/map" element={<p>Map destination</p>} />
+          </Routes>
+        </UnsavedChangesProvider>
+      ),
+    }],
+    { initialEntries: previous ? [previous, path] : [path] },
+  );
   render(
     <AuthContext.Provider value={{ user, signOut: vi.fn() }}>
       <QueryClientProvider
         client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
       >
-        <MemoryRouter initialEntries={[path]}>
-          <Routes>
-            <Route path="/o/incidents" element={<IncidentsPage />} />
-            <Route path="/o/incidents/:id" element={<IncidentDetailPage />} />
-          </Routes>
-        </MemoryRouter>
+        <RouterProvider router={router} />
       </QueryClientProvider>
     </AuthContext.Provider>,
   );
+  return router;
+};
 
 const lastGet = () => String(api.mock.calls[api.mock.calls.length - 1][0]);
 
 beforeEach(() => {
   api.mockReset();
+  episodeApi.mockReset().mockResolvedValue([]);
   useToast.getState().dismiss();
 });
 afterEach(cleanup);
 
 describe('IncidentsPage (/o/incidents, screen 8.1)', () => {
+  it('validates and applies device/date filters, then restores the filtered page and scroll on Back', async () => {
+    const device = '9c616d72-c291-4684-9d43-2032f58f5cbf';
+    const localDate = '2026-11-04T14:15';
+    api.mockImplementation((path: string) => {
+      if (path.endsWith('/transitions')) return Promise.resolve([]);
+      if (path === '/incidents/inc-1') return Promise.resolve(view());
+      const params = new URL(path, 'https://example.test').searchParams;
+      return Promise.resolve({
+        ...page([view()]),
+        totalCount: 22,
+        pageNumber: Number(params.get('pageNumber') ?? 1),
+      });
+    });
+    renderAt('/o/incidents');
+    await screen.findByRole('table', { name: 'Incidents' });
+    fireEvent.click(screen.getByRole('button', { name: 'Filter incidents' }));
+    fireEvent.change(screen.getByLabelText('Device ID'), { target: { value: 'TL-0042' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply filters' }));
+    expect(screen.getByText('Enter a valid device UUID.')).toBeTruthy();
+    expect(api).toHaveBeenCalledTimes(1);
+    fireEvent.change(screen.getByLabelText('Device ID'), { target: { value: device } });
+    fireEvent.change(screen.getByLabelText('Created from'), { target: { value: localDate } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply filters' }));
+    await waitFor(() => {
+      const params = new URL(lastGet(), 'https://example.test').searchParams;
+      expect(params.get('deviceId')).toBe(device);
+      expect(params.get('from')).toBe(new Date(localDate).toISOString());
+      expect(params.get('pageNumber')).toBe('1');
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Next page' }));
+    await waitFor(() => expect(lastGet()).toContain('pageNumber=2'));
+    const scroller = (await screen.findByRole('table', { name: 'Incidents' })).parentElement!;
+    scroller.scrollTop = 112;
+    fireEvent.scroll(scroller);
+    fireEvent.click(screen.getByRole('link', { name: 'INC-2026-000001' }));
+    await screen.findByRole('heading', { name: 'INC-2026-000001' });
+    fireEvent.click(screen.getByRole('link', { name: 'Back to incidents' }));
+    const restored = (await screen.findByRole('table', { name: 'Incidents' })).parentElement!;
+    expect(restored.scrollTop).toBe(112);
+    expect(screen.getByRole('button', { name: 'Filter incidents (active)' })).toBeTruthy();
+    expect(lastGet()).toContain('pageNumber=2');
+    expect(lastGet()).toContain(`deviceId=${device}`);
+  });
+
   it('opens on all incidents with labels, owners, deadlines and the SAR disclaimer', async () => {
     api.mockResolvedValue(
       page([
@@ -278,6 +343,41 @@ describe('IncidentDetailPage (/o/incidents/:id, screen 8.1)', () => {
     api.mock.calls
       .filter(([, options]) => (options as RequestInit | undefined)?.method === 'POST')
       .map(([endpoint, options]) => [endpoint, JSON.parse(String((options as RequestInit).body))]);
+
+  it('renders the ordered API 13 trail in the organization workspace without reading manager deliveries', async () => {
+    detail();
+    episodeApi.mockResolvedValue([
+      { eventId: 'first', kind: 'SOS', observedAt: null, latitude: null, longitude: null },
+      { eventId: 'second', kind: 'POSITION', observedAt: '2026-11-04T13:00:00Z', latitude: 11.5, longitude: 108.5 },
+    ]);
+    renderAt('/o/incidents/inc-1');
+    const trail = await screen.findByRole('list', { name: 'Episode events, oldest first' });
+    expect(within(trail).getAllByRole('listitem').map((row) => row.querySelector('p')?.textContent))
+      .toEqual(['SOS button', 'Position']);
+    expect(screen.getByRole('link', { name: 'Open map' }).getAttribute('href')).toBe('/o/map');
+    expect(episodeApi).toHaveBeenCalledWith('/incidents/inc-1/events');
+    expect(gets('/incidents/inc-1/alerts')).toBe(0);
+  });
+
+  it('keeps an incident draft on browser Back and route changes until discard is confirmed', async () => {
+    detail();
+    const router = renderAt('/o/incidents/inc-1', ME, '/o/map');
+    fireEvent.click(await screen.findByRole('button', { name: 'Declare false alarm' }));
+    fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: 'Draft reason' } });
+    const unload = () => window.dispatchEvent(new Event('beforeunload', { cancelable: true }));
+    expect(unload()).toBe(false);
+    await act(async () => { await router.navigate(-1); });
+    const prompt = await screen.findByRole('dialog', { name: 'Discard unsaved changes?' });
+    expect(document.activeElement).toBe(within(prompt).getByRole('button', { name: 'Keep editing' }));
+    fireEvent.click(within(prompt).getByRole('button', { name: 'Keep editing' }));
+    expect(router.state.location.pathname).toBe('/o/incidents/inc-1');
+    expect((screen.getByLabelText(/Reason/) as HTMLTextAreaElement).value).toBe('Draft reason');
+    fireEvent.click(screen.getByRole('link', { name: 'Open map' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Discard and leave' }));
+    expect(await screen.findByText('Map destination')).toBeTruthy();
+    expect(unload()).toBe(true);
+    expect(posted()).toEqual([]);
+  });
 
   it('shows the summary, the evidence lists and the notifying actions', async () => {
     detail({
@@ -460,6 +560,10 @@ describe('IncidentDetailPage (/o/incidents/:id, screen 8.1)', () => {
     ).toBeTruthy();
     expect((screen.getByLabelText(/Outcome/) as HTMLTextAreaElement).value).toBe('Done');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect((screen.getByLabelText(/Outcome/) as HTMLTextAreaElement).value).toBe('Done');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }));
     expect(screen.getByRole('button', { name: 'Add status' })).toBeTruthy();
   });
 

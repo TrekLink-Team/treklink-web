@@ -7,6 +7,7 @@ import {
   type IncidentDetail,
 } from '../../entities/incident/api';
 import { ApiError } from '../../shared/api/apiClient';
+import { useUnsavedChanges } from '../../shared/lib/unsavedChanges';
 import { Button } from '../../shared/ui/Button';
 import { Dialog } from '../../shared/ui/Dialog';
 import { Field, Textarea } from '../../shared/ui/Field';
@@ -34,6 +35,7 @@ export const StaffFalseAlarmDialog: React.FC<{
   const [pending, setPending] = useState(false);
   const busy = useRef(false);
   const reasonField = useRef<HTMLTextAreaElement>(null);
+  useUnsavedChanges(Boolean(reason.trim()));
   const keepEditing = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (discarding) keepEditing.current?.focus();

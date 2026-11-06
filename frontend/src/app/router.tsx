@@ -24,7 +24,7 @@ import { OrganizationRolesPage } from '../pages/OrganizationRolesPage';
 import { StaffFieldStationsPage } from '../pages/StaffFieldStationsPage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { IncidentDetailPage } from '../pages/IncidentDetailPage';
-import { IncidentsPage } from '../pages/IncidentsPage';
+import { IncidentsPage, OrganizationIncidentsLayout } from '../pages/IncidentsPage';
 import { StaffIncidentDetailPage } from '../pages/StaffIncidentDetailPage';
 import { StaffIncidentsPage } from '../pages/StaffIncidentsPage';
 import { InvoiceDetailPage, InvoicesPage } from '../pages/InvoicesPage';
@@ -121,8 +121,10 @@ export const AppRoutes: React.FC = () => (
     <Route element={<RequireAuth />}>
       <Route element={<RequireRole roles={ORG_OPERATOR} />}>
         <Route path="/o/map" element={<LiveMapPage scope="o" />} />
-        <Route path="/o/incidents" element={<IncidentsPage />} />
-        <Route path="/o/incidents/:id" element={<IncidentDetailPage />} />
+        <Route path="/o/incidents" element={<OrganizationIncidentsLayout />}>
+          <Route index element={<IncidentsPage />} />
+          <Route path=":id" element={<IncidentDetailPage />} />
+        </Route>
         <Route path="/o/contracts" element={<ContractsPage />} />
         <Route path="/o/contracts/:id" element={<ContractDetailPage scope="o" />} />
         <Route path="/o/devices/:id/telemetry" element={<DeviceTelemetryPage scope="o" />} />

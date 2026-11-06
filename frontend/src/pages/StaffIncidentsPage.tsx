@@ -21,6 +21,7 @@ import { useSession } from '../entities/session/model';
 import { hasAnyRole } from '../shared/lib/permissions';
 import { useToast } from '../shared/ui/toastStore';
 import { formatDateTime } from '../shared/lib/format';
+import { useGuardedLeave } from '../shared/lib/unsavedChanges';
 import { ErrorState, PageTitle } from '../shared/ui/bits';
 import { Pagination } from '../shared/ui/DataTable';
 import { FileWarning, Siren } from 'lucide-react';
@@ -53,6 +54,7 @@ type Tab = 'queue' | 'reports';
 // automatic; Staff do not manually create or escalate incidents here. The Authority reports tab is
 // screen 8.3 (api-design 08 to 11).
 export const StaffIncidentsPage: React.FC = () => {
+  const guardLeave = useGuardedLeave();
   const client = useQueryClient();
   const [tab, setTab] = useState<Tab>('queue');
   const [scope, setScope] = useState(SCOPES[0]);
@@ -76,16 +78,18 @@ export const StaffIncidentsPage: React.FC = () => {
   );
 
   const open = (incident: Incident, falseAlarm = false) => {
-    lastTrigger.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setStartWithFalseAlarm(falseAlarm);
-    setSelected(incident.id);
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    guardLeave(() => {
+      lastTrigger.current = trigger;
+      setStartWithFalseAlarm(falseAlarm);
+      setSelected(incident.id);
+    });
   };
 
-  const back = () => {
+  const back = () => guardLeave(() => {
     setSelected(null);
     lastTrigger.current?.focus();
-  };
+  });
 
   // Item actions of screen 8.2 (W29) on CollectionView (chapter 06 §9.5, §9.6): Staff report a
   // reportable incident to the authorities (api-design 08) and declare an UNROUTED one a false alarm,
@@ -173,7 +177,14 @@ export const StaffIncidentsPage: React.FC = () => {
           { key: 'reports', label: 'Authority reports' },
         ]}
         value={tab}
-        onChange={setTab}
+        onChange={(next) => {
+          if (next !== tab)
+            guardLeave(() => {
+              setTab(next);
+              setReportingId(null);
+              setStartWithFalseAlarm(false);
+            });
+        }}
         className="mb-4"
       />
 
@@ -181,8 +192,11 @@ export const StaffIncidentsPage: React.FC = () => {
         <TabPanel idPrefix="staff-incidents" tabKey="reports" className="flex min-h-0 flex-1 flex-col">
           <AuthorityReportsPanel
             onViewIncident={(id) => {
-              setSelected(id);
-              setTab('queue');
+              guardLeave(() => {
+                setSelected(id);
+                setStartWithFalseAlarm(false);
+                setTab('queue');
+              });
             }}
           />
         </TabPanel>
@@ -303,6 +317,7 @@ export const StaffIncidentsPage: React.FC = () => {
       {reportingId && (
         <ReportDialog
           entry={{ kind: 'incident', id: reportingId }}
+          protectNavigation
           onClose={() => setReportingId(null)}
         />
       )}
