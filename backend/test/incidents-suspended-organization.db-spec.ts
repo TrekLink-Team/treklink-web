@@ -68,7 +68,7 @@ describe('an SOS of a SUSPENDED organization against Postgres (AC-07, BR-36)', (
     (
       await prisma.user.create({
         data: {
-          email: `suspended-${name}-${runId}@example.invalid`,
+          email: `suspended-${name}-${runId}-${++serial}@example.invalid`,
           fullName: `SUSPENDED ${name}`,
           accountType: AccountType.ORGANIZATION,
         },
