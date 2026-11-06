@@ -3,7 +3,7 @@ import React from 'react';
 import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { lineStatus, usePlans } from './api';
+import { lineStatus, useContractDamageCharges, usePlans } from './api';
 
 const apiClient = vi.fn();
 vi.mock('../../shared/api/apiClient', async (importOriginal) => ({
@@ -72,5 +72,42 @@ describe('lineStatus (screen 6.1)', () => {
     expect(lineStatus({ ...line, type: 'TERM_BALANCE', amountVnd: 45_000, paidVnd: 45_000 })).toBe(
       'Paid',
     );
+  });
+});
+
+describe('useContractDamageCharges (return counter, billing api-design 16)', () => {
+  const mount = (enabled = true) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return renderHook(() => useContractDamageCharges('c-1', enabled), {
+      wrapper: ({ children }: React.PropsWithChildren) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    });
+  };
+
+  it('reads all pages scoped to this contract, including older inspection charges', async () => {
+    apiClient.mockResolvedValueOnce({ items: [{ id: 'newer' }], totalPages: 2 });
+    apiClient.mockResolvedValueOnce({ items: [{ id: 'older-return' }], totalPages: 2 });
+    const hook = mount();
+    await waitFor(() => expect(hook.result.current.isSuccess).toBe(true));
+    expect(hook.result.current.data?.map((charge) => charge.id)).toEqual(['newer', 'older-return']);
+    expect(apiClient.mock.calls.map(([path]) => path)).toEqual([
+      '/damage-charges?contractId=c-1&pageNumber=1',
+      '/damage-charges?contractId=c-1&pageNumber=2',
+    ]);
+  });
+
+  it('does not read when no damaged return is shown', () => {
+    const hook = mount(false);
+    expect(hook.result.current.fetchStatus).toBe('idle');
+    expect(apiClient).not.toHaveBeenCalled();
+  });
+
+  it('reports a later-page failure without presenting an incomplete set as complete', async () => {
+    apiClient.mockResolvedValueOnce({ items: [{ id: 'newer' }], totalPages: 2 });
+    apiClient.mockRejectedValueOnce(new Error('Second page unavailable'));
+    const hook = mount();
+    await waitFor(() => expect(hook.result.current.isError).toBe(true));
+    expect(hook.result.current.data).toBeUndefined();
   });
 });
