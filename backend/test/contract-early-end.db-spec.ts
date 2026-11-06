@@ -161,10 +161,15 @@ describe('End now: credit, check-in and close (D-097)', () => {
     });
     const note = { note: 'Bank transfer FT26110600042' };
     // The Manager may not record it (invoice.refund is TrekLink Staff and Admin).
-    expect((await flow.send(org.manager, 'post', `/api/invoices/${closing.id}/refund`, note)).status).toBe(
-      403,
+    expect(
+      (await flow.send(org.manager, 'post', `/api/invoices/${closing.id}/refund`, note)).status,
+    ).toBe(403);
+    const refunded = await flow.send(
+      flow.staff,
+      'post',
+      `/api/invoices/${closing.id}/refund`,
+      note,
     );
-    const refunded = await flow.send(flow.staff, 'post', `/api/invoices/${closing.id}/refund`, note);
     expect(refunded.status).toBe(200);
     expect(refunded.body).toMatchObject({
       isSuccess: true,

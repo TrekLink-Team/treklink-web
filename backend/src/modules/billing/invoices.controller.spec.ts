@@ -33,7 +33,10 @@ const ROW = {
 };
 
 const metadataOf = (key: string, method: keyof InvoicesController): unknown =>
-  Reflect.getMetadata(key, InvoicesController.prototype[method]);
+  Reflect.getMetadata(
+    key,
+    Object.getOwnPropertyDescriptor(InvoicesController.prototype, method)?.value as object,
+  );
 
 // billing api-design 08, 09 and 23 (D-097 amended, design section 11.4).
 describe('InvoicesController credit due and refund', () => {
