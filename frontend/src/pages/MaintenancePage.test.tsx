@@ -7,6 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../shared/api/apiClient';
 import { MaintenanceApprovalPage, MaintenancePage } from './MaintenancePage';
 
+// The dialog's date field has min={today}, and jsdom refuses a submit below it, so the expected
+// completion is always a date after today.
+const TOMORROW = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+
 const estimateMaintenance = vi.fn();
 const completeMaintenance = vi.fn();
 const decideMaintenance = vi.fn();
@@ -359,13 +363,13 @@ describe('MaintenancePage (/t/maintenance, screen 4.3)', () => {
     const dialog = within(await screen.findByRole('dialog'));
     expect(dialog.getByText('Open maintenance for TL-0009')).toBeTruthy();
     fireEvent.change(dialog.getByLabelText(/Description/), { target: { value: 'Antenna loose' } });
-    fireEvent.change(dialog.getByLabelText(/Expected completion/), { target: { value: '2026-11-05' } });
+    fireEvent.change(dialog.getByLabelText(/Expected completion/), { target: { value: TOMORROW } });
     fireEvent.click(dialog.getByRole('button', { name: 'Open maintenance' }));
     await waitFor(() =>
       expect(openMaintenance).toHaveBeenCalledWith('d-9', {
         reason: 'STAFF_REPORTED',
         description: 'Antenna loose',
-        expectedAt: '2026-11-05',
+        expectedAt: TOMORROW,
         expectedVersion: 5,
       }),
     );
