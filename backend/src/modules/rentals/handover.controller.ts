@@ -175,6 +175,8 @@ export class HandoverController {
     return {
       ...contractBase(contract, labels.organization, labels.variantCode, null),
       devicesHandedOver: dto.deviceChecks.length,
+      // D-100 (api-design 10): each unit with its key version and whether that key is flagged exposed.
+      devices: contract.unitKeys,
     };
   }
 

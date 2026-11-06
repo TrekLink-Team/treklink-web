@@ -290,7 +290,7 @@ export const CounterPage: React.FC<{
   const [pageError, setPageError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
   const [pending, setPending] = useState(false);
-  const [done, setDone] = useState<{ count: number; code: string } | null>(null);
+  const [done, setDone] = useState<{ count: number; code: string; exposed: string[] } | null>(null);
   const [recordingPayment, setRecordingPayment] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const refetchInvoice = firstInvoice.refetch;
@@ -372,6 +372,20 @@ export const CounterPage: React.FC<{
   const data = contract.data;
   const devices = data.devices.filter((device) => !device.lostAt);
   const keyVersion = organization.data?.channelKeyVersion;
+  // D-100 (rentals REQ-EVT-30): a unit provisioned at the version now flagged exposed still hands over,
+  // with a warning and a direct way back to its provision step.
+  const keyExposed = Boolean(organization.data?.channelKeyExposedAt);
+  const exposedOn = (device: (typeof devices)[number]) =>
+    keyExposed && keyVersion !== undefined && versionOf(device) === keyVersion;
+  const reprovision = (device: (typeof devices)[number]) => {
+    setStep(0);
+    // After the step renders, the unit's provision control takes focus and comes into view.
+    window.setTimeout(() => {
+      const control = document.getElementById(`provision-${device.deviceId}`);
+      control?.scrollIntoView?.({ block: 'center' });
+      control?.focus();
+    }, 0);
+  };
   const managers = (members.data ?? []).filter(
     (member) => member.role === 'MANAGER' && !member.deactivatedAt && !member.invitationPending,
   );
@@ -581,6 +595,7 @@ export const CounterPage: React.FC<{
     device.deviceId in provisioned
       ? (provisioned[device.deviceId] ?? undefined)
       : (device.provisionedKeyVersion ?? undefined);
+  const exposedDevices = devices.filter((device) => exposedOn(device));
 
   const contractVersion = Math.max(data.version, undoneVersion ?? data.version);
 
@@ -734,7 +749,13 @@ export const CounterPage: React.FC<{
         `Handover complete. ${result.devicesHandedOver} devices issued under contract ${result.code}.`,
       );
       if (onDone) onDone();
-      else setDone({ count: result.devicesHandedOver, code: result.code });
+      else
+        setDone({
+          count: result.devicesHandedOver,
+          code: result.code,
+          // D-100: the units that left with a key flagged exposed (rentals api-design 10).
+          exposed: (result.devices ?? []).filter((unit) => unit.keyExposed).map((unit) => unit.assetTag),
+        });
     } catch (failure) {
       setPending(false);
       if (!(failure instanceof ApiError)) {
@@ -798,6 +819,13 @@ export const CounterPage: React.FC<{
           <p className="text-ink">
             {done.count} devices issued. The contract is active and the signed note is stored.
           </p>
+          {done.exposed.length > 0 && (
+            <p className={`${WARNING} mt-3`}>
+              {done.exposed.join(', ')} left with the organization&apos;s key flagged exposed. Rotate the key and
+              write the new version to {done.exposed.length === 1 ? 'that unit' : 'those units'} at the next
+              visit.
+            </p>
+          )}
           <Link to={`/t/contracts/${data.id}`} className={`${LINK} mt-3 inline-block`}>
             Open the contract and the handover note
           </Link>
@@ -911,6 +939,27 @@ export const CounterPage: React.FC<{
             >
               Reload
             </button>
+          </div>
+        )}
+
+        {step > 0 && exposedDevices.length > 0 && (
+          <div role="status" className={`${WARNING} mb-5 flex flex-col gap-2`}>
+            <p>
+              The organization&apos;s key v{keyVersion} is flagged exposed. The handover can go ahead; rotate
+              the key and re-provision these units.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {exposedDevices.map((device) => (
+                <button
+                  key={device.deviceId}
+                  type="button"
+                  className={SECONDARY_BUTTON}
+                  onClick={() => reprovision(device)}
+                >
+                  Re-provision {tagOf(device)}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -1087,6 +1136,11 @@ export const CounterPage: React.FC<{
                             {versionOf(device)
                               ? `Provisioned v${versionOf(device)}`
                               : 'Not provisioned yet'}
+                            {exposedOn(device) && (
+                              <span className="font-semibold text-status-attention-fg">
+                                Carries key v{keyVersion}, flagged exposed
+                              </span>
+                            )}
                             {versionOf(device) !== undefined && (
                               <button
                                 type="button"
@@ -1101,6 +1155,7 @@ export const CounterPage: React.FC<{
                           </p>
                         </div>
                         <button
+                          id={`provision-${device.deviceId}`}
                           type="button"
                           className={PRIMARY_BUTTON}
                           aria-describedby={dockingThis ? `dock-status-${device.deviceId}` : undefined}

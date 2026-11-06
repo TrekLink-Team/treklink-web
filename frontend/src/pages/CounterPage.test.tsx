@@ -11,6 +11,11 @@ import { CounterPage } from './CounterPage';
 const recordProvisioning = vi.fn();
 const undoProvisioning = vi.fn();
 const completeHandover = vi.fn();
+// The organization the counter reads; D-100 tests flag its key exposed.
+let organizationData: { id: string; channelKeyVersion: number; channelKeyExposedAt?: string | null } = {
+  id: 'org-1',
+  channelKeyVersion: 1,
+};
 const fetchHandoverPreview = vi.fn();
 const refetchInvoice = vi.fn(() => Promise.resolve());
 
@@ -57,7 +62,7 @@ vi.mock('../entities/contract/api', async (importOriginal) => ({
 
 vi.mock('../entities/organization/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../entities/organization/api')>()),
-  useOrganization: () => ({ data: { id: 'org-1', channelKeyVersion: 1 } }),
+  useOrganization: () => ({ data: organizationData }),
   useMembers: () => ({
     data: [
       {
@@ -206,6 +211,7 @@ afterEach(() => {
   undoProvisioning.mockReset();
   completeHandover.mockReset();
   fetchHandoverPreview.mockReset();
+  organizationData = { id: 'org-1', channelKeyVersion: 1 };
 });
 
 describe('CounterPage (screen 5.4)', () => {
@@ -837,4 +843,48 @@ describe('CounterPage docking (devices design 8.4, D-080, D-082)', () => {
       (screen.getByRole('button', { name: 'Dock and provision' }) as HTMLButtonElement).disabled,
     ).toBe(true);
   });
+
+  // D-100 (rentals REQ-EVT-30, AC-18): a key flagged exposed after provisioning warns, offers
+  // re-provisioning, and does not block the handover.
+  describe('a key flagged exposed (D-100)', () => {
+    it('warns on each provisioned unit, and Re-provision returns to its provision control', async () => {
+      organizationData = { id: 'org-1', channelKeyVersion: 1, channelKeyExposedAt: '2026-11-06T01:00:00Z' };
+      renderPage();
+      await readyDevices();
+      expect(screen.getAllByText('Carries key v1, flagged exposed')).toHaveLength(2);
+      next();
+      expect(screen.getByText(/key v1 is flagged exposed. The handover can go ahead/)).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: 'Re-provision TL-0004' }));
+      expect(screen.getByRole('heading', { name: '1. Devices' })).toBeTruthy();
+      await waitFor(() =>
+        expect(document.activeElement?.id).toBe('provision-d-2'),
+      );
+    });
+
+    it('completes the handover and names the units that left with the exposed key', async () => {
+      organizationData = { id: 'org-1', channelKeyVersion: 1, channelKeyExposedAt: '2026-11-06T01:00:00Z' };
+      completeHandover.mockResolvedValueOnce({
+        code: 'RC-2026-0002',
+        devicesHandedOver: 2,
+        devices: [
+          { deviceId: 'd-1', assetTag: 'TL-0003', keyVersion: 1, keyExposed: true },
+          { deviceId: 'd-2', assetTag: 'TL-0004', keyVersion: 1, keyExposed: true },
+        ],
+      });
+      renderPage();
+      await toSignStep();
+      fireEvent.click(screen.getByRole('button', { name: 'Complete handover' }));
+      await waitFor(() => expect(screen.getByText(/2 devices issued/)).toBeTruthy());
+      expect(screen.getByText(/TL-0003, TL-0004 left with the organization's key flagged exposed/)).toBeTruthy();
+    });
+
+    it('shows no warning while the key is not exposed', async () => {
+      renderPage();
+      await readyDevices();
+      expect(screen.queryByText('Carries key v1, flagged exposed')).toBeNull();
+      next();
+      expect(screen.queryByRole('button', { name: /^Re-provision / })).toBeNull();
+    });
+  });
 });
+

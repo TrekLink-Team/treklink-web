@@ -368,8 +368,20 @@ export const fetchHandoverPreview = (id: string, checks: DeviceCheck[] = []) =>
     }`,
   );
 
+// One unit of the handover answer (rentals api-design 10, D-100): the key it carries and whether that key
+// is flagged exposed. Older answers without `devices` read as none.
+export interface HandedOverUnitKey {
+  deviceId: string;
+  assetTag: string;
+  keyVersion: number | null;
+  keyExposed: boolean;
+}
+
 export const completeHandover = (id: string, input: HandoverInput) =>
-  post<Contract & { devicesHandedOver: number }>(`/contracts/${id}/handover`, input);
+  post<Contract & { devicesHandedOver: number; devices?: HandedOverUnitKey[] }>(
+    `/contracts/${id}/handover`,
+    input,
+  );
 
 // MF-05 at the counter (rentals api-design 14, 16, 17; devices api-design 10).
 export interface CheckInResult {
