@@ -21,6 +21,7 @@ const unitAt = (status: DeviceStatus, extra: Record<string, unknown> = {}) => ({
   firmwareVersion: '2.7.19-treklink.3',
   keyVersion: 3,
   keyOrganizationId: 'org-1',
+  provisionedAt: new Date('2026-11-03T02:00:00.000Z'),
   ...extra,
 });
 
@@ -253,6 +254,20 @@ describe('HubActionService', () => {
       expect(view).toMatchObject({ outcome: 'SUCCEEDED', returnReset: false });
       expect(actions.clearKey).toHaveBeenCalledWith('d-1', {});
       expect(devices.insertReset).not.toHaveBeenCalled();
+      expect(events.emitAfterCommit).toHaveBeenCalledWith(
+        AUDIT_RECORD,
+        expect.objectContaining({
+          action: 'device.hub_action.finished',
+          before: expect.objectContaining({
+            keyVersion: 3,
+            provisionedAt: new Date('2026-11-03T02:00:00.000Z'),
+          }) as unknown,
+          after: expect.objectContaining({
+            action: 'RESTORE_DEFAULTS',
+            keyCleared: true,
+          }) as unknown,
+        }),
+      );
     });
 
     it('records the return reset when a returned unit out of custody is factory reset', async () => {
@@ -268,7 +283,8 @@ describe('HubActionService', () => {
         AT,
         {},
       );
-      expect(actions.clearKey).not.toHaveBeenCalled();
+      // The provisioning time goes with the key, in the same transaction.
+      expect(actions.clearKey).toHaveBeenCalledWith('d-1', {});
     });
 
     it('only clears the key of a returned unit still in custody or already reset for this return', async () => {

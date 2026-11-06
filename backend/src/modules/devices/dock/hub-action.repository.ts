@@ -57,6 +57,7 @@ export class HubActionRepository {
         firmwareVersion: true,
         keyVersion: true,
         keyOrganizationId: true,
+        provisionedAt: true,
       },
     });
   }
@@ -92,11 +93,18 @@ export class HubActionRepository {
     });
   }
 
-  // The unit's key leaves the device record: a factory reset or the TrekLink defaults removed it from the unit.
+  // The unit's key leaves the device record: a factory reset or the TrekLink defaults removed it from the unit, so
+  // the record no longer says it is provisioned (key version, its organization and the provisioning time), as
+  // rentals api-design 19's undo leaves it. The DeviceProvisioning rows are append-only and stay as history.
   clearKey(deviceId: string, tx: Prisma.TransactionClient): Promise<unknown> {
     return tx.device.update({
       where: { id: deviceId },
-      data: { keyVersion: null, keyOrganizationId: null, version: { increment: 1 } },
+      data: {
+        keyVersion: null,
+        keyOrganizationId: null,
+        provisionedAt: null,
+        version: { increment: 1 },
+      },
       select: { id: true },
     });
   }

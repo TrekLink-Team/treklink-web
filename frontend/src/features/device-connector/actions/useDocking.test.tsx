@@ -358,7 +358,16 @@ describe('useDocking reboot and factory reset', () => {
   });
 
   it('restores the TrekLink defaults in one transaction and keeps the region (REQ-EVT-47)', async () => {
-    const { unit } = dock({ psk: KEY, longName: 'Org unit', shortName: 'ORG1', channelName: 'SAPA', wifiEnabled: true, region: 16 });
+    // treklink a274 on 2026-11-06: channel 0 still carried the organization key of the provisioning of 11-03.
+    const { unit } = dock({
+      psk: KEY,
+      longName: 'Org unit',
+      shortName: 'ORG1',
+      channelName: 'SAPA',
+      wifiEnabled: true,
+      region: 16,
+      secondaryChannels: [{ index: 1, role: 2, name: 'SAPA-ADMIN', psk: KEY }],
+    });
     unit.state.mqtt.enabled = true;
     const { result } = render();
     const id = await readyConnection();
@@ -371,10 +380,12 @@ describe('useDocking reboot and factory reset', () => {
       'begin_edit_settings',
       'set_owner',
       'set_channel',
+      'set_channel',
       'set_config',
       'set_module_config',
       'commit_edit_settings',
     ]);
+    expect(unit.state.secondaryChannels).toEqual([]);
     expect(unit.state).toMatchObject({
       longName: 'TL-0042',
       shortName: '0042',
@@ -386,6 +397,21 @@ describe('useDocking reboot and factory reset', () => {
     expect(Array.from(unit.state.psk)).toEqual([1]);
     expect(startHubAction).toHaveBeenCalledWith('d-42', { action: 'RESTORE_DEFAULTS', nodeNum: NODE });
     expect(finishHubAction).toHaveBeenCalledWith('d-42', 'ha-1', { outcome: 'SUCCEEDED' });
+  });
+
+  it('names a secondary channel left on the unit and records the restore failed (REQ-ERR-34)', async () => {
+    dock({ psk: KEY, secondaryChannels: [{ index: 2, role: 2, name: 'SAPA-ADMIN', psk: KEY }] }, { keepSecondaryChannelsOnCommit: true });
+    const { result } = render();
+    const id = await readyConnection();
+    let outcome: Awaited<ReturnType<typeof result.current.restoreDefaults>> | undefined;
+    await act(async () => {
+      outcome = await result.current.restoreDefaults(id, RETURNED_UNIT);
+    });
+    expect(outcome).toMatchObject({ ok: false, failure: 'read-back', reason: 'The read-back differs: secondary channels off.' });
+    expect(finishHubAction).toHaveBeenCalledWith('d-42', 'ha-1', {
+      outcome: 'FAILED',
+      failure: 'The read-back differs: secondary channels off.',
+    });
   });
 
   it('writes nothing to another unit and records nothing (REQ-ERR-32)', async () => {
