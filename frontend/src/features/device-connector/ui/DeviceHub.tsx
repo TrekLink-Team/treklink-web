@@ -12,6 +12,8 @@ import { Button } from '../../../shared/ui/Button';
 import { buttonClasses } from '../../../shared/ui/buttonStyles';
 import { Card } from '../../../shared/ui/Card';
 import { Dialog } from '../../../shared/ui/Dialog';
+import { PageScrollBody } from '../../../shared/ui/PageChrome';
+import { useMediaQuery } from '../../../shared/lib/useMediaQuery';
 import { cn } from '../../../shared/ui/cn';
 import { DEVICE_STATUS, type DeviceStatus } from '../../../shared/ui/status';
 import { useToast } from '../../../shared/ui/toastStore';
@@ -103,6 +105,8 @@ const FactoryResetDialog: React.FC<{
 
 // `timings` is for tests, which cannot wait for a real unit's restart.
 export const DeviceHub: React.FC<{ timings?: DockTimings }> = ({ timings }) => {
+  // The two-column layout from 600 px (screen 4.7, Layout).
+  const wide = useMediaQuery('(min-width: 600px)');
   const { registry, snapshot } = useConnector();
   const docking = useDocking({ timings });
   const queryClient = useQueryClient();
@@ -239,8 +243,85 @@ export const DeviceHub: React.FC<{ timings?: DockTimings }> = ({ timings }) => {
 
   const waitingReconnect = snapshot.reconnectFor === selected.id;
 
+  // The unit card, Device info and Actions. From 600 px the unit card stays beside a region that scrolls
+  // Device info and Actions; on a phone one region scrolls all three (chapter 06 §11.1, ui standard §7).
+  const unitCard = (
+    <Card as="section" aria-labelledby="hub-unit-title" className="flex flex-col gap-3 self-start">
+      <UnitImage code={device?.hardwareVariant.code ?? null} name={device?.hardwareVariant.name ?? null} kind="detail" />
+      <h2 id="hub-unit-title" className="text-title-sm text-ink">
+        {device?.assetTag ?? 'Unknown unit'}
+      </h2>
+      <p className="text-body text-ink">
+        {device ? statusText(device.status) : 'Not registered'}
+        <span className="text-ink-muted"> · </span>
+        {STATE_TEXT[selected.state]}
+      </p>
+      {selected.message && <p className="text-body-sm text-ink">{selected.message}</p>}
+      {waitingReconnect && (
+        <div className="flex flex-wrap gap-2">
+          <Button variant="primary" onClick={() => void docking.reconnect()}>
+            Reconnect
+          </Button>
+          <Button variant="secondary" onClick={() => docking.giveUp()}>
+            Stop
+          </Button>
+        </div>
+      )}
+      {device && (
+        <Link to={`/t/devices/${device.id}`} className={buttonClasses('secondary', 'md')}>
+          Open device page
+        </Link>
+      )}
+    </Card>
+  );
+  const infoAndActions = (
+    <div className="flex min-w-0 flex-col gap-4">
+      <Card as="section" aria-labelledby="hub-info-title">
+        <h2 id="hub-info-title" className="mb-3 text-title-sm text-ink">
+          Device info
+        </h2>
+        <Facts id="hub-info-title" items={infoItems} />
+      </Card>
+
+      <Card as="section" aria-labelledby="hub-actions-title">
+        <h2 ref={actionsHeading} id="hub-actions-title" tabIndex={-1} className="mb-3 text-title-sm text-ink outline-none">
+          Actions
+        </h2>
+        <ul className="grid grid-cols-1 gap-3 min-[1100px]:grid-cols-2">
+          {actions.map((action) => {
+            const reasonId = `hub-reason-${action.kind}`;
+            return (
+              <li key={action.kind} className="flex min-w-0 flex-col gap-1">
+                <Button
+                  variant={action.kind === 'factoryReset' ? 'danger' : 'secondary'}
+                  className="w-full justify-center"
+                  disabled={!action.available || running !== null}
+                  loading={running === action.kind}
+                  aria-describedby={action.reason ? reasonId : undefined}
+                  onClick={() => onAction(selected, action)}
+                >
+                  {action.label}
+                </Button>
+                {action.reason && (
+                  <p id={reasonId} className="text-body-sm text-ink-muted">
+                    {action.reason}
+                  </p>
+                )}
+                {action.link && (
+                  <Link to={action.link.to} className="text-body-sm font-semibold text-brand underline">
+                    {action.link.label}
+                  </Link>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
+    </div>
+  );
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
         {live.length > 1 && (
           <div role="group" aria-label="Connected units" className="flex flex-1 flex-wrap gap-2">
@@ -267,79 +348,19 @@ export const DeviceHub: React.FC<{ timings?: DockTimings }> = ({ timings }) => {
         </Alert>
       )}
 
-      <div className="grid grid-cols-1 gap-4 min-[600px]:grid-cols-[14rem_minmax(0,1fr)] min-[1100px]:grid-cols-[18rem_minmax(0,1fr)]">
-        <Card as="section" aria-labelledby="hub-unit-title" className="flex flex-col gap-3 self-start">
-          <UnitImage code={device?.hardwareVariant.code ?? null} name={device?.hardwareVariant.name ?? null} kind="detail" />
-          <h2 id="hub-unit-title" className="text-title-sm text-ink">
-            {device?.assetTag ?? 'Unknown unit'}
-          </h2>
-          <p className="text-body text-ink">
-            {device ? statusText(device.status) : 'Not registered'}
-            <span className="text-ink-muted"> · </span>
-            {STATE_TEXT[selected.state]}
-          </p>
-          {selected.message && <p className="text-body-sm text-ink">{selected.message}</p>}
-          {waitingReconnect && (
-            <div className="flex flex-wrap gap-2">
-              <Button variant="primary" onClick={() => void docking.reconnect()}>
-                Reconnect
-              </Button>
-              <Button variant="secondary" onClick={() => docking.giveUp()}>
-                Stop
-              </Button>
-            </div>
-          )}
-          {device && (
-            <Link to={`/t/devices/${device.id}`} className={buttonClasses('secondary', 'md')}>
-              Open device page
-            </Link>
-          )}
-        </Card>
-
-        <div className="flex min-w-0 flex-col gap-4">
-          <Card as="section" aria-labelledby="hub-info-title">
-            <h2 id="hub-info-title" className="mb-3 text-title-sm text-ink">
-              Device info
-            </h2>
-            <Facts id="hub-info-title" items={infoItems} />
-          </Card>
-
-          <Card as="section" aria-labelledby="hub-actions-title">
-            <h2 ref={actionsHeading} id="hub-actions-title" tabIndex={-1} className="mb-3 text-title-sm text-ink outline-none">
-              Actions
-            </h2>
-            <ul className="grid grid-cols-1 gap-3 min-[1100px]:grid-cols-2">
-              {actions.map((action) => {
-                const reasonId = `hub-reason-${action.kind}`;
-                return (
-                  <li key={action.kind} className="flex min-w-0 flex-col gap-1">
-                    <Button
-                      variant={action.kind === 'factoryReset' ? 'danger' : 'secondary'}
-                      className="w-full justify-center"
-                      disabled={!action.available || running !== null}
-                      loading={running === action.kind}
-                      aria-describedby={action.reason ? reasonId : undefined}
-                      onClick={() => onAction(selected, action)}
-                    >
-                      {action.label}
-                    </Button>
-                    {action.reason && (
-                      <p id={reasonId} className="text-body-sm text-ink-muted">
-                        {action.reason}
-                      </p>
-                    )}
-                    {action.link && (
-                      <Link to={action.link.to} className="text-body-sm font-semibold text-brand underline">
-                        {action.link.label}
-                      </Link>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </Card>
+      {wide ? (
+        <div className="grid min-h-0 flex-1 grid-cols-[14rem_minmax(0,1fr)] gap-4 min-[1100px]:grid-cols-[18rem_minmax(0,1fr)]">
+          {unitCard}
+          <PageScrollBody label="Device info and actions">{infoAndActions}</PageScrollBody>
         </div>
-      </div>
+      ) : (
+        <PageScrollBody label="Connected unit">
+          <div className="flex flex-col gap-4">
+            {unitCard}
+            {infoAndActions}
+          </div>
+        </PageScrollBody>
+      )}
 
       {resetting?.recognized?.device && (
         <FactoryResetDialog
