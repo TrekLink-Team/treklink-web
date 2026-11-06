@@ -26,6 +26,7 @@
 | 20 | GET | `/api/service-credits` | TrekLink Staff, TrekLink Admin; the organization's Managers for their own | [20-get-service-credits.md](20-get-service-credits.md) |
 | 21 | POST | `/api/service-credits/:id/decision` | TrekLink Admin, never the requester | [21-post-service-credits-id-decision.md](21-post-service-credits-id-decision.md) |
 | 22 | POST | `/api/service-credits/:id/refund` | TrekLink Staff, TrekLink Admin | [22-post-service-credits-id-refund.md](22-post-service-credits-id-refund.md) |
+| 23 | POST | `/api/invoices/:id/refund` | TrekLink Staff, TrekLink Admin | [23-post-invoices-id-refund.md](23-post-invoices-id-refund.md) |
 
 Charges created by other modules have no endpoint of their own: `chargeLate` on check-in (FR-BILL-03), `chargeDamage` from an inspection (FR-BILL-04), `chargeLoss` (FR-BILL-05), and the term invoice issued by the term rollover (FR-BILL-01), which also lands the approved service credits still owed (design §9.3). See `design.md` §2.
 

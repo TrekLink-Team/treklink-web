@@ -59,12 +59,14 @@
 - **REQ-EVT-15**: WHEN a decided credit has no later invoice to go on because the contract is `CLOSED`, the system SHALL mark it `REFUND_DUE`; WHEN Staff record the refund paid outside TrekLink with a unique reference, the system SHALL mark it `REFUNDED` with the reference and the time (BR-34: sandbox only, no real money moves through TrekLink). [D-092 rule 5]
 
 - **REQ-EVT-16**: WHEN `rentals` ends a monthly contract now (rentals REQ-EVT-27), the system SHALL credit the unused whole days of the current term at the term's daily rate: with the term fee F = P × q, the term length D in whole days from its start to its end, and the used days U = ⌈(end time − term start) ÷ 1 day⌉ (the end day counts as used, at least 1, at most D), it SHALL add one `EARLY_END_CREDIT` line of −⌈F × (D − U) ÷ D⌉ VND to the contract's closing invoice, due at the end time, with the ending actor as author and a description that names the term, the unused days and the end reason; no line when D − U is 0. A day plan, already billed per day, SHALL get no credit. The preview (rentals REQ-EVT-28) uses the same computation and stores nothing. [D-097 rule 2, FR-BILL-06]
+- **REQ-EVT-17** (D-097 amended, leader ruling 2026-11-06, treklink-docs#178): WHEN TrekLink Staff (or an Admin) mark a `CREDIT_DUE` invoice refunded with a note, after the refund was made outside TrekLink, the system SHALL record the amount refunded (the invoice's credit due at that moment), the note, the author and the time, set the invoice to `REFUNDED`, lower the contract's `owedToOrganizationVnd` by that amount, and, after commit, record the audit entry `invoice.refunded`. [D-097 rule 3 amended, BR-34]
 
 ### State-Driven
 
 - **REQ-STA-01**: WHILE a SePay payment is `PENDING` past its expiry, the system SHALL treat it as `EXPIRED`, and the amount SHALL stay due. [FR-BILL-09, E05-4]
 - **REQ-STA-02**: WHILE any line of a contract is unpaid, a damage charge is pending, or a service credit is `REQUESTED`, the contract's balance SHALL not be settled, and `rentals` SHALL not close it; an `APPROVED` credit counts as owed to the organization. [FR-CON-13, BR-27, leader ruling 2026-11-02]
-- **REQ-STA-03**: WHILE the credits on a contract's lines exceed what its lines still owe, the system SHALL report the difference as `owedToOrganizationVnd` in the contract balance (api-design 10), and the contract balance counts as settled; the page SHALL say that the amount is refunded outside TrekLink, because no refund flow exists yet (D-092 rule 5, BR-34). [D-097 rule 3]
+- **REQ-STA-03**: WHILE the credits on a contract's lines exceed what its lines still owe, the system SHALL report the difference as `owedToOrganizationVnd` in the contract balance (api-design 10), and the contract balance counts as settled; the page SHALL say that the amount is refunded outside TrekLink, because no refund flow exists yet (D-092 rule 5, BR-34); a refund recorded under REQ-EVT-17 lowers it. [D-097 rule 3]
+- **REQ-STA-04** (D-097 amended, leader ruling 2026-11-06): WHILE an invoice's total is below zero and no refund is recorded on it, the system SHALL keep it `CREDIT_DUE`, never `PAID`, and SHALL return with it `creditDueVnd`, what TrekLink owes the organization on it: the smaller of the negative total and the contract's `owedToOrganizationVnd`, zero while the credit is still set against the contract's unpaid lines. Every screen and the invoice document SHALL read "Credit due to organization" with that amount. [D-097 rule 3 amended]
 
 ### Unwanted Behaviour
 
@@ -76,6 +78,7 @@
 - **REQ-ERR-06**: IF Staff request a credit for a unit not on the contract, for an outage start outside the unit's custody interval or in the future, without the source of the outage start, or without a fault record of that unit, THEN the system SHALL return 400 `VALIDATION_FAILED` or 409 `DEVICE_NOT_ON_CONTRACT` (MSG12); IF the unit is neither checked in nor replaced, THEN 409 `INVALID_STATE_TRANSITION`; in every case it records nothing. [D-092 rule 5, leader ruling 2026-11-02]
 - **REQ-ERR-07**: IF the requester decides their own credit, THEN the system SHALL return 403 `SEPARATION_OF_DUTY`; IF a reduction is not below the computed amount or a reduction or rejection has no reason, THEN 400 `VALIDATION_FAILED`; IF the credit is not `REQUESTED` or the `version` is stale, THEN 409 `INVALID_STATE_TRANSITION` or `STALE_VERSION`. [D-092 rule 5, BR-24]
 - **REQ-ERR-08**: IF a second credit is requested for the same unit with an outage that overlaps a credit not `REJECTED`, THEN the system SHALL return 409 `DUPLICATE_CREDIT` and record nothing. [D-092 rule 5]
+- **REQ-ERR-09** (D-097 amended): IF a refund is marked on an invoice that is not `CREDIT_DUE`, THEN 409 `INVALID_STATE_TRANSITION` "Only an invoice with a credit due can be marked refunded."; IF its credit due is zero because the credit is still set against unpaid lines, THEN 409 `NOTHING_OWED` "Nothing is owed to the organization on this invoice yet: the credit is set against its unpaid invoices."; nothing changes in either case.
 
 ---
 
@@ -111,6 +114,8 @@ only, or the QR service answers an error page instead of an image).
 
 - **AC-09**: A monthly contract of 2 units at 450,000 VND (F = 900,000) on a 30-day term is ended now on day 6 (5 days and 1 hour after the term start): U = 6, the closing invoice carries `EARLY_END_CREDIT` −⌈900,000 × 24 ÷ 30⌉ = −720,000 VND. Ended in the first hour of day 1: −⌈900,000 × 29 ÷ 30⌉ = −870,000; on the last day: no line. On a 31-day term ended on day 6: −⌈900,000 × 25 ÷ 31⌉ = −725,807. A day plan ended early: no line. (D-097 rule 2)
 - **AC-10**: The same contract had paid its whole term, 900,000 VND: after the credit the balance is settled, `owedToOrganizationVnd` is 720,000 and the page says it is refunded outside TrekLink. (D-097 rule 3)
+- **AC-11**: The closing invoice of AC-10 (total −720,000 VND) reads "Credit due to organization 720,000 ₫", status `CREDIT_DUE`, never Paid; Staff mark it refunded with the note "Bank transfer FT26110600042": it becomes `REFUNDED` with the amount, note, author and time, and the contract's `owedToOrganizationVnd` is 0. (D-097 amended)
+- **AC-12**: Had the term been unpaid, the same credit is set against the term's lines: the closing invoice is `CREDIT_DUE` with `creditDueVnd` 0, and marking it refunded answers 409 `NOTHING_OWED`. (D-097 amended)
 
 ---
 

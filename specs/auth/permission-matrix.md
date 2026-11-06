@@ -81,6 +81,7 @@
 | `payment.read.own` | read | Payment | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
 | `payment.payOnline.own` | payOnline | Invoice | `{"organizationId": "${user.organizationId}"}` | ORGANIZATION |  |  | X |  |
 | `payment.recordCounter` | recordCounter | Invoice |  | TREKLINK | X | X |  |  |
+| `invoice.refund` | refund | Invoice |  | TREKLINK | X | X |  |  |
 | `damageCharge.read` | read | DamageCharge |  | TREKLINK | X | X |  |  |
 | `damageCharge.decide` | decide | DamageCharge |  | TREKLINK | X |  |  |  |
 | `serviceCredit.read` | read | ServiceCredit |  | TREKLINK | X | X |  |  |

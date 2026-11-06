@@ -57,6 +57,8 @@ No body.
         "status": "PARTIALLY_PAID",
         "totalVnd": 4500000,
         "paidVnd": 2250000,
+        "creditDueVnd": null,
+        "refund": null,
         "issuedAt": "2026-10-20T03:15:00.000Z"
       }
     ],

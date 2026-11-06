@@ -188,6 +188,7 @@ Events emitted: `payment.confirmed`, `audit.record`.
 | `DUPLICATE_REFERENCE` | 409 |
 | `OVERPAYMENT` | 400 |
 | `SEPARATION_OF_DUTY` | 403 |
+| `NOTHING_OWED` | 409 (mark refunded while the credit is set against unpaid lines, §11.4) |
 
 `NOTHING_DUE` covers either an invoice/line with no unpaid amount or a contract whose balance
 is settled after all invoices and cancellation credits are netted.
@@ -967,3 +968,66 @@ outside TrekLink until the refund flow of D-092 rule 5 exists (D-097 rule 3); th
 check is unchanged: a contract with nothing left to pay closes, and the amount owed to the organization stays on
 its balance for the refund.
 
+## 11. Credit due to organization (D-097 amended; leader ruling 2026-11-06, treklink-docs#178)
+
+A closing invoice whose credits outweigh its charges (an early-end credit, a service credit, a reduced loss)
+has a total below zero. It used to read `PAID`, because its payments "covered" a negative total. It now reads
+"Credit due to organization" with what TrekLink owes, until Staff record the refund made outside TrekLink.
+
+### 11.1 Model (migrations `20261106120000_invoice_credit_due_status` and `20261106120100_invoice_refund`)
+
+| Change | Detail |
+|---|---|
+| `InvoiceStatus` | adds `CREDIT_DUE` and `REFUNDED`; the first migration only adds the values, because PostgreSQL cannot use a new enum value inside the transaction that adds it |
+| `invoices` | adds `refundedVnd BigInt?`, `refundedAt`, `refundedById` (FK `users`), `refundNote` (at most 500 characters); a CHECK keeps the four together and `refundedVnd > 0` |
+| Backfill | an existing invoice with `totalVnd < 0` and status `PAID` becomes `CREDIT_DUE` |
+| Permission | `invoice.refund` (`refund`, `Invoice`), TrekLink Staff, Admin inherits; catalog row and the permission matrix regenerated |
+
+### 11.2 Status
+
+`invoiceStatusOf(total, paid, refunded)`: a total below zero is `REFUNDED` when a refund is recorded, else
+`CREDIT_DUE`; otherwise the rule of §2 (`PAID` once payments cover the total, `PARTIALLY_PAID`, `ISSUED`). A line
+added later to a refunded closing invoice that brings its total to zero or above returns it to that rule, and the
+refund stays recorded. A counter or SePay payment on a `CREDIT_DUE` or `REFUNDED` invoice is refused as an
+overpayment, as on a paid one, because nothing is due on it.
+
+```mermaid
+stateDiagram-v2
+    [*] --> ISSUED: total above zero
+    [*] --> CREDIT_DUE: total below zero
+    ISSUED --> PARTIALLY_PAID: a payment covers part
+    ISSUED --> PAID: payments cover the total
+    PARTIALLY_PAID --> PAID: payments cover the total
+    ISSUED --> CREDIT_DUE: a credit line brings the total below zero
+    PAID --> CREDIT_DUE: a credit line brings the total below zero
+    CREDIT_DUE --> REFUNDED: Staff mark refunded with a note
+    CREDIT_DUE --> ISSUED: a charge line brings the total above zero
+    REFUNDED --> ISSUED: a charge line brings the total above zero
+```
+
+***Figure 11***: invoice status, with the credit-due states of D-097 amended.
+
+### 11.3 How much is owed
+
+`creditDueVnd` on a `CREDIT_DUE` invoice is min(−total, the contract's `owedToOrganizationVnd`): `BalanceService`
+sets credits against the contract's oldest-due unpaid lines first (§10.3), so while the term is unpaid the
+credit pays it and nothing is owed back (AC-12). `owedToOrganizationVnd` is now the credit left over minus every
+refund recorded on the contract's invoices, never below zero. Lists compute it once per contract for the
+`CREDIT_DUE` rows only.
+
+### 11.4 Mark refunded (api-design 23)
+
+`POST /api/invoices/:id/refund` with `{ note }` (1 to 500 characters, trimmed): under the invoice row lock it
+checks the status (`CREDIT_DUE`, else 409 `INVALID_STATE_TRANSITION`) and the credit due (above zero, else 409
+`NOTHING_OWED`), then writes `refundedVnd` = the credit due, the note, the author and the time and sets `REFUNDED`;
+the audit entry `invoice.refunded` is emitted after commit. JWT and `@CheckPolicies` `refund Invoice`; the D-002
+envelope with the message "Refund recorded". The invoice views (api-design 08, 09) return `creditDueVnd` (null
+unless `CREDIT_DUE`) and `refund` (`{ amountVnd, at, note, byId }` or null; billing reads no user names).
+
+### 11.5 Screens
+
+The Money tab of the contract home and the invoice list show the status badge "Credit due to organization" with
+the amount, and "Refunded" once recorded; the invoice document (screen 6.1) shows "Credit due to organization:
+{amount}" in place of the amount due and, once refunded, "Refunded {amount} on {date}: {note}". Staff and Admin
+get "Mark refunded" on a `CREDIT_DUE` invoice with a credit due above zero: a `Dialog` that names the amount and
+asks for the note (required, a bank transfer reference or a short account), then the toast "Refund recorded.".

@@ -168,3 +168,9 @@
   - **Test**: `money.spec.ts` and `charges.service.early-end.spec.ts` for AC-09 (first day, last day, a 30 and a 31 day term, day plan none); `balance.service.spec.ts` for AC-10
   - _Requirements: REQ-EVT-16, REQ-STA-03, AC-09, AC-10, D-097_
   - **Done** (2026-11-05, KhoaDD under D-078): `money.spec.ts`, `charges.service.early-end.spec.ts` and `balance.service.spec.ts` cover AC-09 and AC-10; `test/contract-early-end.db-spec.ts` covers the line on Postgres. The frontend label is rentals task 10.4
+
+## Phase 10: Credit due to organization (D-097 amended; W35)
+
+- [x] 10.1 `CREDIT_DUE` and `REFUNDED` per design §11: two forward migrations, the backfill, `invoice.refund` in the catalog and the matrix, `NOTHING_OWED`, `POST /api/invoices/:id/refund`, `creditDueVnd` and `refund` on the invoice views, the refund in `owedToOrganizationVnd`; api-design from `scripts/specs/endpoints/billing.py`; the Money tab, the invoice list and the invoice document (owner KhoaDD under D-078)
+  - _Requirements: REQ-EVT-17, REQ-STA-03, REQ-STA-04, REQ-ERR-09, AC-11, AC-12, D-097 amended_
+
