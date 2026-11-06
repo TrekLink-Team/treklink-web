@@ -149,7 +149,7 @@ describe('DeviceHub (screen 4.7)', () => {
     const value = (label: string) => within(info).getByText(label).nextElementSibling?.textContent;
     expect(value('Node number')).toBe(`${A} (!a4b1c2d4)`);
     expect(value('Hardware model')).toBe('TBEAM');
-    expect(value('Battery')).toBe('87 %, 4.05 V (from the unit)');
+    expect(value('Battery')).toBe('87%, 4.05 V (from the unit)');
     expect(value('Region')).toBe('MY_433, LONG_FAST');
     expect(value('Primary channel')).toBe('ORG-SAPA');
     expect(value('Owner')).toBe('TL-0042 (0042)');
