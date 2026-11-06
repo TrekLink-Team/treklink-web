@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { SnapshotDevice, UnitState } from '../entities/live-map/api';
 import { byUnitState, unitStateOf } from '../entities/live-map/model';
@@ -9,9 +10,11 @@ import { flattenGroups, useDeviceGroups } from '../entities/rented-device/api';
 import { ApiError } from '../shared/api/apiClient';
 import { MAP_CONFIG_KEY, getMapConfig } from '../shared/config/map';
 import { formatDateTime } from '../shared/lib/format';
+import { useMediaQuery } from '../shared/lib/useMediaQuery';
 import {
   Alert,
   Badge,
+  BottomSheet,
   Button,
   Field,
   INCIDENT_STATE,
@@ -21,6 +24,7 @@ import {
   Select,
   Skeleton,
   type IncidentState,
+  type SheetState,
 } from '../shared/ui';
 import { cn } from '../shared/ui/cn';
 import { messageOf } from '../shared/ui/errors';
@@ -142,10 +146,10 @@ const markerOf = (row: Row, scope: 'o' | 't'): MapMarker | null => {
       : state === 'DOCKED' || device.docked
         ? 'docked'
         : state === 'NOT_HEARD'
-        ? 'unheard'
-        : state === 'OFFLINE'
-          ? 'stale'
-          : 'ok',
+          ? 'unheard'
+          : state === 'OFFLINE'
+            ? 'stale'
+            : 'ok',
     details: [
       device.contractCode ? `Contract ${device.contractCode}` : 'No contract',
       `Variant ${device.hardwareVariant}`,
@@ -250,6 +254,71 @@ const DeviceRow: React.FC<{
   );
 };
 
+// A device on a phone (screen 9.1): the popup's content as a card under the map, docked above the sheet's
+// peek. Focus moves into it when it opens, Escape or the close button puts it away, and every link is a
+// 44 px target.
+const DeviceCard: React.FC<{
+  marker: MapMarker;
+  onLink: (link: NonNullable<MapMarker['links']>[number]) => void;
+  onClose: () => void;
+}> = ({ marker, onLink, onClose }) => {
+  const box = useRef<HTMLElement>(null);
+  useEffect(() => {
+    box.current?.focus();
+  }, [marker.id]);
+  return (
+    <section
+      ref={box}
+      tabIndex={-1}
+      aria-label={`${marker.title} details`}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape') return;
+        event.stopPropagation();
+        onClose();
+      }}
+      className="absolute inset-x-2 bottom-2 z-[600] rounded-panel border border-line bg-surface p-3 shadow-overlay outline-none"
+    >
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-ink">{marker.title}</p>
+          {[marker.subtitle, ...(marker.details ?? [])].map((line) =>
+            line ? (
+              <p key={line} className="text-body-sm text-ink-muted">
+                {line}
+              </p>
+            ) : null,
+          )}
+        </div>
+        <button
+          type="button"
+          aria-label="Close device card"
+          onClick={onClose}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-control hover:bg-chrome/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+        >
+          <X aria-hidden="true" className="h-5 w-5" />
+        </button>
+      </div>
+      <div className="mt-1 flex flex-wrap gap-x-4">
+        {(marker.links ?? []).map((link) => (
+          <Link
+            key={link.to}
+            to={link.to}
+            state={link.state}
+            onClick={(event) => {
+              if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
+              event.preventDefault();
+              onLink(link);
+            }}
+            className={cn('inline-flex min-h-11 items-center', LINK)}
+          >
+            {link.label}
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+};
+
 /**
  * Screen 9.1, `/o/map` and `/t/map` (UC-38, UC-41, MF-04). The snapshot of monitoring api-design 02,
  * then the stream entries after its cursor, drawn on LiveMapWidget with a device list beside it.
@@ -279,6 +348,11 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const navigate = useNavigate();
+  // A phone (below 600 px, chapter 06 section 10.5): the device panel is a bottom sheet with three
+  // snap positions, and one device shows as a card under the map instead of a popup (screen 9.1).
+  const phone = !useMediaQuery('(min-width: 600px)', true);
+  const [sheet, setSheet] = useState<SheetState>('peek');
+  const opener = useRef<HTMLElement | null>(null);
 
   const staleAfterSeconds = config.data?.staleAfterSeconds;
   // Live units first, then offline, then not heard since handover (REQ-UBI-10).
@@ -324,6 +398,110 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
   }
 
   const title = scope === 't' ? 'Fleet map' : 'Live map';
+  const chooseDevice = (id: string | null) => {
+    if (id !== null) opener.current = document.activeElement as HTMLElement | null;
+    setSelectedId(id);
+  };
+  const closeCard = () => {
+    setSelectedId(null);
+    const back = opener.current;
+    opener.current = null;
+    if (back?.isConnected) back.focus();
+  };
+  const card = phone && selectedId ? markers.find((marker) => marker.id === selectedId) : undefined;
+  // A device picked, on the map or in the list, shows its card above a sheet held at its peek; opening
+  // the sheet puts the card away, since the sheet would cover it.
+  const sheetState: SheetState = card ? 'peek' : sheet;
+  const moveSheet = (next: SheetState) => {
+    if (card && next !== 'peek') setSelectedId(null);
+    setSheet(next);
+  };
+
+  const panelHeader = (
+    <div className="space-y-3 border-b border-line p-4">
+      <h2 className="font-display text-body-lg font-extrabold text-ink">{title}</h2>
+      <div className="text-body-sm text-ink-muted" aria-live="polite">
+        {!phone && (
+          <p>
+            {rows.length} {rows.length === 1 ? 'device' : 'devices'}, {sosCount} SOS open
+          </p>
+        )}
+        <p>{MSG42(count('LIVE'), count('OFFLINE'), count('NOT_HEARD'))}</p>
+      </div>
+      {scope === 't' && <OrganizationFilter value={organizationId} onChange={setOrganizationId} />}
+      {scope === 'o' && !!groups.data?.groups.length && (
+        <Field id="map-device-group" label="Group">
+          <Select
+            id="map-device-group"
+            value={selectedGroup ?? ''}
+            onChange={(event) => {
+              setGroupId(event.target.value);
+              setSelectedId(null);
+            }}
+          >
+            <GroupOptions groups={groups.data.groups} />
+          </Select>
+        </Field>
+      )}
+      <Field id="map-search" label="Search devices" hideLabel>
+        <Input
+          id="map-search"
+          type="search"
+          placeholder="Search asset tag, holder or contract"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+      </Field>
+    </div>
+  );
+  const panelList = (
+    <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+      {snapshot.isPending && (
+        <div className="space-y-2 p-4" aria-label="Loading the map">
+          <Skeleton className="h-12" />
+          <Skeleton className="h-12" />
+          <Skeleton className="h-12" />
+        </div>
+      )}
+      {state && listed.length === 0 && (
+        <p className="p-4 text-body-sm text-ink-muted">
+          {scope === 'o' && !needle ? EMPTY_ORG : MSG01}
+        </p>
+      )}
+      <ul>
+        {listed.map((row) => (
+          <DeviceRow
+            key={row.device.id}
+            row={row}
+            scope={scope}
+            selected={row.device.id === selectedId}
+            onSelect={() => setSelectedId(row.device.id)}
+          />
+        ))}
+      </ul>
+      {/* Inside the list's own scroll region, so the page never grows with the stations
+        (chapter 06 §11.1: only nested lists and panes scroll; review of #385). */}
+      {fieldStations.length > 0 && (
+        <section aria-labelledby="map-field-stations" className="border-t border-line p-4">
+          <h3 id="map-field-stations" className="text-body-sm font-semibold text-ink">
+            Field Stations
+          </h3>
+          <ul className="mt-2 space-y-2">
+            {fieldStations.map((station) => (
+              <li key={station.id} className="flex flex-wrap items-center gap-2 text-body-sm">
+                <span className="font-semibold text-ink">{station.name}</span>
+                {station.stale && <Badge tone="waiting">Stale</Badge>}
+                <span className="w-full text-ink-muted">
+                  Last sync {station.lastSyncAt ? formatDateTime(station.lastSyncAt) : 'Never'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+
   // A fit page (ui standard §7): the map fills the content area and only the device list scrolls.
   // Below 1024 px the list sits under the map and scrolls with its header as one region.
   return (
@@ -355,110 +533,60 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
           {messageOf(error)}
         </Alert>
       )}
-      <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
+      <div
+        className={cn(
+          'relative flex min-h-0 flex-1 flex-col gap-3 lg:flex-row',
+          // The peek strip of the sheet is reserved under the map, so the map never resizes as the sheet moves.
+          phone && 'pb-[4.5rem]',
+        )}
+      >
         <div className="relative min-h-[10rem] flex-1 overflow-hidden rounded-panel border border-line">
           <LiveMapWidget
             markers={markers}
             selectedId={selectedId}
             onLink={(link) => navigate(link.to, { state: link.state })}
+            cardMode={phone}
+            onSelect={phone ? chooseDevice : undefined}
             className="h-full rounded-none border-0"
           />
-          <MapLegend
-            className="absolute bottom-3 left-3 z-[500]"
-            // The Staff map also shows units docked at the counter (devices design section 12.8).
-            states={
-              scope === 't'
-                ? ['fresh', 'stale', 'unheard', 'docked', 'sos']
-                : ['fresh', 'stale', 'unheard', 'sos']
-            }
-          />
+          {!(phone && card) && (
+            <MapLegend
+              className="absolute bottom-3 left-3 z-[500]"
+              // The Staff map also shows units docked at the counter (devices design section 12.8).
+              states={
+                scope === 't'
+                  ? ['fresh', 'stale', 'unheard', 'docked', 'sos']
+                  : ['fresh', 'stale', 'unheard', 'sos']
+              }
+            />
+          )}
+          {phone && card && (
+            <DeviceCard
+              marker={card}
+              onLink={(link) => navigate(link.to, { state: link.state })}
+              onClose={closeCard}
+            />
+          )}
         </div>
-        <aside
-          aria-label="Devices"
-          className="relative flex max-h-[45%] shrink-0 flex-col overflow-y-auto rounded-panel border border-line bg-surface lg:max-h-none lg:w-[22rem] lg:overflow-hidden"
-        >
-          <div className="space-y-3 border-b border-line p-4">
-            <h2 className="font-display text-body-lg font-extrabold text-ink">{title}</h2>
-            <div className="text-body-sm text-ink-muted" aria-live="polite">
-              <p>
-                {rows.length} {rows.length === 1 ? 'device' : 'devices'}, {sosCount} SOS open
-              </p>
-              <p>{MSG42(count('LIVE'), count('OFFLINE'), count('NOT_HEARD'))}</p>
-            </div>
-            {scope === 't' && (
-              <OrganizationFilter value={organizationId} onChange={setOrganizationId} />
-            )}
-            {scope === 'o' && !!groups.data?.groups.length && (
-              <Field id="map-device-group" label="Group">
-                <Select
-                  id="map-device-group"
-                  value={selectedGroup ?? ''}
-                  onChange={(event) => {
-                    setGroupId(event.target.value);
-                    setSelectedId(null);
-                  }}
-                >
-                  <GroupOptions groups={groups.data.groups} />
-                </Select>
-              </Field>
-            )}
-            <Field id="map-search" label="Search devices" hideLabel>
-              <Input
-                id="map-search"
-                type="search"
-                placeholder="Search asset tag, holder or contract"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
-            </Field>
-          </div>
-          <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
-            {snapshot.isPending && (
-              <div className="space-y-2 p-4" aria-label="Loading the map">
-                <Skeleton className="h-12" />
-                <Skeleton className="h-12" />
-                <Skeleton className="h-12" />
-              </div>
-            )}
-            {state && listed.length === 0 && (
-              <p className="p-4 text-body-sm text-ink-muted">
-                {scope === 'o' && !needle ? EMPTY_ORG : MSG01}
-              </p>
-            )}
-            <ul>
-              {listed.map((row) => (
-                <DeviceRow
-                  key={row.device.id}
-                  row={row}
-                  scope={scope}
-                  selected={row.device.id === selectedId}
-                  onSelect={() => setSelectedId(row.device.id)}
-                />
-              ))}
-            </ul>
-            {/* Inside the list's own scroll region, so the page never grows with the stations
-                (chapter 06 §11.1: only nested lists and panes scroll; review of #385). */}
-            {fieldStations.length > 0 && (
-              <section aria-labelledby="map-field-stations" className="border-t border-line p-4">
-                <h3 id="map-field-stations" className="text-body-sm font-semibold text-ink">
-                  Field Stations
-                </h3>
-                <ul className="mt-2 space-y-2">
-                  {fieldStations.map((station) => (
-                    <li key={station.id} className="flex flex-wrap items-center gap-2 text-body-sm">
-                      <span className="font-semibold text-ink">{station.name}</span>
-                      {station.stale && <Badge tone="waiting">Stale</Badge>}
-                      <span className="w-full text-ink-muted">
-                        Last sync{' '}
-                        {station.lastSyncAt ? formatDateTime(station.lastSyncAt) : 'Never'}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-          </div>
-        </aside>
+        {phone ? (
+          <BottomSheet
+            label="Devices"
+            summary={`${rows.length} ${rows.length === 1 ? 'device' : 'devices'}, ${sosCount} SOS open`}
+            state={sheetState}
+            onStateChange={moveSheet}
+          >
+            {panelHeader}
+            {panelList}
+          </BottomSheet>
+        ) : (
+          <aside
+            aria-label="Devices"
+            className="relative flex max-h-[45%] shrink-0 flex-col overflow-y-auto rounded-panel border border-line bg-surface lg:max-h-none lg:w-[22rem] lg:overflow-hidden"
+          >
+            {panelHeader}
+            {panelList}
+          </aside>
+        )}
       </div>
     </div>
   );

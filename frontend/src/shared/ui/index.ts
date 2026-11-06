@@ -11,6 +11,7 @@ export * from './lockedWhileSelecting';
 export * from './Dialog';
 export * from './useConfirmStep';
 export * from './Drawer';
+export * from './BottomSheet';
 export * from './EmptyState';
 export * from './Field';
 export * from './ImagePreview';
