@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -120,10 +121,12 @@ afterEach(() => {
 
 const renderPanel = () =>
   render(
-    <MemoryRouter>
-      <ConnectorButton />
-      <ConnectorPanelBody headingId="panel-title" />
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter>
+        <ConnectorButton />
+        <ConnectorPanelBody headingId="panel-title" />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 
 describe('ConnectorPanel (screen 4.6)', () => {
@@ -470,7 +473,11 @@ describe('ConnectorAside focus (screen 4.6, the walk of task 4.6)', () => {
   };
 
   it('moves focus to the heading on open and back to the opener on Escape and on Close', async () => {
-    render(<Harness />);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <Harness />
+      </QueryClientProvider>,
+    );
     const opener = screen.getByRole('button', { name: 'Devices, 0 connected' });
     opener.focus();
     fireEvent.click(opener);

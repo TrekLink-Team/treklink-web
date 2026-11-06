@@ -50,6 +50,7 @@ import { useDocking } from '../features/device-connector/actions/useDocking';
 import {
   useConnector,
   useConnectorContext,
+  useConnectorRefresh,
   useConnectorStore,
   type ConnectorContext,
 } from '../features/device-connector';
@@ -390,6 +391,7 @@ export const FleetPage: React.FC = () => {
   const registerFrom = useConnectorStore((state) => state.registerFrom);
   const setRegisterFrom = useConnectorStore((state) => state.setRegisterFrom);
   const { registry } = useConnector();
+  const { refresh: refreshConnector } = useConnectorRefresh();
   useConnectorContext(registering || params.get('register') === '1' ? INTAKE : FLEET);
   // The connector's "New device: register it?" lands here with `?register=1` (REQ-EVT-33); closing the
   // panel drops the parameter.
@@ -463,6 +465,9 @@ export const FleetPage: React.FC = () => {
     setRegistering(false);
     showToast(MSG03);
     await queryClient.invalidateQueries({ queryKey: ['devices'] });
+    // Whichever unit was read, from the connector or by the Register device button, the panel and the hub ask the
+    // server again, so the connected unit shows In intake at once (devices design section 12.14, REQ-EVT-49).
+    void refreshConnector(device.id);
     // The new device opens in IN_INTAKE (screen 4.2 Actions); its page takes the intake check.
     navigate(`/t/devices/${device.id}`);
   };

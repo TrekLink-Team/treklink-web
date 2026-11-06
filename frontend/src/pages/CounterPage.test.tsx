@@ -121,7 +121,10 @@ vi.mock('../features/device-connector/model/useConnector', () => ({
   useConnectorContext: () => undefined,
   useStartConnector: () => undefined,
   openConnector: () => undefined,
+  useConnectorRefresh: () => ({ refresh: refreshConnector, refreshing: false }),
 }));
+// The status refresh after a provisioning or a quick swap (devices design section 12.14, REQ-EVT-49).
+const refreshConnector = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 
 // jsdom has no canvas: the stub signs with one click.
 vi.mock('../widgets/SignaturePad/SignaturePad', () => ({
@@ -642,6 +645,8 @@ describe('CounterPage docking (devices design 8.4, D-080, D-082)', () => {
         undefined,
       );
       expect(recordProvisioning).toHaveBeenCalledWith('c-1', 'd-1', 1, 0xa4b1c2d0);
+      // The connected units and the hub are asked again, so the card shows the new key (REQ-EVT-49).
+      expect(refreshConnector).toHaveBeenCalledWith('d-1');
     });
   });
 
