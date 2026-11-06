@@ -121,7 +121,7 @@ devices design §12.14: never the status.
 |---|---|---|
 | Provision or Re-provision (no counter context) | none; it opens `/t/counter/{contractId}` with the connector focused on the unit | as screen 5.4 |
 | Configure uplink | the uplink dialog; for `RESERVED` or `RENTED` the typed asset tag first | "{assetTag} is configured as an uplink to {broker}." |
-| Restore TrekLink defaults | `Dialog` "Restore TrekLink defaults on {assetTag}?": "This writes the owner {assetTag}, puts channel 0 back on the TrekLink default key, and turns Wi-Fi and MQTT off. Region, LoRa preset, node database and firmware stay. The unit restarts once."; typed asset tag for `RESERVED` or `RENTED` | toast "{assetTag} is back on the TrekLink defaults." |
+| Restore TrekLink defaults | `Dialog` "Restore TrekLink defaults on {assetTag}?": "This writes the owner {assetTag}, puts channel 0 back on the TrekLink default key, removes any other channel and its key, and turns Wi-Fi and MQTT off. Region, LoRa preset, node database and firmware stay. The unit restarts once, and its record no longer shows it provisioned."; typed asset tag for `RESERVED` or `RENTED` | toast "{assetTag} is back on the TrekLink defaults."; the key version shows None after the refresh |
 | Reboot | none, or the typed confirmation for `RESERVED` or `RENTED` | toast "{name} restarted." |
 | Update firmware | the flash panel (screen 4.3 panel, devices design §12.14) in a `Dialog`; the typed confirmation for `RESERVED` or `RENTED` | "{version} written and verified on {assetTag}." |
 | Factory reset | the dialog above; typed asset tag for `RESERVED` or `RENTED`; the custody note for a `RETURNED` unit still in custody | toast "{assetTag} is reset." |
