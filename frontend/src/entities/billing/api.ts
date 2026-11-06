@@ -481,12 +481,31 @@ export interface DamageChargeFilters {
 export const damageChargeKeys = {
   all: ['damage-charges'] as const,
   list: (filters: DamageChargeFilters) => ['damage-charges', filters] as const,
+  contract: (contractId: string) => ['damage-charges', 'contract', contractId] as const,
 };
 
 export const useDamageCharges = (filters: DamageChargeFilters) =>
   useQuery({
     queryKey: damageChargeKeys.list(filters),
     queryFn: () => apiClient<Page<DamageCharge>>(`/damage-charges${queryString({ ...filters })}`),
+  });
+
+// The return counter joins by inspection id. Read every page so an earlier return is not hidden.
+export const useContractDamageCharges = (contractId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: damageChargeKeys.contract(contractId),
+    enabled: enabled && Boolean(contractId),
+    queryFn: async ({ signal }) => {
+      const charges: DamageCharge[] = [];
+      for (let pageNumber = 1; ; pageNumber += 1) {
+        const page = await apiClient<Page<DamageCharge>>(
+          `/damage-charges${queryString({ contractId, pageNumber })}`,
+          { signal },
+        );
+        charges.push(...page.items);
+        if (pageNumber >= page.totalPages) return charges;
+      }
+    },
   });
 
 export type DamageDecision = 'APPROVED' | 'REDUCED' | 'WAIVED';

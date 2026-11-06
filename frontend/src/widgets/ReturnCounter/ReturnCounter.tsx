@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ClipboardCheck, Cpu, RotateCcw, SearchX } from 'lucide-react';
-import { damageCodesFor, useBalance, useDamageRates } from '../../entities/billing/api';
+import { damageChargeKeys, damageCodesFor, useBalance, useContractDamageCharges, useDamageRates } from '../../entities/billing/api';
 import {
   checkInDevices,
   contractKeys,
@@ -297,7 +297,7 @@ const InspectDialog: React.FC<{
 // inspection of each returned unit with its damage charge and its next step back to AVAILABLE
 // (D-092 rule 4), and close whenever the close check passes, with every blocker listed otherwise.
 // The reset and inspection of each unit come from the contract read (resetAt, inspection), so a
-// reload keeps them; the damage charge of an inspection shows on this visit only.
+// reload keeps them. Billing api-design 16 supplies the persisted charge of that exact inspection.
 /**
  * Screen 5.5. `header` is the page's title block; it sticks with the step tabs at the top, and the
  * current step's primary action sits in the page action bar (leader rule of 2026-10-30).
@@ -318,6 +318,12 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
   const [checking, setChecking] = useState(false);
   const [checkIn, setCheckIn] = useState<CheckInResult | null>(null);
   const [rows, setRows] = useState<Record<string, RowState>>({});
+  const charges = useContractDamageCharges(
+    contract.id,
+    tab === 'inspection' && contract.devices.some((device) =>
+      (rows[device.deviceId]?.outcome?.inspection ?? device.inspection)?.result === 'DAMAGED',
+    ),
+  );
   const [resetting, setResetting] = useState<ContractDevice | null>(null);
   const [inspecting, setInspecting] = useState<ContractDevice | null>(null);
   const [closing, setClosing] = useState(false);
@@ -361,6 +367,7 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
       queryClient.invalidateQueries({ queryKey: contractKeys.detail(contract.id) }),
       queryClient.invalidateQueries({ queryKey: contractKeys.balance(contract.id) }),
       queryClient.invalidateQueries({ queryKey: contractKeys.all }),
+      queryClient.invalidateQueries({ queryKey: damageChargeKeys.contract(contract.id) }),
     ]);
 
   const addTag = (event: React.FormEvent) => {
@@ -410,21 +417,31 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
       compact: true,
       render: (device) => {
         const state = rows[device.deviceId];
-        if (state?.outcome) {
-          const charge = state.outcome.damageCharge;
+        const inspection = state?.outcome?.inspection ?? device.inspection;
+        if (inspection) {
+          const savedCharge = charges.data?.find((item) => item.inspectionId === inspection.id);
+          const charge = savedCharge ?? state?.outcome?.damageCharge;
           return (
             <span className="flex flex-col gap-1">
-              <StatusBadge entry={OUTCOME[state.outcome.inspection.result]} />
+              <StatusBadge entry={OUTCOME[inspection.result]} />
               {charge && (
                 <span className="text-body-sm text-ink-muted">
-                  Damage {formatVnd(charge.amountVnd)},{' '}
-                  {charge.status === 'APPROVED' ? 'on the closing invoice' : 'waiting for an Admin'}
+                  Damage {formatVnd(savedCharge?.finalVnd ?? charge.amountVnd)},{' '}
+                  {charge.status === 'PENDING_APPROVAL' ? 'waiting for an Admin'
+                    : charge.status === 'WAIVED' ? 'waived'
+                      : charge.status === 'REDUCED' ? 'reduced, on the closing invoice'
+                        : 'on the closing invoice'}
+                </span>
+              )}
+              {inspection.result === 'DAMAGED' && !charge && (
+                <span className="text-body-sm text-ink-muted">
+                  {charges.isLoading ? 'Loading damage charge…' : 'Damage charge details unavailable.'}{' '}
+                  <Link to="/t/damage-charges" className={LINK}>Open damage charges</Link>
                 </span>
               )}
             </span>
           );
         }
-        if (device.inspection) return <StatusBadge entry={OUTCOME[device.inspection.result]} />;
         if (!isReset(device)) return 'Not reset';
         return device.resetAt ? `Reset logged ${formatDateTime(device.resetAt)}` : 'Reset logged';
       },
@@ -598,6 +615,11 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
 
         {tab === 'inspection' && (
           <TabPanel idPrefix="return" tabKey="inspection">
+            {charges.error && (
+              <Alert tone="error" title="Could not load damage charges." action={
+                <Button variant="secondary" onClick={() => void charges.refetch()}>Try again</Button>
+              } />
+            )}
             <CollectionView<ContractDevice>
               label="Returned devices"
               items={back}

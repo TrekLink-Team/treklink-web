@@ -8,6 +8,7 @@ import { contractKeys, type CloseCheck, type ContractDetail } from '../../entiti
 import { ApiError } from '../../shared/api/apiClient';
 import { useToast } from '../../shared/ui';
 import { ReturnCounter } from './ReturnCounter';
+import type { DamageCharge } from '../../entities/billing/api';
 
 const checkInDevices = vi.fn();
 const closeContract = vi.fn();
@@ -48,6 +49,10 @@ const RATES = [
 ];
 // What billing api-design 05 answers now; a test may change it to stand for a reload.
 let offeredRates = RATES;
+let persistedCharges: DamageCharge[] = [];
+let chargesError: Error | null = null;
+const refetchCharges = vi.fn();
+const readCharges = vi.fn();
 
 vi.mock('../../entities/contract/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../entities/contract/api')>()),
@@ -71,6 +76,10 @@ vi.mock('../../entities/loss-case/api', async (importOriginal) => ({
 vi.mock('../../entities/billing/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../entities/billing/api')>()),
   useBalance: () => ({ data: { dueNowVnd: 700_000, dueLaterVnd: 0, paidVnd: 0 } }),
+  useContractDamageCharges: (contractId: string, enabled: boolean) => {
+    readCharges(contractId, enabled);
+    return { data: persistedCharges, isLoading: false, error: chargesError, refetch: refetchCharges };
+  },
   useDamageRates: (hardwareVariantId?: string) => {
     ratesSeen.push(hardwareVariantId);
     return { data: offeredRates, isLoading: false, error: null, refetch: refetchRates };
@@ -120,6 +129,10 @@ afterEach(() => {
   refetchRates.mockReset();
   reportLoss.mockReset();
   closeCheck = undefined;
+  persistedCharges = [];
+  chargesError = null;
+  readCharges.mockReset();
+  refetchCharges.mockReset();
 });
 
 const check = (overrides: Partial<CloseCheck> = {}): CloseCheck => ({
@@ -203,6 +216,32 @@ describe('ReturnCounter (screen 5.5)', () => {
     expect(table().queryByText('TL-0017')).toBeNull();
   });
 
+  it.each([
+    ['PENDING_APPROVAL', null, 'Damage 700,000 VND, waiting for an Admin'],
+    ['APPROVED', 700_000, 'Damage 700,000 VND, on the closing invoice'],
+    ['REDUCED', 250_000, 'Damage 250,000 VND, reduced, on the closing invoice'],
+    ['WAIVED', 0, 'Damage 0 VND, waived'],
+  ] as const)('keeps the current inspection charge after reload, %s', (status, finalVnd, text) => {
+    const charge: DamageCharge = {
+      id: 'charge-current', contractId: 'c-1', deviceId: 'd-TL-0017', assetTag: 'TL-0017',
+      inspectionId: 'inspection-current', inspector: null, damageCodes: ['CASE_CRACKED'],
+      amountVnd: 700_000, finalVnd, status, decisionNote: null, decidedAt: null,
+      createdAt: '2026-10-30T03:06:00Z',
+    };
+    persistedCharges = [
+      { ...charge, id: 'old-charge', inspectionId: 'old-inspection', amountVnd: 9_000_000 },
+      charge,
+    ];
+    renderCounter(contract({ devices: [device('TL-0017', {
+      checkedInAt: '2026-10-30T03:00:00Z', resetAt: '2026-10-30T03:05:00Z',
+      inspection: { id: 'inspection-current', result: 'DAMAGED', at: '2026-10-30T03:06:00Z' },
+    })] }));
+    fireEvent.click(screen.getByRole('tab', { name: /Reset and inspection/ }));
+    expect(screen.getByText(text)).toBeTruthy();
+    expect(screen.queryByText(/9,000,000/)).toBeNull();
+    expect(readCharges).toHaveBeenLastCalledWith('c-1', true);
+  });
+
   it('shows the recorded inspection of a unit after a reload and offers no action on it', () => {
     renderCounter(
       contract({
@@ -220,6 +259,21 @@ describe('ReturnCounter (screen 5.5)', () => {
     expect(screen.getByText('Failed, maintenance')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^Inspect TL-/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /^Record reset TL-/ })).toBeNull();
+  });
+
+  it('keeps the inspection visible and offers retry when the saved charge read fails', () => {
+    chargesError = new Error('Billing unavailable');
+    renderCounter(contract({ devices: [device('TL-0017', {
+      checkedInAt: '2026-10-30T03:00:00Z', resetAt: '2026-10-30T03:05:00Z',
+      inspection: { id: 'inspection-current', result: 'DAMAGED', at: '2026-10-30T03:06:00Z' },
+    })] }));
+    fireEvent.click(screen.getByRole('tab', { name: /Reset and inspection/ }));
+    expect(screen.getByText('Damaged, maintenance')).toBeTruthy();
+    expect(screen.getByText('Could not load damage charges.')).toBeTruthy();
+    expect(screen.queryByText(/waiting for an Admin/)).toBeNull();
+    expect(screen.getByRole('link', { name: 'Open damage charges' }).getAttribute('href')).toBe('/t/damage-charges');
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(refetchCharges).toHaveBeenCalledOnce();
   });
 
   it('treats 409 ALREADY_RESET as a logged reset and moves the unit on to Inspect', async () => {
@@ -540,6 +594,17 @@ describe('ReturnCounter (screen 5.5)', () => {
         note: undefined,
       }),
     );
+    expect(await screen.findByText('Damage 300,000 VND, on the closing invoice')).toBeTruthy();
+    persistedCharges = [{
+      id: 'dc-1', contractId: 'c-1', deviceId: 'd-TL-0009', assetTag: 'TL-0009',
+      inspectionId: 'i-1', inspector: null, damageCodes: ['CASE_CRACKED'], amountVnd: 300_000,
+      finalVnd: 100_000, status: 'REDUCED', decisionNote: 'Reviewed', decidedAt: null,
+      createdAt: '2026-10-30T04:00:00Z',
+    }];
+    fireEvent.click(screen.getByRole('tab', { name: /Check-in/ }));
+    fireEvent.click(screen.getByRole('tab', { name: /Reset and inspection/ }));
+    expect(screen.getByText('Damage 100,000 VND, reduced, on the closing invoice')).toBeTruthy();
+    expect(screen.queryByText('Damage 300,000 VND, on the closing invoice')).toBeNull();
   });
   it('drops a code deactivated since the list loaded and sends only the codes still offered (review of #129)', async () => {
     await openDamagedInspection();
