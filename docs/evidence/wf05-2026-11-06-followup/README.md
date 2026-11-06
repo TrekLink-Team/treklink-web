@@ -48,11 +48,16 @@ five v3 units. Key rotation and two rehearsal stock records were approved before
 | Closing SePay | PASS, TLZPEXJNZ0, 700,000 VND, CONFIRMED 12:50, closing invoice Paid, balance 0 |
 | Close and fresh sign-in | PASS, CLOSED 12:52, due now/later 0, total paid 1,037,500 VND, two Paid invoices, two confirmed payments, three AVAILABLE and two MAINTENANCE, empty holder labels |
 
-LongLP triggered both incoming transfers through the actual SePay Test mode UI. Neither a counter
-receipt nor a fabricated authenticated webhook substituted for provider delivery. The first provider
-screenshot showed one successful webhook destination and one unreachable destination. TrekLink
-confirmed the payment and recorded one receipt. The provider screenshot remains private because it
-also includes unrelated browser content.
+The read-only invoice captures below show the recorded payment method **SePay**, the **SANDBOX**
+badge, reference, amount and **confirmed** status. INV-2026-000007 shows `TLMP577N08`, 337,500 VND,
+confirmed at 12:39. INV-2026-000008 shows `TLZPEXJNZ0`, 700,000 VND, confirmed at 12:50.
+Both invoices are Paid with balance 0. These application records distinguish the payments from
+cash or bank-transfer counter receipts. The captures were taken after contract closure without
+replaying a transfer. They establish TrekLink's stored method and confirmation, not an independent
+review of the provider's delivery logs.
+
+![Initial invoice: TLMP577N08, SePay, SANDBOX, confirmed](32-rc8-initial-sepay-receipt.jpg)
+![Closing invoice: TLZPEXJNZ0, SePay, SANDBOX, confirmed](33-rc8-closing-sepay-receipt.jpg)
 
 ![RC-2026-0008 closed and zero balance](30-rc8-closed-zero-balance.jpg)
 ![RC-2026-0008 final device states](31-rc8-final-devices.jpg)
