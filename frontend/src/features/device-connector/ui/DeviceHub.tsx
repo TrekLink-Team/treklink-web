@@ -47,12 +47,12 @@ const batteryText = (connection: Connection): string => {
   const level = unit?.batteryLevel ?? null;
   if (level !== null) {
     // Meshtastic reports a level above 100 while the unit runs on external power.
-    const shown = level > 100 ? 'External power' : `${level} %`;
+    const shown = level > 100 ? 'External power' : `${level}%`;
     const volts = unit?.voltage ?? null;
     return `${shown}${volts === null ? '' : `, ${volts.toFixed(2)} V`} (from the unit)`;
   }
   const server = connection.recognized?.device?.batteryPct ?? null;
-  return server === null ? 'Not reported' : `${server} % (from the server; the unit reports none yet)`;
+  return server === null ? 'Not reported' : `${server}% (from the server; the unit reports none yet)`;
 };
 
 const statusText = (status: string) => DEVICE_STATUS[status as DeviceStatus]?.label ?? status;
@@ -281,16 +281,16 @@ export const DeviceHub: React.FC<{ timings?: DockTimings }> = ({ timings }) => {
           {selected.message && <p className="text-body-sm text-ink">{selected.message}</p>}
           {waitingReconnect && (
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="primary" onClick={() => void docking.reconnect()}>
+              <Button variant="primary" onClick={() => void docking.reconnect()}>
                 Reconnect
               </Button>
-              <Button size="sm" variant="secondary" onClick={() => docking.giveUp()}>
+              <Button variant="secondary" onClick={() => docking.giveUp()}>
                 Stop
               </Button>
             </div>
           )}
           {device && (
-            <Link to={`/t/devices/${device.id}`} className={buttonClasses('secondary', 'sm')}>
+            <Link to={`/t/devices/${device.id}`} className={buttonClasses('secondary', 'md')}>
               Open device page
             </Link>
           )}
