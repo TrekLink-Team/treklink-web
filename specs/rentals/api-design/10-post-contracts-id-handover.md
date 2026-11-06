@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Completes the handover at the counter. Requires the first payment confirmed, the Manager's identity checked, every reserved device provisioned with the organization's current key and its handover check passed, and the drawn signature. Stamps the signature into the note, stores the PDF and its SHA-256, then moves the contract to `ACTIVE` and its devices to `RENTED` in one transaction (FR-CON-05, FR-CON-06, BR-09, D-037).
+Completes the handover at the counter. Requires the first payment confirmed, the Manager's identity checked, every reserved device provisioned with the organization's current key and its handover check passed, and the drawn signature. Stamps the signature into the note, stores the PDF and its SHA-256, then moves the contract to `ACTIVE` and its devices to `RENTED` in one transaction (FR-CON-05, FR-CON-06, BR-09, D-037). A key flagged exposed after the units were provisioned does not block it: the answer flags each such unit so the counter warns (D-100).
 
 ## API Specification
 
@@ -15,7 +15,7 @@ Completes the handover at the counter. Requires the first payment confirmed, the
 | --- | --- |
 | POST | /api/contracts/:id/handover |
 | Permission | TrekLink Staff |
-| Traces | UC-20, UC-21, FR-CON-05, FR-CON-06, FR-DEV-01, FR-DEV-05, BR-09, E01-4, MSG06, MSG19, MSG23, MSG24 |
+| Traces | UC-20, UC-21, FR-CON-05, FR-CON-06, FR-DEV-01, FR-DEV-05, BR-09, E01-4, MSG06, MSG19, MSG23, MSG24, D-100, REQ-EVT-30 |
 
 ### Path parameters
 
@@ -85,20 +85,13 @@ Completes the handover at the counter. Requires the first payment confirmed, the
     "noticeGivenAt": null,
     "returnDueAt": null,
     "version": 4,
-    "handoverNoteSha256": "9f2c...e1",
+    "devicesHandedOver": 1,
     "devices": [
       {
         "deviceId": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
         "assetTag": "TL-0042",
-        "nodeNum": 275612,
-        "handedOverAt": "2026-10-20T03:15:00.000Z",
-        "checkedInAt": null,
-        "lostAt": null,
-        "holder": {
-          "name": "Le Thi E",
-          "phone": "0912345678",
-          "emergencyContact": "Le Van F, 0987654321"
-        }
+        "keyVersion": 1,
+        "keyExposed": true
       }
     ]
   },
@@ -107,6 +100,11 @@ Completes the handover at the counter. Requires the first payment confirmed, the
   "message": "Handover complete. 10 devices issued under contract RC-2026-0042."
 }
 ```
+
+| Field | Description | Data Type | Examples |
+| --- | --- | --- | --- |
+| devicesHandedOver | How many units were handed over | int | `1` |
+| devices | Each unit handed over with the key version it carries and `keyExposed`, true when the organization's key is flagged exposed and the unit carries that version (D-100, REQ-EVT-30) | object[] | see sample |
 
 ## Validation
 

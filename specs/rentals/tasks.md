@@ -278,3 +278,9 @@ REQ-EVT-16, REQ-STA-03, AC-09, AC-10, design §10, billing task 9.1.
   - _Requirements: REQ-EVT-29, REQ-ERR-18, AC-17_
   - _Depends on: devices 2.3 (`release`, `reserve` with explicit ids)_
   - **Done** (2026-11-04, `feat/device-connector-ui`): `HandoverService.exchange` and `POST /api/contracts/:id/devices/:deviceId/exchange` (`contract.operate`, message "Device exchanged") with the refusals of REQ-ERR-18 in order; the docked unit is taken with `DevicesService.takeForReplacement` (locked by id, variant, `AVAILABLE`), the replaced one released with reason `EXCHANGED`; `RentalsDeviceContracts` provides `DEVICE_CONTRACTS`. Tested over HTTP on a local Postgres 16 (`test/device-connector-http.db-spec.ts`, AC-17 and every refusal); the concurrent-approval case of AC-17 rests on the row lock of `takeForReplacement` and is not run as a race
+
+## Phase 12: Handover with an exposed key (D-100; W35)
+
+- [x] 12.1 The handover answer lists each unit's `keyVersion` and `keyExposed` (rentals design §4 step 6, api-design 10 from `scripts/specs/endpoints/rentals.py`), read through the new `OrganizationsService.channelKeyState`; the counter warns on each unit with a key flagged exposed and offers "Re-provision {assetTag}" to its provision step; the done panel names them (owner KhoaDD under D-078)
+  - _Requirements: REQ-EVT-30, AC-18, D-100_
+
