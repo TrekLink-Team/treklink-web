@@ -404,6 +404,13 @@
 .leaflet-popup-content-wrapper {
   border-radius: 0.75rem !important;
 }
+/* Links in a popup take the brand token. Leaflet's own `.leaflet-container a` sets #0078A8, which beats
+   the `text-brand` utility and reads 3.56 to 1 on the dark popup (WCAG 1.4.3; staging walk of
+   2026-11-06). The token reads 8.9 to 1 on the dark surface and 5.86 to 1 on the light one. The extra
+   class keeps this rule ahead of Leaflet's whatever the order the sheets load in. */
+.leaflet-container .leaflet-popup-content a {
+  color: rgb(var(--tl-brand));
+}
 /* The device list of a stack or a cluster (leader ruling 2026-11-06): entries stay compact, without
    Leaflet's 1.3em paragraph margins, so several fit before the list scrolls. */
 .tl-map-list p {
