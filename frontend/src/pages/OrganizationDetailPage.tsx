@@ -7,7 +7,7 @@ import { Card, PageHeader, Skeleton, StatusBadge } from '../shared/ui';
 import { ErrorState, Fact } from '../shared/ui/bits';
 import { messageOf } from '../shared/ui/errors';
 import { ORGANIZATION_STATUS } from '../shared/ui/status';
-import { LINK } from '../shared/ui/styles';
+import { FOCUS, LINK } from '../shared/ui/styles';
 import { OrganizationRolesReadOnly } from '../widgets/OrganizationRoles/OrganizationRolesReadOnly';
 import { OrganizationStatusHistory } from '../widgets/OrganizationStatusHistory/OrganizationStatusHistory';
 
@@ -50,7 +50,13 @@ export const OrganizationDetailPage: React.FC = () => {
   }
 
   return (
-    <section aria-labelledby="org-detail-title" className="flex flex-col gap-6">
+    // A fit page (chapter 06 §11.1, ui standard §7): the header stays and only the body scrolls, so `#main`
+    // does not. Below 480 px of height the body releases its scroll and the page scrolls (zoom).
+    <section
+      aria-labelledby="org-detail-title"
+      data-fit-page=""
+      className="flex min-h-0 flex-1 flex-col gap-4"
+    >
       <PageHeader
         id="org-detail-title"
         title={data.legalName}
@@ -62,66 +68,73 @@ export const OrganizationDetailPage: React.FC = () => {
         }
       />
 
-      <Card aria-labelledby="org-detail-record">
-        <h2 id="org-detail-record" className="mb-3 text-title text-ink">
-          Record
-        </h2>
-        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Fact label="Status">
-            <StatusBadge
-              entry={ORGANIZATION_STATUS[data.status as keyof typeof ORGANIZATION_STATUS]}
-            />
-          </Fact>
-          <Fact label="Status changed">{formatDateTime(data.statusChangedAt)}</Fact>
-          <Fact label="Tax code">{data.taxCode}</Fact>
-          <Fact label="Address">{data.address}</Fact>
-          <Fact label="Contact email">{data.contactEmail}</Fact>
-          <Fact label="Contact phone">{data.contactPhone}</Fact>
-          <Fact label="Members">{data.counts.members}</Fact>
-          <Fact label="Running contracts">{data.counts.runningContracts}</Fact>
-          <Fact label="Open incidents">{data.counts.openIncidents}</Fact>
-          <Fact label="Channel key version">{data.channelKeyVersion}</Fact>
-        </dl>
-      </Card>
-
-      <Card aria-labelledby="org-detail-verification">
-        <h2 id="org-detail-verification" className="mb-3 text-title text-ink">
-          Counter verification
-        </h2>
-        {data.verification && data.verifiedAt ? (
+      <div
+        role="region"
+        aria-label="Organization details"
+        tabIndex={0}
+        className={`flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto rounded-sm [@media(max-height:479.98px)]:overflow-visible ${FOCUS}`}
+      >
+        <Card aria-labelledby="org-detail-record">
+          <h2 id="org-detail-record" className="mb-3 text-title text-ink">
+            Record
+          </h2>
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Fact label="Verified">{formatDateTime(data.verifiedAt)}</Fact>
-            <Fact label="Verified by">{data.verification.verifiedBy ?? 'Unknown'}</Fact>
-            <Fact label="Method">{METHOD[data.verification.method]}</Fact>
-            <Fact label="Master contract">{data.verification.masterContractRef ?? 'None'}</Fact>
-            <Fact label="Documents seen">
-              {data.verification.documentsSeen.length > 0
-                ? data.verification.documentsSeen.join(', ')
-                : 'None'}
+            <Fact label="Status">
+              <StatusBadge
+                entry={ORGANIZATION_STATUS[data.status as keyof typeof ORGANIZATION_STATUS]}
+              />
             </Fact>
+            <Fact label="Status changed">{formatDateTime(data.statusChangedAt)}</Fact>
+            <Fact label="Tax code">{data.taxCode}</Fact>
+            <Fact label="Address">{data.address}</Fact>
+            <Fact label="Contact email">{data.contactEmail}</Fact>
+            <Fact label="Contact phone">{data.contactPhone}</Fact>
+            <Fact label="Members">{data.counts.members}</Fact>
+            <Fact label="Running contracts">{data.counts.runningContracts}</Fact>
+            <Fact label="Open incidents">{data.counts.openIncidents}</Fact>
+            <Fact label="Channel key version">{data.channelKeyVersion}</Fact>
           </dl>
-        ) : (
-          <p className="text-body-sm text-ink-muted">Not verified at the counter yet.</p>
-        )}
-      </Card>
+        </Card>
 
-      <Card aria-labelledby="org-detail-history">
-        <h2 id="org-detail-history" className="mb-3 text-title text-ink">
-          Status history
-        </h2>
-        <OrganizationStatusHistory organizationId={data.id} />
-      </Card>
+        <Card aria-labelledby="org-detail-verification">
+          <h2 id="org-detail-verification" className="mb-3 text-title text-ink">
+            Counter verification
+          </h2>
+          {data.verification && data.verifiedAt ? (
+            <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <Fact label="Verified">{formatDateTime(data.verifiedAt)}</Fact>
+              <Fact label="Verified by">{data.verification.verifiedBy ?? 'Unknown'}</Fact>
+              <Fact label="Method">{METHOD[data.verification.method]}</Fact>
+              <Fact label="Master contract">{data.verification.masterContractRef ?? 'None'}</Fact>
+              <Fact label="Documents seen">
+                {data.verification.documentsSeen.length > 0
+                  ? data.verification.documentsSeen.join(', ')
+                  : 'None'}
+              </Fact>
+            </dl>
+          ) : (
+            <p className="text-body-sm text-ink-muted">Not verified at the counter yet.</p>
+          )}
+        </Card>
 
-      <Card aria-labelledby="org-detail-roles">
-        <h2 id="org-detail-roles" className="text-title text-ink">
-          Roles and permissions
-        </h2>
-        <p className="mb-3 text-body-sm text-ink-muted">
-          What the roles of this organization may do. Read only: its Manager changes them on the
-          Roles page.
-        </p>
-        <OrganizationRolesReadOnly organizationId={data.id} />
-      </Card>
+        <Card aria-labelledby="org-detail-history">
+          <h2 id="org-detail-history" className="mb-3 text-title text-ink">
+            Status history
+          </h2>
+          <OrganizationStatusHistory organizationId={data.id} />
+        </Card>
+
+        <Card aria-labelledby="org-detail-roles">
+          <h2 id="org-detail-roles" className="text-title text-ink">
+            Roles and permissions
+          </h2>
+          <p className="mb-3 text-body-sm text-ink-muted">
+            What the roles of this organization may do. Read only: its Manager changes them on the
+            Roles page.
+          </p>
+          <OrganizationRolesReadOnly organizationId={data.id} />
+        </Card>
+      </div>
     </section>
   );
 };
