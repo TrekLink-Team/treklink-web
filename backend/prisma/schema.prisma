@@ -223,6 +223,7 @@ model User {
   authorityCasesClosed  AuthorityReport[]      @relation("AuthorityReport_caseClosedById")
   lossCasesReported     LossCase[]             @relation("LossCase_reportedById")
   dockSessionsOpened    DeviceDockSession[]    @relation("DeviceDockSession_openedById")
+  hubActionsTaken       DeviceHubAction[]      @relation("DeviceHubAction_actorId")
   lossCasesTriaged      LossCase[]             @relation("LossCase_triagedById")
   lossCasesDecided      LossCase[]             @relation("LossCase_decidedById")
   disposalsVerified     DeviceDisposal[]
@@ -758,6 +759,7 @@ model Device {
   lossCases          LossCase[]
   disposal           DeviceDisposal?
   dockSessions       DeviceDockSession[]
+  hubActions         DeviceHubAction[]
 
   @@index([status])
   @@index([hardwareVariantId, status])
@@ -789,6 +791,47 @@ model DeviceDockSession {
 
   @@index([endedAt, renewedAt])
   @@map("device_dock_sessions")
+}
+
+// The device hub's actions on a docked unit (devices design section 12.14, api-design 33 and 34, leader UAT
+// 2026-11-06): one row per action, STARTED before anything is written to the unit and SUCCEEDED or FAILED when it
+// ends. Kept with the status and live contract at the start, since every status is allowed. Never deleted.
+enum HubActionKind {
+  REBOOT
+  FACTORY_RESET
+  RESTORE_DEFAULTS
+  UPLINK
+  FIRMWARE_UPDATE
+}
+
+enum HubActionOutcome {
+  STARTED
+  SUCCEEDED
+  FAILED
+}
+
+model DeviceHubAction {
+  id           String           @id @default(uuid())
+  deviceId     String
+  device       Device           @relation(fields: [deviceId], references: [id])
+  action       HubActionKind
+  outcome      HubActionOutcome @default(STARTED)
+  nodeNum      BigInt // the docked unit's node number, checked against the device
+  deviceStatus DeviceStatus // the status at the start
+  contractId   String? // the live contract at the start, if any (rentals owns it; no foreign key across modules)
+  contractCode String?
+  firmwareFrom String? // FIRMWARE_UPDATE: the firmware on record at the start
+  firmwareTo   String? // FIRMWARE_UPDATE: the release version written
+  fullImage    Boolean          @default(false) // FIRMWARE_UPDATE: the factory image at 0x0 (NVS erased)
+  failure      String? // FAILED: the step that failed
+  actorId      String
+  actor        User             @relation("DeviceHubAction_actorId", fields: [actorId], references: [id])
+  startedAt    DateTime         @default(now()) @db.Timestamptz(3)
+  finishedAt   DateTime?        @db.Timestamptz(3)
+
+  @@index([deviceId, startedAt])
+  @@index([actorId])
+  @@map("device_hub_actions")
 }
 
 model DeviceTransition {

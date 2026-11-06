@@ -111,6 +111,10 @@ export enum ErrorCode {
   RESET_INCOMPLETE = 'RESET_INCOMPLETE',
   RESET_REQUIRED = 'RESET_REQUIRED',
   ALREADY_RESET = 'ALREADY_RESET',
+  // devices api-design 33 and 34 (design section 12.14): a hub action on a RESERVED or RENTED unit needs the
+  // asset tag typed to confirm; a finished hub action cannot be finished again.
+  CONFIRMATION_REQUIRED = 'CONFIRMATION_REQUIRED',
+  HUB_ACTION_FINISHED = 'HUB_ACTION_FINISHED',
   VARIANT_MISMATCH = 'VARIANT_MISMATCH',
   DEVICE_NOT_AVAILABLE = 'DEVICE_NOT_AVAILABLE',
   LOSS_CASE_REQUIRED = 'LOSS_CASE_REQUIRED',

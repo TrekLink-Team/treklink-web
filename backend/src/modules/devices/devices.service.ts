@@ -132,12 +132,33 @@ export function inMoveOrder<
 // One entry of a device's lifecycle history (monitoring api-design 07); `actorId` null is SYSTEM.
 export interface TrailEntry {
   at: Date;
-  kind: 'STATE' | 'INTAKE' | 'PROVISIONING' | 'RESET' | 'INSPECTION' | 'MAINTENANCE';
+  kind: 'STATE' | 'INTAKE' | 'PROVISIONING' | 'RESET' | 'INSPECTION' | 'MAINTENANCE' | 'HUB';
   summary: string;
   actorId: string | null;
   refType: string | null;
   refId: string | null;
 }
+
+const HUB_ACTION_TEXT: Record<string, string> = {
+  REBOOT: 'Reboot',
+  FACTORY_RESET: 'Factory reset',
+  RESTORE_DEFAULTS: 'TrekLink defaults restored',
+  UPLINK: 'Uplink configured',
+  FIRMWARE_UPDATE: 'Firmware update',
+};
+
+// "Firmware update 2.7.26-treklink.1 in the device hub, succeeded" (design section 12.14).
+const hubSummary = (row: {
+  action: string;
+  outcome: string;
+  firmwareTo: string | null;
+  failure: string | null;
+}) => {
+  const what = `${HUB_ACTION_TEXT[row.action] ?? row.action}${row.firmwareTo ? ` ${row.firmwareTo}` : ''} in the device hub`;
+  if (row.outcome === 'STARTED') return `${what}, started`;
+  if (row.outcome === 'FAILED') return `${what}, failed${row.failure ? `: ${row.failure}` : ''}`;
+  return `${what}, succeeded`;
+};
 
 const titleCase = (code: string) => code.charAt(0) + code.slice(1).toLowerCase().replace(/_/g, ' ');
 
@@ -910,6 +931,15 @@ export class DevicesService {
             ]
           : []),
       ]),
+      // A hub action shows once, at its end, or at its start while it has not ended (design section 12.14).
+      ...(rows.hubActions ?? []).map((row) => ({
+        at: row.finishedAt ?? row.startedAt,
+        kind: 'HUB' as const,
+        summary: hubSummary(row),
+        actorId: row.actorId,
+        refType: 'HUB_ACTION',
+        refId: row.id,
+      })),
     ];
     // Stable: rows of one time keep the order above, state rows first and in the order of their moves.
     return entries.sort((a, b) => a.at.getTime() - b.at.getTime());
