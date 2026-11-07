@@ -56,6 +56,12 @@ describe('W43 quick controls', () => {
     for (const name of [/WF-01/, /WF-02/, /WF-03/, /WF-04/, /WF-05/, /Demo time controls/])
       expect(screen.getByRole('heading', { name })).toBeTruthy();
     expect(screen.getByText('Simulated')).toBeTruthy();
+    expect(
+      screen.getByText(/Quick contracts record the signed-in Admin as requester/),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/Quick fault reports record the signed-in Admin as reporter/),
+    ).toBeTruthy();
     expect(screen.getByText(/synthetic signature/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Stage' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Admin' })).toBeNull();
@@ -96,13 +102,18 @@ describe('W43 quick controls', () => {
     );
   });
   it('keeps partial links and the named cause visible after a failed step', async () => {
-    mutateAsync.mockResolvedValueOnce({
-      runId: 2,
-      label: 'Demo 2',
-      records: [{ label: 'Contract', code: 'RC-NEW', path: '/t/contracts/new' }],
-      error: 'The organization channel key is exposed. Rotate it first.',
-      errorCode: 'CHANNEL_KEY_EXPOSED',
-    });
+    mutateAsync.mockRejectedValueOnce(
+      new ApiError(
+        409,
+        'CHANNEL_KEY_EXPOSED',
+        'The organization channel key is exposed. Rotate it first.',
+        {
+          runId: 2,
+          label: 'Demo 2',
+          records: [{ label: 'Contract', code: 'RC-NEW', path: '/t/contracts/new' }],
+        },
+      ),
+    );
     show();
     fireEvent.click(screen.getByRole('button', { name: 'Quick contract' }));
     expect(await screen.findByRole('link', { name: 'RC-NEW' })).toBeTruthy();

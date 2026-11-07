@@ -290,7 +290,7 @@ ENDPOINTS.append(ep(
     controller="DemoQuickController", service="DemoQuickService", call="options(caller)"))
 ENDPOINTS.append(ep(
     "POST", "/api/demo/quick/:action", "Run an additive quick scenario", "TrekLink Admin (`demo.stage`) plus ADMIN role",
-    "Creates fresh demo records or applies a disclosed demo time control. Never resets, seeds, deletes or truncates. Multi-step failures retain committed record links in the run result.",
+    "Creates fresh demo records or applies a disclosed demo time control. Never resets, seeds, deletes or truncates. Failed actions return the D-002 error envelope with the owning HTTP status and any committed record links in result.",
     "W43, REQ-QUICK-01 to 09",
     path=[["action", "organization, contract, incident, loss, fault, walkers, profile, term-end, next-tier", "string", "`contract`"]],
     body=[["organizationId", "Active organization for contract", "UUID", "conditional", "..."],
@@ -303,8 +303,8 @@ ENDPOINTS.append(ep(
           ["active", "Enable or restore escalation demo profile", "boolean", "conditional", "true"]],
     sample={"organizationId": USER_ID, "hardwareVariantId": USER_ID, "quantity": 5, "target": "APPROVED"},
     response={"runId": 1, "label": "Demo 1", "records": [], "error": None, "errorCode": None},
-    errors=QUICK_GUARDS[:2], message="Demo action completed",
-    fields=[["error", "Null on completion, otherwise the named cause of a business step failure, with committed records retained", "string or null", "`null`"], ["errorCode", "Domain error code, including STALE_VERSION, in the persisted run result; the run response itself is HTTP 200", "string or null", "`null`"]],
+    errors=QUICK_GUARDS, message="Demo action completed",
+    fields=[["error", "Null on success; failures use the error envelope message and owning HTTP status", "null", "`null`"], ["errorCode", "Null on success; failures return result.errorCode with result.runId, result.label and result.records", "null", "`null`"]],
     steps=["Validate action-specific fields, environment, Admin role and database", "Allocate durable demo counter",
            "Call real owning services and retain links after each committed step", "Commit registry and emit actor audit"],
     controller="DemoQuickController", service="DemoQuickService", call="run(action, dto, caller)"))

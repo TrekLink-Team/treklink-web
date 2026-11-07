@@ -34,3 +34,9 @@ The incident database tests create fixture states and initial history directly. 
 actions run through the real repositories, parameter service and transaction/event wrapper. They cover
 acknowledgement races, timer races, empty-tier skipping, persisted deadlines, response/reopen and atomic
 rollback. Routing service integration, dispatcher delivery and HTTP authorization remain separate tasks.
+
+`demo-gate-boot.db-spec.ts` starts the real `AppModule` in a fresh child process with production mode,
+both demo flags enabled and `VITE_APP_ENV` absent. An empty temporary working directory prevents a
+local `.env` from supplying the missing key. Status, quick options and simulation routes must answer
+the D-002 404 envelope. Both database URLs must be explicit loopback URLs for the disposable migrated
+Postgres database; this test does not reset or seed it.

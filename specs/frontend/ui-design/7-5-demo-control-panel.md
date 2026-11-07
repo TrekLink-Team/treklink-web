@@ -158,3 +158,5 @@ A Demo time controls disclosure contains profile toggle (shows Active/Normal and
 W43 gate clarification: neither the page nor its nav entry appears from a simulation response alone. The simulation control routes share the explicit control/environment gate in addition to their own flag.
 
 At 400 percent zoom, the account menu stays below its header trigger and scrolls internally in the available height. It must not flip into the persistent SOS banner and hide its focused item. Other menus keep automatic placement.
+
+W43b: quick contract text states that the signed-in Admin is recorded as requester; the fault form states that the Admin is recorded as reporter. Business failures use the error envelope and keep partial run links from result details. A failed action clears a prior success result unless the failure supplies its own run details.

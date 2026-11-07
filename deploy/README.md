@@ -45,9 +45,10 @@ Requests to `/api/...` and `/socket.io/...` go to the backend with their path un
 prefix is `api`); everything else goes to the frontend. The frontend calls the API on the same origin
 (`VITE_API_BASE_URL=/api`).
 
-`scripts/vercel-build.sh` runs `prisma migrate deploy` and the idempotent `seed:demo` only on a
-production build and only when both database URLs name `treklink_prod`, the database on the Neon
-branch `vercel-prod`. The shared Neon `dev` database is never migrated or seeded from a build.
+`scripts/vercel-build.sh` runs `prisma migrate deploy` only on a production build and only when both
+database URLs name `treklink_prod`, the database on the Neon branch `vercel-prod`. Builds never run
+`seed:demo`; staging data is not reseeded. The shared Neon `dev` database is never migrated or seeded
+from a build.
 
 Known gaps on Vercel Functions: no MQTT subscriber (`MQTT_INGESTION_ENABLED=false`, so the gateway does
 not reach it; instead `FIELD_SIMULATOR_ENABLED=true` feeds simulated positions for TL-0009 and TL-0010

@@ -1,3 +1,5 @@
+import { Caller } from '../../common/decorators/access.decorator';
+import { DomainException } from '../../common/errors';
 import { ConfigService } from '@nestjs/config';
 import { DemoQuickGuard } from './demo-quick.guard';
 import { demoControlsEnabled } from './demo-flag';
@@ -21,6 +23,17 @@ const make = (overrides = {}) => {
   >);
 };
 
+const refusal = (guard: DemoQuickGuard, caller: Caller = actor) => {
+  try {
+    guard.assert(caller);
+  } catch (error) {
+    if (error instanceof DomainException)
+      return { errorCode: error.errorCode, status: error.getStatus() };
+    throw error;
+  }
+  throw new Error('Expected the guard to refuse this caller.');
+};
+
 describe('W43 quick gate', () => {
   it('allows Vercel staging production without issuing a role-switch session', () =>
     expect(() => make().assert(actor)).not.toThrow());
@@ -39,14 +52,13 @@ describe('W43 quick gate', () => {
     { VITE_APP_ENV: 'aws' },
     { VITE_APP_ENV: undefined },
   ])('fails closed for %j', (env) => {
-    expect(() => make(env).assert(actor)).toThrow(
-      expect.objectContaining({ errorCode: 'DEMO_DISABLED', status: 403 }),
-    );
+    expect(refusal(make(env))).toEqual({ errorCode: 'DEMO_DISABLED', status: 403 });
   });
   it.each(['STAFF', 'ORG_MANAGER', 'ORG_OPERATOR', ''])('refuses %s with 403', (role) =>
-    expect(() => make().assert({ ...actor, roles: [role] })).toThrow(
-      expect.objectContaining({ errorCode: 'FORBIDDEN', status: 403 }),
-    ),
+    expect(refusal(make(), { ...actor, roles: [role] })).toEqual({
+      errorCode: 'FORBIDDEN',
+      status: 403,
+    }),
   );
   it('rejects an organization-scoped Admin', () =>
     expect(() => make().assert({ ...actor, organizationId: 'org' })).toThrow());
@@ -58,9 +70,10 @@ describe('W43 quick gate', () => {
         `${STAGING}?HOST=ep-dev.neon.tech`,
         `${STAGING}?%2564bname=neondb`,
       ])
-        expect(() => make({ [key]: url }).assert(actor)).toThrow(
-          expect.objectContaining({ errorCode: 'DEMO_DATABASE_NOT_ALLOWED' }),
-        );
+        expect(refusal(make({ [key]: url }))).toEqual({
+          errorCode: 'DEMO_DATABASE_NOT_ALLOWED',
+          status: 403,
+        });
     },
   );
   it.each([undefined, 'production', 'development', 'aws'])(

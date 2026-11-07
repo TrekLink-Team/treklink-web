@@ -63,9 +63,11 @@ export class EnvironmentVariables {
   @IsIn(NODE_ENVIRONMENTS)
   NODE_ENV: NodeEnvironment = 'development';
 
-  // Shared with the frontend environment badge. Only production hides the test-data label.
+  // No default: ConfigModule copies validated values into process.env before conditional modules load.
+  // Consumers such as the badge and payment label provide their own display fallbacks.
+  @IsOptional()
   @IsString()
-  VITE_APP_ENV = 'sandbox';
+  VITE_APP_ENV?: string;
 
   @Transform(toInteger)
   @IsInt()

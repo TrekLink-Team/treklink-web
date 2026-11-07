@@ -1,8 +1,9 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PaymentMethod, PlanType } from '@prisma/client';
 import { randomInt } from 'node:crypto';
 import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
+import { errorCodeFor, mapPrismaError } from '../../common/filters/http-exception.filter';
 import { InvoicesService, PaymentsService } from '../billing';
 import { DevicesService, LossCaseService } from '../devices';
 import { FieldSimulationService, UplinkIngress } from '../gateway-sync';
@@ -163,6 +164,7 @@ export class DemoQuickService {
         ),
       );
     };
+    let failure: DomainException | undefined;
     try {
       switch (action as QuickAction) {
         case 'organization': {
@@ -296,12 +298,19 @@ export class DemoQuickService {
         }
       }
     } catch (error) {
-      result.error =
-        error instanceof Error
-          ? error.message
-          : 'Demo action failed. Inspect its records before retrying.';
-      result.errorCode =
-        error instanceof DomainException ? error.errorCode : ErrorCode.INTERNAL_ERROR;
+      const cause = mapPrismaError(error) ?? error;
+      failure =
+        cause instanceof DomainException
+          ? cause
+          : new DomainException(
+              cause instanceof HttpException ? cause.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR,
+              cause instanceof HttpException ? errorCodeFor(cause) : ErrorCode.INTERNAL_ERROR,
+              cause instanceof Error
+                ? cause.message
+                : 'Demo action failed. Inspect its records before retrying.',
+            );
+      result.error = failure.message;
+      result.errorCode = failure.errorCode;
     }
     await this.events.transaction(async (tx) => {
       await this.repository.saveRun(
@@ -320,6 +329,13 @@ export class DemoQuickService {
         after: { ...result, input: { ...input }, demo: true },
       } satisfies AuditRecordEvent);
     });
+    if (failure) {
+      throw new DomainException(failure.httpStatus, failure.errorCode, failure.message, {
+        runId: result.runId,
+        label: result.label,
+        records: result.records,
+      });
+    }
     return result;
   }
 

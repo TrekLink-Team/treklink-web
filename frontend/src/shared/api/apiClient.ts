@@ -33,6 +33,7 @@ export class ApiError extends Error {
     public statusCode: number,
     public errorCode: string,
     public message: string,
+    public resultDetails?: Readonly<Record<string, unknown>>,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -47,7 +48,8 @@ export const registerApiAuth = (next: ApiAuthHandlers | null): void => {
   refreshing = null;
 };
 
-const normalize = (endpoint: string): string => (endpoint.startsWith('/') ? endpoint : `/${endpoint}`);
+const normalize = (endpoint: string): string =>
+  endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
 // Reads the envelope once. A body that is not JSON (a proxy page, a dropped connection) still
 // surfaces as an ApiError.
@@ -59,17 +61,25 @@ async function unwrap<T>(response: Response): Promise<T> {
     body = null;
   }
   if (!response.ok || !body || !body.isSuccess) {
-    const detail = body?.result as { errorCode?: string } | null | undefined;
+    const detail =
+      body?.result && typeof body.result === 'object' && !Array.isArray(body.result)
+        ? (body.result as Record<string, unknown>)
+        : undefined;
     throw new ApiError(
       body?.statusCode || response.status,
-      detail?.errorCode ?? FALLBACK_CODE,
+      typeof detail?.errorCode === 'string' ? detail.errorCode : FALLBACK_CODE,
       body?.message || FALLBACK_MESSAGE,
+      detail,
     );
   }
   return body.result as T;
 }
 
-const send = (endpoint: string, options: RequestInit, accessToken: string | null): Promise<Response> =>
+const send = (
+  endpoint: string,
+  options: RequestInit,
+  accessToken: string | null,
+): Promise<Response> =>
   fetch(`${BASE_URL}${normalize(endpoint)}`, {
     ...options,
     headers: {

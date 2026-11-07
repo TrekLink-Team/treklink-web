@@ -110,7 +110,7 @@ Environment rows need a restart. Business parameters of every module are in the 
 | Parameter | Default | Location | Admin-editable |
 |---|---|---|---|
 | `DATABASE_URL` | none, required | env | no |
-| `VITE_APP_ENV` | `sandbox`; shared with the frontend badge and new counter receipts. Case-insensitive `production` records `isSandbox=false`; other values, unset or empty record true. Independent of `NODE_ENV` and provider mode (web#407). | env | no |
+| `VITE_APP_ENV` | none. The frontend badge and counter-receipt consumers fall back to `sandbox`. Case-insensitive `production` records `isSandbox=false`; other values, unset or empty record true. Demo controls require explicit `sandbox` or `staging`, without a validated default (W43b). Independent of `NODE_ENV` and provider mode (web#407). | env | no |
 | `DATABASE_DIRECT_URL` | none, required (equals `DATABASE_URL` locally) | env | no |
 | `JWT_*` (owned by `auth`, validated here) | see `auth` | env | no |
 | `MQTT_BROKER_URL` | none, required | env | no |

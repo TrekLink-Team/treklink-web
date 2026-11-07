@@ -205,3 +205,35 @@ export const useRunDemoQuick = () => {
     },
   });
 };
+
+// W43b errors retain the committed run links without treating the action as successful.
+export const quickResultOf = (failure: unknown): QuickResult | null => {
+  if (!(failure instanceof ApiError)) return null;
+  const detail = failure.resultDetails;
+  if (
+    !detail ||
+    typeof detail.runId !== 'number' ||
+    typeof detail.label !== 'string' ||
+    !Array.isArray(detail.records)
+  )
+    return null;
+  const records: StagedRecord[] = [];
+  for (const value of detail.records as unknown[]) {
+    if (!value || typeof value !== 'object') return null;
+    const record = value as Record<string, unknown>;
+    if (
+      typeof record.label !== 'string' ||
+      typeof record.code !== 'string' ||
+      typeof record.path !== 'string'
+    )
+      return null;
+    records.push({ label: record.label, code: record.code, path: record.path });
+  }
+  return {
+    runId: detail.runId,
+    label: detail.label,
+    records,
+    error: failure.message,
+    errorCode: failure.errorCode,
+  };
+};

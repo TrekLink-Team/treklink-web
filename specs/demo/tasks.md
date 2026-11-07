@@ -64,3 +64,11 @@
 
 
 **Done** (2026-11-07, KhoaDD under D-078): W43 specification, additive controls, guarded panel and docs delivered on the feature branch. Verification: 376 backend unit tests, 6 Postgres tests, 264 frontend tests, both typechecks/lint and module boundaries; 42 axe-clean visual configurations in both themes, native 400 percent zoom and focus checks. The leader still handles staging environment activation, PR/merge and deployment. Evidence: docs/sessions/2026-11-07-1558-w43-demo-quick-scenarios.md.
+
+## 7. W43b review of PR #436
+
+- [x] 7.1 Remove the application-environment default and prove missing-variable route omission by booting the whole app.
+- [x] 7.2 Return proper failure envelopes, retain partial links and disclose Admin requester/reporter attribution.
+- [x] 7.3 Correct deploy instructions, remove new guard lint warnings and run demo, boot, database and frontend checks.
+
+**Done** (2026-11-07, KhoaDD under D-078): W43b review corrections verified with 227 backend unit tests, 17 Postgres tests including three whole-app boot assertions, 33 frontend tests, both lint/typechecks, module boundaries and 30 clean axe runs. Evidence: docs/sessions/2026-11-07-1731-w43b-demo-review.md.

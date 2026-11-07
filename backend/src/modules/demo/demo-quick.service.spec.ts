@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/require-await -- Promise-shaped service test doubles. */
 import { DomainException, ErrorCode } from '../../common/errors';
-import { HttpStatus } from '@nestjs/common';
+import { BadRequestException, HttpStatus } from '@nestjs/common';
 import { DemoQuickService, QuickInput } from './demo-quick.service';
 
 const actor = { id: 'actual-admin', roles: ['ADMIN'], organizationId: null };
@@ -242,10 +242,23 @@ describe('DemoQuickService scenarios', () => {
         'Not enough available units.',
       ),
     );
-    const result = await f.service.run('contract', input, actor);
-    expect(result.error).toBe('Not enough available units.');
-    expect(result.records).toHaveLength(2);
-    expect(result.errorCode).toBe('INSUFFICIENT_DEVICES');
+    await expect(f.service.run('contract', input, actor)).rejects.toMatchObject({
+      httpStatus: 409,
+      errorCode: 'INSUFFICIENT_DEVICES',
+      message: 'Not enough available units.',
+      resultDetails: {
+        runId: 1,
+        label: 'Demo 1',
+        records: [
+          { label: 'Demo contract', code: 'RC-FRESH', path: '/t/contracts/contract' },
+          { label: 'Counter and invoices', code: 'RC-FRESH', path: '/t/counter/contract' },
+        ],
+      },
+    });
+    expect(f.repository.saveRun).toHaveBeenCalled();
+    expect(f.events.emitAfterCommit.mock.calls).toMatchObject([
+      ['audit.record', { actorId: actor.id, after: { errorCode: 'INSUFFICIENT_DEVICES' } }],
+    ]);
   });
   it('rejects an incomplete action before allocating a counter', async () => {
     const f = fixture();
@@ -281,14 +294,15 @@ describe('DemoQuickService scenarios', () => {
     f.incidents.openByDevices
       .mockReset()
       .mockResolvedValue(new Map([['unit', { id: 'existing' }]]));
-    expect((await f.service.run('incident', { deviceId: 'unit' }, actor, now)).error).toMatch(
-      /already has an open incident/,
+    await expect(f.service.run('incident', { deviceId: 'unit' }, actor, now)).rejects.toMatchObject(
+      { httpStatus: 409, errorCode: 'DEMO_SCENARIO_UNAVAILABLE' },
     );
     expect(f.uplinks.ingest).not.toHaveBeenCalled();
     f.contracts.visibleDevices.mockResolvedValueOnce([]);
-    expect((await f.service.run('loss', { deviceId: 'unit' }, actor)).error).toMatch(
-      /live custody/,
-    );
+    await expect(f.service.run('loss', { deviceId: 'unit' }, actor)).rejects.toMatchObject({
+      httpStatus: 409,
+      errorCode: 'DEMO_SCENARIO_UNAVAILABLE',
+    });
     expect(f.losses.report).not.toHaveBeenCalled();
   });
   it.each(['loss', 'fault'] as const)(
@@ -339,15 +353,37 @@ describe('DemoQuickService scenarios', () => {
 
   it('does not shift a stale contract', async () => {
     const f = fixture();
-    const result = await f.service.run(
-      'term-end',
-      { recordId: 'contract', expectedVersion: 0 },
-      actor,
-      now,
-    );
-    expect(result.errorCode).toBe('STALE_VERSION');
+    await expect(
+      f.service.run('term-end', { recordId: 'contract', expectedVersion: 0 }, actor, now),
+    ).rejects.toMatchObject({
+      httpStatus: 409,
+      errorCode: 'STALE_VERSION',
+      resultDetails: { runId: 1, records: [] },
+    });
     expect(f.contracts.endOpenTermAt).not.toHaveBeenCalled();
   });
+  it.each([
+    [
+      new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Organization not found.'),
+      404,
+      'NOT_FOUND',
+    ],
+    [new BadRequestException('Choose an organization.'), 400, 'VALIDATION_FAILED'],
+    [new Error('Unexpected service failure'), 500, 'INTERNAL_ERROR'],
+  ] as const)(
+    'keeps the correct status/code for a failed service: %s',
+    async (cause, status, errorCode) => {
+      const f = fixture();
+      f.onboarding.register.mockRejectedValueOnce(cause);
+      await expect(f.service.run('organization', {}, actor)).rejects.toMatchObject({
+        httpStatus: status,
+        errorCode,
+        resultDetails: { runId: 1, label: 'Demo 1', records: [] },
+      });
+      expect(f.events.emitAfterCommit).toHaveBeenCalled();
+    },
+  );
+
   it('reads form choices through owning services', async () => {
     const f = fixture();
     const result = await f.service.options(actor);

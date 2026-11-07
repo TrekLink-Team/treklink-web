@@ -13,7 +13,7 @@ export class DomainException extends HttpException {
     readonly httpStatus: HttpStatus,
     readonly errorCode: ErrorCode,
     message: string,
-    readonly resultDetails?: Readonly<Record<string, string | number | boolean>>,
+    readonly resultDetails?: Readonly<Record<string, unknown>>,
   ) {
     super({ errorCode, message } satisfies DomainExceptionBody, httpStatus);
   }

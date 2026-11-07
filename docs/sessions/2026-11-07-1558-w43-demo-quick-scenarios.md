@@ -53,7 +53,7 @@ Shared production surfaces: AppModule; demo, rentals and incidents module/index 
 
 Error-code enum, permission catalog/matrix, demo seed, router and navigation configuration were not changed. Existing `demo.stage` and `demo.simulate` permissions are reused; navigation was already built.
 
-Specs updated: demo EARS requirements/design/tasks, generated API 01/06/11/12 and README through `scripts/specs/endpoints/demo.py`, screen 7.5, platform Vercel migration/seed description. The quick action returns a persisted run result with `error` and `errorCode` for business-step failures, retaining partial links; authorization, environment/database refusal and malformed input remain HTTP errors.
+Specs updated: demo EARS requirements/design/tasks, generated API 01/06/11/12 and README through `scripts/specs/endpoints/demo.py`, screen 7.5, platform Vercel migration/seed description. Original W43 behavior, superseded by W43b review of PR #436: business-step failures returned HTTP 200 with `error` and `errorCode`. W43b returns the D-002 error envelope with the owning HTTP status and retains partial links in `result`.
 
 The current W43 script and run book supersede fixed record-code starting points. Historical local rehearsal details remain labelled local-only. Show defaults and the staging inventory observation were corrected.
 
