@@ -7,7 +7,7 @@ const isTrue = (value: string | undefined): boolean =>
     .toLowerCase() === 'true';
 
 // The ConditionalModule condition of AppModule (specs/demo requirements REQ-UBI-01): the demo module is
-// loaded only when the variable reads `true`; unset, `false` or anything else leaves it out.
+// loaded only with the true flag and an explicit sandbox/staging application environment.
 export const demoControlsEnabled = (env: NodeJS.ProcessEnv): boolean =>
   isTrue(env[DEMO_CONTROLS_FLAG]) &&
   ['sandbox', 'staging'].includes((env.VITE_APP_ENV ?? '').trim().toLowerCase());

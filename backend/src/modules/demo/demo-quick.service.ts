@@ -365,14 +365,6 @@ export class DemoQuickService {
   ) {
     if (['ACTIVE', 'RETURN_DUE'].includes(input.target!) && input.quantity! < 2)
       throw invalid('Quantity must be at least two for a multi-unit running contract.');
-    const members = await this.organizations.membersOf(input.organizationId!, false, actor);
-    const manager = members.find(
-      (m) => m.role === 'MANAGER' && !m.invitationPending && m.deactivatedAt === null,
-    );
-    if (!manager)
-      throw conflict(
-        'Organization needs an active Manager with a password before a demo contract can be signed.',
-      );
     const margin = await this.parameters.get('gatewaySync.attributionMarginSeconds');
     // Disclosed demo clock: custody predates the margin, so SOS can be demonstrated immediately.
     const at = new Date(now.getTime() - (margin + 60) * 1000);
@@ -417,6 +409,15 @@ export class DemoQuickService {
         at,
       );
     if (input.target === 'APPROVED') return;
+    // Only the handover needs a signer; the owning service checks live Manager membership.
+    const members = await this.organizations.membersOf(input.organizationId!, false, actor);
+    const manager = members.find(
+      (member) => member.role === 'MANAGER' && member.deactivatedAt === null,
+    );
+    if (!manager)
+      throw conflict(
+        'Organization needs a live Manager before the demo handover. Add or reactivate a Manager, then continue from the contract link.',
+      );
     const detail = await this.contracts.demoDetail(contract.id);
     if (!detail) throw conflict('Contract detail is unavailable. Reload the contract.');
     const key = await this.organizations.channelKeyState(input.organizationId!);
