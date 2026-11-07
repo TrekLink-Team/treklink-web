@@ -41,11 +41,12 @@ ENDPOINTS = [
 
     ep("POST", "/api/internal/mqtt/acl", "Broker topic check", "Public (broker hook secret)",
        "Called per publish and subscribe (`auth_opt_http_aclcheck_uri`). A Field Station may publish "
-       "under `treklink/fs/<its username>/#` and, as an interim rule for the AWS field host (design §4, "
-       "D-098), on the node JSON topic `treklink/2/json/<channel>/<nodeId>` of any node; it never subscribes. "
-       "A fleet node may publish only under its own Stage A "
-       "topics; the backend subscriber may subscribe to `treklink/#` and publish nothing. Which devices a "
-       "station may report for is enforced at ingestion, not here (FR-EVT-14).",
+       "under `treklink/fs/<its username>/#` and never subscribes. Its data topic "
+       "`treklink/fs/<its username>/2/json/<channel>/<nodeId>` is refused unless `MQTT_STATION_UPLINK_ENABLED` "
+       "is `true` (the AWS field host, D-098), and then allowed only while `<nodeId>` is a device in the custody of "
+       "the station's organization and the station is not revoked (design §4). A fleet node may publish only "
+       "under its own Stage A topics; the backend subscriber may subscribe to `treklink/#` and publish nothing. "
+       "Ingestion checks the `from` device of every packet again (FR-EVT-14).",
        "FR-EVT-14, D-037",
        body=[["username", "MQTT username", "string", "yes", "`fs-org-0007-1`"],
              ["clientid", "Client id", "string", "yes", "`fieldstation-7f3a`"],
@@ -55,11 +56,16 @@ ENDPOINTS = [
                "topic": "treklink/fs/fs-org-0007-1/2/json/LongFast/!a4b1c2d3", "acc": 2},
        response={"allowed": True}, message="OK", notes=INTERNAL,
        errors=[(401, "BROKER_SECRET", "The hook secret is missing or wrong", "Authentication required."), UNSET,
-               (403, "TOPIC_DENIED", "The topic or access is outside the credential's pattern", "Denied.")],
+               (403, "TOPIC_DENIED", "The topic or access is outside the credential's pattern; a station data topic "
+                "with the flag off, or for a node outside the custody of the station's organization", "Denied.")],
        guards_first=SECRET_FIRST,
-       steps=["Match the topic and access against the credential kind's pattern"],
+       steps=["Match the topic and access against the credential kind's pattern",
+              "Station data topic: flag on, station known and not revoked, the node's custody at now held by its organization"],
        actor="Mosquitto", controller="BrokerAuthController", service="BrokerAuthService", call="checkAcl(dto)",
-       seq=["Svc->>Svc: pattern match (cached per username for 60 s)"]),
+       participants=[["Org", "FieldStationsService"], ["Dev", "DevicesService"], ["Rt", "ContractsService"]],
+       seq=["Svc->>Svc: pattern match (cached per username and topic for 60 s)",
+            "Svc->>Org: stationByUsername(username)", "Svc->>Dev: byNodeNum(nodeNum)",
+            "Svc->>Rt: custodyAt(deviceId, now)"]),
 
     ep("POST", "/api/gateway-sync", "List field events", "TrekLink Staff, TrekLink Admin", op="listEvents",
        overview="Paged query over the append-only field-event ledger, ordered by ingestion `seq`: the raw "
