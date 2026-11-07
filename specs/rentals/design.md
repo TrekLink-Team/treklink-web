@@ -1847,8 +1847,9 @@ release before handover). Every reader that ends a custody interval at `checkedI
 `visibleDevices`, the console) therefore ends it at the release time with no change (treklink-docs#166).
 
 `UnitRelease` (`unit_releases`): `id`, `contractId`, `contractDeviceId`, `deviceId`, `phase` (`BEFORE_HANDOVER`,
-`RUNNING`), `reason`, `releasedById`, `releasedAt`, `quantityBefore`, `quantityAfter`, `serviceCreditId` (null when
-no credit applies). One row per release; it is the history the contract page lists and the audit points to.
+`RUNNING`), `reason`, `releasedById`, `releasedAt`, `quantityBefore`, `quantityAfter`. When a credit applies,
+`service_credits.unitReleaseId` links it to the release. The contract page lists one history row per release,
+and the audit entry points to that row.
 
 ### 13.3 What happens when
 
