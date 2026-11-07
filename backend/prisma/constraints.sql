@@ -135,9 +135,15 @@ CREATE UNIQUE INDEX "device_fault_reports_one_open"
   ON "device_fault_reports" ("contractDeviceId")
   WHERE "resolvedAt" IS NULL;
 
--- billing, REQ-ERR-06: a service credit records at least one source for the outage start.
+-- billing, REQ-ERR-06: a fault credit records at least one source for the outage start; a release credit
+-- (design §12.1, D-099) has no fault fields, and a fault credit keeps all of them.
 ALTER TABLE "service_credits"
   ADD CONSTRAINT "service_credits_outage_source_check"
-  CHECK ("outageSourceIncidentId" IS NOT NULL
+  CHECK ("kind" <> 'FAULT'
+      OR "outageSourceIncidentId" IS NOT NULL
       OR "outageSourceFaultReportId" IS NOT NULL
-      OR "outageSourceNote" IS NOT NULL);
+      OR "outageSourceNote" IS NOT NULL),
+  ADD CONSTRAINT "service_credits_kind_fields_check"
+  CHECK (("kind" = 'FAULT' AND "cause" IS NOT NULL AND "faultInspectionId" IS NOT NULL
+          AND "outageFrom" IS NOT NULL AND "outageTo" IS NOT NULL AND "outageDays" IS NOT NULL)
+      OR ("kind" = 'RELEASE' AND "unitReleaseId" IS NOT NULL));

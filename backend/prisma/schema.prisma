@@ -234,6 +234,8 @@ model User {
   simulatedNodesCreated SimulatedNode[]
   rolePoliciesUpdated   OrganizationRolePolicy[] @relation("OrganizationRolePolicy_updatedById")
 
+  unitReleases UnitRelease[] @relation("UnitRelease_releasedById")
+
   @@index([accountType, isActive])
   @@index([createdById])
   @@map("users")
@@ -761,6 +763,8 @@ model Device {
   dockSessions       DeviceDockSession[]
   hubActions         DeviceHubAction[]
 
+  unitReleases UnitRelease[]
+
   @@index([status])
   @@index([hardwareVariantId, status])
   @@index([registeredById])
@@ -1173,6 +1177,8 @@ model RentalContract {
   authorityReports   AuthorityReport[]
   deviceFaultReports DeviceFaultReport[]
 
+  unitReleases UnitRelease[] // D-099, rentals design §13
+
   @@index([organizationId, status])
   @@index([status, returnDueAt])
   // rentals REQ-EVT-26: the contract search matches a substring of the code ignoring case (ILIKE),
@@ -1246,6 +1252,8 @@ model ContractDevice {
   serviceCredits   ServiceCredit[]
   groupAssignments GroupAssignment[]
   faultReports     DeviceFaultReport[]
+
+  unitReleases UnitRelease[]
 
   @@index([contractId])
   @@index([deviceId])
@@ -1362,6 +1370,37 @@ model ContractTransition {
   @@map("contract_transitions") // append-only trigger
 }
 
+// rentals design §13 (D-099): whether the released unit had been handed over.
+enum ReleasePhase {
+  BEFORE_HANDOVER
+  RUNNING
+}
+
+// One unit given back before the term end (rentals design §13, D-099); the contract's release history.
+model UnitRelease {
+  id               String         @id @default(uuid())
+  contractId       String
+  contract         RentalContract @relation(fields: [contractId], references: [id])
+  contractDeviceId String
+  contractDevice   ContractDevice @relation(fields: [contractDeviceId], references: [id])
+  deviceId         String
+  device           Device         @relation(fields: [deviceId], references: [id])
+  phase            ReleasePhase
+  reason           String
+  releasedById     String
+  releasedBy       User           @relation("UnitRelease_releasedById", fields: [releasedById], references: [id])
+  releasedAt       DateTime       @db.Timestamptz(3)
+  quantityBefore   Int
+  quantityAfter    Int
+  serviceCredit    ServiceCredit?
+
+  @@index([contractId])
+  @@index([contractDeviceId])
+  @@index([deviceId])
+  @@index([releasedById])
+  @@map("unit_releases")
+}
+
 // @module billing ──────────────────────────────────────────────────────────────────────────
 // specs/billing/design.md §1
 
@@ -1392,6 +1431,12 @@ enum InvoiceLineType {
 }
 
 // Why a unit failed through no fault of the organization (billing design §9.1, D-092 rule 5).
+// billing design §12.1 (D-099): what a service credit is for.
+enum ServiceCreditKind {
+  FAULT
+  RELEASE
+}
+
 enum ServiceCreditCause {
   BATTERY_FAULT
   RADIO_FAULT
@@ -1609,18 +1654,23 @@ model ServiceCredit {
   contractDevice            ContractDevice      @relation(fields: [contractDeviceId], references: [id])
   deviceId                  String
   device                    Device              @relation(fields: [deviceId], references: [id])
-  cause                     ServiceCreditCause
-  faultInspectionId         String // the FAILED inspection of that row (design §9.1)
-  faultInspection           Inspection          @relation(fields: [faultInspectionId], references: [id])
-  outageFrom                DateTime            @db.Timestamptz(3)
+  // FAULT (design §9) or RELEASE (design §12.1, D-099); a RELEASE credit has no fault fields, and two
+  // CHECKs in its migration keep them required on FAULT rows
+  kind                      ServiceCreditKind   @default(FAULT)
+  unitReleaseId             String?             @unique
+  unitRelease               UnitRelease?        @relation(fields: [unitReleaseId], references: [id], onDelete: Restrict)
+  cause                     ServiceCreditCause?
+  faultInspectionId         String? // the FAILED inspection of that row (design §9.1)
+  faultInspection           Inspection?         @relation(fields: [faultInspectionId], references: [id], onDelete: Restrict)
+  outageFrom                DateTime?           @db.Timestamptz(3)
   // the source of outageFrom, one required (leader ruling 2026-11-02)
   outageSourceIncidentId    String?
   outageSourceIncident      Incident?           @relation(fields: [outageSourceIncidentId], references: [id])
   outageSourceFaultReportId String?
   outageSourceFaultReport   DeviceFaultReport?  @relation(fields: [outageSourceFaultReportId], references: [id], onDelete: Restrict)
   outageSourceNote          String?
-  outageTo                  DateTime            @db.Timestamptz(3) // computed (design §9.2)
-  outageDays                Int
+  outageTo                  DateTime?           @db.Timestamptz(3) // computed (design §9.2)
+  outageDays                Int?
   computedVnd               BigInt
   decidedVnd                BigInt?
   appliedVnd                BigInt              @default(0) // sum of its SERVICE_CREDIT lines, as a positive amount

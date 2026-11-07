@@ -212,6 +212,19 @@ export class EndNowDto {
   expectedVersion!: number;
 }
 
+// rentals api-design 33 (D-099): the reason is trimmed, 1 to 500 characters (REQ-ERR-20).
+export class ReleaseUnitDto {
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  reason!: string;
+
+  @IsInt()
+  @Min(0)
+  expectedVersion!: number;
+}
+
 export class NoticeDto {
   @IsInt()
   @Min(0)

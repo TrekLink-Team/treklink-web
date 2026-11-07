@@ -931,8 +931,40 @@ export class ContractsRepository {
     });
   }
 
-  // The G4 workflow supplies the approved custody-end time when it is implemented.
-  async markReleased(rowIds: readonly string[], at: Date, tx: Prisma.TransactionClient) {
+  // A release lowers the quantity by compare-and-set on `version` (rentals design §13.2, D-099).
+  async setQuantity(
+    id: string,
+    version: number,
+    quantity: number,
+    tx: Prisma.TransactionClient,
+  ): Promise<boolean> {
+    const { count } = await tx.rentalContract.updateMany({
+      where: { id, version },
+      data: { quantity, version: { increment: 1 } },
+    });
+    return count === 1;
+  }
+
+  insertUnitRelease(data: Prisma.UnitReleaseUncheckedCreateInput, tx: Prisma.TransactionClient) {
+    return tx.unitRelease.create({ data });
+  }
+
+  // The unit releases behind RELEASE service credits (rentals design §13, billing design §12.1).
+  releaseNotes(ids: readonly string[], client: Client = this.prisma) {
+    return client.unitRelease.findMany({
+      where: { id: { in: [...ids] } },
+      select: { id: true, reason: true, releasedAt: true },
+    });
+  }
+
+  // A unit released from a running contract is back at the counter (rentals design §13.2, D-099): its
+  // custody row is checked in at the release time, once; a second close of the same row is refused.
+  async markReleased(
+    rowIds: readonly string[],
+    at: Date,
+    actorId: string,
+    tx: Prisma.TransactionClient,
+  ) {
     const { count } = await tx.contractDevice.updateMany({
       where: {
         id: { in: [...rowIds] },
@@ -941,7 +973,7 @@ export class ContractsRepository {
         checkedInAt: null,
         lostAt: null,
       },
-      data: { releasedAt: at },
+      data: { checkedInAt: at, checkedInById: actorId },
     });
     if (count !== rowIds.length) {
       throw new DomainException(

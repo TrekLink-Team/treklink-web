@@ -14,9 +14,21 @@ import { DevicesService } from '../devices';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
-import { dayPlanCreditVnd, monthlyCreditVnd } from './money';
+import {
+  dayPlanCreditVnd,
+  earlyEndCreditOf,
+  EarlyEndCredit,
+  monthlyCreditVnd,
+  termFeeVnd,
+} from './money';
 import { InvoicesRepository } from './invoices.repository';
-import { CREDIT_BASIS, CreditBasis, CreditContract, CreditUnit } from './ports/credit-basis.port';
+import {
+  CREDIT_BASIS,
+  CreditBasis,
+  CreditContract,
+  CreditRelease,
+  CreditUnit,
+} from './ports/credit-basis.port';
 import { ServiceCreditLedger } from './service-credit-ledger';
 import {
   ServiceCreditFilter,
@@ -91,6 +103,18 @@ export const outageEndOf = (unit: CreditUnit, termEndsAt: Date): Date =>
 // without notice. Otherwise a decided credit goes to the closing invoice (REQ-EVT-14).
 const nextTermComing = (contract: CreditContract): boolean =>
   contract.planType === 'MONTHLY' && contract.status === 'ACTIVE' && !contract.noticeGivenAt;
+
+// The release credit of one unit (design §12.1, D-099 rule 1): the early-end computation of design
+// §10.1 for a single unit. None for a day plan (D-097 rule 2) or without an open term. Stores nothing;
+// the rentals preview and the release share it.
+export const releaseCreditQuote = (
+  contract: { planType: 'MONTHLY' | 'DAY'; monthlyUnitPriceVnd: bigint },
+  term: { startsAt: Date; endsAt: Date } | null,
+  at: Date,
+): EarlyEndCredit | null => {
+  if (contract.planType === 'DAY' || !term) return null;
+  return earlyEndCreditOf(termFeeVnd(contract.monthlyUnitPriceVnd, 1), term, at);
+};
 
 // Service credits (billing task 8.1, design §9, D-092 rule 5): a unit of a contract that failed through
 // no fault of the organization costs it nothing for the days it could not be used.
@@ -357,6 +381,51 @@ export class ServiceCreditService {
     });
   }
 
+  // REQ-EVT-18 (D-099 rules 1 and 5): a released unit's credit, REQUESTED, authored by the Staff member
+  // who released it, decided like any service credit. Called by `rentals` inside its release
+  // transaction; nothing is recorded when the quote is zero or none applies. The Managers hear of it
+  // when an Admin decides it.
+  async requestReleaseCredit(
+    input: {
+      contract: {
+        id: string;
+        organizationId: string;
+        planType: 'MONTHLY' | 'DAY';
+        monthlyUnitPriceVnd: bigint;
+      };
+      term: { startsAt: Date; endsAt: Date } | null;
+      contractDeviceId: string;
+      deviceId: string;
+      unitReleaseId: string;
+    },
+    actor: Caller,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<{ credit: ServiceCreditRow | null; quote: EarlyEndCredit | null }> {
+    const quote = releaseCreditQuote(input.contract, input.term, at);
+    if (!quote || quote.creditVnd === 0n) return { credit: null, quote };
+    const credit = await this.credits.insertRelease(
+      {
+        contractId: input.contract.id,
+        organizationId: input.contract.organizationId,
+        contractDeviceId: input.contractDeviceId,
+        deviceId: input.deviceId,
+        unitReleaseId: input.unitReleaseId,
+        computedVnd: quote.creditVnd,
+        requestedById: actor.id,
+      },
+      tx,
+    );
+    this.audit(actor, credit, 'serviceCredit.requested', null, {
+      status: credit.status,
+      kind: credit.kind,
+      computedVnd: quote.creditVnd.toString(),
+      unusedDays: quote.unusedDays,
+      termDays: quote.termDays,
+    });
+    return { credit, quote };
+  }
+
   // The contract's REQUESTED credits, for the rentals close check and close (REQ-STA-02).
   requestedOf(contractId: string, tx?: Prisma.TransactionClient) {
     return this.credits.requestedOfContract(contractId, tx);
@@ -377,7 +446,9 @@ export class ServiceCreditService {
   async list(
     filter: ServiceCreditFilter,
     query: PagedQueryDto,
-  ): Promise<PagedResult<ServiceCreditRow & { assetTag: string | null }>> {
+  ): Promise<
+    PagedResult<ServiceCreditRow & { assetTag: string | null; release: CreditRelease | null }>
+  > {
     const page = resolvePage(
       query,
       pagingBoundsFrom({
@@ -387,8 +458,17 @@ export class ServiceCreditService {
     );
     const [rows, total] = await this.credits.page(filter, page.skip, page.take);
     const tags = await this.devices.assetTags([...new Set(rows.map((row) => row.deviceId))]);
+    const releaseIds = rows.flatMap((row) => (row.unitReleaseId ? [row.unitReleaseId] : []));
+    const releases =
+      releaseIds.length > 0 && this.basis
+        ? await this.basis.releaseNotes(releaseIds)
+        : new Map<string, CreditRelease>();
     return toPagedResult(
-      rows.map((row) => ({ ...row, assetTag: tags.get(row.deviceId) ?? null })),
+      rows.map((row) => ({
+        ...row,
+        assetTag: tags.get(row.deviceId) ?? null,
+        release: row.unitReleaseId ? (releases.get(row.unitReleaseId) ?? null) : null,
+      })),
       total,
       page,
     );

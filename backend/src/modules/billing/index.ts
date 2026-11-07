@@ -10,6 +10,7 @@ export {
   type EarlyEndQuote,
   type EndedContract,
   type EndedTerm,
+  type FirstInvoiceContract,
   type LateContract,
 } from './charges.service';
 export {
@@ -50,6 +51,7 @@ export {
   type CreditUnit,
 } from './ports/credit-basis.port';
 export {
+  releaseCreditQuote,
   SERVICE_CREDIT_NOTICE,
   ServiceCreditService,
   type ServiceCreditNoticeEvent,

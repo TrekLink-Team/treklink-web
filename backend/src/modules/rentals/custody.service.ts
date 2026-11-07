@@ -7,7 +7,7 @@ import { GroupsService } from './groups.service';
 type Unit = { id: string; deviceId: string };
 
 type Closure =
-  | { reason: 'RELEASED' }
+  | { reason: 'RELEASED'; actorId: string }
   | { reason: 'CHECKED_IN'; actorId: string }
   | { reason: 'LOST'; confirmedAt: Date }
   | { reason: 'REPLACED'; actorId: string; checkedIn: boolean; replacement: Unit };
@@ -50,7 +50,9 @@ export class CustodyService {
     if (closure.reason === 'LOST') {
       for (const id of rowIds) await this.contracts.setLostAt(id, closure.confirmedAt, tx);
     } else if (closure.reason === 'RELEASED') {
-      await this.contracts.markReleased(rowIds, at, tx);
+      // Back at the counter (rentals design §13.2, D-099): checked in once, so the inspection finds the
+      // row; releasedAt keeps meaning a row that never reached the organization.
+      await this.contracts.markReleased(rowIds, at, closure.actorId, tx);
     } else if (closure.reason === 'CHECKED_IN' || closure.checkedIn) {
       await this.contracts.markCheckedIn(rowIds, at, closure.actorId, tx);
     }

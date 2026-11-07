@@ -189,6 +189,8 @@ export const contractKeys = {
   // Under the detail key, so every invalidation of the detail refetches it too.
   closeCheck: (id: string) => ['contract', id, 'close-check'] as const,
   endPreview: (id: string) => ['contract', id, 'end-preview'] as const,
+  releasePreview: (id: string, deviceId: string) =>
+    ['contract', id, 'release-preview', deviceId] as const,
   balance: (id: string) => ['contract-balance', id] as const,
   transitions: (id: string) => ['contract-transitions', id] as const,
 };
@@ -252,6 +254,37 @@ export interface EarlyEnd {
 
 export const endContract = (id: string, reason: string, expectedVersion: number) =>
   post<Contract & { earlyEnd: EarlyEnd }>(`/contracts/${id}/end`, { reason, expectedVersion });
+
+// rentals api-design 33 and 34 (D-099): release one unit, for TrekLink Staff.
+export interface ReleasePreview {
+  phase: 'RUNNING' | 'BEFORE_HANDOVER';
+  quantityBefore: number;
+  quantityAfter: number;
+  lastUnit: boolean;
+  credit: { applies: boolean; unusedDays: number; termDays: number; computedVnd: number } | null;
+  firstInvoice: {
+    totalVnd: number;
+    paidVnd: number;
+    newTotalVnd: number;
+    owedToOrganizationVnd: number;
+  } | null;
+}
+
+export const fetchReleasePreview = (id: string, deviceId: string) =>
+  apiClient<ReleasePreview>(`/contracts/${id}/devices/${deviceId}/release-preview`);
+
+export const releaseUnit = (
+  id: string,
+  deviceId: string,
+  reason: string,
+  expectedVersion: number,
+) =>
+  post<{
+    release: { id: string; quantityAfter: number; serviceCreditId: string | null };
+    contract: { id: string; quantity: number; version: number };
+    credit: { id: string; computedVnd: number } | null;
+    firstInvoiceLoweredByVnd: number | null;
+  }>(`/contracts/${id}/devices/${deviceId}/release`, { reason, expectedVersion });
 
 export interface HolderInput {
   name: string | null;

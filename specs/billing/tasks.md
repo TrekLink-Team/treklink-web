@@ -177,8 +177,10 @@
 
 ## Phase 11: The release credit and the lowered first invoice (D-099; TK-209)
 
-- [ ] 11.1 `ServiceCreditKind`, `unitReleaseId`, the nullable fault fields with the two CHECKs, and `requestReleaseCredit` per design §12.1 (owner LongLP)
+- [x] 11.1 `ServiceCreditKind`, `unitReleaseId`, the nullable fault fields with the two CHECKs, and `requestReleaseCredit` per design §12.1 (owner LongLP)
   - **Do**: forward migration; the `CREDIT_BASIS` port gains the release row; the ledger writes `EARLY_END_CREDIT` for a `RELEASE` part; screen 6.5 shows the kind
   - _Requirements: REQ-EVT-18, AC-13, D-099 rules 1 and 5_
-- [ ] 11.2 `lowerFirstInvoice` per design §12.2 (owner LongLP)
+  - **Done** (2026-11-07, LongLP): `ServiceCreditKind` with `unitReleaseId`, the fault fields nullable under `service_credits_kind_fields_check` and the narrowed outage-source CHECK (migration `20261107120000_unit_release`, `constraints.sql`); `releaseCreditQuote` and `ServiceCreditService.requestReleaseCredit`; the ledger writes a `RELEASE` part as `EARLY_END_CREDIT` "Release credit for {tag}"; the credit view gains `kind`, `unitReleaseId` and `release` through `CREDIT_BASIS.releaseNotes`. Tests: `release-credit.spec.ts`
+- [x] 11.2 `lowerFirstInvoice` per design §12.2 (owner LongLP)
   - _Requirements: REQ-EVT-19, AC-14, D-099 rule 4_
+  - **Done** (2026-11-07, LongLP): `ChargesService.lowerFirstInvoice` and `previewLowerFirstInvoice`, recomputing each line for the new quantity (a rounded holding fee included). Tests: `release-credit.spec.ts`, `test/release-unit.db-spec.ts` AC-21

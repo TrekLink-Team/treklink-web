@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { InvoiceLineType, Prisma, ServiceCreditStatus } from '@prisma/client';
+import { InvoiceLineType, Prisma, ServiceCreditKind, ServiceCreditStatus } from '@prisma/client';
 import { DevicesService } from '../devices';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
@@ -42,8 +42,15 @@ export class ServiceCreditLedger {
         current,
         [
           {
-            type: InvoiceLineType.SERVICE_CREDIT,
-            description: `Service credit for ${tags.get(credit.deviceId) ?? credit.deviceId}: ${credit.cause}`,
+            // A release credit is a credit for unused days, so it reads as one (design §12.1).
+            type:
+              credit.kind === ServiceCreditKind.RELEASE
+                ? InvoiceLineType.EARLY_END_CREDIT
+                : InvoiceLineType.SERVICE_CREDIT,
+            description:
+              credit.kind === ServiceCreditKind.RELEASE
+                ? `Release credit for ${tags.get(credit.deviceId) ?? credit.deviceId}`
+                : `Service credit for ${tags.get(credit.deviceId) ?? credit.deviceId}: ${credit.cause}`,
             deviceId: credit.deviceId,
             quantity: 1,
             unitVnd: -part,
