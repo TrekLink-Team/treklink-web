@@ -72,3 +72,11 @@
 - [x] 7.3 Correct deploy instructions, remove new guard lint warnings and run demo, boot, database and frontend checks.
 
 **Done** (2026-11-07, KhoaDD under D-078): W43b review corrections verified with 227 backend unit tests, 17 Postgres tests including three whole-app boot assertions, 33 frontend tests, both lint/typechecks, module boundaries and 30 clean axe runs. Evidence: docs/sessions/2026-11-07-1731-w43b-demo-review.md.
+
+## 8. W43c CI follow-up of PR #436
+
+- [x] 8.1 Align the schema ownership assertion and platform/design ownership table with exactly the two demo-owned models; preserve Figure 3 graph checks.
+- [x] 8.2 Configure the explicit sandbox environment for local/CI e2e, document backend startup variables and keep runtime gates strict.
+- [x] 8.3 Run the full backend unit suite, demo db-specs and Admin demo-panel a11y route on the disposable local e2e stack.
+
+**Done** (2026-11-07, KhoaDD under D-078): W43c verified with all 3379 backend unit tests on Node 22, 17 demo Postgres tests and the Admin demo-panel Playwright axe test. Touched-file ESLint, module boundaries, typecheck, build and CI YAML validation passed. Evidence: docs/sessions/2026-11-07-1849-w43c-ci-gates.md.

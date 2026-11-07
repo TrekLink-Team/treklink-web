@@ -10,8 +10,8 @@ import {
   readOwnership,
 } from '../scripts/check-module-boundaries';
 
-// The nine modules of D-033 (specs/platform design §2.1), and `demo`, the local demo control panel
-// loaded only when DEMO_CONTROLS_ENABLED is true (D-088).
+// The nine modules of D-033 (specs/platform design §2.1), and `demo`, whose controls require
+// DEMO_CONTROLS_ENABLED plus explicit VITE_APP_ENV sandbox/staging (D-088, W43).
 const MODULES = [
   'platform',
   'auth',
@@ -250,8 +250,18 @@ describe('the real schema, design and source tree', () => {
 
   it('gives every model an owning module', () => {
     const modules = new Set([...real.values()].map((o) => o.module));
-    // `demo` owns no model: it resets tables by name and seeds through the demo seed (D-088).
-    expect(modules).toEqual(new Set(MODULES.filter((m) => m !== 'demo')));
+    // W43 adds demo-owned provenance and profile state; business models keep their existing owners.
+    expect(modules).toEqual(new Set(MODULES));
+  });
+
+  it('limits demo ownership to the two control models in platform design section 3.2', () => {
+    const demo = [...real]
+      .filter(([, owner]) => owner.module === 'demo')
+      .map(([model, owner]) => [model, owner.table]);
+    expect(Object.fromEntries(demo)).toEqual({
+      DemoScenarioRun: 'demo_scenario_runs',
+      DemoControlState: 'demo_control_states',
+    });
   });
 
   it('draws the ten modules in Figure 3', () => {

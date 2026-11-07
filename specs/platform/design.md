@@ -160,7 +160,8 @@ flowchart TB
 ```
 
 ***Figure 3***: Module dependencies. Every module also imports `platform`; those edges are omitted. `demo`
-(D-088, `specs/demo/`) is loaded only when `DEMO_CONTROLS_ENABLED` is true and nothing depends on it; its
+(D-088, `specs/demo/`) is loaded only when `DEMO_CONTROLS_ENABLED` is true and explicit `VITE_APP_ENV` is
+`sandbox` or `staging`; nothing depends on it. Its
 `DemoAccountsModule` (the sandbox test accounts, D-089) is loaded only when `DEMO_TEST_ACCOUNTS_ENABLED` is
 true and imports no other module.
 
@@ -495,6 +496,7 @@ erDiagram
 | incidents | `Incident`, `IncidentTransition`, `IncidentStatusUpdate`, `AlertDelivery`, `AuthorityReport` | transitions, status updates |
 | gateway-sync | `FieldEvent`, `SyncAuditLog`, `DeviceQueueReport` | field events (one-way link), sync audit |
 | monitoring | `StreamEvent` | pruned by retention, never updated |
+| demo | Exactly `DemoScenarioRun` (`demo_scenario_runs`) and `DemoControlState` (`demo_control_states`), scenario provenance/counter and escalation profile snapshot (W43) | no, run results and profile state are updated |
 
 The ERD slice of each module is Figure 1 of its `design.md`.
 
