@@ -63,6 +63,8 @@ Approves, reduces (with a reason, below the computed amount) or rejects (with a 
     "decidedVnd": 30000,
     "appliedVnd": 0,
     "status": "APPROVED",
+    "kind": "FAULT",
+    "unitReleaseId": null,
     "requestedById": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
     "decisionReason": "Unit used for part of day 10",
     "decidedAt": "2026-10-20T03:15:00.000Z",

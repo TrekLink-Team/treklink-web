@@ -1103,3 +1103,50 @@ the amount, and "Refunded" once recorded; the invoice document (screen 6.1) show
 {amount}" in place of the amount due and, once refunded, "Refunded {amount} on {date}: {note}". Staff and Admin
 get "Mark refunded" on a `CREDIT_DUE` invoice with a credit due above zero: a `Dialog` that names the amount and
 asks for the note (required, a bank transfer reference or a short account), then the toast "Refund recorded.".
+
+---
+
+## 12. The release credit and the lowered first invoice (D-099 rules 1 and 4; specified 2026-11-07, LongLP, TK-209)
+
+When `rentals` releases one unit (rentals design §13), money moves one of two ways, decided by whether the unit was
+handed over.
+
+### 12.1 After the handover: a service credit of kind `RELEASE`
+
+`ServiceCredit` gains `kind` (`ServiceCreditKind`: `FAULT`, the default and every existing row, and `RELEASE`) and
+`unitReleaseId` (the rentals `UnitRelease` row, read through the `CREDIT_BASIS` port). For a `RELEASE` credit the
+fault fields (`cause`, `faultInspectionId`, the outage start, its source and end, `outageDays`) are null, so they
+become nullable, and two CHECKs keep the fault rows as they are: `kind = 'FAULT'` requires `cause`,
+`faultInspectionId`, `outageFrom` and `outageTo`, and the outage-source CHECK applies to `FAULT` only.
+
+| Field | `RELEASE` value |
+|---|---|
+| `computedVnd` | ⌈P × (D − U) ÷ D⌉ of design §10.1 with F = P, the unit's monthly price from the contract snapshot, at the release time |
+| `requestedById` | the Staff member who released the unit |
+| `outageSourceNote` | null; the release reason lives on the `UnitRelease` row and is shown with the credit |
+
+Everything after the request is §9.3: the Admin queue, approve, reduce with a reason or reject with a reason, the
+requester never deciding (403 `SEPARATION_OF_DUTY`), the ledger landing the approved amount on the next term invoice
+not yet issued, else on the closing invoice, a `REQUESTED` credit blocking the close, and `REFUND_DUE` after it.
+`ServiceCreditLedger.land` writes the `RELEASE` part as an `EARLY_END_CREDIT` line (§10.2) described "Release credit
+for {asset tag}", since it is a credit for unused days, not for a fault; a `FAULT` part stays `SERVICE_CREDIT`.
+Reports read the two by line type as before.
+
+A release on a day plan, or on a monthly contract without an open term, or on the term's last day (U = D), records
+no credit.
+
+### 12.2 Before the handover: the first invoice is lowered
+
+`ChargesService.lowerFirstInvoice(contract, at, actorId, tx)` recomputes the first invoice's lines for the new
+quantity with the functions that issued them (`holdingFeeVnd`, `termFeeVnd`, `dayPlanFeeVnd` of `money.ts`, the
+holding fee rounded up as at issue) and appends, for each line, one negative `ADJUSTMENT` line of the difference
+("Release of one unit: {line description}"), so its total is exactly that of the new quantity. The difference is
+computed rather than taken as one unit's `unitVnd`, because a line whose amount does not divide by the quantity is
+stored with quantity 1 and the whole amount (`invoices.service.ts`, `line`).
+`appendLines` updates the total and the status; a payment above the new total stays recorded and shows as owed to the
+organization (§10.3), refunded outside TrekLink. A request with no invoice issued yet has nothing to lower.
+
+### 12.3 Screens
+
+Screen 6.5: the queue shows the kind, Release or Fault, and for a release the release reason and time in place of
+the outage. Screen 6.1: the line reads Release credit.

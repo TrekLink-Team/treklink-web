@@ -294,6 +294,7 @@ Events emitted: `contract.requested`, `contract.statusChanged`, `contract.endedE
 | `GROUP_DEPTH_EXCEEDED` (§11) | 409 |
 | `DEVICE_NOT_HELD` (§11) | 409 |
 | `FAULT_ALREADY_REPORTED` (§11) | 409 |
+| `LAST_UNIT` (§13) | 409 |
 | `DEVICE_PROVISIONED` (api-design 32, devices design §12.6) | 409 |
 | `NODE_MISMATCH` (api-design 09, 21, 30) | 409 |
 | `VARIANT_MISMATCH` (api-design 15, 30) | 409 |
@@ -1804,3 +1805,77 @@ Manager on `ACTIVE` and `ENDING`; the dialog names the contract, the end time, t
 with focus on Keep the contract running. Screen 5.5: nothing changes; the contract is `RETURN_DUE`, so the
 counter's check-in shows as for any due return. Screen 6.1: the credit line shows as Early end credit.
 
+---
+
+## 13. Release a unit (D-099; specified 2026-11-07, LongLP, TK-209)
+
+Leader ruling D-099 (2026-11-06, treklink-docs#178), gap G4: an organization that no longer needs one unit can give
+it back before the term end. Before it the quantity of a running contract never changed (REQ-UBI-03, BR-05) and a
+running monthly contract took no check-in (REQ-STA-01). D-097 (§12) ends a whole contract; this releases one unit.
+Requirements REQ-EVT-31 to REQ-EVT-33, REQ-ERR-19, REQ-ERR-20, AC-19 to AC-22.
+
+### 13.1 Build rulings (LongLP, 2026-11-07, asked and answered before the spec)
+
+1. **The released unit is back at the counter.** A release is a check-in of one unit while the contract keeps
+   running: the unit goes `RETURNED` and through the usual reset, inspection and damage charge (REQ-EVT-11). A unit
+   that is not at the counter is a loss case (devices REQ-EVT-13), never a release.
+2. **The credit is a service credit of kind `RELEASE`.** It shares the `service_credits` table, the Admin queue
+   `/t/service-credits`, the decision (approve, reduce, reject, separation of duty) and the ledger that lands it on
+   the next invoice (billing design §9.3, §12). Its amount is the D-097 computation for one unit, not the outage
+   rule of §9.2, so D-099's rejection of "a service credit for the current term" (a second way to compute one event)
+   still holds: one computation, one queue.
+3. **A paid deposit above the new first-invoice total is owed to the organization**, refunded outside TrekLink as
+   D-097 rule 3 says, through the existing owed-to-organization balance.
+4. **A day plan gets no credit**, as D-097 rule 2: it is billed per day already.
+
+### 13.2 What a release does
+
+| Step | Running contract (`ACTIVE`, `ENDING`) | Before handover (`REQUESTED`, `APPROVED`) |
+|---|---|---|
+| Guard | the contract lock, the reason (1 to 500), the state, the `version`, the unit live on the contract, not the last live unit (REQ-ERR-19, REQ-ERR-20) | the same |
+| Custody | `CustodyService.closeCustody(row, { reason: 'RELEASED', actorId })`: stamps `checkedInAt` and `checkedInById` (the unit is physically back), ends the group assignment `RELEASED`, resolves the open fault report `RELEASED` | the row's `releasedAt` set, as a cancelled request does; there is no custody to close |
+| Device | `devices.markReturned([deviceId], at, tx, { reason: 'RELEASED' })`: `RETURNED`, then reset and inspection at the counter | `devices.release`: `AVAILABLE` again |
+| Quantity | `quantity - 1`, `version + 1` | the same |
+| Money | `billing.requestReleaseCredit` (billing design §12.1) for a monthly contract with an open term: a `REQUESTED` service credit of kind `RELEASE`; none for a day plan or without an open term | `billing.lowerFirstInvoice` (billing design §12.2) |
+| Record | a `UnitRelease` row | the same |
+| After commit | audit `contract.unitReleased`; `device.checkedIn` | audit `contract.unitReleased` |
+
+The `RELEASED` closure changes from today's built form, which stamps `releasedAt`: after the handover the unit is
+back, so the row is checked in and the inspection (api-design 16), which reads live rows with `releasedAt` null,
+finds it. `releasedAt` keeps its meaning of a row that never reached the organization (a cancellation, a swap, a
+release before handover). Every reader that ends a custody interval at `checkedInAt` (reports, attribution,
+`visibleDevices`, the console) therefore ends it at the release time with no change (treklink-docs#166).
+
+`UnitRelease` (`unit_releases`): `id`, `contractId`, `contractDeviceId`, `deviceId`, `phase` (`BEFORE_HANDOVER`,
+`RUNNING`), `reason`, `releasedById`, `releasedAt`, `quantityBefore`, `quantityAfter`, `serviceCreditId` (null when
+no credit applies). One row per release; it is the history the contract page lists and the audit points to.
+
+### 13.3 What happens when
+
+| What if | Then |
+|---|---|
+| The unit is the last live one | 409 `LAST_UNIT`, pointing to End contract now, or to Cancel before handover |
+| The unit is not at the counter | it is not released; Staff report it lost (devices api-design 17) |
+| The release takes the contract below `rentals.minOrderQuantity` | accepted (D-099 rule 2) |
+| The unit has an open fault report or a group | both close `RELEASED` in the same transaction (REQ-EVT-23) |
+| The Admin rejects the credit | no line; the release itself stands, since the unit is already back |
+| The contract closes before the Admin decides | the close waits: a `REQUESTED` credit blocks it (billing REQ-STA-02) |
+| Two Staff release units of one contract at once | the contract lock serializes them; the second carries a stale `version` and gets 409 `STALE_VERSION` |
+| The release happens on the last day of the term | U equals D, the credit is 0 and no credit row is written |
+| A released unit's inspection finds damage | the damage charge follows as for any return (billing design §2) |
+
+### 13.4 Permissions, endpoints, screens
+
+`contract.releaseUnit` (TrekLink Staff, action `releaseUnit` on `RentalContract`), a new row of
+`scripts/specs/catalog.py` added by the build; organization roles have none. The Admin decides the credit with the
+existing `serviceCredit.decide`.
+
+| # | Endpoint | Who |
+|---|---|---|
+| 33 | `POST /api/contracts/:id/devices/:deviceId/release` | TrekLink Staff |
+| 34 | `GET /api/contracts/:id/devices/:deviceId/release-preview` | TrekLink Staff |
+
+Screen 5.2 (contract home): Release this unit is a row action on the Staff contract page for a live unit when the
+contract has more than one, with a dialog (screen file `5-2-contractdetailpage-and-contract-lists.md`, section
+"Release a unit"). Screen 6.5: the queue shows the kind, Release or Fault. Screen 6.1: the credit line reads
+Release credit.

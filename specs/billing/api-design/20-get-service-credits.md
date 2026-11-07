@@ -54,6 +54,8 @@ No body.
         "decidedVnd": null,
         "appliedVnd": 0,
         "status": "REQUESTED",
+        "kind": "FAULT",
+        "unitReleaseId": null,
         "requestedById": "3f2e1d0c-9b8a-4c7d-8e6f-5a4b3c2d1e0f",
         "decisionReason": null,
         "decidedAt": null,

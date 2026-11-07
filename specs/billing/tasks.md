@@ -175,3 +175,10 @@
 - [x] 10.1 `CREDIT_DUE` and `REFUNDED` per design §11: two forward migrations, the backfill, `invoice.refund` in the catalog and the matrix, `NOTHING_OWED`, `POST /api/invoices/:id/refund`, `creditDueVnd` and `refund` on the invoice views, the refund in `owedToOrganizationVnd`; api-design from `scripts/specs/endpoints/billing.py`; the Money tab, the invoice list and the invoice document (owner KhoaDD under D-078)
   - _Requirements: REQ-EVT-17, REQ-STA-03, REQ-STA-04, REQ-ERR-09, AC-11, AC-12, D-097 amended_
 
+## Phase 11: The release credit and the lowered first invoice (D-099; TK-209)
+
+- [ ] 11.1 `ServiceCreditKind`, `unitReleaseId`, the nullable fault fields with the two CHECKs, and `requestReleaseCredit` per design §12.1 (owner LongLP)
+  - **Do**: forward migration; the `CREDIT_BASIS` port gains the release row; the ledger writes `EARLY_END_CREDIT` for a `RELEASE` part; screen 6.5 shows the kind
+  - _Requirements: REQ-EVT-18, AC-13, D-099 rules 1 and 5_
+- [ ] 11.2 `lowerFirstInvoice` per design §12.2 (owner LongLP)
+  - _Requirements: REQ-EVT-19, AC-14, D-099 rule 4_
