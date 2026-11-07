@@ -128,9 +128,9 @@ with the seed runner and the seed file made unloadable. The passwords are read f
 every request and appear in no log line. The labels match the account menu, with the TrekLink prefix on
 the two staff roles.
 
-The control panel keeps every check of §2: `DemoModule` still loads only with `DEMO_CONTROLS_ENABLED`, and
-its stage and role switch still refuse production and a database off the machine, so the reset is never
-reachable on a Neon host whatever the accounts flag says.
+The legacy stage and role switch keep every check of §2: production and a database off the machine are
+refused, so a reset is never reachable on Neon. W43 additionally gates DemoModule and simulation control
+routes by the explicit application environment; additive quick actions are covered by section 10.
 
 The frontend `TestAccountsBox` widget (screen 7.5 §"Sandbox test accounts box") renders nothing on any
 error, so a deployment with the flag off shows nothing.
@@ -278,3 +278,5 @@ ParameterService exposes transactional reads and updates so the four profile val
 Vercel builds apply forward migrations only. W43 removes automatic seed:demo from backend/scripts/vercel-build.sh so deploying this branch cannot reseed staging. Fixtures are compiled into the quick SOS helper, avoiding a runtime dependency on test files in a serverless bundle.
 
 A quick command returns HTTP 200 with its persisted run result. A business-step failure sets error and errorCode (including STALE_VERSION) while retaining committed links. Authentication, role/environment/database refusal and malformed action inputs remain normal HTTP failures. This prevents a later-step failure from hiding earlier committed work.
+
+Quick contract targets REQUESTED and APPROVED impose no handover-signer prerequisite. ACTIVE and RETURN_DUE select a live Manager only at handover, matching OrganizationsService.isActiveManager; an invitation still awaiting password activation does not disqualify a live Manager from signing the disclosed synthetic note.

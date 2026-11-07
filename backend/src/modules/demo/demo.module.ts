@@ -18,8 +18,8 @@ import { DemoResetRepository } from './demo-reset.repository';
 import { DemoScenariosService } from './demo-scenarios.service';
 import { DEMO_SEED_LOADER, DemoSeedRunner, loadSeedModule } from './demo-seed.runner';
 
-// The local demo control panel (specs/demo/design.md, D-088). AppModule imports it only when
-// DEMO_CONTROLS_ENABLED is true. It owns no model and nothing depends on it.
+// W43 demo controls: imported only with the flag and explicit sandbox/staging environment.
+// It owns demo provenance and profile state only; business writes use exported services.
 @Module({
   imports: [
     PlatformModule,

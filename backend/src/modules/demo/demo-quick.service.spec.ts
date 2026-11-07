@@ -207,6 +207,32 @@ describe('DemoQuickService scenarios', () => {
       if (target === 'RETURN_DUE') expect(f.rollover.run).toHaveBeenCalledWith(now, 'contract');
     },
   );
+  it.each(['REQUESTED', 'APPROVED'] as const)(
+    'does not impose a handover signer on %s',
+    async (target) => {
+      const f = fixture();
+      f.organizations.membersOf.mockResolvedValue([]);
+      expect((await f.service.run('contract', { ...input, target }, actor, now)).error).toBeNull();
+      expect(f.organizations.membersOf).not.toHaveBeenCalled();
+    },
+  );
+
+  it('permits a live Manager who has not activated a password, as the real handover service does', async () => {
+    const f = fixture();
+    f.organizations.membersOf.mockResolvedValue([
+      { role: 'MANAGER', invitationPending: true, deactivatedAt: null, userId: 'manager' },
+    ]);
+    expect(
+      (await f.service.run('contract', { ...input, target: 'ACTIVE' }, actor, now)).error,
+    ).toBeNull();
+    expect(f.handover.complete).toHaveBeenCalledWith(
+      'contract',
+      expect.objectContaining({ signedByUserId: 'manager' }),
+      actor,
+      expect.any(Date),
+    );
+  });
+
   it('retains committed contract links on approval failure and records its cause', async () => {
     const f = fixture();
     f.decisions.approve.mockRejectedValueOnce(
