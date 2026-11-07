@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Owner | LongLP |
-| Task | `specs/frontend/tasks.md` 6.5 (billing task 8.2) |
+| Task | `specs/frontend/tasks.md` 6.5 (billing tasks 8.2 and 8.3) |
 | Assigned, due | 2026-11-02, 2026-11-04 |
 | Status | Ready for review |
 | Routes | `/t/service-credits` (new, `specs/frontend/design.md` §2), the request and the credits card on `/t/contracts/:id`, the credits card on `/o/contracts/:id`, the line on `/o/invoices/:id` and the invoice panel of `/t/billing`, the close blocker on `/t/contracts/:id` and `/t/counter/:contractId` |
@@ -18,7 +18,7 @@ contract pages; the `SERVICE_CREDIT` line on the invoice and the `SERVICE_CREDIT
 
 Out of scope, kept for later: a request from the maintenance record (design §9.6 names it as a second entry);
 the maintenance page links to the device, whose contract page carries the request. Linking an incident as the
-source of the outage start: the dialog takes the note; billing 18 accepts `outageSourceIncidentId` for a later
+source of the outage start: billing 18 accepts `outageSourceIncidentId` for a later
 picker.
 
 ## Data
@@ -27,7 +27,8 @@ picker.
 |---|---|
 | Queue and card rows: device, cause, outage from and to, days, amount, status, raised | billing 19 and 20 `items[].assetTag`, `cause`, `outageFrom`, `outageTo`, `outageDays`, `computedVnd`, `status`, `createdAt` |
 | Decided and applied amounts | billing 19 and 20 `decidedVnd` (shown when it differs from `computedVnd`), `appliedVnd` (shown while `APPROVED` with a part on invoices) |
-| Source of the outage start, next to the amount in the decision dialog | billing 20 `outageSourceNote`, or "Incident" when `outageSourceIncidentId` is set |
+| Source of the outage start in the decision dialog | billing 20 `outageSourceNote`, `outageSourceFaultReportId` ("Fault report") or `outageSourceIncidentId` ("Incident") |
+| Reports for the request dialog | rentals 29 `contractDeviceId`, `id`, `reportedAt`, `description` and `resolvedAt`, filtered to the selected custody row |
 | Decision reason, refund reference | billing 19 and 20 `decisionReason`, `refundReference`, `refundedAt` |
 | Whether the viewer requested the credit | billing 20 `items[].requestedById` compared with auth 04 `result.id` |
 | Contract link in the queue | billing 20 `contractId` to `/t/contracts/:id` |
@@ -60,7 +61,8 @@ you requested this credit." (BR-24, as screen 6.4); the server's 403 remains for
 | Error `VALIDATION_FAILED` (400, billing 18, 21) | The server's message in the dialog, under the field it names when it names one (outage start, fault record, amount, reason) |
 | Error `DEVICE_NOT_ON_CONTRACT` (409, billing 18) | The server's message in the dialog |
 | Error `INVALID_STATE_TRANSITION` (409, billing 18, 21, 22) | MSG28 text from the server; the queue or the card refetches (another Admin decided first, or the unit is not back) |
-| Error `DUPLICATE_CREDIT` (409, billing 18) | "A service credit already covers part of this outage." under Outage start |
+| Error `DUPLICATE_CREDIT` (409, billing 18) | "A service credit already covers part of this outage." under Fault report or Outage start, according to the source |
+| Fault reports unavailable (rentals 29) | The note and manual outage start remain usable while the list loads or if it is empty or unavailable |
 | Error `STALE_VERSION` (409, billing 21) | The server's message; the queue refetches so the Admin sees the current row |
 | Error `SEPARATION_OF_DUTY` (403, billing 21) | "A different Admin must decide this credit." in the dialog |
 | Error `DUPLICATE_REFERENCE` (409, billing 22) | MSG10-style text under Reference: "This reference is already recorded." |
@@ -72,8 +74,9 @@ you requested this credit." (BR-24, as screen 6.4); the server's 403 remains for
 | Step | Field | Type | Required | Rule |
 |---|---|---|---|---|
 | Request | Cause | select: Battery, Radio, GPS, Board, Firmware | yes | (billing 18 `cause`) |
-| Request | Outage start | date and time | yes | not in the future, not before the unit's handover (billing 18 `outageFrom`) |
-| Request | Source of the start | text area | yes | the call or counter visit and its time, at most 500 characters (billing 18 `outageSourceNote`) |
+| Request | Fault report | select, when reports exist | no | open or resolved reports for this custody row. Show the report time and description. Send only `outageSourceFaultReportId` for the source, so billing 18 uses `reportedAt` |
+| Request | Outage start | date and time | with a note | not in the future, not before the unit's handover (billing 18 `outageFrom`) |
+| Request | Source of the start | text area | with a manual outage start | the call or counter visit and its time, at most 500 characters (billing 18 `outageSourceNote`) |
 | Request | Fault record | read-only text | | the row's FAILED inspection and its time (billing 18 `faultInspectionId` from rentals 03) |
 | Decide | Decision | radio: Approve, Reduce, Reject | yes | (billing 21 `decision`) |
 | Decide | Credit (VND) | integer | for Reduce | above 0 and below the computed amount (billing 21 `decidedVnd`) |
@@ -81,7 +84,7 @@ you requested this credit." (BR-24, as screen 6.4); the server's 403 remains for
 | Refund | Reference | text | yes | the bank-transfer reference, at most 100 characters (billing 22 `reference`) |
 
 The dialog states that the outage end is computed: "The outage ends at the replacement's handover, the
-check-in or the term end, whichever comes first." Every form is one step of at most four fields.
+check-in or the term end, whichever comes first." Every form is one step of at most four editable fields.
 
 ## Mobile, accessibility, live data
 

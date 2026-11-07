@@ -61,8 +61,9 @@ export interface RentedDeviceFilters {
 
 export interface DeviceFaultReport {
   id: string;
+  contractDeviceId: string;
   deviceId: string;
-  assetTag: string;
+  assetTag: string | null;
   description: string;
   reportedAt: string;
   resolvedAt: string | null;
@@ -124,7 +125,7 @@ export const useFaultReports = (contractId: string, enabled = true) =>
   });
 
 export const reportDeviceFault = (contractId: string, deviceId: string, description: string) =>
-  apiClient<DeviceFaultReport>(`/contracts/${contractId}/devices/${deviceId}/fault-reports`, {
+  apiClient<Omit<DeviceFaultReport, 'assetTag'>>(`/contracts/${contractId}/devices/${deviceId}/fault-reports`, {
     method: 'POST',
     body: JSON.stringify({ description }),
   });

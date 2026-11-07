@@ -558,6 +558,7 @@ export interface ServiceCredit {
   faultInspectionId: string | null;
   outageFrom: string | null;
   outageSourceIncidentId: string | null;
+  outageSourceFaultReportId: string | null;
   outageSourceNote: string | null;
   outageTo: string | null;
   outageDays: number | null;
@@ -608,9 +609,10 @@ export const requestServiceCredit = (
     contractDeviceId: string;
     cause: ServiceCreditCause;
     faultInspectionId: string;
-    outageFrom: string;
-    outageSourceNote: string;
-  },
+  } & (
+    | { outageSourceFaultReportId: string; outageFrom?: never; outageSourceNote?: never }
+    | { outageSourceFaultReportId?: never; outageFrom: string; outageSourceNote: string }
+  ),
 ) =>
   apiClient<ServiceCredit>(`/contracts/${contractId}/service-credits`, {
     method: 'POST',
