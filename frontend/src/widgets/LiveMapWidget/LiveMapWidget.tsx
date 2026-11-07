@@ -178,17 +178,56 @@ const popupContent = (marker: MapMarker, openLink: OpenLink): HTMLElement => {
   return element;
 };
 
-// A popup the keyboard can enter and leave: focus moves into it when it opens from the marker, and
-// Escape closes it and returns focus to the marker (screen 9.1).
-const closable = (element: HTMLElement, close: () => void): HTMLElement => {
+// The root of a popup's content: it takes focus when the popup has nothing focusable to offer. Escape,
+// Tab and the return of focus are handled for the whole map in LeafletMap (screen 9.1).
+const popupRoot = (element: HTMLElement): HTMLElement => {
   element.tabIndex = -1;
   element.classList.add('outline-none');
-  element.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape') return;
-    event.stopPropagation();
-    close();
-  });
   return element;
+};
+
+// A lone marker's popup is a group named like its marker, so a screen reader entering it hears which
+// device it belongs to before the first link.
+const singleContent = (marker: MapMarker, openLink: OpenLink): HTMLElement => {
+  const element = popupContent(marker, openLink);
+  element.setAttribute('role', 'group');
+  element.setAttribute('aria-label', textOf(marker));
+  return element;
+};
+
+// Where focus lands when a popup opens: the list of a stack or a cluster, so it scrolls from the
+// keyboard; else the first link, such as "Open incident"; else the content itself.
+const entryOf = (root: HTMLElement): HTMLElement =>
+  root.querySelector<HTMLElement>('.tl-map-list') ?? root.querySelector<HTMLElement>('a[href]') ?? root;
+
+// Every element of a popup that can hold focus, the content root first, in document order. A rebuilt
+// popup has the same shape, so a place in this list survives the rebuild.
+const placesOf = (root: HTMLElement): HTMLElement[] => [
+  root,
+  ...root.querySelectorAll<HTMLElement>('a[href], [tabindex]'),
+];
+
+// The Tab stops of an open popup: its links, its list and Leaflet's Close button, in document order.
+const tabStopsOf = (box: HTMLElement): HTMLElement[] =>
+  [...box.querySelectorAll<HTMLElement>('a[href], button, [tabindex]')].filter(
+    (element) => element.tabIndex >= 0 && !element.hasAttribute('disabled'),
+  );
+
+// A live reading redraws the content of an open popup. The keyboard stays where it was: the element at
+// the same place in the new content takes focus, and a list keeps its scroll position.
+const swapContent = (popup: L.Popup | undefined, next: HTMLElement) => {
+  if (!popup) return;
+  const old = popup.isOpen() ? popup.getContent() : undefined;
+  const active = document.activeElement;
+  const place =
+    old instanceof HTMLElement && active instanceof HTMLElement && old.contains(active)
+      ? placesOf(old).indexOf(active)
+      : -1;
+  const scroll = old instanceof HTMLElement ? old.querySelector('.tl-map-list')?.scrollTop : 0;
+  popup.setContent(next);
+  const list = next.querySelector<HTMLElement>('.tl-map-list');
+  if (list && scroll) list.scrollTop = scroll;
+  if (place >= 0) (placesOf(next)[place] ?? next).focus({ preventScroll: true });
 };
 
 // Every device of a stack or a cluster, each with its own popup content, in severity order (leader
@@ -270,10 +309,16 @@ export interface MapView {
 }
 
 // Leaflet draws its controls above popups, so a popup pans clear of the zoom buttons at the top left
-// and is no wider than the map beside them; on a 360 px phone the map is about 320 px wide.
+// and is no wider than the map beside them; on a 360 px phone the map is about 320 px wide. maxWidth
+// caps the content only: Leaflet's popup adds its margins (20 px left, 24 px right) and a 1 px border
+// on each side, and without them in the sum the Close button ended outside a phone's map (W44).
 const CONTROL_CLEARANCE_PX = 58;
+const POPUP_CHROME_PX = 46;
 const popupFit = (map: L.Map): Pick<L.PopupOptions, 'maxWidth' | 'autoPanPaddingTopLeft'> => ({
-  maxWidth: Math.max(160, Math.min(300, map.getSize().x - CONTROL_CLEARANCE_PX - 24)),
+  maxWidth: Math.max(
+    160,
+    Math.min(300, map.getSize().x - CONTROL_CLEARANCE_PX - POPUP_CHROME_PX - 16),
+  ),
   autoPanPaddingTopLeft: [CONTROL_CLEARANCE_PX, 8],
 });
 
@@ -464,6 +509,10 @@ const LeafletMap: React.FC<{
   const data = useRef<Map<string, MapMarker>>(new Map());
   const pendingOpen = useRef<string | null>(null);
   const listPopup = useRef<{ key: string; popup: L.Popup } | null>(null);
+  // The open popup and the marker or badge that opened it, which takes focus back when it closes.
+  const opened = useRef<{ popup: L.Popup; opener: () => HTMLElement | null | undefined } | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!map) return;
@@ -502,17 +551,14 @@ const LeafletMap: React.FC<{
       if (zoom >= max || bounds.getNorthEast().equals(bounds.getSouthWest())) {
         const members = badge.ids.map((id) => data.current.get(id)!);
         const heading = `${members.length} devices near ${badge.near}`;
-        const close = () => {
-          map.closePopup();
-          badges.current.get(key)?.marker.getElement()?.focus();
-        };
-        const content = closable(listContent(members, heading, openLink, map), close);
+        const content = popupRoot(listContent(members, heading, openLink, map));
         const popup = L.popup({ ...popupFit(map), offset: [0, -CLUSTER_BADGE_PX / 2 + 4] })
           .setLatLng(badge.marker.getLatLng())
           .setContent(content)
           .openOn(map);
         listPopup.current = { key, popup };
-        content.focus();
+        opened.current = { popup, opener: () => badges.current.get(key)?.marker.getElement() };
+        entryOf(content).focus({ preventScroll: true });
         return;
       }
       const fit = map.getBoundsZoom(bounds, false, L.point(CLUSTER_REACH_PX, CLUSTER_REACH_PX));
@@ -623,16 +669,12 @@ const LeafletMap: React.FC<{
         const contentKey = stackKey ?? looks.current.get(id) ?? '';
         Object.assign(marker.getPopup()?.options ?? {}, popupFit(map));
         if (!card && popupKeys.current.get(id) !== contentKey) {
-          const close = () => {
-            map.closePopup();
-            marker.getElement()?.focus();
-          };
-          marker.setPopupContent(
-            closable(
+          swapContent(
+            marker.getPopup(),
+            popupRoot(
               stacked
                 ? listContent(members, stackHeading(members.length), openLink, map)
-                : popupContent(m, openLink),
-              close,
+                : singleContent(m, openLink),
             ),
           );
           popupKeys.current.set(id, contentKey);
@@ -688,9 +730,12 @@ const LeafletMap: React.FC<{
         title: textOf(m),
         alt: textOf(m),
       }).bindPopup('', { offset: [0, -4] });
-      // Focus moves into a popup opened from the marker, by pointer, Enter or the side list (screen 9.1).
+      // Focus moves into a popup opened from the marker, by pointer, Enter or the side list, and comes
+      // back to the marker when the popup closes (screen 9.1).
       marker.on('popupopen', (event) => {
-        event.popup.getElement()?.querySelector<HTMLElement>('[tabindex="-1"]')?.focus();
+        opened.current = { popup: event.popup, opener: () => markerRefs.current.get(m.id)?.getElement() };
+        const content = event.popup.getContent();
+        if (content instanceof HTMLElement) entryOf(content).focus({ preventScroll: true });
       });
       marker.on('click', () => {
         if (cardIds.current.has(m.id)) onSelectRef.current?.(m.id);
@@ -732,6 +777,74 @@ const LeafletMap: React.FC<{
     cardModeRef.current = cardMode;
     layoutMarkers();
   }, [cardMode, layoutMarkers]);
+
+  // The keyboard in an open popup (screen 9.1; WCAG 2.1.1, 2.4.3, 1.4.13). Escape closes it from inside
+  // the popup or from the marker that opened it, and focus goes back to that marker; Tab and Shift+Tab
+  // cycle through the popup's links, its list and its Close button. Leaflet's own Escape only works
+  // while the map box itself has focus. A popup closed any other way while it held focus, by its Close
+  // button for one, also hands focus back to its marker.
+  useEffect(() => {
+    if (!map) return;
+    const container = map.getContainer();
+    let focusInside = false;
+    const current = () => (opened.current?.popup.isOpen() ? opened.current : null);
+    const onKeyDown = (event: KeyboardEvent) => {
+      const open = current();
+      if (!open) return;
+      const box = open.popup.getElement();
+      const target = event.target instanceof Node ? event.target : null;
+      const inside = !!box && !!target && box.contains(target);
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        const back = inside || target === open.opener();
+        map.closePopup(open.popup);
+        if (back) open.opener()?.focus({ preventScroll: true });
+        return;
+      }
+      if (event.key !== 'Tab' || !inside || !box) return;
+      const stops = tabStopsOf(box);
+      if (stops.length === 0) return;
+      const active = document.activeElement as HTMLElement | null;
+      const edge = event.shiftKey ? stops[0] : stops[stops.length - 1];
+      // Shift+Tab from the content root, which is no Tab stop, also wraps to the Close button.
+      if (active === edge || (event.shiftKey && !stops.includes(active as HTMLElement))) {
+        event.preventDefault();
+        (event.shiftKey ? stops[stops.length - 1] : stops[0]).focus({ preventScroll: true });
+      }
+    };
+    const onFocusIn = (event: FocusEvent) => {
+      const box = current()?.popup.getElement();
+      focusInside = !!box && event.target instanceof Node && box.contains(event.target);
+    };
+    const onFocusOut = (event: FocusEvent) => {
+      // Focus that leaves the map; a removed element reports no next target and keeps the flag.
+      if (event.relatedTarget instanceof Node && !container.contains(event.relatedTarget))
+        focusInside = false;
+    };
+    const onClose = (event: L.PopupEvent) => {
+      const open = opened.current;
+      if (!open || open.popup !== event.popup) return;
+      opened.current = null;
+      const active = document.activeElement;
+      const box = event.popup.getElement();
+      const held =
+        (!!box && !!active && box.contains(active)) ||
+        ((!active || active === document.body) && focusInside);
+      focusInside = false;
+      if (held) open.opener()?.focus({ preventScroll: true });
+    };
+    container.addEventListener('keydown', onKeyDown);
+    container.addEventListener('focusin', onFocusIn);
+    container.addEventListener('focusout', onFocusOut);
+    map.on('popupclose', onClose);
+    return () => {
+      container.removeEventListener('keydown', onKeyDown);
+      container.removeEventListener('focusin', onFocusIn);
+      container.removeEventListener('focusout', onFocusOut);
+      map.off('popupclose', onClose);
+    };
+  }, [map]);
 
   // A tap on the map outside any marker puts the card away.
   useEffect(() => {
