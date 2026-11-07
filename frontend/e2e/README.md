@@ -11,7 +11,7 @@ route of `src/app/router.tsx`, and the Operator screens at 360 x 740. Vitest doe
 | `mf-02-field-station.spec.ts` | Script §3: the live map and the Field data sync page, fed by the simulated gateway |
 | `mf-03-sos-incident.spec.ts` | Script §4: SOS replay, acknowledge to resolve, authority reports on an incident and a contract |
 | `mf-04-live-map-org-api.spec.ts` | Script §5: live map, overlay and basemaps, fleet map filter, organization API, device history |
-| `mf-05-term-end.spec.ts` | Script §6: notice, `demo:term-end`, check-in of one unit, Report lost on the other, inspection, loss case triage to settle, closing invoice, close; optional steps 13 and 14 |
+| `mf-05-term-end.spec.ts` | Script §6: notice, `demo:term-end`, check-in of one unit, Report lost on the other, inspection, loss case triage to settle, closing invoice, close; optional steps 13 and 14; WF-05 release, which releases one unit of the ACTIVE contract MF-01 hands over and checks the `RELEASE` credit (D-099) |
 | `a11y.spec.ts` | axe-core, WCAG 2.0 and 2.1 A and AA, on every route a seeded role reaches; fails on `serious` or `critical` unless its `ALLOWLIST` names the rule and route |
 | `operator-360.spec.ts` | Project `operator-360`: the Operator's Live map, SOS banner, Incidents and incident page at 360 x 740, no horizontal scroll, primary actions on screen |
 
