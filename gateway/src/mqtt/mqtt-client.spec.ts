@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import * as mqtt from 'mqtt';
 import { SQLitePriorityQueue } from '../queue/priority-queue';
-import { connectOptions, GatewayMqttClient, redactBrokerUrl } from './mqtt-client';
+import { connectOptions, GatewayMqttClient, redactBrokerUrl, uplinkOf } from './mqtt-client';
 
 const mockLines: string[] = [];
 jest.mock('pino', () => ({
@@ -84,5 +84,49 @@ describe('GatewayMqttClient.connect', () => {
     expect(options).not.toHaveProperty('username');
     expect(options).not.toHaveProperty('password');
     expect(mockLines.join('\n')).toContain('without credentials');
+  });
+});
+
+// Gateway-sync design §4 (review of treklink-web#431): the topic and payload of a queued packet.
+describe('uplinkOf', () => {
+  const packet = { id: 7, from: 3724541961, type: 'position', sender: '!de000009', payload: {} };
+  const item = { payload: JSON.stringify(packet), createdAt: '2026-11-07 03:25:18' };
+  const settings = {
+    topicPrefix: 'treklink/2/json',
+    channelName: 'LongFast',
+    stationTopic: false,
+    mqttRoot: 'treklink',
+    username: 'fs-org-0001-1',
+  };
+
+  it('keeps the Stage B node topic and the payload unchanged by default', () => {
+    expect(uplinkOf(item, 1_000, settings)).toEqual({
+      topic: 'treklink/2/json/LongFast/!de000009',
+      payload: item.payload,
+    });
+  });
+
+  it('publishes on the station data topic with fs_captured_at and fs_sent_at when asked', () => {
+    const uplink = uplinkOf(item, 1_794_022_000_123, { ...settings, stationTopic: true });
+    expect(uplink?.topic).toBe('treklink/fs/fs-org-0001-1/2/json/LongFast/!de000009');
+    expect(JSON.parse(uplink!.payload)).toEqual({
+      ...packet,
+      fs_captured_at: Date.parse('2026-11-07T03:25:18Z'),
+      fs_sent_at: 1_794_022_000_123,
+    });
+  });
+
+  it('stays on the node topic when the station has no username', () => {
+    expect(uplinkOf(item, 1, { ...settings, stationTopic: true, username: '' })?.topic).toBe(
+      'treklink/2/json/LongFast/!de000009',
+    );
+  });
+
+  it('returns null for a packet without a sender, an unparseable payload or capture time', () => {
+    expect(uplinkOf({ ...item, payload: '{}' }, 1, settings)).toBeNull();
+    expect(uplinkOf({ ...item, payload: 'not json' }, 1, settings)).toBeNull();
+    expect(
+      uplinkOf({ ...item, createdAt: 'later' }, 1, { ...settings, stationTopic: true }),
+    ).toBeNull();
   });
 });

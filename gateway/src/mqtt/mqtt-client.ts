@@ -43,6 +43,60 @@ export function redactBrokerUrl(brokerUrl: string): string {
   }
 }
 
+/** Where and what one queued packet is published (gateway-sync design §3, §4). */
+export interface Uplink {
+  topic: string;
+  payload: string;
+}
+
+export interface UplinkSettings {
+  topicPrefix: string;
+  channelName: string;
+  stationTopic: boolean;
+  mqttRoot: string;
+  username: string;
+}
+
+// SQLite `datetime('now')` (`YYYY-MM-DD HH:MM:SS`, UTC) as epoch milliseconds, or null when unreadable.
+const sqliteUtcMs = (value: string): number | null => {
+  const ms = Date.parse(`${value.replace(' ', 'T')}Z`);
+  return Number.isFinite(ms) && ms > 0 ? ms : null;
+};
+
+/**
+ * The topic and payload of a queued packet, or null when the packet names no sender (or, on the station
+ * topic, has no readable capture time). Stage B (D-005): the node's own uplink topic
+ * `<prefix>/<channel>/<sender>`, payload unchanged. Station topic (`GATEWAY_MQTT_STATION_TOPIC` with a
+ * username, design §4): `<root>/fs/<username>/2/json/<channel>/<sender>`, the stock JSON plus
+ * `fs_captured_at` (the row's capture time, station clock) and `fs_sent_at` (`now`), both epoch ms.
+ */
+export function uplinkOf(
+  item: { payload: string; createdAt: string },
+  now: number,
+  settings: UplinkSettings,
+): Uplink | null {
+  let message: Record<string, unknown>;
+  try {
+    message = JSON.parse(item.payload) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+  const sender = message.sender;
+  if (typeof sender !== 'string' || sender === '') return null;
+  if (!settings.stationTopic || settings.username === '') {
+    return {
+      topic: `${settings.topicPrefix}/${settings.channelName}/${sender}`,
+      payload: item.payload,
+    };
+  }
+  const capturedAt = sqliteUtcMs(item.createdAt);
+  if (capturedAt === null) return null;
+  return {
+    topic: `${settings.mqttRoot}/fs/${settings.username}/2/json/${settings.channelName}/${sender}`,
+    payload: JSON.stringify({ ...message, fs_captured_at: capturedAt, fs_sent_at: now }),
+  };
+}
+
 export class GatewayMqttClient {
   private client: mqtt.MqttClient | null = null;
   private isConnected = false;
@@ -100,7 +154,9 @@ export class GatewayMqttClient {
     logger.info(`Connecting to MQTT broker at ${redactBrokerUrl(this.brokerUrl)} ${as}...`);
     const halfSet = (this.credential.username === '') !== (this.credential.secret === '');
     if (halfSet) {
-      logger.warn('Only one of GATEWAY_FS_USERNAME and GATEWAY_FS_SECRET is set: connecting without credentials.');
+      logger.warn(
+        'Only one of GATEWAY_FS_USERNAME and GATEWAY_FS_SECRET is set: connecting without credentials.',
+      );
     }
     this.client = mqtt.connect(this.brokerUrl, options);
 
@@ -129,16 +185,15 @@ export class GatewayMqttClient {
     });
   }
 
-  // The node's own uplink topic for a queued packet (Stage B, D-005): `<prefix>/<channel>/<sender>`.
-  private topicOf(payload: string): string | null {
-    try {
-      const sender = (JSON.parse(payload) as { sender?: unknown }).sender;
-      return typeof sender === 'string' && sender !== ''
-        ? `${gatewayConfig.mqtt.topicPrefix}/${gatewayConfig.mqtt.channelName}/${sender}`
-        : null;
-    } catch {
-      return null;
-    }
+  // The topic and payload of a queued packet (`uplinkOf`), from the gateway configuration.
+  private uplinkFor(item: { payload: string; createdAt: string }): Uplink | null {
+    return uplinkOf(item, Date.now(), {
+      topicPrefix: gatewayConfig.mqtt.topicPrefix,
+      channelName: gatewayConfig.mqtt.channelName,
+      stationTopic: gatewayConfig.station.stationTopic,
+      mqttRoot: gatewayConfig.station.mqttRoot,
+      username: gatewayConfig.station.username,
+    });
   }
 
   // NFR-REL-04, REQ-ERR-03. mqtt.js keeps a copy of every QoS 1 or 2 publish the broker has not yet
@@ -155,7 +210,9 @@ export class GatewayMqttClient {
     if (!client) return;
     const inFlight = Object.keys(client.outgoing).map(Number);
     if (inFlight.length === 0) return;
-    logger.warn(`Dropping ${inFlight.length} unacknowledged publishes; their rows stay queued for the next flush.`);
+    logger.warn(
+      `Dropping ${inFlight.length} unacknowledged publishes; their rows stay queued for the next flush.`,
+    );
     for (const messageId of inFlight) client.removeOutgoingMessage(messageId);
   }
 
@@ -181,14 +238,14 @@ export class GatewayMqttClient {
       else this.flushQueue();
     };
     for (const item of batch) {
-      const topic = this.topicOf(item.payload);
-      if (!topic) {
+      const uplink = this.uplinkFor(item);
+      if (!uplink) {
         logger.error(`Dropping event ${item.eventId}: its packet has no sender to publish under.`);
         this.queue.remove(item.id);
         done();
         continue;
       }
-      this.client.publish(topic, item.payload, { qos: gatewayConfig.mqtt.qos }, (err) => {
+      this.client.publish(uplink.topic, uplink.payload, { qos: gatewayConfig.mqtt.qos }, (err) => {
         if (!err) {
           this.queue.remove(item.id);
           this.lastFlushAt = Date.now();
@@ -209,9 +266,14 @@ export class GatewayMqttClient {
     const { username, mqttRoot } = gatewayConfig.station;
     if (!this.isConnected || !this.client || username === '') return;
     const report = buildHealthReport(this.queue, this.version, this.lastFlushAt);
-    this.client.publish(healthTopic(mqttRoot, username), JSON.stringify(report), { qos: 1 }, (err) => {
-      if (err) logger.warn(`Health report not sent: ${err.message}`);
-    });
+    this.client.publish(
+      healthTopic(mqttRoot, username),
+      JSON.stringify(report),
+      { qos: 1 },
+      (err) => {
+        if (err) logger.warn(`Health report not sent: ${err.message}`);
+      },
+    );
   }
 
   private startHealthTimer(): void {
@@ -220,7 +282,10 @@ export class GatewayMqttClient {
       logger.info('GATEWAY_FS_USERNAME is not set: no Field Station health reports are sent.');
       return;
     }
-    this.healthTimer = setInterval(() => this.publishHealth(), gatewayConfig.station.healthIntervalMs);
+    this.healthTimer = setInterval(
+      () => this.publishHealth(),
+      gatewayConfig.station.healthIntervalMs,
+    );
   }
 
   private stopHealthTimer(): void {

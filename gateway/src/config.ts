@@ -30,7 +30,9 @@ function num(name: string, fallback: number): number {
 function int(name: string, fallback: number, min: number, max: number): number {
   const value = num(name, fallback);
   if (!Number.isInteger(value) || value < min || value > max) {
-    throw new Error(`Environment variable ${name} must be a whole number from ${min} to ${max}: ${value}`);
+    throw new Error(
+      `Environment variable ${name} must be a whole number from ${min} to ${max}: ${value}`,
+    );
   }
   return value;
 }
@@ -103,6 +105,13 @@ export const gatewayConfig = {
     secret: str('GATEWAY_FS_SECRET', ''),
     /** The topic root, `MQTT_ROOT` on the backend. */
     mqttRoot: str('GATEWAY_MQTT_ROOT', 'treklink'),
+    /**
+     * Gateway-sync design §4 (review of treklink-web#431): `true`, with a username, publishes each packet on the
+     * station data topic `<root>/fs/<username>/2/json/<channel>/<sender>` with `fs_captured_at` and
+     * `fs_sent_at`, for the broker with credentials of the AWS field host (D-098). `false` keeps the Stage B
+     * node topic. Any other value stops the gateway at start.
+     */
+    stationTopic: bool('GATEWAY_MQTT_STATION_TOPIC', false),
     /** Milliseconds between health reports while connected; the design's cadence is 60 s. */
     healthIntervalMs: num('GATEWAY_HEALTH_INTERVAL_MS', 60_000),
   },
