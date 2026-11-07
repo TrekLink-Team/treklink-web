@@ -1,6 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { IncidentState } from '@prisma/client';
 import { DomainException, ErrorCode } from '../../../common/errors';
+import { Caller } from '../../../common/decorators/access.decorator';
+import { AUDIT_RECORD, AuditRecordEvent } from '../../platform/audit/audit-record.event';
 import { TransactionalEvents } from '../../platform/events/emit-after-commit';
 import { ScheduledJob } from '../../platform/scheduler/scheduled-job.decorator';
 import { IncidentLifecycle, IncidentTransitionReason } from '../incident-lifecycle';
@@ -87,6 +89,55 @@ export class IncidentTimersJob {
     private readonly routing: RoutingService,
     private readonly events: TransactionalEvents,
   ) {}
+
+  // W43: only a simulated incident may have its clock advanced by the demo module.
+  async advanceDemo(id: string, expectedVersion: number, actor: Caller, now = new Date()) {
+    return this.events.transaction(async (tx) => {
+      const current = await this.incidents.lockById(id, tx);
+      if (!current)
+        throw new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Incident not found.');
+      if (current.version !== expectedVersion)
+        throw new DomainException(
+          HttpStatus.CONFLICT,
+          ErrorCode.STALE_VERSION,
+          'Reload the incident and try again.',
+        );
+      if (!current.simulated || !TIER_TIMEOUTS.states.includes(current.state as TimedState)) {
+        throw new DomainException(
+          HttpStatus.CONFLICT,
+          ErrorCode.INVALID_STATE_TRANSITION,
+          'Choose a simulated incident awaiting an escalation tier.',
+        );
+      }
+      const due = await this.incidents.compareAndSet(current, { tierDeadlineAt: now }, tx);
+      if (!due)
+        throw new DomainException(
+          HttpStatus.CONFLICT,
+          ErrorCode.STALE_VERSION,
+          'Reload the incident and try again.',
+        );
+      const recipients = await this.routing.recipientsOf(current.organizationId, now, tx);
+      const moved = await this.lifecycle.apply(
+        id,
+        due.state,
+        NEXT[due.state as TimedState],
+        { kind: 'SYSTEM' },
+        { code: 'TIER_TIMEOUT', at: now, recipients, expectedVersion: due.version },
+        tx,
+      );
+      this.events.emitAfterCommit(AUDIT_RECORD, {
+        actorId: actor.id,
+        actorRoles: actor.roles,
+        organizationId: current.organizationId,
+        action: 'demo.incident.advance',
+        subjectType: 'Incident',
+        subjectId: id,
+        before: { state: current.state, tierDeadlineAt: current.tierDeadlineAt },
+        after: { state: moved.state, demoTimeControl: true },
+      } satisfies AuditRecordEvent);
+      return moved;
+    });
+  }
 
   // REQ-EVT-04: the next non-empty tier, or ESCALATED after the Manager tier.
   @ScheduledJob('incidents.tierTimeouts', '*/5 * * * * *')

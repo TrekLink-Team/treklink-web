@@ -1,3 +1,8 @@
+import { DemoQuickController } from './demo-quick.controller';
+import { DemoQuickService } from './demo-quick.service';
+import { DemoQuickGuard } from './demo-quick.guard';
+import { DemoQuickRepository } from './demo-quick.repository';
+import { DemoQuickProfileService } from './demo-quick-profile.service';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth';
 import { BillingModule } from '../billing';
@@ -26,9 +31,13 @@ import { DEMO_SEED_LOADER, DemoSeedRunner, loadSeedModule } from './demo-seed.ru
     IncidentsModule,
     GatewaySyncModule,
   ],
-  controllers: [DemoController],
+  controllers: [DemoController, DemoQuickController],
   providers: [
     DemoGuardService,
+    DemoQuickService,
+    DemoQuickGuard,
+    DemoQuickRepository,
+    DemoQuickProfileService,
     DemoResetRepository,
     DemoSeedRunner,
     DemoScenariosService,

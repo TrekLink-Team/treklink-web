@@ -1,7 +1,18 @@
-import { Body, Controller, Get, Headers, HttpCode, Ip, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Optional,
+  Ip,
+  Param,
+  Post,
+} from '@nestjs/common';
 import { IsIn } from 'class-validator';
 import { Authenticated, CheckPolicies } from '../../common/decorators/access.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
+import { DemoQuickGuard } from './demo-quick.guard';
 import { DemoScenariosService } from './demo-scenarios.service';
 import { SEEDED_ROLES, SeededRole } from './demo-scenarios';
 
@@ -20,13 +31,23 @@ const client = (ip: string | undefined, userAgent: string | undefined) => ({
 // The public test accounts read (api-design 05) is DemoAccountsController, under its own flag (D-089).
 @Controller('demo')
 export class DemoController {
-  constructor(private readonly scenarios: DemoScenariosService) {}
+  constructor(
+    private readonly scenarios: DemoScenariosService,
+    @Optional() private readonly quickGuard?: DemoQuickGuard,
+  ) {}
 
   @Get('status')
   @Authenticated()
   @ResponseMessage('OK')
   status() {
-    return this.scenarios.status();
+    const status = this.scenarios.status();
+    const quickEnabled = this.quickGuard?.enabled() === true;
+    return {
+      ...status,
+      enabled: status.enabled || quickEnabled,
+      quickEnabled,
+      roleSwitchEnabled: status.enabled && status.databaseLocal,
+    };
   }
 
   @Get('scenarios')

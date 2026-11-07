@@ -496,6 +496,11 @@ export class ContractsService {
     return this.contracts.countRunningContracts(organizationId);
   }
 
+  // W43: narrow exported read; repositories remain private.
+  demoDetail(id: string) {
+    return this.contracts.detail(id);
+  }
+
   // A contract by its code, or null (demo module, D-088).
   byCode(code: string): Promise<ContractRow | null> {
     return this.contracts.findByCode(code);
@@ -505,8 +510,20 @@ export class ContractsService {
   // The demo time shift of MF-05 (D-088, specs/demo/design.md §5): the open term now ends at `endsAt`,
   // and starts a day earlier when it would otherwise end before it starts, so the next term rollover
   // closes it. Refused with 409 INVALID_STATE_TRANSITION when the contract has no open term.
-  async endOpenTermAt(contractId: string, endsAt: Date): Promise<{ seq: number; endsAt: Date }> {
+  async endOpenTermAt(
+    contractId: string,
+    endsAt: Date,
+    expectedVersion?: number,
+  ): Promise<{ seq: number; endsAt: Date }> {
     return this.events.transaction(async (tx) => {
+      const contract = await this.contracts.lockById(contractId, tx);
+      if (expectedVersion !== undefined && contract.version !== expectedVersion) {
+        throw new DomainException(
+          HttpStatus.CONFLICT,
+          ErrorCode.STALE_VERSION,
+          'Reload the contract and try again.',
+        );
+      }
       const term = await this.contracts.openTerm(contractId, tx);
       if (!term) {
         throw new DomainException(
@@ -517,6 +534,16 @@ export class ContractsService {
       }
       const startsAt = term.startsAt < endsAt ? term.startsAt : new Date(endsAt.getTime() - DAY_MS);
       await this.contracts.setTermDates(term.id, { startsAt, endsAt }, tx);
+      if (
+        expectedVersion !== undefined &&
+        !(await this.contracts.bumpVersion(contractId, expectedVersion, tx))
+      ) {
+        throw new DomainException(
+          HttpStatus.CONFLICT,
+          ErrorCode.STALE_VERSION,
+          'Reload the contract and try again.',
+        );
+      }
       return { seq: term.seq, endsAt };
     });
   }

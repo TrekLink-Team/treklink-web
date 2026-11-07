@@ -80,6 +80,8 @@ import { TermRolloverJob } from './term-rollover.job';
     // demo module (D-088): the MF-01 approval and the MF-05 notice and term rollover.
     ContractDecisionsService,
     TermRolloverJob,
+    HandoverService,
+    FaultReportsService,
   ],
 })
 export class RentalsModule {}

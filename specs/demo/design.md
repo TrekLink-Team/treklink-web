@@ -6,7 +6,7 @@
 ## 1. Module
 
 `backend/src/modules/demo/`, imported by `AppModule` through `ConditionalModule.registerWhen` only when
-`DEMO_CONTROLS_ENABLED` is `true` (platform requirements §4). It owns no Prisma model. It depends on the
+`DEMO_CONTROLS_ENABLED` is `true` (platform requirements §4). The legacy local controls own no business model; W43 adds the two demo-owned bookkeeping models of section 10. It depends on the
 modules of **Figure 1**, which are also the `DEMO` edges of platform design Figure 3; nothing depends on it.
 
 ```mermaid
@@ -274,3 +274,7 @@ Options come from small exported reads: Active organizations with an active Mana
 Quick SOS uses the fixture's packet shape with the selected node number and fresh packet id, through UplinkIngress.ingest with simulated provenance. Existing incident deduplication remains effective. Incident time advance is an exported owning command, guarded by simulated provenance, which locks the incident, checks version, makes its current tier due and uses the normal lifecycle and routing in one transaction.
 
 ParameterService exposes transactional reads and updates so the four profile values, history, restore snapshot and audit commit together. Restoring requires the versions saved on activation, preventing an external parameter change from being lost. Simulator refresh changes only simulator-owned anchors and ingests through its existing run path.
+
+Vercel builds apply forward migrations only. W43 removes automatic seed:demo from backend/scripts/vercel-build.sh so deploying this branch cannot reseed staging. Fixtures are compiled into the quick SOS helper, avoiding a runtime dependency on test files in a serverless bundle.
+
+A quick command returns HTTP 200 with its persisted run result. A business-step failure sets error and errorCode (including STALE_VERSION) while retaining committed links. Authentication, role/environment/database refusal and malformed action inputs remain normal HTTP failures. This prevents a later-step failure from hiding earlier committed work.

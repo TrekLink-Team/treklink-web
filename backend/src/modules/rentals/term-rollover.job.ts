@@ -36,7 +36,7 @@ export class TermRolloverJob {
 
   // Hourly wakeups catch up only daily batches already due at the configured local-hour boundary.
   @ScheduledJob('rentals.termRollover', '0 5 * * * *')
-  async run(at: Date = new Date()): Promise<RolloverOutcome> {
+  async run(at: Date = new Date(), onlyContractId?: string): Promise<RolloverOutcome> {
     const outcome: RolloverOutcome = { renewed: 0, returnDue: 0, returned: 0 };
     const hourLocal = await this.parameters.get('rentals.termRolloverHourLocal');
     const cutoff = latestRentalDailyCutoff(at, hourLocal);
@@ -44,7 +44,9 @@ export class TermRolloverJob {
     if (due.length === 0) return outcome;
     const variants = await this.devices.variants(false);
 
-    for (const term of due) {
+    for (const term of due.filter(
+      (term) => !onlyContractId || term.contractId === onlyContractId,
+    )) {
       await this.events.transaction(async (tx) => {
         const contract = await this.contracts.lockById(term.contractId, tx);
         if (!(await this.contracts.closeTerm(term.id, tx))) return;

@@ -9,6 +9,9 @@ describe('ContractsService demo commands', () => {
   const build = (term: object | null) => {
     const contracts = {
       findByCode: jest.fn().mockResolvedValue({ id: 'c-2', code: 'RC-2026-0002' }),
+      lockById: jest.fn().mockResolvedValue({ id: 'c-2', version: 3 }),
+      bumpVersion: jest.fn().mockResolvedValue(true),
+      detail: jest.fn().mockResolvedValue({ id: 'c-2' }),
       openTerm: jest.fn().mockResolvedValue(term),
       setTermDates: jest.fn(),
     };
@@ -61,6 +64,17 @@ describe('ContractsService demo commands', () => {
       .catch((e: unknown) => e)) as DomainException;
     expect(error.getStatus()).toBe(409);
     expect(contracts.setTermDates).not.toHaveBeenCalled();
+  });
+
+  it('checks the contract version before any term write', async () => {
+    const { service, contracts } = build({ id: 't-1', seq: 1, startsAt: new Date(0) });
+    await expect(service.endOpenTermAt('c-2', new Date(), 2)).rejects.toMatchObject({
+      errorCode: 'STALE_VERSION',
+    });
+    expect(contracts.setTermDates).not.toHaveBeenCalled();
+    await service.endOpenTermAt('c-2', new Date(), 3);
+    expect(contracts.bumpVersion).toHaveBeenCalledWith('c-2', 3, tx);
+    expect(await service.demoDetail('c-2')).toEqual({ id: 'c-2' });
   });
 
   it('ends a term one minute before the latest rollover cutoff', () => {

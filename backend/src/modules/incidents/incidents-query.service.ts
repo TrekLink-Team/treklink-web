@@ -270,6 +270,11 @@ export class IncidentsQueryService {
   }
   // --- end monitoring reads ---------------------------------------------------------------------------
 
+  // W43: only simulated incidents awaiting a tier, with versions for demo time controls.
+  demoOptions() {
+    return this.repository.demoOptions();
+  }
+
   async list(
     query: IncidentListQuery,
     caller: Caller,

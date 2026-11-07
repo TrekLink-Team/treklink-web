@@ -21,3 +21,5 @@ export {
   type OpenIncidentRef,
 } from './incidents-query.service';
 export { IncidentsService } from './incidents.service';
+
+export { IncidentTimersJob } from './jobs/incident-timers.job';

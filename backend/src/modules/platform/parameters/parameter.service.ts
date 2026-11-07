@@ -121,8 +121,17 @@ export class ParameterService {
     return row.value as ParameterValue<K>;
   }
 
-  async update(key: string, change: ParameterUpdate, actor: ParameterActor): Promise<ParameterRow> {
-    const updated = await this.events.transaction(async (tx) => {
+  row(key: string, tx?: Prisma.TransactionClient) {
+    return this.repository.findByKey(key, tx);
+  }
+
+  async update(
+    key: string,
+    change: ParameterUpdate,
+    actor: ParameterActor,
+    outerTx?: Prisma.TransactionClient,
+  ): Promise<ParameterRow> {
+    const work = async (tx: Prisma.TransactionClient) => {
       const current = await this.repository.lockAndFind(key, tx);
       if (!current) {
         throw new DomainException(
@@ -169,7 +178,8 @@ export class ParameterService {
         after: { value: row.value, version: row.version, reason: change.reason ?? null },
       } satisfies AuditRecordEvent);
       return row;
-    });
+    };
+    const updated = outerTx ? await work(outerTx) : await this.events.transaction(work);
 
     this.cache.delete(key);
     return updated;

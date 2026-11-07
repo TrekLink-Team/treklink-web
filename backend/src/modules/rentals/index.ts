@@ -36,3 +36,6 @@ export {
   GroupsService,
   type DeviceGroupChangedEvent,
 } from './groups.service';
+
+export { HandoverService } from './handover.service';
+export { FaultReportsService } from './fault-reports.service';
