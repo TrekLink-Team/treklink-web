@@ -233,6 +233,22 @@ TrekLink with Staff or Admin), environment badge (`VITE_APP_ENV`, unset means sa
 hides it), Go to page (Ctrl K or /, searches page names and ignores Vietnamese diacritics), live
 connection state (Live, Reconnecting, Offline), theme switch, account menu.
 
+**Below 640 px and at 400 % zoom (W41, 2026-11-07).** The header measured 397 px at 318 to 360 CSS px (menu 44,
+mark 55, environment badge 79, Go to page 40, Devices 61, Live 28, account 64), so it scrolled sideways at 400 % zoom
+and cut the account menu at 360 px (chapter 06 §11.1, WCAG 1.4.10). Below 640 px:
+
+| Item | Below 640 px |
+|---|---|
+| Navigation toggle, mark | stay |
+| Environment badge | stays as text (convention 06 §8.10), its letter spacing normal |
+| Go to page, Devices (Staff and Admin, with the number connected), theme switch | move into one **More** menu button (`MoreHorizontal`, name "More header actions"): "Go to page", "Devices, {n} connected", "Switch to dark theme" or "Switch to light theme" |
+| Live connection state | stays, its dot only, the state as text for screen readers |
+| Account menu | stays, the initials only, no chevron |
+
+The header then measures about 300 px and fits 320 px and 318 by 236 CSS px with nothing scrolling sideways; from
+640 px the items show as before. The Organization header is the same component without Devices, so its More menu
+holds Go to page and the theme switch.
+
 ### 5.1 Adding a page to the navigation
 
 1. Add the route in `app/router.tsx` with its guard.

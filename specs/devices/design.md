@@ -1866,7 +1866,7 @@ flash panel of §9.2 opens on any registered unit and:
    step. A start that the server refuses writes nothing to the unit; an end that the server refuses after a
    verified write is shown with the server's message, and the panel says the unit already runs the new image and the
 record of the flash is missing (it stays `STARTED` and the firmware on record is unchanged): Staff do not flash it
-again and correct the firmware version on the device page (api-design 08).
+again and use Edit firmware on the device page (api-design 08).
 
 When the unit has an `OPEN` `FIRMWARE_UPDATE` record, the panel also offers "Complete the record" after a
 verified write, as §9.2 step 6 does. The "update available" badge of the hub header shows when the newest release
