@@ -275,3 +275,33 @@ ENDPOINTS.append(ep(
     controller="DemoSimulationController", service="FieldSimulationService", call="raise(id, kind, actor)",
     seq=["Svc->>DB: UPDATE simulated_nodes WHERE version", "Svc->>Svc: UplinkIngress.ingest(topic, body, now, { simulated: true })",
          "Svc-)Svc: emit audit.record"]))
+
+# W43 additive staging controls. Legacy stage and switch keep their local-only guards.
+QUICK_GUARDS = [(403, "DEMO_DISABLED", "Flag or explicit sandbox/staging environment is wrong", "Demo quick controls are disabled."),
+                (403, "DEMO_DATABASE_NOT_ALLOWED", "Either database URL is outside the local/staging allowlist", "Demo quick controls require a local or staging database."),
+                (409, "STALE_VERSION", "A version changed since the options read", "Reload and try again.")]
+ENDPOINTS.append(ep(
+    "GET", "/api/demo/quick", "Quick scenario options", "TrekLink Admin (`demo.stage`) plus ADMIN role",
+    "Reads active organizations, variants, rented units, contracts, simulated incidents and the persistent escalation profile.",
+    "W43, REQ-QUICK-01 to 09", response={"organizations": [], "variants": [], "units": [], "contracts": [], "incidents": [], "profile": {"active": False, "version": 0}},
+    steps=["Check explicit environment and Admin role", "Read through exported owning services"],
+    controller="DemoQuickController", service="DemoQuickService", call="options(caller)"))
+ENDPOINTS.append(ep(
+    "POST", "/api/demo/quick/:action", "Run an additive quick scenario", "TrekLink Admin (`demo.stage`) plus ADMIN role",
+    "Creates fresh demo records or applies a disclosed demo time control. Never resets, seeds, deletes or truncates. Multi-step failures retain committed record links in the run result.",
+    "W43, REQ-QUICK-01 to 09",
+    path=[["action", "organization, contract, incident, loss, fault, walkers, profile, term-end, next-tier", "string", "`contract`"]],
+    body=[["organizationId", "Active organization for contract", "UUID", "conditional", "..."],
+          ["hardwareVariantId", "Active variant for contract", "UUID", "conditional", "..."],
+          ["quantity", "At least parameter minimum, two for ACTIVE", "integer", "conditional", "5"],
+          ["target", "REQUESTED, APPROVED, ACTIVE, RETURN_DUE", "string", "conditional", "APPROVED"],
+          ["deviceId", "Rented unit for SOS/loss/fault", "UUID", "conditional", "..."],
+          ["recordId", "Contract or incident for time control", "UUID", "conditional", "..."],
+          ["expectedVersion", "Version for profile or time control", "integer", "conditional", "0"],
+          ["active", "Enable or restore escalation demo profile", "boolean", "conditional", "true"]],
+    sample={"organizationId": USER_ID, "hardwareVariantId": USER_ID, "quantity": 5, "target": "APPROVED"},
+    response={"runId": 1, "label": "Demo 1", "records": [], "error": None},
+    errors=QUICK_GUARDS, message="Demo action completed",
+    steps=["Validate action-specific fields, environment, Admin role and database", "Allocate durable demo counter",
+           "Call real owning services and retain links after each committed step", "Commit registry and emit actor audit"],
+    controller="DemoQuickController", service="DemoQuickService", call="run(action, dto, caller)"))

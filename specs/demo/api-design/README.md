@@ -14,6 +14,8 @@
 | 08 | PATCH | `/api/demo/simulation/nodes/:id` | TrekLink Admin (`demo.simulate`) | [08-patch-demo-simulation-nodes-id.md](08-patch-demo-simulation-nodes-id.md) |
 | 09 | POST | `/api/demo/simulation/nodes/:id/stop` | TrekLink Admin (`demo.simulate`) | [09-post-demo-simulation-nodes-id-stop.md](09-post-demo-simulation-nodes-id-stop.md) |
 | 10 | POST | `/api/demo/simulation/nodes/:id/events` | TrekLink Admin (`demo.simulate`) | [10-post-demo-simulation-nodes-id-events.md](10-post-demo-simulation-nodes-id-events.md) |
+| 11 | GET | `/api/demo/quick` | TrekLink Admin (`demo.stage`) plus ADMIN role | [11-get-demo-quick.md](11-get-demo-quick.md) |
+| 12 | POST | `/api/demo/quick/:action` | TrekLink Admin (`demo.stage`) plus ADMIN role | [12-post-demo-quick-action.md](12-post-demo-quick-action.md) |
 
 The module is loaded only when `DEMO_CONTROLS_ENABLED` is `true`; otherwise routes 01 to 04 answer 404 (specs/demo/requirements.md REQ-UBI-01). The `POST` routes refuse a production process and a database that is not on a loopback host before anything else (design §2). Route 05, the public test accounts list, is the exception: it has its own flag, `DEMO_TEST_ACCOUNTS_ENABLED`, and no other guard (D-089). Routes 06 to 10, the field simulation, belong to `DemoSimulationModule`, loaded only when `DEMO_SIMULATION_ENABLED` is `true`; their writes need a database on a loopback host or named `treklink_prod` and are not refused in production (design §9, D-094).
 
