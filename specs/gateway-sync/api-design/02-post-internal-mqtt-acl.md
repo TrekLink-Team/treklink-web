@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Called per publish and subscribe (`auth_opt_http_aclcheck_uri`). A Field Station may publish under `treklink/fs/<its username>/#` and, as an interim rule for the AWS field host (design §4, D-098), on the node JSON topic `treklink/2/json/<channel>/<nodeId>` of any node; it never subscribes. A fleet node may publish only under its own Stage A topics; the backend subscriber may subscribe to `treklink/#` and publish nothing. Which devices a station may report for is enforced at ingestion, not here (FR-EVT-14).
+Called per publish and subscribe (`auth_opt_http_aclcheck_uri`). A Field Station may publish under `treklink/fs/<its username>/#` and never subscribes. Its data topic `treklink/fs/<its username>/2/json/<channel>/<nodeId>` is refused unless `MQTT_STATION_UPLINK_ENABLED` is `true` (the AWS field host, D-098), and then allowed only while `<nodeId>` is a device in the custody of the station's organization and the station is not revoked (design §4). A fleet node may publish only under its own Stage A topics; the backend subscriber may subscribe to `treklink/#` and publish nothing. Ingestion checks the `from` device of every packet again (FR-EVT-14).
 
 ## API Specification
 
@@ -109,7 +109,7 @@ Called per publish and subscribe (`auth_opt_http_aclcheck_uri`). A Field Station
         </tr>
         <tr>
             <td>403</td>
-            <td>The topic or access is outside the credential's pattern (<code>TOPIC_DENIED</code>)</td>
+            <td>The topic or access is outside the credential's pattern; a station data topic with the flag off, or for a node outside the custody of the station's organization (<code>TOPIC_DENIED</code>)</td>
 <td>
 
 ```json
@@ -151,8 +151,10 @@ flowchart TB
     E1 --> X1((End))
     P0["Match the topic and access against the credential kind's pattern"]
     D1 -->|no| P0
+    P1["Station data topic: flag on, station known and not revoked, the node's custody at now held by its organization"]
+    P0 --> P1
     OK["Return 200"]
-    P0 --> OK
+    P1 --> OK
     OK --> Z((End))
 ```
 
@@ -165,9 +167,15 @@ sequenceDiagram
     participant Ctl as BrokerAuthController
     participant Svc as BrokerAuthService
     participant DB as Postgres
+    participant Org as FieldStationsService
+    participant Dev as DevicesService
+    participant Rt as ContractsService
     C->>Ctl: POST /api/internal/mqtt/acl
     Ctl->>Svc: checkAcl(dto)
-    Svc->>Svc: pattern match (cached per username for 60 s)
+    Svc->>Svc: pattern match (cached per username and topic for 60 s)
+    Svc->>Org: stationByUsername(username)
+    Svc->>Dev: byNodeNum(nodeNum)
+    Svc->>Rt: custodyAt(deviceId, now)
     Svc-->>Ctl: result
     Ctl-->>C: 200 envelope
 ```

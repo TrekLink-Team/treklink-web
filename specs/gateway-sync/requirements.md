@@ -100,7 +100,9 @@ The `gateway-sync` section of the [Configuration Matrix](../platform/configurati
 position rules owned by `monitoring`. Environment: `MQTT_BROKER_URL`, `MQTT_USERNAME`, `MQTT_PASSWORD`
 (subscribe-only), `MQTT_ROOT` (default `treklink`), `MQTT_CLIENT_ID_BACKEND` (default
 `treklink-backend-service`, stable because the session is persistent), `MQTT_INGESTION_ENABLED` (default
-`true`; `false` runs the backend without a broker), `MQTT_AUTH_HOOK_SECRET`, `FIELD_SIMULATOR_ENABLED` (default
+`true`; `false` runs the backend without a broker), `MQTT_AUTH_HOOK_SECRET`, `MQTT_STATION_UPLINK_ENABLED` (default `false`; `true` opens the Field Station data topic
+of design §4 at the ACL hook, for a node in the station organization's custody, and subscribes to it; set only on the
+AWS field host, D-098), `FIELD_SIMULATOR_ENABLED` (default
 `false`; `true` loads the field data simulator of design §2, set only on the Vercel production, D-090). Field Station: its local
 configuration file (`field-station-local-page.md`), and these environment variables of `gateway/`
 (`gateway/src/config.ts`, `.env.example`):
@@ -109,6 +111,7 @@ configuration file (`field-station-local-page.md`), and these environment variab
 |---|---|---|---|---|
 | `GATEWAY_QUEUE_MAX_ROWS` | `100000` | whole number, 1 to 10000000 | `QUEUE_MAX_ROWS` of design §3: an insert past it sheds the oldest P3 row, then the oldest P2, in the insert's transaction; P0 and P1 are never shed. A value outside the bounds stops the gateway at start | REQ-STA-03, E02-5 |
 | `GATEWAY_SERIAL_SIMULATION` | unset (reads the port) | `true` or `false` | `true` runs the frame simulator and opens no port; `false` or unset reads `GATEWAY_SERIAL_PORT` (design §3.1). Any other value stops the gateway at start | REQ-STA-04 |
+| `GATEWAY_MQTT_STATION_TOPIC` | `false` | `true` or `false` | `true`, with `GATEWAY_FS_USERNAME` set, publishes each queued packet on the station data topic `<root>/fs/<username>/2/json/<channel>/<sender>` with `fs_captured_at` and `fs_sent_at` (design §3, §4); `false` keeps the Stage B node topic. Any other value stops the gateway at start | REQ-EVT-07 |
 | `GATEWAY_SERIAL_RECONNECT_MS` | `5000` | whole number, 1000 to 600000 | Wait before the reader opens the port again after it failed to open or was lost. A value outside the bounds stops the gateway at start | REQ-ERR-07 |
 | `GATEWAY_LOCAL_PORT` | `4321` | whole number, 1 to 65535 | Port of the local page and local API on `127.0.0.1` (design §3); the host is fixed. A value outside the bounds stops the gateway at start | REQ-STA-02 |
 | `GATEWAY_LOCAL_STALE_SECONDS` | `300` | whole number, 30 to 7200 | A node silent this long is shown stale on the local page; default and bounds of `monitoring.deviceStaleSeconds` | REQ-STA-02 |

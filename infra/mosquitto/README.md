@@ -81,10 +81,12 @@ hosted broker (D-055).
 
 ## What the broker with credentials does not yet allow
 
-- The Stage B bridge of `gateway/` without credentials: it is refused at CONNECT. With its station's
-  credential it publishes its health report on `treklink/fs/<username>/health` and, under the interim rule
-  of 2026-11-07 (gateway-sync design §4, for the AWS field host of D-098), its uplinks on the node topics
-  `treklink/2/json/<channel>/<nodeId>`.
+- The Stage B bridge of `gateway/`. Without credentials it is refused at CONNECT; with its station's
+  credential only its health report on `treklink/fs/<username>/health` is allowed, because a station may not
+  write the node topics. With `MQTT_STATION_UPLINK_ENABLED=true` on the backend and
+  `GATEWAY_MQTT_STATION_TOPIC=true` on the station, its uplinks go on its data topic
+  `treklink/fs/<username>/2/json/<channel>/<nodeId>` for nodes its organization holds (gateway-sync design §4,
+  the AWS field host of D-098). Keep the default broker for the Stage B demo flow.
 
 ## Checking it by hand
 
