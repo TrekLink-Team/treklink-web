@@ -433,7 +433,7 @@ Socket.io clients (the Vercel staging polls, `VITE_LIVE_MODE=poll`).
 |---|---|---|---|---|---|
 | Backend subscriber | `MQTT_USERNAME` | `MQTT_PASSWORD` | none | `treklink/#` | change both in `deploy/aws/.env`, `docker compose up -d backend` |
 | Every Wi-Fi node and its phone proxy | `node-<nodeId>` | `MQTT_NODE_PASSWORD`, shared by the fleet | `treklink/2/json/+/<nodeId>`, `treklink/2/e/+/<nodeId>` | none | change the variable and re-dock every node (devices design §8.8) |
-| Field Station | `fs-<org>-<n>` | the station secret, bcrypt-hashed in `field_stations` | `treklink/fs/<username>/#` | none | revoke and issue a new credential in the portal (organizations api-design 24); refused within the 60 s plugin cache |
+| Field Station | `fs-<org>-<n>` | the station secret, bcrypt-hashed in `field_stations` | `treklink/fs/<username>/#`; interim, `treklink/2/json/+/+` (gateway-sync design §4) | none | revoke and issue a new credential in the portal (organizations api-design 24); refused within the 60 s plugin cache |
 | Administrator | none | none | none | none | no admin principal exists; the broker has no superuser (`auth_opt_disable_superuser true`) |
 
 The hook secret `MQTT_AUTH_HOOK_SECRET` is shared only by the backend and `broker-hook-proxy` on the host.
@@ -441,8 +441,8 @@ The hook secret `MQTT_AUTH_HOOK_SECRET` is shared only by the backend and `broke
 **Open.**
 - The Field Station's uplinks: the gateway publishes on the node topic (`gateway/src/mqtt/mqtt-client.ts`,
   `topicOf`), which a station credential may not write (gateway-sync design §4, task 3.1), and the station
-  topic is not subscribed yet (gateway-sync task 2.1). Raised to the leader on 2026-11-07; the interim rule
-  is in gateway-sync design §4.
+  topic is not subscribed yet (gateway-sync task 2.1). Raised to the leader on 2026-11-07; until the ruling,
+  the interim rule of gateway-sync design §4 lets a station credential publish on the node JSON topic.
 - The phone proxy carries a JSON payload of at most 434 bytes (`MqttClientProxyMessage.text[435]`,
   `src/mesh/generated/meshtastic/mesh.pb.h:876`, copied with `strncpy` in `MQTT.cpp:479-481`); a longer packet
   arrives cut and is audited `MALFORMED_ENVELOPE`. Checked on a phone after go-live (task 7.6).

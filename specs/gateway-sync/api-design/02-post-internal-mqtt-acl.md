@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Called per publish and subscribe (`auth_opt_http_aclcheck_uri`). A Field Station may publish only under `treklink/fs/<its username>/#` and never subscribe; a fleet node only under its own Stage A topics; the backend subscriber may subscribe to `treklink/#` and publish nothing. Which devices a station may report for is enforced at ingestion, not here (FR-EVT-14).
+Called per publish and subscribe (`auth_opt_http_aclcheck_uri`). A Field Station may publish under `treklink/fs/<its username>/#` and, as an interim rule for the AWS field host (design §4, D-098), on the node JSON topic `treklink/2/json/<channel>/<nodeId>` of any node; it never subscribes. A fleet node may publish only under its own Stage A topics; the backend subscriber may subscribe to `treklink/#` and publish nothing. Which devices a station may report for is enforced at ingestion, not here (FR-EVT-14).
 
 ## API Specification
 

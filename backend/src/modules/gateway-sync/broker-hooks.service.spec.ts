@@ -371,10 +371,28 @@ describe('BrokerAuthService (gateway-sync task 3.1, api-design 01 and 02, design
       expect(acl(STATION, `treklink/fs/${STATION}/health`, ACC_WRITE)).toEqual({ allowed: true });
     });
 
-    it('Field Station: never another station, a node topic, or a subscribe', () => {
+    it('Field Station: publishes on the node JSON topic of any node (interim rule, design §4, D-098)', () => {
+      expect(acl(STATION, 'treklink/2/json/LongFast/!a4b1c2d3', ACC_WRITE)).toEqual({
+        allowed: true,
+      });
+      expect(acl(STATION, 'treklink/2/json/TrekOrg/!deadbeef', ACC_WRITE)).toEqual({
+        allowed: true,
+      });
+    });
+
+    it('Field Station: never another station, another node topic shape, or a subscribe', () => {
       denied(STATION, 'treklink/fs/fs-org-0007-2/health', ACC_WRITE);
       denied(STATION, `treklink/fs/${STATION}0/health`, ACC_WRITE);
-      denied(STATION, 'treklink/2/json/LongFast/!a4b1c2d3', ACC_WRITE);
+      denied(STATION, 'treklink/2/e/LongFast/!a4b1c2d3', ACC_WRITE);
+      denied(STATION, 'treklink/2/map/LongFast/!a4b1c2d3', ACC_WRITE);
+      denied(STATION, 'treklink/2/json/LongFast/!A4B1C2D3', ACC_WRITE);
+      denied(STATION, 'treklink/2/json/LongFast/!a4b1c2d', ACC_WRITE);
+      denied(STATION, 'treklink/2/json/LongFast/!a4b1c2d3/extra', ACC_WRITE);
+      denied(STATION, 'treklink/2/json/+/!a4b1c2d3', ACC_WRITE);
+      denied(STATION, 'treklink/2/json/LongFast/+', ACC_WRITE);
+      denied(STATION, 'other/2/json/LongFast/!a4b1c2d3', ACC_WRITE);
+      denied(STATION, 'treklink/2/json/LongFast/!a4b1c2d3', ACC_READ);
+      denied(STATION, 'treklink/2/json/+/+', ACC_SUBSCRIBE);
       denied(STATION, `treklink/fs/${STATION}/health`, ACC_READ);
       denied(STATION, `treklink/fs/${STATION}/#`, ACC_SUBSCRIBE);
       denied(STATION, 'treklink/#', ACC_SUBSCRIBE);
