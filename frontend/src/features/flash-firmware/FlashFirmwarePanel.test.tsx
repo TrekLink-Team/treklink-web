@@ -183,7 +183,7 @@ describe('FlashFirmwarePanel (devices task 8.3, screen 4.3)', () => {
     fireEvent.click(flashButton());
     await waitFor(() =>
       expect(screen.getByRole('alert').textContent).toBe(
-        'TL-0042 already runs 2.7.26-treklink.2: the write was verified. The record of the flash is missing (The server is not reachable.), so the firmware on record still shows the old version. Do not flash it again; correct the firmware version on its device page.',
+        'TL-0042 already runs 2.7.26-treklink.2: the write was verified. The record of the flash is missing (The server is not reachable.), so the firmware on record still shows the old version. Do not flash it again; use Edit firmware on its device page.',
       ),
     );
     expect(withPort).toHaveBeenCalledTimes(1);

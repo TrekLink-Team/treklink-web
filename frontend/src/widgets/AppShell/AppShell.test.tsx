@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -11,6 +11,8 @@ import { Tag } from 'lucide-react';
 import { AppShell } from './AppShell';
 import { SideNav } from './SideNav';
 import { useShell } from './shellStore';
+import { useConnectorStore } from '../../features/device-connector';
+import { useTheme } from '../../shared/lib/theme';
 
 vi.mock('../../shared/api/apiClient', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../shared/api/apiClient')>()),
@@ -32,19 +34,19 @@ const MANAGER: SessionUser = {
   },
 };
 
-const show = (path: string, page: React.ReactNode = <p>page body</p>) => {
+const show = (path: string, page: React.ReactNode = <p>page body</p>, user: SessionUser = MANAGER) => {
   act(() =>
     useSession
       .getState()
       .signIn(
         { accessToken: 'a', accessTokenExpiresIn: 1, refreshToken: 'r', refreshTokenExpiresIn: 1 },
-        MANAGER,
+        user,
       ),
   );
   return render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter initialEntries={[path]}>
-        <AppShell user={MANAGER} home="/o/contracts" banner={<div role="alert">SOS banner</div>}>
+        <AppShell user={user} home={user.accountType === 'TREKLINK' ? '/t/fleet' : '/o/contracts'} banner={<div role="alert">SOS banner</div>}>
           {page}
         </AppShell>
       </MemoryRouter>
@@ -185,6 +187,71 @@ describe('AppShell (specs/frontend/design.md §2)', () => {
 
 // Screen 7.5 and D-094: the Demo control entry shows for an Admin while the field simulation answers,
 // even with the control panel off (the Vercel staging), and never asks a non-Admin.
+// The header below 640 px and at 400 % zoom (design-system §5, W41): Go to page, Devices and the theme switch move
+// into one More menu; jsdom applies no CSS, so the tests check the breakpoint classes and the menu's items.
+describe('AppShell header, the More menu below 640 px', () => {
+  const STAFF: SessionUser = {
+    id: 's',
+    email: 'staff@treklink.local',
+    fullName: 'Demo Staff',
+    accountType: 'TREKLINK',
+    roles: ['STAFF'],
+    organization: null,
+  };
+  const wrapper = (element: HTMLElement) => element.closest('span.inline-flex, button') as HTMLElement;
+
+  afterEach(() => act(() => useConnectorStore.setState({ open: false })));
+
+  it('collapses Go to page, Devices and the theme switch into More on a phone, and keeps them from 640 px', () => {
+    const { container } = show('/t/fleet', <p>page body</p>, STAFF);
+    const header = container.querySelector('header') as HTMLElement;
+    const more = within(header).getByRole('button', { name: 'More header actions' });
+    expect(wrapper(more).parentElement?.className).toContain('sm:hidden');
+    expect(within(header).getByRole('button', { name: 'Go to page' }).className).toContain('hidden sm:inline-flex');
+    expect(within(header).getByRole('button', { name: /^Devices, 0 connected/ }).className).toContain('hidden sm:flex');
+    expect(within(header).getByRole('button', { name: /^Switch to (dark|light) theme$/ }).className).toContain(
+      'hidden sm:inline-flex',
+    );
+    // The account menu drops its chevron below 640 px; the environment badge keeps its text.
+    expect(within(header).getByRole('button', { name: /account menu$/ }).className).toContain(
+      '[&_[data-menu-chevron]]:hidden',
+    );
+    expect(within(header).getByText('Sandbox')).toBeTruthy();
+
+    fireEvent.click(more);
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      'Go to page',
+      'Devices, 0 connected',
+      useTheme.getState().resolved === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
+    ]);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Devices, 0 connected' }));
+    expect(useConnectorStore.getState().open).toBe(true);
+  });
+
+  it('runs Go to page and the theme switch from the More menu', () => {
+    show('/t/fleet', <p>page body</p>, STAFF);
+    fireEvent.click(screen.getByRole('button', { name: 'More header actions' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Go to page' }));
+    expect(useShell.getState().quickNavOpen).toBe(true);
+    act(() => useShell.setState({ quickNavOpen: false }));
+
+    const before = useTheme.getState().resolved;
+    fireEvent.click(screen.getByRole('button', { name: 'More header actions' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /^Switch to (dark|light) theme$/ }));
+    expect(useTheme.getState().resolved).not.toBe(before);
+    act(() => useTheme.getState().toggle());
+  });
+
+  it('holds no Devices item for an organization account (devices REQ-UBI-07)', () => {
+    show('/o/contracts');
+    fireEvent.click(screen.getByRole('button', { name: 'More header actions' }));
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      'Go to page',
+      useTheme.getState().resolved === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
+    ]);
+  });
+});
+
 describe('AppShell, Demo control entry', () => {
   const ADMIN: SessionUser = {
     id: 'a',

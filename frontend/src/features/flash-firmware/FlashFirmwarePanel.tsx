@@ -169,7 +169,7 @@ export const FlashFirmwarePanel: React.FC<FlashFirmwareProps> = ({
         // The write is verified and the unit already runs the release; only the record is missing (design section
         // 12.14). Flashing again would not fix it, so the panel says so instead of asking for another flash.
         setFailure(
-          `${device.assetTag} already runs ${release.version}: the write was verified. The record of the flash is missing (${messageOf(error)}), so the firmware on record still shows the old version. Do not flash it again; correct the firmware version on its device page.`,
+          `${device.assetTag} already runs ${release.version}: the write was verified. The record of the flash is missing (${messageOf(error)}), so the firmware on record still shows the old version. Do not flash it again; use Edit firmware on its device page.`,
         );
         refresh();
         onFlashed?.(release.version);

@@ -8,6 +8,7 @@ import { AccountMenu } from '../AccountMenu/AccountMenu';
 import { BrandMark } from './BrandMark';
 import { ConnectionIndicator } from './ConnectionIndicator';
 import { EnvironmentBadge } from './EnvironmentBadge';
+import { HeaderMoreMenu } from './HeaderMoreMenu';
 import { useShell } from './shellStore';
 import { workspaceOf } from './workspace';
 import { ThemeToggle } from './ThemeToggle';
@@ -24,7 +25,7 @@ export const AppHeader: React.FC<{ user: SessionUser; home: string }> = ({ user,
   const workspace = workspaceOf(user);
 
   return (
-    <header className="tl-glass relative z-header flex h-header shrink-0 items-center gap-1 rounded-none border-x-0 border-t-0 px-1 sm:gap-2 sm:px-3">
+    <header className="tl-glass relative z-header flex h-header shrink-0 items-center gap-0.5 rounded-none border-x-0 border-t-0 px-1 sm:gap-2 sm:px-3">
       <IconButton label="Open navigation" icon={<Menu />} size="lg" className="lg:hidden" onClick={() => setDrawer(true)} />
       <IconButton
         label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
@@ -59,11 +60,14 @@ export const AppHeader: React.FC<{ user: SessionUser; home: string }> = ({ user,
         <kbd className="rounded-badge border border-line px-1.5 font-mono text-caption">Ctrl K</kbd>
       </button>
 
+      {/* Below 640 px Go to page, Devices and the theme switch share the More menu, so the header fits 320 px and
+          400 % zoom with nothing scrolling sideways (design-system §5, W41, WCAG 1.4.10). */}
       <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1 lg:ml-0">
-        <IconButton label="Go to page" icon={<Search />} className="lg:hidden" onClick={() => setQuickNav(true)} />
-        {user.accountType === 'TREKLINK' && <ConnectorButton />}
+        <IconButton label="Go to page" icon={<Search />} className="hidden sm:inline-flex lg:hidden" onClick={() => setQuickNav(true)} />
+        {user.accountType === 'TREKLINK' && <ConnectorButton className="hidden sm:flex" />}
         <ConnectionIndicator />
         <ThemeToggle className="hidden sm:inline-flex" />
+        <HeaderMoreMenu treklink={user.accountType === 'TREKLINK'} className="sm:hidden" />
         <AccountMenu />
       </div>
     </header>
