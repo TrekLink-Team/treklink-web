@@ -14,9 +14,13 @@ const STATION_SECRET = 'fs_e2e_station_secret';
 
 type Boot = (tables: Record<string, unknown>) => Promise<E2eApp>;
 
-const SAVED = ['MQTT_AUTH_HOOK_SECRET', 'MQTT_USERNAME', 'MQTT_PASSWORD', 'MQTT_NODE_PASSWORD'].map(
-  (name) => [name, process.env[name]] as const,
-);
+const SAVED = [
+  'MQTT_AUTH_HOOK_SECRET',
+  'MQTT_USERNAME',
+  'MQTT_PASSWORD',
+  'MQTT_NODE_PASSWORD',
+  'MQTT_STATION_UPLINK_ENABLED',
+].map((name) => [name, process.env[name]] as const);
 afterAll(() => {
   for (const [name, value] of SAVED) {
     if (value === undefined) delete process.env[name];
@@ -24,8 +28,13 @@ afterAll(() => {
   }
 });
 
-const bootWith = (secret: string | undefined, tables: Record<string, unknown>): Promise<E2eApp> => {
+const bootWith = (
+  secret: string | undefined,
+  tables: Record<string, unknown>,
+  stationUplink = false,
+): Promise<E2eApp> => {
   let boot: Boot | undefined;
+  process.env.MQTT_STATION_UPLINK_ENABLED = String(stationUplink);
   if (secret === undefined) delete process.env.MQTT_AUTH_HOOK_SECRET;
   else process.env.MQTT_AUTH_HOOK_SECRET = secret;
   process.env.MQTT_USERNAME = 'treklink-backend';
@@ -141,20 +150,26 @@ describe('broker hooks behind MQTT_AUTH_HOOK_SECRET (e2e)', () => {
     const allowed = await post('/api/internal/mqtt/acl', {
       username: STATION,
       clientid: 'fieldstation-1',
-      topic: `treklink/fs/${STATION}/2/json/LongFast/!a4b1c2d3`,
+      topic: `treklink/fs/${STATION}/health`,
       acc: 2,
     });
     expect(allowed.status).toBe(200);
     expect(body(allowed)).toMatchObject({ result: { allowed: true }, isSuccess: true });
 
-    // The interim rule of design §4 (D-098): the Stage B bridge's node JSON topic.
-    const bridged = await post('/api/internal/mqtt/acl', {
-      username: STATION,
-      clientid: 'fieldstation-1',
-      topic: 'treklink/2/json/LongFast/!a4b1c2d3',
-      acc: 2,
-    });
-    expect(bridged.status).toBe(200);
+    // MQTT_STATION_UPLINK_ENABLED off (design §4): the station data topic and the node topic are refused.
+    for (const topic of [
+      `treklink/fs/${STATION}/2/json/LongFast/!a4b1c2d3`,
+      'treklink/2/json/LongFast/!a4b1c2d3',
+    ]) {
+      const refused = await post('/api/internal/mqtt/acl', {
+        username: STATION,
+        clientid: 'fieldstation-1',
+        topic,
+        acc: 2,
+      });
+      expect(refused.status).toBe(403);
+      expect(body(refused)).toMatchObject({ result: { errorCode: 'TOPIC_DENIED' } });
+    }
 
     const denied = await post('/api/internal/mqtt/acl', {
       username: STATION,
@@ -221,4 +236,71 @@ describe('broker hooks with MQTT_AUTH_HOOK_SECRET unset (e2e)', () => {
       expect(findUnique).not.toHaveBeenCalled();
     },
   );
+});
+
+// MQTT_STATION_UPLINK_ENABLED on (design §4, review of treklink-web#431): the station data topic is allowed
+// only for a node whose custody now belongs to the station's organization.
+describe('station data topic behind MQTT_STATION_UPLINK_ENABLED (e2e)', () => {
+  let e2e: E2eApp;
+  const stationRow = {
+    id: 'fs-1',
+    organizationId: 'org-a',
+    mqttUsername: STATION,
+    revokedAt: null,
+  };
+  const fieldStation = { findUnique: jest.fn() };
+  const device = { findUnique: jest.fn() };
+  const contractDevice = { findFirst: jest.fn() };
+  const custody = (organizationId: string) => ({
+    id: 'cd-1',
+    handedOverAt: new Date('2026-11-01T00:00:00Z'),
+    checkedInAt: null,
+    lostAt: null,
+    contract: { id: 'c-1', organizationId, status: 'ACTIVE' },
+  });
+
+  beforeAll(async () => {
+    e2e = await bootWith(HOOK_SECRET, { fieldStation, device, contractDevice }, true);
+  });
+
+  beforeEach(() => {
+    fieldStation.findUnique.mockReset().mockResolvedValue(stationRow);
+    device.findUnique
+      .mockReset()
+      .mockResolvedValue({ id: 'dev-1', assetTag: 'TL-0042', nodeNum: 0xa4b1c2d3n });
+    contractDevice.findFirst.mockReset().mockResolvedValue(custody('org-a'));
+  });
+
+  afterAll(async () => {
+    await e2e.app.close();
+  });
+
+  const acl = (topic: string) =>
+    request(e2e.app.getHttpServer())
+      .post('/api/internal/mqtt/acl')
+      .set('X-Broker-Secret', HOOK_SECRET)
+      .send({ username: STATION, clientid: 'fieldstation-1', topic, acc: 2 });
+  const DATA = `treklink/fs/${STATION}/2/json/LongFast/!a4b1c2d3`;
+
+  it('allows a node in the custody of the station organization', async () => {
+    const response = await acl(DATA);
+    expect(response.status).toBe(200);
+    expect(body(response)).toMatchObject({ result: { allowed: true }, isSuccess: true });
+    expect(device.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { nodeNum: 0xa4b1c2d3n } }),
+    );
+  });
+
+  it('refuses an unrented unit and another organization rented unit with 403 TOPIC_DENIED', async () => {
+    contractDevice.findFirst.mockResolvedValueOnce(null);
+    expect((await acl(DATA)).status).toBe(403);
+    contractDevice.findFirst.mockResolvedValueOnce(custody('org-b'));
+    const other = await acl(DATA);
+    expect(other.status).toBe(403);
+    expect(body(other)).toMatchObject({ result: { errorCode: 'TOPIC_DENIED' }, isSuccess: false });
+  });
+
+  it('still refuses the node topic to a station', async () => {
+    expect((await acl('treklink/2/json/LongFast/!a4b1c2d3')).status).toBe(403);
+  });
 });

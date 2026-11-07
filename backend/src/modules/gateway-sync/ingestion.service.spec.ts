@@ -313,6 +313,17 @@ describe('IngestionService', () => {
       });
     });
 
+    it('refuses a forged SOS for another organization unit: nothing stored, no incident (design §4, #431)', async () => {
+      // The unit is rented to organization B; organization A's station holds no period of it.
+      contracts.rentalPeriods.mockResolvedValue([]);
+      const envelope = stationEnvelope();
+      expect(String((envelope.packet.payload as { text?: string }).text)).toMatch(/^SOS/);
+      await expect(service.ingest(envelope)).resolves.toBe('NOT_RENTED_TO_STATION_ORG');
+      expect(contracts.rentalPeriods).toHaveBeenCalledWith('dev-9', stationA.organizationId);
+      expect(repository.insertEventOnce).not.toHaveBeenCalled();
+      expect(incidents.onSos).not.toHaveBeenCalled();
+    });
+
     it.each([
       ['unknown', null, 'unknown Field Station fs-org-a-1'],
       [

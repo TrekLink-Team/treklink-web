@@ -42,8 +42,12 @@ COPY backend/package.json backend/package.json
 COPY gateway/package.json gateway/package.json
 COPY frontend/package.json frontend/package.json
 # A package npm could not hoist stays in backend/node_modules; the folder is created so the copy below
-# works either way.
+# works either way. npm installs the Prisma CLI as the optional peer of @prisma/client even with
+# --omit=dev; it is removed with its engines, so the image cannot run `prisma migrate` (review of
+# treklink-web#431). The generated client and its query engine come from the build stage.
 RUN npm ci -w backend --omit=dev --no-audit --no-fund && npm cache clean --force \
+  && rm -rf node_modules/prisma node_modules/.bin/prisma node_modules/@prisma/engines \
+    node_modules/@prisma/fetch-engine \
   && mkdir -p backend/node_modules
 
 # ---- runtime ----
@@ -53,12 +57,13 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=prod-deps --chown=node:node /app/node_modules ./node_modules
-COPY --from=prod-deps --chown=node:node /app/backend/node_modules ./backend/node_modules
+# The code stays owned by root and read-only to the `node` user that runs it (review of treklink-web#431).
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=prod-deps /app/backend/node_modules ./backend/node_modules
 # The generated Prisma client and its query engine for this platform.
-COPY --from=build --chown=node:node /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=build --chown=node:node /app/backend/package.json ./backend/package.json
-COPY --from=build --chown=node:node /app/backend/dist ./backend/dist
+COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=build /app/backend/package.json ./backend/package.json
+COPY --from=build /app/backend/dist ./backend/dist
 WORKDIR /app/backend
 # HANDOVER_NOTE_STORAGE_DIR (relative to the working directory) must be writable when the file store is
 # chosen; the field host sets HANDOVER_NOTE_STORE=database, so this stays empty there.

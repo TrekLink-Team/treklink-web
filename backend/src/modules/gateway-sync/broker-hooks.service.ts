@@ -4,7 +4,9 @@ import { ConfigService } from '@nestjs/config';
 import { OrganizationStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { DomainException, ErrorCode } from '../../common/errors';
+import { DevicesService, fromNodeId } from '../devices';
 import { FieldStationsService } from '../organizations';
+import { ContractsService } from '../rentals';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 
 // mosquitto ACL access bits as go-auth forwards them (`acc`): 1 read (a message delivered to the
@@ -66,9 +68,9 @@ export const kindOf = (
 // The topic rules of design §4 for one access, `root` being MQTT_ROOT (`treklink`):
 // - backend subscriber: subscribe to and read anything under `<root>/`, publish nothing;
 // - fleet node: publish `<root>/2/json/+/<nodeId>` and `<root>/2/e/+/<nodeId>`, subscribe nothing;
-// - Field Station: publish under `<root>/fs/<its username>/#` and, by the interim rule of design §4
-//   (2026-11-07, the AWS field host of D-098), on the node JSON topic `<root>/2/json/+/<any nodeId>` the
-//   gateway's Stage B bridge writes; subscribe nothing.
+// - Field Station: publish under `<root>/fs/<its username>/#` except its data family `<root>/fs/<its
+//   username>/2/...`, subscribe nothing. The data topic itself is decided by `BrokerAuthService` (custody,
+//   behind MQTT_STATION_UPLINK_ENABLED), never here.
 export const topicAllowed = (
   kind: BrokerCredentialKind,
   username: string,
@@ -86,11 +88,19 @@ export const topicAllowed = (
     const nodeId = escape(FLEET_NODE_USERNAME.exec(username)?.[1] ?? '');
     return new RegExp(`^${base}/2/(json|e)/${LEVEL}/${nodeId}$`).test(topic);
   }
+  const own = escape(username);
   return (
-    new RegExp(`^${base}/fs/${escape(username)}(/${LEVEL})*$`).test(topic) ||
-    new RegExp(`^${base}/2/json/${LEVEL}/${NODE_ID}$`).test(topic)
+    new RegExp(`^${base}/fs/${own}(/${LEVEL})*$`).test(topic) &&
+    !new RegExp(`^${base}/fs/${own}/2(/|$)`).test(topic)
   );
 };
+
+// The node id of a Field Station data topic `<root>/fs/<username>/2/json/<channel>/<nodeId>` under the
+// station's own username (design §4), or null when the topic is not one.
+export const stationDataNode = (username: string, topic: string, root: string): string | null =>
+  new RegExp(`^${escape(root)}/fs/${escape(username)}/2/json/${LEVEL}/(${NODE_ID})$`).exec(
+    topic,
+  )?.[1] ?? null;
 
 // The mosquitto-go-auth HTTP hooks (task 3.1, api-design 01 and 02, design §4, REQ-EVT-07). go-auth
 // runs in status mode, so 200 allows and the 401 and 403 envelopes deny. A Field Station is checked
@@ -106,14 +116,18 @@ export class BrokerAuthService {
   private readonly backendUsername: string | undefined;
   private readonly backendPassword: string | undefined;
   private readonly nodePassword: string | undefined;
+  private readonly stationUplink: boolean;
   private readonly root: string;
   private readonly bcryptCost: number;
   private dummyHash?: Promise<string>;
 
   constructor(
     private readonly stations: FieldStationsService,
+    private readonly devices: DevicesService,
+    private readonly contracts: ContractsService,
     config: ConfigService<ValidatedEnvironment, true>,
   ) {
+    this.stationUplink = config.get('MQTT_STATION_UPLINK_ENABLED', { infer: true }) === true;
     this.hookSecret = config.get('MQTT_AUTH_HOOK_SECRET', { infer: true }) || undefined;
     this.backendUsername = config.get('MQTT_USERNAME', { infer: true }) || undefined;
     this.backendPassword = config.get('MQTT_PASSWORD', { infer: true }) || undefined;
@@ -175,15 +189,40 @@ export class BrokerAuthService {
     return this.reject(check.username, 'unknown username');
   }
 
-  checkAcl(check: AclCheck): { allowed: true } {
+  async checkAcl(check: AclCheck): Promise<{ allowed: true }> {
     const kind = kindOf(check.username, this.backendUsername);
     if (kind && topicAllowed(kind, check.username, check.topic, check.acc, this.root)) {
       return { allowed: true };
     }
+    const nodeId =
+      kind === 'FIELD_STATION' && check.acc === ACC_WRITE
+        ? stationDataNode(check.username, check.topic, this.root)
+        : null;
+    const refusal = nodeId
+      ? await this.stationDataRefusal(check.username, nodeId)
+      : 'outside the pattern';
+    if (refusal === null) return { allowed: true };
     this.logger.warn(
-      `Broker topic denied: username ${JSON.stringify(check.username)}, acc ${check.acc}, topic ${JSON.stringify(check.topic)}`,
+      `Broker topic denied: username ${JSON.stringify(check.username)}, acc ${check.acc}, topic ${JSON.stringify(check.topic)} (${refusal})`,
     );
     throw topicDenied();
+  }
+
+  // Design §4, station uplink flag: a station may write its data topic for `nodeId` only while the flag is
+  // on, the station is known and not revoked, and the device behind `nodeId` is in the custody of the
+  // station's organization now. Null allows; otherwise the reason, for the log only.
+  private async stationDataRefusal(username: string, nodeId: string): Promise<string | null> {
+    if (!this.stationUplink) return 'MQTT_STATION_UPLINK_ENABLED is off';
+    const station = await this.stations.stationByUsername(username);
+    if (!station) return 'unknown Field Station';
+    if (station.revokedAt) return 'revoked Field Station';
+    const device = await this.devices.byNodeNum(fromNodeId(nodeId));
+    if (!device) return 'unknown node';
+    const custody = await this.contracts.custodyAt(device.id, new Date());
+    if (!custody || custody.organizationId !== station.organizationId) {
+      return `node not in the custody of the station's organization`;
+    }
+    return null;
   }
 
   // A bcrypt hash of a random value at BCRYPT_COST, the cost new station secrets are hashed with;

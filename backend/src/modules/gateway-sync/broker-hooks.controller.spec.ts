@@ -21,7 +21,7 @@ describe('BrokerAuthController and BrokerHookSecretGuard (api-design 01 and 02)'
     brokerAuth = {
       assertSecret: jest.fn(),
       checkUser: jest.fn().mockResolvedValue({ allowed: true, kind: 'FIELD_STATION' }),
-      checkAcl: jest.fn().mockReturnValue({ allowed: true }),
+      checkAcl: jest.fn().mockResolvedValue({ allowed: true }),
     };
   });
 
@@ -36,7 +36,7 @@ describe('BrokerAuthController and BrokerHookSecretGuard (api-design 01 and 02)'
     expect(brokerAuth.checkUser).toHaveBeenCalledWith(user);
 
     const acl = { username: 'fs-org-0007-1', clientid: 'c', topic: 'treklink/fs/x/health', acc: 2 };
-    expect(controller.acl(acl)).toEqual({ allowed: true });
+    await expect(controller.acl(acl)).resolves.toEqual({ allowed: true });
     expect(brokerAuth.checkAcl).toHaveBeenCalledWith(acl);
   });
 
