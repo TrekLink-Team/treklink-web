@@ -187,6 +187,8 @@ describe('OrganizationDetailPage (screen 3.2, read-only roles of 3.7)', () => {
     const body = await screen.findByRole('region', { name: 'Organization details' });
     expect(body.getAttribute('tabindex')).toBe('0');
     expect(body.className).toContain('overflow-y-auto');
+    // Containing block of the grid's absolute sr-only caption: without it the caption stretches #main.
+    expect(body.className).toContain('relative');
     const page = body.closest('section');
     expect(page?.hasAttribute('data-fit-page')).toBe(true);
     expect(within(body).getByRole('heading', { name: 'Record' })).toBeTruthy();

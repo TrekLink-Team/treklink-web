@@ -72,7 +72,9 @@ export const OrganizationDetailPage: React.FC = () => {
         role="region"
         aria-label="Organization details"
         tabIndex={0}
-        className={`flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto rounded-sm [@media(max-height:479.98px)]:overflow-visible ${FOCUS}`}
+        // `relative` makes this region the containing block of the grid's `sr-only` caption (absolute).
+        // Without it the caption's block is `#main`, escapes both scroll boxes and stretches `#main`.
+        className={`relative flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto rounded-sm [@media(max-height:479.98px)]:overflow-visible ${FOCUS}`}
       >
         <Card aria-labelledby="org-detail-record">
           <h2 id="org-detail-record" className="mb-3 text-title text-ink">
