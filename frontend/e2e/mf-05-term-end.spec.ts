@@ -40,7 +40,11 @@ let lossCaseCode: string | undefined;
 // already moved RC-2026-0002 on (demo:term-end then answers "RC-2026-0002 has no open term.").
 const contractStatus = async (request: APIRequestContext): Promise<string | undefined> => {
   const token = await apiToken(request, 'staff');
-  const page = await apiGet<{ items: { code: string; status: string }[] }>(request, token, '/contracts?pageSize=100');
+  const page = await apiGet<{ items: { code: string; status: string }[] }>(
+    request,
+    token,
+    '/contracts?pageSize=100',
+  );
   return page.items.find((contract) => contract.code === CONTRACT)?.status;
 };
 
@@ -50,7 +54,10 @@ const openContractAsStaff = async (page: import('@playwright/test').Page) => {
   // details pane, whose link opens the contract home.
   await showOnly(page, 'All');
   await page.getByRole('button', { name: `Show details of ${CONTRACT}`, exact: true }).click();
-  await page.getByRole('complementary', { name: CONTRACT }).getByRole('link', { name: 'Open the contract' }).click();
+  await page
+    .getByRole('complementary', { name: CONTRACT })
+    .getByRole('link', { name: 'Open the contract' })
+    .click();
   await expect(page).toHaveURL(/\/t\/contracts\/[^/]+$/);
 };
 
@@ -61,7 +68,10 @@ test('MF-05 step 1: the Manager gives notice', async ({ page }) => {
   // The contract home (#349): Give notice is the primary action, or in More actions while an invoice
   // is open (widgets/ContractHome/policy.ts).
   await expect(page.getByRole('heading', { level: 1 })).toContainText(CONTRACT);
-  test.skip(!(await appears(titleStatus(page, 'Active'), 5_000)), `${CONTRACT} is no longer ACTIVE; MF-05 needs a fresh seed`);
+  test.skip(
+    !(await appears(titleStatus(page, 'Active'), 5_000)),
+    `${CONTRACT} is no longer ACTIVE; MF-05 needs a fresh seed`,
+  );
   await expect(titleStatus(page, 'Ending')).toHaveCount(0);
   await homeAction(page, 'Give notice');
   const dialog = page.getByRole('dialog', { name: `Give notice on ${CONTRACT}?` });
@@ -73,7 +83,10 @@ test('MF-05 step 1: the Manager gives notice', async ({ page }) => {
 
 test('MF-05 step 2: the term ends (demo:term-end)', async ({ request }) => {
   const status = await contractStatus(request);
-  test.skip(status !== 'ENDING', `${CONTRACT} is ${status ?? 'missing'}, not ENDING; MF-05 needs a fresh seed`);
+  test.skip(
+    status !== 'ENDING',
+    `${CONTRACT} is ${status ?? 'missing'}, not ENDING; MF-05 needs a fresh seed`,
+  );
   const output = await runBackendScript('demo:term-end', [CONTRACT]);
   expect(output).toContain(`${CONTRACT}: MONTHLY, ENDING`);
   expect(output).toMatch(/Term rollover: \d+ renewed, 1 to RETURN_DUE, \d+ to RETURNED\./);
@@ -84,7 +97,10 @@ test('MF-05 steps 3 to 7: Staff check in TL-0017, report TL-0018 lost, inspect a
   request,
 }) => {
   const status = await contractStatus(request);
-  test.skip(status !== 'RETURN_DUE', `${CONTRACT} is ${status ?? 'missing'}, not RETURN_DUE; MF-05 needs a fresh seed`);
+  test.skip(
+    status !== 'RETURN_DUE',
+    `${CONTRACT} is ${status ?? 'missing'}, not RETURN_DUE; MF-05 needs a fresh seed`,
+  );
   await signIn(page, 'staff');
 
   // Step 3
@@ -103,14 +119,22 @@ test('MF-05 steps 3 to 7: Staff check in TL-0017, report TL-0018 lost, inspect a
   await page.getByRole('button', { name: 'Check in 1 device' }).click();
   await expect(page.getByText('Check-in complete. 1 of 2 devices returned.')).toBeVisible();
   const stillOut = page.getByRole('heading', { name: 'Still out' }).locator('xpath=..');
-  await expect(stillOut).toContainText('A unit that did not come back needs no replacement: report it lost.');
+  await expect(stillOut).toContainText(
+    'A unit that did not come back needs no replacement: report it lost.',
+  );
   await expect(stillOut.getByRole('listitem').filter({ hasText: 'TL-0018' })).toBeVisible();
   await expect(steps.getByRole('tab', { name: /Reset and inspection/ })).toContainText('1');
 
   // Step 5: Report lost on TL-0018, then follow the link to its loss case.
-  await stillOut.getByRole('listitem').filter({ hasText: 'TL-0018' }).getByRole('button', { name: 'Report lost' }).click();
+  await stillOut
+    .getByRole('listitem')
+    .filter({ hasText: 'TL-0018' })
+    .getByRole('button', { name: 'Report lost' })
+    .click();
   const report = page.getByRole('dialog', { name: 'Report TL-0018 lost' });
-  await report.getByLabel('Description').fill('Not handed back at the end of the term; the organization cannot find it.');
+  await report
+    .getByLabel('Description')
+    .fill('Not handed back at the end of the term; the organization cannot find it.');
   await report.getByRole('button', { name: 'Report lost' }).click();
   await expectToast(page, /Loss case LOSS-\d+ opened for TL-0018\./);
   const caseLink = stillOut.getByRole('link', { name: /^Loss case LOSS-\d+ open$/ });
@@ -146,9 +170,13 @@ test('MF-05 steps 3 to 7: Staff check in TL-0017, report TL-0018 lost, inspect a
   // Step 7: the Close tab lists what still blocks the close and offers no Close action.
   await steps.getByRole('tab', { name: 'Close' }).click();
   await expect(main.getByRole('heading', { name: 'What still blocks the close' })).toBeVisible();
-  await expect(main.getByText(`TL-0018 is not back; its loss case ${lossCaseCode} is not settled yet.`)).toBeVisible();
+  await expect(
+    main.getByText(`TL-0018 is not back; its loss case ${lossCaseCode} is not settled yet.`),
+  ).toBeVisible();
   await expect(main.getByRole('link', { name: `Open loss case ${lossCaseCode}` })).toBeVisible();
-  await expect(main.getByText(`${vnd(400_000)} is unpaid on the contract's invoices.`)).toBeVisible();
+  await expect(
+    main.getByText(`${vnd(400_000)} is unpaid on the contract's invoices.`),
+  ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Close contract' })).toHaveCount(0);
 });
 
@@ -162,12 +190,17 @@ test('MF-05 step 8: Staff triage and confirm the loss of TL-0018', async ({ page
   await expectToast(page, 'Saved.');
   await page.getByRole('button', { name: 'Confirm loss' }).click();
   const confirm = page.getByRole('dialog', { name: 'Confirm TL-0018 lost?' });
-  await expect(confirm).toContainText('The device remaining value is charged to the renting contract.');
+  await expect(confirm).toContainText(
+    'The device remaining value is charged to the renting contract.',
+  );
   await confirm.getByRole('button', { name: 'Confirm loss' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Confirmed');
 });
 
-test('MF-05 step 9: the Admin settles the loss case, so the contract is Returned', async ({ browser, request }) => {
+test('MF-05 step 9: the Admin settles the loss case, so the contract is Returned', async ({
+  browser,
+  request,
+}) => {
   test.skip(!lossCaseUrl, 'no loss case from step 5 on this seed');
   // Staff triaged the case, so only an Admin who did not may settle it.
   const adminContext = await browser.newContext();
@@ -184,9 +217,15 @@ test('MF-05 step 9: the Admin settles the loss case, so the contract is Returned
   expect(await contractStatus(request)).toBe('RETURNED');
 });
 
-test('MF-05 steps 10 to 12: Staff take the closing payment and close the contract', async ({ page, request }) => {
+test('MF-05 steps 10 to 12: Staff take the closing payment and close the contract', async ({
+  page,
+  request,
+}) => {
   const status = await contractStatus(request);
-  test.skip(status !== 'RETURNED', `${CONTRACT} is ${status ?? 'missing'}, not RETURNED; MF-05 needs a fresh seed`);
+  test.skip(
+    status !== 'RETURNED',
+    `${CONTRACT} is ${status ?? 'missing'}, not RETURNED; MF-05 needs a fresh seed`,
+  );
   await signIn(page, 'staff');
 
   // Step 10: the counter reads Returned and only the balance is left.
@@ -195,7 +234,9 @@ test('MF-05 steps 10 to 12: Staff take the closing payment and close the contrac
   const steps = page.getByRole('tablist', { name: 'Counter steps' });
   await steps.getByRole('tab', { name: 'Close' }).click();
   const main = page.getByRole('main');
-  await expect(main.getByText(`${vnd(2_900_000)} is unpaid on the contract's invoices.`)).toBeVisible();
+  await expect(
+    main.getByText(`${vnd(2_900_000)} is unpaid on the contract's invoices.`),
+  ).toBeVisible();
   await expect(main.getByText(/is not back/)).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Close contract' })).toHaveCount(0);
   await expect(definitionOf(main, 'Due now')).toHaveText(vnd(2_900_000));
@@ -205,7 +246,12 @@ test('MF-05 steps 10 to 12: Staff take the closing payment and close the contrac
   await main.getByRole('link', { name: 'Open the invoices' }).click();
   await expect(page).toHaveURL(/\/t\/billing/);
   await expect(page.getByText('Showing one contract.')).toBeVisible();
-  await page.getByRole('row').filter({ hasText: /CLOSING/i }).getByRole('button').first().click();
+  await page
+    .getByRole('row')
+    .filter({ hasText: /CLOSING/i })
+    .getByRole('button')
+    .first()
+    .click();
   await page.getByRole('button', { name: 'Record counter payment' }).click();
   const pay = page.getByRole('dialog');
   await expect(pay).toContainText(`contract ${CONTRACT}, ORG-0001. Due now: ${vnd(2_900_000)}`);
@@ -221,17 +267,24 @@ test('MF-05 steps 10 to 12: Staff take the closing payment and close the contrac
   await openContractAsStaff(page);
   await homeAction(page, 'Open the counter');
   await expect(page.getByText('Nothing blocks the close. Close the contract below.')).toBeVisible();
-  await page.getByRole('region', { name: 'Close actions' }).or(page.getByLabel('Close actions'))
-    .getByRole('button', { name: 'Close contract' }).click();
+  await page
+    .getByRole('region', { name: 'Close actions' })
+    .or(page.getByLabel('Close actions'))
+    .getByRole('button', { name: 'Close contract' })
+    .click();
   const confirm = page.getByRole('dialog', { name: `Close contract ${CONTRACT}?` });
-  await expect(confirm).toContainText('Holder labels are erased. A closed contract cannot be reopened.');
+  await expect(confirm).toContainText(
+    'Holder labels are erased. A closed contract cannot be reopened.',
+  );
   await confirm.getByRole('button', { name: 'Close contract' }).click();
   await expectToast(page, `${CONTRACT} closed.`);
   await expect(page.getByText('This contract is closed.')).toBeVisible();
   await expect(definitionOf(page.getByRole('main'), 'Paid')).toHaveText(vnd(3_800_000));
 });
 
-test('MF-05 step 13 (optional): TL-0017 completes maintenance and passes an intake check', async ({ page }) => {
+test('MF-05 step 13 (optional): TL-0017 completes maintenance and passes an intake check', async ({
+  page,
+}) => {
   await signIn(page, 'staff');
   await openFromSidebar(page, 'Maintenance');
   // An open record offers Complete; a completed one from an earlier run on this seed does not.
@@ -241,14 +294,19 @@ test('MF-05 step 13 (optional): TL-0017 completes maintenance and passes an inta
     .filter({ visible: true })
     .getByRole('button', { name: 'Complete' })
     .first();
-  test.skip(!(await appears(complete)), 'no open maintenance on TL-0017 (step 6 did not run on this seed)');
+  test.skip(
+    !(await appears(complete)),
+    'no open maintenance on TL-0017 (step 6 did not run on this seed)',
+  );
   await complete.click();
   const dialog = page.getByRole('dialog', { name: 'Complete maintenance for TL-0017' });
   await dialog.getByLabel('Completed').check();
   await dialog.getByRole('textbox', { name: /^Resolution/ }).fill('Casing replaced');
   await typeMoney(dialog.getByRole('textbox', { name: /^Actual cost/ }), 0);
   await dialog.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page.getByText('TL-0017 stays in maintenance until it passes an intake check on its page.')).toBeVisible();
+  await expect(
+    page.getByText('TL-0017 stays in maintenance until it passes an intake check on its page.'),
+  ).toBeVisible();
 
   await page.getByRole('link', { name: 'Open TL-0017' }).click();
   await expect(page).toHaveURL(/\/t\/devices\/[^/]+$/);
@@ -262,7 +320,10 @@ test('MF-05 step 13 (optional): TL-0017 completes maintenance and passes an inta
   await expect(titleStatus(page, 'Available')).toBeVisible();
 });
 
-test('MF-05 step 14 (optional): TL-0008 is marked unrepairable, retired and disposed', async ({ page, browser }) => {
+test('MF-05 step 14 (optional): TL-0008 is marked unrepairable, retired and disposed', async ({
+  page,
+  browser,
+}) => {
   await signIn(page, 'staff');
   await openFromSidebar(page, 'Maintenance');
   await page.getByRole('button', { name: 'Open maintenance' }).first().click();
@@ -279,14 +340,23 @@ test('MF-05 step 14 (optional): TL-0008 is marked unrepairable, retired and disp
   await open.getByLabel(/^Expected completion/).fill(tomorrow);
   await open.getByRole('button', { name: 'Open maintenance' }).click();
 
-  const row = page.getByRole('row').filter({ hasText: 'TL-0008' }).filter({ visible: true }).first();
+  const row = page
+    .getByRole('row')
+    .filter({ hasText: 'TL-0008' })
+    .filter({ visible: true })
+    .first();
   await row.getByRole('button', { name: 'Complete' }).click();
   const complete = page.getByRole('dialog', { name: 'Complete maintenance for TL-0008' });
   await complete.getByLabel('Unrepairable').check();
   await complete.getByRole('textbox', { name: /^Resolution/ }).fill('Radio board burnt');
   await complete.getByRole('button', { name: 'Save', exact: true }).click();
-  await page.getByRole('dialog', { name: /^Mark TL-0008 unrepairable\?/ }).getByRole('button', { name: 'Mark unrepairable' }).click();
-  await expect(page.getByText('TL-0008 stays in maintenance until an Admin retires it.')).toBeVisible();
+  await page
+    .getByRole('dialog', { name: /^Mark TL-0008 unrepairable\?/ })
+    .getByRole('button', { name: 'Mark unrepairable' })
+    .click();
+  await expect(
+    page.getByText('TL-0008 stays in maintenance until an Admin retires it.'),
+  ).toBeVisible();
 
   // The Admin retires and disposes (window D).
   const adminContext = await browser.newContext();
@@ -310,4 +380,66 @@ test('MF-05 step 14 (optional): TL-0008 is marked unrepairable, retired and disp
   await dispose.getByRole('button', { name: 'Dispose' }).click();
   await expect(titleStatus(admin, 'Disposed')).toBeVisible();
   await adminContext.close();
+});
+
+// WF-05, release a unit (D-099, rentals task 13.3): Staff give one unit of a running contract back
+// before the term end. It uses the five-unit contract MF-01 hands over (RC-2026-0004 on a fresh seed),
+// never RC-2026-0001, whose units MF-03 and MF-04 drive, and skips with a reason when no ACTIVE contract
+// with two or more units is left.
+test('WF-05 release: Staff release one unit of a running contract and a release credit waits for an Admin', async ({
+  page,
+  request,
+}) => {
+  const token = await apiToken(request, 'staff');
+  const contracts = await apiGet<{
+    items: { id: string; code: string; status: string; quantity: number }[];
+  }>(request, token, '/contracts?pageSize=100');
+  const target = contracts.items.find(
+    (contract) =>
+      contract.status === 'ACTIVE' &&
+      contract.quantity >= 2 &&
+      !['RC-2026-0001', CONTRACT].includes(contract.code),
+  );
+  test.skip(
+    !target,
+    'no ACTIVE contract with two or more units besides the seeded ones; run MF-01 first',
+  );
+  const contract = target!;
+
+  await signIn(page, 'staff', `/t/contracts/${contract.id}?tab=devices`);
+  const release = page.getByRole('button', { name: /^Release TL-\d+$/ }).first();
+  await expect(release).toBeEnabled();
+  const tag =
+    (await release.getAttribute('aria-label'))?.replace('Release ', '') ??
+    (await release.innerText());
+  await release.click();
+
+  const dialog = page.getByRole('alertdialog', { name: `Release ${tag} from ${contract.code}?` });
+  await expect(
+    dialog.getByText(`${contract.quantity} to ${contract.quantity - 1} units`),
+  ).toBeVisible();
+  // A monthly contract mid-term: a credit for the unused days, decided by an Admin.
+  await expect(
+    dialog.getByText(/A credit of .+ VND for \d+ unused days? of \d+\. An Admin approves it/),
+  ).toBeVisible();
+  await dialog.getByRole('button', { name: 'Release' }).click();
+  await expect(dialog.getByText('Enter why the organization gives the unit back.')).toBeVisible();
+  await dialog
+    .getByLabel(/Reason/)
+    .fill('The trekking group shrank by one; the unit is back at the counter.');
+  await dialog.getByRole('button', { name: 'Release' }).click();
+  await expectToast(page, `Unit released. The quantity is now ${contract.quantity - 1}.`);
+
+  const after = await apiGet<{
+    quantity: number;
+    devices: { assetTag: string | null; checkedInAt: string | null }[];
+  }>(request, token, `/contracts/${contract.id}`);
+  expect(after.quantity).toBe(contract.quantity - 1);
+  expect(after.devices.find((device) => device.assetTag === tag)?.checkedInAt).toBeTruthy();
+  const credits = await apiGet<{ items: { kind: string; status: string; contractId: string }[] }>(
+    request,
+    token,
+    `/service-credits?status=REQUESTED&contractId=${contract.id}`,
+  );
+  expect(credits.items.some((credit) => credit.kind === 'RELEASE')).toBe(true);
 });
