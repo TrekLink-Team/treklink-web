@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Creates a SePay payment request in the sandbox for the amount due now on the invoice (or a chosen line), with a unique reference, and returns its VietQR. The payment is recorded only when SePay's webhook confirms it (FR-BILL-07, BR-34, NFR-UI-03). The contract balance must still be open: a cancellation adjustment on a closing invoice may offset an earlier unpaid invoice, in which case the request is refused with 409 NOTHING_DUE.
+Creates a SePay payment request in the sandbox for the amount due now on the invoice (or a chosen line), with a unique reference, and returns its VietQR. The payment is recorded only when SePay's webhook confirms it (FR-BILL-07, BR-34, NFR-UI-03). The contract balance must still be open: a cancellation adjustment on a closing invoice may offset an earlier unpaid invoice, in which case the request is refused with 409 NOTHING_DUE. A holding fee or day-plan fee lowered by a before-handover release is requested net of its release adjustments (D-099).
 
 ## API Specification
 

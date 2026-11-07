@@ -384,8 +384,7 @@ test('MF-05 step 14 (optional): TL-0008 is marked unrepairable, retired and disp
 
 // WF-05, release a unit (D-099, rentals task 13.3): Staff give one unit of a running contract back
 // before the term end. It uses the five-unit contract MF-01 hands over (RC-2026-0004 on a fresh seed),
-// never RC-2026-0001, whose units MF-03 and MF-04 drive, and skips with a reason when no ACTIVE contract
-// with two or more units is left.
+// never RC-2026-0001, whose units MF-03 and MF-04 drive, or RC-2026-0002, which MF-05 closes above.
 test('WF-05 release: Staff release one unit of a running contract and a release credit waits for an Admin', async ({
   page,
   request,
@@ -394,17 +393,15 @@ test('WF-05 release: Staff release one unit of a running contract and a release 
   const contracts = await apiGet<{
     items: { id: string; code: string; status: string; quantity: number }[];
   }>(request, token, '/contracts?pageSize=100');
-  const target = contracts.items.find(
+  const contract = contracts.items.find(
     (contract) =>
       contract.status === 'ACTIVE' &&
       contract.quantity >= 2 &&
       !['RC-2026-0001', CONTRACT].includes(contract.code),
   );
-  test.skip(
-    !target,
-    'no ACTIVE contract with two or more units besides the seeded ones; run MF-01 first',
-  );
-  const contract = target!;
+  if (!contract) {
+    throw new Error('WF-05 release needs the multi-unit contract handed over in MF-01. Run MF-01 first.');
+  }
 
   await signIn(page, 'staff', `/t/contracts/${contract.id}?tab=devices`);
   const release = page.getByRole('button', { name: /^Release TL-\d+$/ }).first();

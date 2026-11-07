@@ -12,6 +12,7 @@ import {
 import { InvoiceRow } from './invoices.repository';
 import { PaymentRow } from './payments.repository';
 import { PaymentsService } from './payments.service';
+import { netUnitReleaseAdjustments } from './release-adjustments';
 
 // A JSON body cannot hold a bigint; every VND amount here is far below Number.MAX_SAFE_INTEGER.
 const vnd = (amount: bigint): number => Number(amount);
@@ -57,6 +58,7 @@ export const toPaymentView = (payment: PaymentRow) => ({
 // `organization` and TrekLink's on `seller`. A buyer the directory cannot name reads as nulls.
 export const toInvoiceDetailView = (detail: InvoiceDetail) => {
   const invoice = toInvoiceView(detail);
+  const payable = netUnitReleaseAdjustments(detail.row.lines);
   return {
     ...invoice,
     organization: {
@@ -66,13 +68,16 @@ export const toInvoiceDetailView = (detail: InvoiceDetail) => {
       address: detail.buyer?.address ?? null,
     },
     seller: detail.seller,
-    lines: detail.row.lines.map((line) => ({
+    lines: detail.row.lines.map((line, index) => ({
       seq: line.seq,
       type: line.type,
       description: line.description,
       quantity: line.quantity,
       unitVnd: vnd(line.unitVnd),
       amountVnd: vnd(line.amountVnd),
+      ...(line.amountVnd >= 0n && payable[index].amountVnd !== line.amountVnd
+        ? { payableAmountVnd: vnd(payable[index].amountVnd) }
+        : {}),
       dueAt: line.dueAt,
       paidVnd: vnd(line.paidVnd),
     })),

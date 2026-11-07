@@ -205,6 +205,7 @@ describe('InvoicesRepository (billing task 1.1)', () => {
       invoiceId: 'inv-1',
       seq: Number(id.slice(2)),
       type: InvoiceLineType.TERM_BALANCE,
+      description: 'Term balance',
       amountVnd,
       paidVnd,
       dueAt: AT,

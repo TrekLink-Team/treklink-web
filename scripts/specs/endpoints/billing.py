@@ -150,7 +150,8 @@ ENDPOINTS = [
        "`COMPANY_LEGAL_NAME`, `COMPANY_TAX_CODE`, `COMPANY_ADDRESS` and `COMPANY_HOTLINE` configuration. "
        "The list (08) keeps the organization code only. An invoice whose total is below zero is `CREDIT_DUE` "
        "with `creditDueVnd`, what TrekLink owes the organization on it (design section 11.3), until a refund is "
-       "recorded (23); then it is `REFUNDED` with `refund`.", "UC-45, UC-55, FR-BILL-06, D-097 amended",
+       "recorded (23); then it is `REFUNDED` with `refund`. When a release lowers an issued fee, "
+       "its line also carries `payableAmountVnd` for payment displays (D-099).", "UC-45, UC-55, FR-BILL-06, D-097 amended",
        path=[INV_PATH], response={**INVOICE,
                                   "organization": {**INVOICE["organization"], "legalName": "Fansipan Trekking JSC",
                                                    "taxCode": "0109876543", "address": "Sa Pa, Lao Cai"},
@@ -158,6 +159,7 @@ ENDPOINTS = [
                                              "taxCode": "0312345678", "address": "Ho Chi Minh City, Vietnam",
                                              "hotline": "1900 1234"},
                                   "payments": [{**PAYMENT, "status": "CONFIRMED", "confirmedAt": NOW}]},
+       fields=[["lines[].payableAmountVnd", "Fee after before-handover release adjustments; omitted when unchanged", "int", "`900000`"]],
        entity="Invoice", steps=["Read within scope"], controller="InvoicesController", service="InvoicesService",
        call="get(id, caller)", seq=["Svc->>DB: SELECT invoice, lines, payments"]),
 
@@ -182,7 +184,8 @@ ENDPOINTS = [
        "line), with a unique reference, and returns its VietQR. The payment is recorded only when SePay's "
        "webhook confirms it (FR-BILL-07, BR-34, NFR-UI-03). The contract balance must still be open: "
        "a cancellation adjustment on a closing invoice may offset an earlier unpaid invoice, in which "
-       "case the request is refused with 409 NOTHING_DUE.",
+       "case the request is refused with 409 NOTHING_DUE. A holding fee or day-plan fee lowered by "
+       "a before-handover release is requested net of its release adjustments (D-099).",
        "UC-19, FR-BILL-07, FR-BILL-09, BR-34, MSG25",
        path=[INV_PATH], body=[["lineSeq", "Pay one line; default every line due now", "int", "no", "`1`"]],
        sample={"lineSeq": 2},

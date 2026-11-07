@@ -96,9 +96,12 @@ export interface InvoiceLine {
   quantity: number;
   unitVnd: number;
   amountVnd: number;
+  payableAmountVnd?: number;
   dueAt: string;
   paidVnd: number;
 }
+
+export const payableAmountOf = (line: InvoiceLine): number => line.payableAmountVnd ?? line.amountVnd;
 
 export interface Payment {
   id: string;
@@ -437,7 +440,7 @@ export const INVOICE_TONES: Record<InvoiceStatus, string> = {
 export const lineStatus = (line: InvoiceLine, now: Date = new Date()): string => {
   // A negative line (a service credit or an adjustment) lowers the invoice; it is never owed.
   if (line.amountVnd < 0) return 'Credit';
-  if (line.paidVnd >= line.amountVnd) return 'Paid';
+  if (line.paidVnd >= payableAmountOf(line)) return 'Paid';
   const due = new Date(line.dueAt);
   const sameDay = due.toDateString() === now.toDateString();
   if (!sameDay && due < now) return 'Overdue';

@@ -75,6 +75,15 @@ npm --prefix frontend run test:e2e -- mf-03
 npm --prefix frontend run test:e2e -- --project operator-360
 ```
 
+For the WF-05 release case, use a fresh local seed and run the MF-01 request and handover journey first.
+The release case uses the contract created by that journey and fails if it cannot find an eligible
+contract. CI runs it after the existing Playwright journeys.
+
+```bash
+npm --prefix frontend run test:e2e -- --project=desktop mf-01-request
+npm --prefix frontend run test:e2e -- --project=desktop mf-05-term-end --grep 'WF-05 release:'
+```
+
 Type check and lint of these files: `npm --prefix frontend run typecheck:e2e` and
 `npm --prefix frontend run lint`.
 

@@ -16,6 +16,7 @@ import { BalanceService } from './balance.service';
 import { InvoicesRepository } from './invoices.repository';
 import { PaymentsRepository } from './payments.repository';
 import { PAYMENT_CONFIRMED } from './payments.service';
+import { RELEASE_ADJUSTMENT_PREFIX } from './release-adjustments';
 import { amountToRequest, newReference, SepayService } from './sepay.service';
 
 const AT = new Date('2026-11-02T03:00:00.000Z');
@@ -30,10 +31,11 @@ const line = (
   amountVnd: bigint,
   paidVnd: bigint,
   dueAt: string,
+  description: string = type,
 ) => ({
   seq,
   type,
-  description: type,
+  description,
   quantity: 1,
   unitVnd: amountVnd,
   amountVnd,
@@ -90,7 +92,6 @@ describe('SePay sandbox (billing task 3.2)', () => {
   beforeEach(() => {
     key = KEY;
     invoices = {
-      detail: jest.fn().mockResolvedValue(invoice()),
       lockWithLines: jest.fn().mockResolvedValue(invoice()),
       applyPayment: jest.fn().mockResolvedValue(undefined),
     };
@@ -164,6 +165,24 @@ describe('SePay sandbox (billing task 3.2)', () => {
       ]);
       expect(amountToRequest(adjusted, undefined, AT)).toBe(125_000n);
     });
+
+    it('uses each fee net of its own release adjustment before and after the start', () => {
+      const adjusted = invoice([
+        ...invoice().lines,
+        {
+          ...line(3, InvoiceLineType.ADJUSTMENT, -225_000n, 0n, '2026-11-02T02:00:00.000Z'),
+          description: `${RELEASE_ADJUSTMENT_PREFIX}holding fee, 5 to 4 units`,
+        },
+        {
+          ...line(4, InvoiceLineType.ADJUSTMENT, -225_000n, 0n, '2026-12-02T02:00:00.000Z'),
+          description: `${RELEASE_ADJUSTMENT_PREFIX}term balance, 5 to 4 units`,
+        },
+      ]);
+      expect(amountToRequest(adjusted, undefined, new Date('2026-10-30T00:00:00Z'))).toBe(900_000n);
+      expect(amountToRequest(adjusted, undefined, AT)).toBe(900_000n);
+      expect(amountToRequest(adjusted, 1, AT)).toBe(900_000n);
+      expect(amountToRequest(adjusted, 2, AT)).toBe(900_000n);
+    });
   });
 
   describe('request (api-design 11)', () => {
@@ -209,7 +228,7 @@ describe('SePay sandbox (billing task 3.2)', () => {
       await expect(service.request('inv-1', undefined, MANAGER, AT)).rejects.toMatchObject({
         errorCode: ErrorCode.PAYMENT_PENDING,
       });
-      invoices.detail.mockResolvedValueOnce(
+      invoices.lockWithLines.mockResolvedValueOnce(
         invoice([
           line(1, InvoiceLineType.HOLDING_FEE, 1_125_000n, 1_125_000n, '2026-11-02T02:00:00.000Z'),
         ]),

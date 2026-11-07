@@ -58,4 +58,18 @@ describe('CounterPaymentDialog (screen 6.3)', () => {
     expect(dueNowOf(invoice, 500_000, new Date('2026-10-30T00:00:00Z'))).toBe(500_000);
     expect(dueNowOf({ ...invoice, lines: [invoice.lines[1]] }, 1_125_000)).toBe(0);
   });
+
+  it('prefills the adjusted holding fee after a unit release', () => {
+    const reduced = {
+      ...invoice,
+      totalVnd: 1_800_000,
+      lines: invoice.lines.map((item) => ({ ...item, payableAmountVnd: 900_000 })),
+    };
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <CounterPaymentDialog invoice={reduced} onClose={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    expect((screen.getByLabelText(/Amount received/) as HTMLInputElement).value).toBe('900.000');
+  });
 });

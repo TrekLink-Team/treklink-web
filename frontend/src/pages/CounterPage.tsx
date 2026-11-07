@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { useInvoice, useInvoices, useVariantName } from '../entities/billing/api';
+import { payableAmountOf, useInvoice, useInvoices, useVariantName } from '../entities/billing/api';
 import {
   completeHandover,
   contractKeys,
@@ -394,7 +394,7 @@ export const CounterPage: React.FC<{
   );
   const beforeStart = today < data.requestedStartDate.slice(0, 10);
   const firstLine = firstInvoice.data?.lines.slice().sort((a, b) => a.seq - b.seq)[0];
-  const firstPaid = firstLine ? firstLine.paidVnd >= firstLine.amountVnd : false;
+  const firstPaid = firstLine ? firstLine.paidVnd >= payableAmountOf(firstLine) : false;
 
   const refreshContract = () =>
     queryClient.invalidateQueries({ queryKey: contractKeys.detail(contractId) });
@@ -1291,7 +1291,7 @@ export const CounterPage: React.FC<{
                   <div>
                     <dt className="font-semibold text-ink-muted">{firstLine.description}</dt>
                     <dd>
-                      {formatVnd(firstLine.paidVnd)} of {formatVnd(firstLine.amountVnd)} paid
+                      {formatVnd(firstLine.paidVnd)} of {formatVnd(payableAmountOf(firstLine))} paid
                     </dd>
                   </div>
                   <div>

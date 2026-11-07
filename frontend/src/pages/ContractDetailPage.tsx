@@ -4,7 +4,7 @@ import { useMediaQuery } from '../shared/lib/useMediaQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
-import { useBalance, useInvoice, useInvoices, useVariantName } from '../entities/billing/api';
+import { payableAmountOf, useBalance, useInvoice, useInvoices, useVariantName } from '../entities/billing/api';
 import {
   cancelContract,
   contractKeys,
@@ -287,7 +287,7 @@ export const ContractDetailPage: React.FC<{
     closeCheck: closeCheck.data,
     openInvoiceId: openInvoice?.id ?? null,
     dueNowVnd: managerBalance.data?.dueNowVnd,
-    depositUnpaidVnd: deposit ? Math.max(deposit.amountVnd - deposit.paidVnd, 0) : undefined,
+    depositUnpaidVnd: deposit ? Math.max(payableAmountOf(deposit) - deposit.paidVnd, 0) : undefined,
   });
 
   const refresh = () => {

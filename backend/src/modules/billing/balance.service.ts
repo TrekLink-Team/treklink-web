@@ -4,6 +4,7 @@ import { DevicesService } from '../devices';
 import { CONTRACT_DIRECTORY, ContractDirectory } from './ports/contract-directory.port';
 import { DamageChargeRow, DamageChargesRepository } from './damage-charges.repository';
 import { InvoicesRepository, LineRow } from './invoices.repository';
+import { netUnitReleaseAdjustments } from './release-adjustments';
 
 type Client = Prisma.TransactionClient;
 
@@ -33,12 +34,12 @@ const remainingAfterCredits = (lines: readonly LineRow[]): Remaining[] => netted
 // The netting of `remainingAfterCredits`, with the credit no line absorbed (REQ-STA-03). `extraCredit`
 // is a credit not yet on any line, for the End now preview.
 const netted = (
-  lines: readonly Pick<LineRow, 'amountVnd' | 'paidVnd' | 'dueAt'>[],
+  lines: readonly LineRow[],
   extraCredit = 0n,
 ): { owing: Remaining[]; leftVnd: bigint } => {
   let credit = extraCredit;
   const owing: Remaining[] = [];
-  for (const line of lines) {
+  for (const line of netUnitReleaseAdjustments(lines)) {
     const left = line.amountVnd - line.paidVnd;
     if (left < 0n) credit -= left;
     else if (left > 0n) owing.push({ dueAt: line.dueAt, vnd: left });
@@ -150,10 +151,10 @@ export class BalanceService {
   }
 
   // The first payment rule of the handover (FR-CON-05, BR-09): the first line of the contract's
-  // first TERM or DAY_PLAN invoice, the holding fee or the day-plan fee, is paid in full.
+  // first TERM or DAY_PLAN invoice, net of any before-handover release adjustments, is paid in full.
   async firstPaymentConfirmed(contractId: string, client?: Client): Promise<boolean> {
     const invoice = await this.invoices.firstChargeableInvoice(contractId, client);
-    const first = invoice?.lines[0];
+    const first = invoice ? netUnitReleaseAdjustments(invoice.lines)[0] : undefined;
     return first !== undefined && first.paidVnd >= first.amountVnd;
   }
 

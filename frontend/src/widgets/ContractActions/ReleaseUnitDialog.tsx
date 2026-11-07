@@ -78,6 +78,7 @@ export const ReleaseUnitDialog: React.FC<{
       queryClient.invalidateQueries({ queryKey: contractKeys.transitions(contract.id) }),
       queryClient.invalidateQueries({ queryKey: serviceCreditKeys.all }),
       queryClient.invalidateQueries({ queryKey: ['invoices'] }),
+      queryClient.invalidateQueries({ queryKey: ['invoice'] }),
     ]);
 
   const submit = async (event: React.FormEvent) => {

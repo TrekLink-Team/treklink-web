@@ -120,6 +120,7 @@ only, or the QR service answers an error page instead of an image).
 - **AC-12**: Had the term been unpaid, the same credit is set against the term's lines: the closing invoice is `CREDIT_DUE` with `creditDueVnd` 0, and marking it refunded answers 409 `NOTHING_OWED`. (D-097 amended)
 - **AC-13**: A release on day 10 of a 30-day term at 450,000 VND per unit records a `RELEASE` service credit of 300,000 VND `REQUESTED`; the releasing Staff member cannot approve it (403 `SEPARATION_OF_DUTY`); another Admin approves it and the next term invoice carries a −300,000 VND `EARLY_END_CREDIT` line named Release credit for the unit. (D-099 rules 1, 5)
 - **AC-14**: An APPROVED contract of 5 units at 450,000 VND with a holding-fee ratio of 0.5 releases one unit. The first invoice gains one −225,000 VND `ADJUSTMENT` line against the holding fee and one −225,000 VND line against the term balance. The new total is 1,800,000 VND. With only the 1,125,000 VND holding fee paid, 675,000 VND remains due and the organization is owed nothing. With the original 2,250,000 VND paid in full, 450,000 VND is owed to the organization. (D-099 rule 4)
+- **AC-15**: If the holding fee in AC-14 is unpaid at release, the first payment becomes 900,000 VND. SePay requests 900,000 VND for the holding fee, whether selected explicitly or as the earliest unpaid line before the start. The handover payment gate stays closed until 900,000 VND has been received, and opens while the adjusted term balance remains unpaid. (D-099 rule 4)
 
 ---
 

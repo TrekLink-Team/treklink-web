@@ -12,7 +12,16 @@ const TX = {} as Prisma.TransactionClient;
 let seq = 0;
 const line = (type: InvoiceLineType, amountVnd: bigint, paidVnd: bigint, dueAt: Date) => {
   seq += 1;
-  return { id: `l-${seq}`, invoiceId: 'inv-1', seq, type, amountVnd, paidVnd, dueAt };
+  return {
+    id: `l-${seq}`,
+    invoiceId: 'inv-1',
+    seq,
+    type,
+    description: type,
+    amountVnd,
+    paidVnd,
+    dueAt,
+  };
 };
 
 describe('BalanceService (billing task 2.4, REQ-STA-02, FR-CON-13)', () => {

@@ -86,6 +86,7 @@ describe('ChargesService.settleCancellation (billing task 2.3, REQ-EVT-11, E01-7
   it('cancelled after the holding fee is paid: keeps it and voids only the balance', async () => {
     invoices.firstChargeableInvoice.mockResolvedValue({
       ...FIRST,
+      paidVnd: 2_250_000n,
       lines: [
         line(1, InvoiceLineType.HOLDING_FEE, 2_250_000n, 2_250_000n),
         line(2, InvoiceLineType.TERM_BALANCE, 2_250_000n, 0n),
@@ -97,6 +98,22 @@ describe('ChargesService.settleCancellation (billing task 2.3, REQ-EVT-11, E01-7
     expect(invoices.insert).toHaveBeenCalledWith(
       expect.anything(),
       [adjustment(-2_250_000n, null)],
+      TX,
+    );
+  });
+
+  it('voids only the adjusted amount still unpaid after a release', async () => {
+    invoices.firstChargeableInvoice.mockResolvedValue({
+      ...FIRST,
+      totalVnd: 1_800_000n,
+      paidVnd: 1_125_000n,
+    });
+
+    await service.settleCancellation(CONTRACT, null, TX, AT);
+
+    expect(invoices.insert).toHaveBeenCalledWith(
+      expect.anything(),
+      [adjustment(-675_000n, null)],
       TX,
     );
   });
@@ -123,6 +140,8 @@ describe('ChargesService.settleCancellation (billing task 2.3, REQ-EVT-11, E01-7
   it('does nothing when the first invoice is already paid in full', async () => {
     invoices.firstChargeableInvoice.mockResolvedValue({
       ...FIRST,
+      totalVnd: 720_000n,
+      paidVnd: 720_000n,
       lines: [line(1, InvoiceLineType.DAY_PLAN_FEE, 720_000n, 720_000n)],
     });
     await expect(service.settleCancellation(CONTRACT, null, TX)).resolves.toBeNull();

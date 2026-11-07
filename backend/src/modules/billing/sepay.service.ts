@@ -10,9 +10,10 @@ import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { ScheduledJob } from '../platform/scheduler/scheduled-job.decorator';
 import { BalanceService } from './balance.service';
-import { InvoiceDetailRow, InvoicesRepository } from './invoices.repository';
+import { InvoicesRepository, LineRow } from './invoices.repository';
 import { PaymentRow, PaymentsRepository } from './payments.repository';
 import { PAYMENT_CONFIRMED, PaymentConfirmedEvent } from './payments.service';
+import { netUnitReleaseAdjustments } from './release-adjustments';
 
 const MINUTE_MS = 60_000;
 // Crockford base32: no I, L, O or U, so a reference survives banks that alter transfer content.
@@ -49,12 +50,18 @@ const unpaidOf = (line: { amountVnd: bigint; paidVnd: bigint }) =>
 // now. When nothing is due yet (an approved contract before its start date), the earliest unpaid
 // line, so a holding fee can be paid in advance of the handover (FR-CON-05).
 export const amountToRequest = (
-  invoice: InvoiceDetailRow,
+  invoice: {
+    totalVnd: bigint;
+    paidVnd: bigint;
+    lines: readonly Omit<LineRow, 'id' | 'invoiceId'>[];
+  },
   lineSeq: number | undefined,
   at: Date,
 ): bigint => {
+  const lines = netUnitReleaseAdjustments(invoice.lines);
+  const invoiceDue = unpaidOf({ amountVnd: invoice.totalVnd, paidVnd: invoice.paidVnd });
   if (lineSeq !== undefined) {
-    const line = invoice.lines.find((item) => item.seq === lineSeq);
+    const line = lines.find((item) => item.seq === lineSeq);
     if (!line) {
       throw new DomainException(
         HttpStatus.BAD_REQUEST,
@@ -62,14 +69,14 @@ export const amountToRequest = (
         'lineSeq is not a line of this invoice.',
       );
     }
-    return unpaidOf(line);
+    const lineDue = unpaidOf(line);
+    return lineDue < invoiceDue ? lineDue : invoiceDue;
   }
-  const unpaid = invoice.lines.filter((line) => unpaidOf(line) > 0n);
+  const unpaid = lines.filter((line) => unpaidOf(line) > 0n);
   const dueNow = unpaid.filter((line) => line.dueAt.getTime() <= at.getTime());
   const chosen = dueNow.length > 0 ? dueNow : unpaid.slice(0, 1);
   const lineTotal = chosen.reduce((total, line) => total + unpaidOf(line), 0n);
   // A negative ADJUSTMENT line lowers what the invoice still owes; never ask for more than that.
-  const invoiceDue = invoice.totalVnd > invoice.paidVnd ? invoice.totalVnd - invoice.paidVnd : 0n;
   return lineTotal < invoiceDue ? lineTotal : invoiceDue;
 };
 
@@ -103,21 +110,6 @@ export class SepayService {
     caller: Caller,
     at: Date = new Date(),
   ): Promise<PaymentRow> {
-    const invoice = await this.invoices.detail(invoiceId);
-    if (
-      !invoice ||
-      (caller.organizationId !== null && caller.organizationId !== invoice.organizationId)
-    ) {
-      throw new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Invoice not found.');
-    }
-    const amountVnd = amountToRequest(invoice, lineSeq, at);
-    if (amountVnd <= 0n) {
-      throw new DomainException(
-        HttpStatus.CONFLICT,
-        ErrorCode.NOTHING_DUE,
-        'This invoice has nothing to pay.',
-      );
-    }
     const ttl = await this.parameters.get('billing.sepayPaymentTtlMinutes');
     const expiresAt = new Date(at.getTime() + ttl * MINUTE_MS);
 
@@ -127,6 +119,26 @@ export class SepayService {
           // The check and the insert run under one per-invoice lock, so two concurrent requests
           // cannot both create a waiting QR payment (review of #92).
           await this.payments.lockInvoiceRequests(invoiceId, tx);
+          // The invoice row lock also serializes this read with a release or a payment.
+          const invoice = await this.invoices.lockWithLines(invoiceId, tx);
+          if (
+            !invoice ||
+            (caller.organizationId !== null && caller.organizationId !== invoice.organizationId)
+          ) {
+            throw new DomainException(
+              HttpStatus.NOT_FOUND,
+              ErrorCode.NOT_FOUND,
+              'Invoice not found.',
+            );
+          }
+          const amountVnd = amountToRequest(invoice, lineSeq, at);
+          if (amountVnd <= 0n) {
+            throw new DomainException(
+              HttpStatus.CONFLICT,
+              ErrorCode.NOTHING_DUE,
+              'This invoice has nothing to pay.',
+            );
+          }
           // A cancellation credit on the closing invoice can settle an earlier unpaid invoice.
           if ((await this.balance.outstanding(invoice.contractId, tx)) <= 0n) {
             throw new DomainException(
