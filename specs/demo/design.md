@@ -277,6 +277,6 @@ ParameterService exposes transactional reads and updates so the four profile val
 
 Vercel builds apply forward migrations only. W43 removes automatic seed:demo from backend/scripts/vercel-build.sh so deploying this branch cannot reseed staging. Fixtures are compiled into the quick SOS helper, avoiding a runtime dependency on test files in a serverless bundle.
 
-A quick command returns HTTP 200 with its persisted run result. A business-step failure sets error and errorCode (including STALE_VERSION) while retaining committed links. Authentication, role/environment/database refusal and malformed action inputs remain normal HTTP failures. This prevents a later-step failure from hiding earlier committed work.
+A successful quick command returns HTTP 200. A failed business step is persisted and audited, then returns the D-002 error envelope with isSuccess false, its owning error status/code and result details containing runId, label and committed records. The panel retains those links from the error details. Unknown failures return 500; mapped Prisma and HTTP failures keep their normal status/code. W43b supersedes the earlier 200-on-failure run response.
 
 Quick contract targets REQUESTED and APPROVED impose no handover-signer prerequisite. ACTIVE and RETURN_DUE select a live Manager only at handover, matching OrganizationsService.isActiveManager; an invitation still awaiting password activation does not disqualify a live Manager from signing the disclosed synthetic note.

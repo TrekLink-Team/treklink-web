@@ -92,3 +92,8 @@ This section supersedes the local-only scope for additive quick actions. The leg
 W43 also supersedes REQ-SIM-01's independent route loading: DemoSimulationModule requires DEMO_CONTROLS_ENABLED, explicit VITE_APP_ENV sandbox/staging and DEMO_SIMULATION_ENABLED together. The existing field simulator job retains its independent job flag. The page and navigation require control status, never a simulation response alone.
 
 Simulation control writes also enforce live ADMIN role plus the demo.simulate CASL policy, with the verified caller passed into the database/role guard. An organization-scoped caller is refused.
+
+## W43b review corrections (2026-11-07)
+
+- **REQ-QUICK-10**: The backend SHALL leave VITE_APP_ENV without a default, so validated configuration cannot enable controls when the caller omitted the variable. A whole AppModule production boot with both demo flags enabled and VITE_APP_ENV unset SHALL omit status, quick and simulation routes (404).
+- **REQ-QUICK-11**: A failed quick action SHALL retain its audit/provenance and partial links, then answer isSuccess false with the owning HTTP status and error code. The error result SHALL include runId, label and records when a run was allocated. The panel SHALL show those links and disclose that the requesting/reporting account for quick contracts and fault reports is the signed-in Admin.

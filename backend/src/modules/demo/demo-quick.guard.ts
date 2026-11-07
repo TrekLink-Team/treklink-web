@@ -13,7 +13,7 @@ export class DemoQuickGuard {
     return (
       this.config.get('DEMO_CONTROLS_ENABLED', { infer: true }) === true &&
       ['sandbox', 'staging'].includes(
-        this.config.get('VITE_APP_ENV', { infer: true })?.trim().toLowerCase(),
+        this.config.get('VITE_APP_ENV', { infer: true })?.trim().toLowerCase() ?? '',
       )
     );
   }

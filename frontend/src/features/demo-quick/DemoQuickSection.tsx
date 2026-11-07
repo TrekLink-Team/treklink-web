@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   demoMessageOf,
+  quickResultOf,
   useDemoQuickOptions,
   useRunDemoQuick,
   type QuickAction,
@@ -72,6 +73,7 @@ export const DemoQuickSection: React.FC = () => {
       const result = await mutation.mutateAsync({ action, input });
       setResults((current) => ({ ...current, [action]: result }));
     } catch (failure) {
+      setResults((current) => ({ ...current, [action]: quickResultOf(failure) ?? undefined }));
       setErrors((current) => ({ ...current, [action]: demoMessageOf(failure, messageOf) }));
     }
   };
@@ -239,9 +241,10 @@ export const DemoQuickSection: React.FC = () => {
               </Select>
             </Field>
             <p className="text-body-sm text-ink-muted">
-              Uses real stock and invoices. Active and Return due record manual provisioning, demo
-              checks and a synthetic signature. Demo custody starts before the attribution margin so
-              SOS can run immediately.
+              Quick contracts record the signed-in Admin as requester. Uses real stock and invoices.
+              Active and Return due record manual provisioning, demo checks and a synthetic
+              signature. Demo custody starts before the attribution margin so SOS can run
+              immediately.
             </p>
             {button(
               'contract',
@@ -322,6 +325,11 @@ export const DemoQuickSection: React.FC = () => {
               onSubmit={onSubmit(action, { deviceId: units[action] })}
             >
               {unitField(action)}
+              {action === 'fault' && (
+                <p className="text-body-sm text-ink-muted">
+                  Quick fault reports record the signed-in Admin as reporter.
+                </p>
+              )}
               {button(
                 action,
                 !data.units.length ? 'A currently rented unit is required.' : undefined,

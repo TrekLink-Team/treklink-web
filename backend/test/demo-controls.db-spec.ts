@@ -21,6 +21,7 @@ if (/\.neon\.tech/i.test(databaseUrl)) {
 
 // The demo module is loaded only with the flag (REQ-UBI-01); AppModule reads it when it is compiled.
 process.env.DEMO_CONTROLS_ENABLED = 'true';
+process.env.VITE_APP_ENV = 'sandbox';
 const PASSWORD = 'Demo-controls-1';
 for (const role of ['ADMIN', 'STAFF', 'MANAGER', 'OPERATOR']) {
   process.env[`SEED_${role}_PASSWORD`] = PASSWORD;

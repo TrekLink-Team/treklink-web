@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Creates fresh demo records or applies a disclosed demo time control. Never resets, seeds, deletes or truncates. Multi-step failures retain committed record links in the run result.
+Creates fresh demo records or applies a disclosed demo time control. Never resets, seeds, deletes or truncates. Failed actions return the D-002 error envelope with the owning HTTP status and any committed record links in result.
 
 ## API Specification
 
@@ -64,8 +64,8 @@ Creates fresh demo records or applies a disclosed demo time control. Never reset
 
 | Field | Description | Data Type | Examples |
 | --- | --- | --- | --- |
-| error | Null on completion, otherwise the named cause of a business step failure, with committed records retained | string or null | `null` |
-| errorCode | Domain error code, including STALE_VERSION, in the persisted run result; the run response itself is HTTP 200 | string or null | `null` |
+| error | Null on success; failures use the error envelope message and owning HTTP status | null | `null` |
+| errorCode | Null on success; failures return result.errorCode with result.runId, result.label and result.records | null | `null` |
 
 ## Validation
 
@@ -176,6 +176,23 @@ Creates fresh demo records or applies a disclosed demo time control. Never reset
 ```
 </td>
         </tr>
+        <tr>
+            <td>409</td>
+            <td>A version changed since the options read (<code>STALE_VERSION</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "STALE_VERSION"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "Reload and try again."
+}
+```
+</td>
+        </tr>
     </tbody>
 </table>
 
@@ -196,8 +213,13 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
+    D3{"A version changed since the options read?"}
+    D2 -->|no| D3
+    E3["Return 409 STALE_VERSION"]
+    D3 -->|yes| E3
+    E3 --> X3((End))
     P0["Validate action-specific fields, environment, Admin role and database"]
-    D2 -->|no| P0
+    D3 -->|no| P0
     P1["Allocate durable demo counter"]
     P0 --> P1
     P2["Call real owning services and retain links after each committed step"]

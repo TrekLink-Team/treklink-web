@@ -47,10 +47,31 @@ describe('apiClient', () => {
   });
 
   it('throws ApiError with the status, error code and message of a failure envelope', async () => {
-    fetchMock.mockResolvedValue(envelope(409, { errorCode: 'CONFLICT_UNIQUE' }, 'email already exists'));
+    fetchMock.mockResolvedValue(
+      envelope(409, { errorCode: 'CONFLICT_UNIQUE' }, 'email already exists'),
+    );
     const failure = await apiClient('/things').catch((error: unknown) => error);
     expect(failure).toBeInstanceOf(ApiError);
-    expect(failure).toMatchObject({ statusCode: 409, errorCode: 'CONFLICT_UNIQUE', message: 'email already exists' });
+    expect(failure).toMatchObject({
+      statusCode: 409,
+      errorCode: 'CONFLICT_UNIQUE',
+      message: 'email already exists',
+    });
+  });
+
+  it('retains structured partial-run details from a failure envelope', async () => {
+    const details = {
+      errorCode: 'STALE_VERSION',
+      runId: 7,
+      label: 'Demo 7',
+      records: [{ label: 'Contract', code: 'RC-7', path: '/t/contracts/7' }],
+    };
+    fetchMock.mockResolvedValue(envelope(409, details, 'Reload the contract.'));
+    await expect(apiClient('/demo/quick/contract')).rejects.toMatchObject({
+      statusCode: 409,
+      errorCode: 'STALE_VERSION',
+      resultDetails: details,
+    });
   });
 
   it('refreshes once on 401 and retries with the new token', async () => {
@@ -60,14 +81,18 @@ describe('apiClient', () => {
       .mockResolvedValueOnce(envelope(200, { ok: true }));
     await expect(apiClient('/things')).resolves.toEqual({ ok: true });
     expect(fetchMock.mock.calls[1][0]).toMatch(/\/auth\/refresh$/);
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({ refreshToken: 'old-refresh' });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
+      refreshToken: 'old-refresh',
+    });
     expect(authOf(fetchMock.mock.calls[2][1])).toBe('Bearer new-access');
   });
 
   it('shares one refresh between concurrent callers', async () => {
     fetchMock.mockImplementation(async (url, init) => {
       if (url.endsWith('/auth/refresh')) return envelope(200, fresh);
-      return authOf(init) === 'Bearer new-access' ? envelope(200, { ok: true }) : envelope(401, { errorCode: 'UNAUTHENTICATED' }, 'Unauthorized');
+      return authOf(init) === 'Bearer new-access'
+        ? envelope(200, { ok: true })
+        : envelope(401, { errorCode: 'UNAUTHENTICATED' }, 'Unauthorized');
     });
     await Promise.all([apiClient('/a'), apiClient('/b'), apiClient('/c')]);
     const refreshes = fetchMock.mock.calls.filter(([url]) => url.endsWith('/auth/refresh'));
@@ -92,8 +117,12 @@ describe('apiClient', () => {
   });
 
   it('does not refresh when the sign-in itself is refused', async () => {
-    fetchMock.mockResolvedValue(envelope(401, { errorCode: 'INVALID_CREDENTIALS' }, 'Wrong email or password'));
-    await expect(apiClient('/auth/login', { method: 'POST' })).rejects.toMatchObject({ statusCode: 401 });
+    fetchMock.mockResolvedValue(
+      envelope(401, { errorCode: 'INVALID_CREDENTIALS' }, 'Wrong email or password'),
+    );
+    await expect(apiClient('/auth/login', { method: 'POST' })).rejects.toMatchObject({
+      statusCode: 401,
+    });
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(onSessionExpired).not.toHaveBeenCalled();
   });

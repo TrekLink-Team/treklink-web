@@ -121,8 +121,10 @@ describe('W43 additive scenarios on Postgres', () => {
     expect(audits).toContainEqual(
       expect.objectContaining({ action: 'demo.quick.incident', actorId: actor.id }),
     );
-    const repeated = await quick.run('incident', { deviceId }, actor);
-    expect(repeated.error).toMatch(/already has an open incident/);
+    await expect(quick.run('incident', { deviceId }, actor)).rejects.toMatchObject({
+      httpStatus: 409,
+      errorCode: 'DEMO_SCENARIO_UNAVAILABLE',
+    });
     expect(await prisma.incident.count({ where: { deviceId, state: { not: 'CLOSED' } } })).toBe(1);
   });
 
@@ -140,15 +142,9 @@ describe('W43 additive scenarios on Postgres', () => {
     const after = await prisma.incident.findUniqueOrThrow({ where: { id: incidentId } });
     expect(after.state).not.toBe(before.state);
     expect(after.version).toBeGreaterThan(before.version);
-    expect(
-      (
-        await quick.run(
-          'next-tier',
-          { recordId: incidentId, expectedVersion: before.version },
-          actor,
-        )
-      ).errorCode,
-    ).toBe('STALE_VERSION');
+    await expect(
+      quick.run('next-tier', { recordId: incidentId, expectedVersion: before.version }, actor),
+    ).rejects.toMatchObject({ httpStatus: 409, errorCode: 'STALE_VERSION' });
   });
 
   it('restores the four escalation parameters from its durable snapshot', async () => {
