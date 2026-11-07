@@ -419,7 +419,7 @@ Vercel production's values for `MAIL_TRANSPORT`, `SMTP_URL`, `MAIL_FROM`, `CHANN
 `COMPANY_*` letterhead and `DISPLAY_TIMEZONE_DEFAULT`.
 
 **Migrations stay with Vercel.** The container runs `node dist/main` only: never `prisma migrate` or a seed.
-The Vercel production build migrates and seeds `treklink_prod` (`backend/scripts/vercel-build.sh`). The image
+The Vercel production build applies forward migrations to `treklink_prod` (`backend/scripts/vercel-build.sh`). Since W43 (2026-11-07), it never runs the demo seed. The image
 is built from the commit the Vercel staging runs, after that build has migrated, so the Prisma client matches
 the schema.
 

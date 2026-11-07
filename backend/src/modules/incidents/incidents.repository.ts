@@ -208,6 +208,18 @@ export class IncidentsRepository {
     return rows as { id: string; state: S; organizationId: string | null }[];
   }
 
+  demoOptions() {
+    return this.prisma.incident.findMany({
+      where: {
+        simulated: true,
+        state: { in: ['NOTIFY_PRIMARY', 'NOTIFY_BACKUP', 'NOTIFY_MANAGER'] },
+      },
+      select: { id: true, code: true, state: true, version: true },
+      orderBy: { firstEventAt: 'desc' },
+      take: 100,
+    });
+  }
+
   findById(id: string): Promise<Incident | null> {
     return this.prisma.incident.findUnique({ where: { id } });
   }

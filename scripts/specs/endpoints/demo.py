@@ -1,11 +1,11 @@
 from ._common import USER_ID, CONTRACT_ID, NOW, STALE, ep
 
 NOTES = ("The module is loaded only when `DEMO_CONTROLS_ENABLED` is `true`; otherwise routes 01 to 04 "
-         "answer 404 (specs/demo/requirements.md REQ-UBI-01). The `POST` routes refuse a production "
+         "and the explicit VITE_APP_ENV is sandbox/staging; otherwise control routes answer 404 (REQ-QUICK-01). The `POST` routes refuse a production "
          "process and a database that is not on a loopback host before anything else (design §2). Route 05, "
          "the public test accounts list, is the exception: it has its own flag, `DEMO_TEST_ACCOUNTS_ENABLED`, "
          "and no other guard (D-089). Routes 06 to 10, the field simulation, belong to `DemoSimulationModule`, loaded "
-         "only when `DEMO_SIMULATION_ENABLED` is `true`; their writes need a database on a loopback host or named "
+         "only when `DEMO_SIMULATION_ENABLED` is `true` and the W43 control/environment gate passes; their writes need a database on a loopback host or named "
          "`treklink_prod` and are not refused in production (design §9, D-094).")
 
 GUARDS = [(403, "DEMO_DISABLED", "`NODE_ENV` is `production`", "Demo controls are disabled in production."),
@@ -25,9 +25,9 @@ ENDPOINTS.append(ep(
     "Tells the client whether demo controls can act in this process and on this database, and which "
     "scenario was staged last. The account menu and the demo page read it to show or hide the controls.",
     "D-088, REQ-EVT-01",
-    response={"enabled": True, "databaseLocal": True,
+    response={"enabled": True, "quickEnabled": True, "roleSwitchEnabled": False, "databaseLocal": False,
               "lastStaged": {"scenarioId": "clean", "at": NOW}},
-    fields=[["enabled", "False when `NODE_ENV` is production", "boolean", "`true`"],
+    fields=[["enabled", "True when local or additive quick controls are available", "boolean", "`true`"],
             ["databaseLocal", "The host of `DATABASE_URL` is loopback", "boolean", "`true`"],
             ["lastStaged", "Last scenario staged by this process, or null", "object", "`null`"]],
     steps=["Read NODE_ENV and the DATABASE_URL host", "Read the last staged scenario held in memory"],
@@ -300,8 +300,9 @@ ENDPOINTS.append(ep(
           ["expectedVersion", "Version for profile or time control", "integer", "conditional", "0"],
           ["active", "Enable or restore escalation demo profile", "boolean", "conditional", "true"]],
     sample={"organizationId": USER_ID, "hardwareVariantId": USER_ID, "quantity": 5, "target": "APPROVED"},
-    response={"runId": 1, "label": "Demo 1", "records": [], "error": None},
-    errors=QUICK_GUARDS, message="Demo action completed",
+    response={"runId": 1, "label": "Demo 1", "records": [], "error": None, "errorCode": None},
+    errors=QUICK_GUARDS[:2], message="Demo action completed",
+    fields=[["error", "Null on completion, otherwise the named cause of a business step failure, with committed records retained", "string or null", "`null`"], ["errorCode", "Domain error code, including STALE_VERSION, in the persisted run result; the run response itself is HTTP 200", "string or null", "`null`"]],
     steps=["Validate action-specific fields, environment, Admin role and database", "Allocate durable demo counter",
            "Call real owning services and retain links after each committed step", "Commit registry and emit actor audit"],
     controller="DemoQuickController", service="DemoQuickService", call="run(action, dto, caller)"))

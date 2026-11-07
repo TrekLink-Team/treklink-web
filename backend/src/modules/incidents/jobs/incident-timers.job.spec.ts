@@ -167,3 +167,84 @@ describe('IncidentTimersJob (incidents 3.1)', () => {
     error.mockRestore();
   });
 });
+
+describe('W43 targeted demo escalation', () => {
+  const actor = { id: 'actual-admin', roles: ['ADMIN'], organizationId: null };
+  const now = new Date('2026-11-07T08:00:00Z');
+  const build = (override = {}) => {
+    const current = {
+      id: 'i',
+      state: 'NOTIFY_PRIMARY',
+      version: 2,
+      organizationId: 'org',
+      simulated: true,
+      tierDeadlineAt: new Date(now.getTime() + 120000),
+      ...override,
+    };
+    const incidents = {
+      lockById: jest.fn().mockResolvedValue(current),
+      compareAndSet: jest.fn().mockResolvedValue({ ...current, version: 3, tierDeadlineAt: now }),
+    };
+    const lifecycle = {
+      apply: jest.fn().mockResolvedValue({ ...current, state: 'NOTIFY_BACKUP', version: 4 }),
+    };
+    const routing = { recipientsOf: jest.fn().mockResolvedValue(TIERS) };
+    const events = {
+      transaction: jest.fn((work: (tx: object) => Promise<unknown>) => work(tx)),
+      emitAfterCommit: jest.fn(),
+    };
+    return {
+      incidents,
+      lifecycle,
+      events,
+      job: new IncidentTimersJob(
+        incidents as unknown as IncidentsRepository,
+        lifecycle as unknown as IncidentLifecycle,
+        routing as unknown as RoutingService,
+        events as unknown as TransactionalEvents,
+      ),
+    };
+  };
+  it('runs normal routing/lifecycle in one transaction, with the actual Admin in the audit', async () => {
+    const f = build();
+    await f.job.advanceDemo('i', 2, actor, now);
+    expect(f.incidents.compareAndSet).toHaveBeenCalledWith(
+      expect.objectContaining({ version: 2 }),
+      { tierDeadlineAt: now },
+      tx,
+    );
+    expect(f.lifecycle.apply).toHaveBeenCalledWith(
+      'i',
+      'NOTIFY_PRIMARY',
+      'NOTIFY_BACKUP',
+      { kind: 'SYSTEM' },
+      expect.objectContaining({ code: 'TIER_TIMEOUT', expectedVersion: 3, recipients: TIERS }),
+      tx,
+    );
+    expect(f.events.emitAfterCommit).toHaveBeenCalledWith(
+      'audit.record',
+      expect.objectContaining({ actorId: actor.id, action: 'demo.incident.advance' }),
+    );
+  });
+  it.each([{ simulated: false }, { state: 'ACKNOWLEDGED' }, { state: 'CLOSED' }])(
+    'rejects ineligible incident %j without changing its deadline',
+    async (override) => {
+      const f = build(override);
+      await expect(f.job.advanceDemo('i', 2, actor, now)).rejects.toMatchObject({
+        errorCode: 'INVALID_STATE_TRANSITION',
+      });
+      expect(f.incidents.compareAndSet).not.toHaveBeenCalled();
+    },
+  );
+  it('rejects stale and unknown incidents before writes', async () => {
+    const f = build();
+    await expect(f.job.advanceDemo('i', 1, actor)).rejects.toMatchObject({
+      errorCode: 'STALE_VERSION',
+    });
+    expect(f.incidents.compareAndSet).not.toHaveBeenCalled();
+    f.incidents.lockById.mockResolvedValueOnce(null);
+    await expect(f.job.advanceDemo('i', 2, actor)).rejects.toMatchObject({
+      errorCode: 'NOT_FOUND',
+    });
+  });
+});

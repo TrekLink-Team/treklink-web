@@ -230,6 +230,48 @@ export class FieldSimulationService {
     };
   }
 
+  // W43: refresh simulator-owned walkers, without changing hardware or measured battery data.
+  async refreshWalkers(actor: SimulationActor, now = new Date()) {
+    const overview = await this.overview(now);
+    const refreshed: SimulatedNodeView[] = [];
+    for (const device of overview.devices.filter(
+      (unit) => unit.status === 'RENTED' && unit.nodeId,
+    )) {
+      const existing = overview.nodes.find(
+        (node) => node.deviceId === device.id && node.status === 'RUNNING',
+      );
+      if (existing) {
+        const node = await this.running(existing.id);
+        const anchor = reanchor(this.trail(node.trailId), anchorOf(node), now, { pattern: 'WALK' });
+        const changed = await this.events.transaction(async (tx) => {
+          const row = await this.nodes.updateRunning(
+            node.id,
+            existing.version,
+            { ...anchorColumns(anchor), anchorBattery: 85, sosKind: null, sosSince: null },
+            tx,
+          );
+          if (!row) throw stale();
+          this.audit(actor, 'demo.simulation.refresh', row, null, {
+            batteryPct: 85,
+            pattern: 'WALK',
+          });
+          return row;
+        });
+        refreshed.push(await this.view(changed, now));
+      } else {
+        refreshed.push(
+          await this.start(
+            { deviceId: device.id, trailId: overview.trails[0].id, pattern: 'WALK' },
+            actor,
+            now,
+          ),
+        );
+      }
+    }
+    await this.run(now);
+    return refreshed;
+  }
+
   // demo api-design 07 (REQ-SIM-03).
   async start(
     input: StartNodeInput,

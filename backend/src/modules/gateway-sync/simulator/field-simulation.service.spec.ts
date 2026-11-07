@@ -386,3 +386,44 @@ describe('FieldSimulationService (specs/demo/design.md §9)', () => {
     expect(uplinks.ingest).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('W43 walker refresh', () => {
+  it('starts a rented node through the simulator and leaves measured device data alone', async () => {
+    const f = build();
+    const result = await f.service.refreshWalkers(actor, now);
+    expect(result).toHaveLength(1);
+    expect(f.nodes.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ deviceId: DEVICE.id, pattern: 'WALK' }),
+      'tx',
+    );
+    expect(f.emitted.some((event) => event.name === 'audit.record')).toBe(true);
+  });
+  it('refreshes a running node battery anchor and stops its synthetic SOS beacons', async () => {
+    const f = build();
+    f.nodes.listed.mockResolvedValue([row({ anchorBattery: 8, sosKind: 'SOS', sosSince: now })]);
+    await f.service.refreshWalkers(actor, now);
+    expect(f.nodes.updateRunning).toHaveBeenCalledWith(
+      'node-1',
+      0,
+      expect.objectContaining({
+        anchorBattery: 85,
+        pattern: 'WALK',
+        sosKind: null,
+        sosSince: null,
+      }),
+      'tx',
+    );
+    expect(f.nodes.insert).not.toHaveBeenCalled();
+  });
+  it('does not start available inventory and rejects a raced node refresh', async () => {
+    const f = build();
+    f.devices.page.mockResolvedValueOnce([[{ ...DEVICE, status: 'AVAILABLE' }], 1]);
+    expect(await f.service.refreshWalkers(actor, now)).toEqual([]);
+    expect(f.nodes.insert).not.toHaveBeenCalled();
+    f.nodes.listed.mockResolvedValue([row()]);
+    f.nodes.updateRunning.mockResolvedValueOnce(null);
+    await expect(f.service.refreshWalkers(actor, now)).rejects.toMatchObject({
+      errorCode: 'STALE_VERSION',
+    });
+  });
+});

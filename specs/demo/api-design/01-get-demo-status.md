@@ -27,7 +27,9 @@ No body.
 {
   "result": {
     "enabled": true,
-    "databaseLocal": true,
+    "quickEnabled": true,
+    "roleSwitchEnabled": false,
+    "databaseLocal": false,
     "lastStaged": {
       "scenarioId": "clean",
       "at": "2026-10-20T03:15:00.000Z"
@@ -41,7 +43,7 @@ No body.
 
 | Field | Description | Data Type | Examples |
 | --- | --- | --- | --- |
-| enabled | False when `NODE_ENV` is production | boolean | `true` |
+| enabled | True when local or additive quick controls are available | boolean | `true` |
 | databaseLocal | The host of `DATABASE_URL` is loopback | boolean | `true` |
 | lastStaged | Last scenario staged by this process, or null | object | `null` |
 

@@ -7,6 +7,7 @@ export {
   DEMO_SIMULATION_FLAG,
   DEMO_TEST_ACCOUNTS_FLAG,
   demoControlsEnabled,
+  demoPanelSimulationEnabled,
   demoSimulationEnabled,
   demoTestAccountsEnabled,
 } from './demo-flag';

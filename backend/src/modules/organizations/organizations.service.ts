@@ -41,6 +41,12 @@ export class OrganizationsService {
     @Optional() @Inject(MAIL_PORT) private readonly mail?: MailPort,
   ) {}
 
+  // W43: the demo form offers only Active organizations. Managers are read through this module.
+  async activeDemoOptions() {
+    const [rows] = await this.organizations.page({ status: OrganizationStatus.ACTIVE }, 0, 100);
+    return rows.map(({ id, code, legalName }) => ({ id, code, legalName }));
+  }
+
   // Task 2.4 part, built by LongLP for rentals 3.2 (REQ-EVT-13, D-035): a contract that defaulted
   // suspends its ACTIVE organization, by SYSTEM, in the caller's transaction, with a transition naming
   // the contract. An organization in any other status is left as it is. Returns whether it changed.

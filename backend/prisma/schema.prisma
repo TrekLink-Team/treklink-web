@@ -2174,3 +2174,22 @@ model StaleMark {
   @@id([subjectType, subjectId])
   @@map("stale_marks")
 }
+
+// @module demo
+// W43: durable demo provenance and a restart-safe escalation profile. No business rows are owned here.
+model DemoScenarioRun {
+  id        Int      @id @default(autoincrement())
+  actorId   String
+  action    String
+  records   Json     @default("[]")
+  error     String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@map("demo_scenario_runs")
+}
+
+model DemoControlState {
+  id       String @id
+  version  Int    @default(0)
+  snapshot Json?
+  @@map("demo_control_states")
+}

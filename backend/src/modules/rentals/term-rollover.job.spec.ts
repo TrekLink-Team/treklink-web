@@ -68,6 +68,17 @@ describe('TermRolloverJob (rentals task 3.1)', () => {
     );
   });
 
+  it('runs a demo rollover for only its selected contract', async () => {
+    await expect(job.run(AT, 'another-contract')).resolves.toEqual({
+      renewed: 0,
+      returnDue: 0,
+      returned: 0,
+    });
+    expect(contracts.closeTerm).not.toHaveBeenCalled();
+    await job.run(AT, 'c-1');
+    expect(contracts.closeTerm).toHaveBeenCalledTimes(1);
+  });
+
   it('renews a monthly ACTIVE contract with the next term and its invoice', async () => {
     await expect(job.run(AT)).resolves.toEqual({ renewed: 1, returnDue: 0, returned: 0 });
     expect(contracts.insertTerm).toHaveBeenCalledWith(
