@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Lists what the field simulation panel needs: the trails (OpenStreetMap, © OpenStreetMap contributors, ODbL), the patterns, the movement styles, the devices that can be simulated and the simulated nodes, running ones first, then the twenty most recently stopped. `databaseAllowed` tells the screen whether the writes 07 to 10 can act on this database. The route belongs to `DemoSimulationModule`, loaded only when `DEMO_SIMULATION_ENABLED` is `true`; it is independent of `DEMO_CONTROLS_ENABLED` and is not refused in production, because the Vercel staging runs as production (D-094).
+Lists what the field simulation panel needs: the trails (OpenStreetMap, © OpenStreetMap contributors, ODbL), the patterns, the movement styles, the devices that can be simulated and the simulated nodes, running ones first, then the twenty most recently stopped. `databaseAllowed` tells the screen whether the writes 07 to 10 can act on this database. The route belongs to `DemoSimulationModule`, loaded only when the W43 control/environment gate and `DEMO_SIMULATION_ENABLED` pass. It may run in staging production (D-094, W43).
 
 ## API Specification
 

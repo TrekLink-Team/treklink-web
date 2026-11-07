@@ -1,12 +1,13 @@
 from ._common import USER_ID, CONTRACT_ID, NOW, STALE, ep
 
-NOTES = ("The module is loaded only when `DEMO_CONTROLS_ENABLED` is `true`; otherwise routes 01 to 04 "
-         "and the explicit VITE_APP_ENV is sandbox/staging; otherwise control routes answer 404 (REQ-QUICK-01). The `POST` routes refuse a production "
-         "process and a database that is not on a loopback host before anything else (design §2). Route 05, "
-         "the public test accounts list, is the exception: it has its own flag, `DEMO_TEST_ACCOUNTS_ENABLED`, "
-         "and no other guard (D-089). Routes 06 to 10, the field simulation, belong to `DemoSimulationModule`, loaded "
-         "only when `DEMO_SIMULATION_ENABLED` is `true` and the W43 control/environment gate passes; their writes need a database on a loopback host or named "
-         "`treklink_prod` and are not refused in production (design §9, D-094).")
+NOTES = ("Control routes require `DEMO_CONTROLS_ENABLED=true` and explicit `VITE_APP_ENV` sandbox or staging; "
+         "otherwise they answer 404 (REQ-QUICK-01). Legacy stage and role-switch writes additionally refuse "
+         "NODE_ENV production and non-loopback databases (design §2). Additive quick actions 11 and 12 allow "
+         "staging production, require an Admin role and `demo.stage`, and check both database URLs. "
+         "Route 05 is the public test accounts list under its independent `DEMO_TEST_ACCOUNTS_ENABLED` flag (D-089). "
+         "Simulation control routes 06 to 10 require both the control/environment gate and `DEMO_SIMULATION_ENABLED`; "
+         "their writes require a local or named staging database and may run in staging production. "
+         "The field simulator job retains its separate flag.")
 
 GUARDS = [(403, "DEMO_DISABLED", "`NODE_ENV` is `production`", "Demo controls are disabled in production."),
           (403, "DEMO_DATABASE_NOT_LOCAL", "The host of `DATABASE_URL` is not a loopback address",
@@ -28,7 +29,9 @@ ENDPOINTS.append(ep(
     response={"enabled": True, "quickEnabled": True, "roleSwitchEnabled": False, "databaseLocal": False,
               "lastStaged": {"scenarioId": "clean", "at": NOW}},
     fields=[["enabled", "True when local or additive quick controls are available", "boolean", "`true`"],
-            ["databaseLocal", "The host of `DATABASE_URL` is loopback", "boolean", "`true`"],
+            ["quickEnabled", "The explicit control/environment gate permits additive actions", "boolean", "`true`"],
+            ["roleSwitchEnabled", "Local role switching is allowed; always false in production", "boolean", "`false`"],
+            ["databaseLocal", "Both database URLs are loopback with no target overrides", "boolean", "`false`"],
             ["lastStaged", "Last scenario staged by this process, or null", "object", "`null`"]],
     steps=["Read NODE_ENV and the DATABASE_URL host", "Read the last staged scenario held in memory"],
     controller="DemoController", service="DemoScenariosService", call="status()",
@@ -123,7 +126,7 @@ ENDPOINTS.append(ep(
     seq=["Svc->>Svc: readTestAccountPasswords(env)", "Svc->>Svc: SEEDED_TEST_ACCOUNTS"]))
 
 # Field simulation (D-093 amendment, D-094; specs/demo/requirements.md §2.4, design §9). Routes 06 to 10 belong
-# to DemoSimulationModule, loaded only when DEMO_SIMULATION_ENABLED is true.
+# to DemoSimulationModule, loaded only when the W43 gate and DEMO_SIMULATION_ENABLED pass.
 SIM_PERMISSION = "TrekLink Admin (`demo.simulate`)"
 SIM_NOT_ALLOWED = (403, "DEMO_DATABASE_NOT_ALLOWED",
                    "The database of `DATABASE_URL` or `DATABASE_DIRECT_URL` is neither on a loopback host nor named `treklink_prod`",
@@ -157,9 +160,8 @@ ENDPOINTS.append(ep(
     "Lists what the field simulation panel needs: the trails (OpenStreetMap, © OpenStreetMap contributors, ODbL), "
     "the patterns, the movement styles, the devices that can be simulated and the simulated nodes, running ones first, then the twenty "
     "most recently stopped. `databaseAllowed` tells the screen whether the writes 07 to 10 can act on this database. "
-    "The route belongs to `DemoSimulationModule`, loaded only when `DEMO_SIMULATION_ENABLED` is `true`; it is "
-    "independent of `DEMO_CONTROLS_ENABLED` and is not refused in production, because the Vercel staging runs as "
-    "production (D-094).",
+    "The route belongs to `DemoSimulationModule`, loaded only when the W43 control/environment gate and "
+    "`DEMO_SIMULATION_ENABLED` pass. It may run in staging production (D-094, W43).",
     "D-093 amendment, D-094, REQ-SIM-01, REQ-SIM-08, REQ-SIM-09",
     response={"databaseAllowed": True,
               "trails": [{"id": "ta-nang-phan-dung", "name": "Ta Nang to Phan Dung", "region": "Lam Dong",

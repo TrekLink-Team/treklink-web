@@ -32,6 +32,32 @@ A step marked **(unverified)** could not be traced to code or to a handoff that 
 > from that run: MF-01 step 8 sets the readings before the provisioning, MF-04 step 6 opens TL-0009
 > again, MF-04 step 7 (telemetry history) is new, and §7 lists Accounts and Sign-in events as built.
 
+
+## W43 staging review, Sunday 2026-11-08 at 15:00 (UTC+7)
+
+This is the current starting procedure. The numbered local rehearsal below remains historical evidence; its fixed ORG, RC, INC and LOSS codes are examples only. Use the links returned by the quick scenarios for every record in this review. Never reset or seed Neon. Vercel builds now apply forward migrations without running the demo seed.
+
+Open the staging sign-in page in four windows. In **Sandbox test accounts**, use Admin (`admin@treklink.local`), Staff (`staff@treklink.local`), Manager (`manager@treklink.local`) and Operator (`operator@treklink.local`). Passwords come from `SEED_ADMIN_PASSWORD`, `SEED_STAFF_PASSWORD`, `SEED_MANAGER_PASSWORD` and `SEED_OPERATOR_PASSWORD`. The staging panel does not switch roles without a password.
+
+In the Admin window, **Administration**, **Demo control** (`/t/admin/demo`). It has workflow groups, short forms and persistent result lines with links. A result that names a cause can still contain committed records: inspect those links before retrying. Stock reservations, organization eligibility, key exposure, payment and custody checks remain real. A new contract consumes available inventory. The leader observed **8 available** on staging on 2026-11-07; this is an observation, not a fixed count. If stock is insufficient, finish returning and inspecting prior demo units through the normal counter before another request.
+
+| Workflow | Start in Demo control | Continue in the role window |
+|---|---|---|
+| WF-01a registration | **Quick organization registration**. Follow the new **Pending demo organization** link, record its fresh code. | Staff: Organizations, Pending, that code, record counter verification and the documents checked. Admin: open the same application and **Approve**. The generated manager contact is fictitious; this quick scenario demonstrates approval, not delivery of a real invitation. |
+| WF-01 contract | Active organization, Variant, Quantity (the configured minimum is prefilled), Target state **Requested, approve live**, then **Quick contract**. | Staff: Contracts defaults to **Show: All**. Search the returned code, **Show details**, approve using its status menu, then use its **Counter and invoices** result link. For a handover-only demonstration choose **Approved, handover next** instead. |
+| WF-01 running contract | Choose **Active, release a unit or End now**, then **Quick contract**. | Follow the contract result. In the unit list release one unit with its row action; **End now** demonstrates ending the remaining contract. This scenario records manual provisioning, synthetic GPS/battery checks and a synthetic signature, disclosed in the form and note. Demo custody is dated before the attribution margin so an immediate SOS can be attributed. |
+| WF-02 field data | **Refresh simulated walkers**. | Operator: Live map, observe the rented units and updated positions/battery. Admin: the Field simulation section controls pattern, style, SOS and silence. **Simulated on staging**: this exercises ingest and projections, not a physical radio, USB cable, MQTT outage or Field Station delivery. |
+| WF-03 SOS | Rented unit, **Quick incident**. Choose a unit without an open incident. The result links the fresh **Simulated SOS incident**. | Operator: Incidents, open that code or its alert, Acknowledge, Response under way, add status, report outcome and Resolve. Staff queue defaults to **Show: All incidents**. An open incident can block its contract close; resolve it and allow its reopen window to end. |
+| WF-04 map and billing | Start from the WF-01 contract or WF-02 walkers. The WF-04 card links Contracts; the WF-01 result links Counter and invoices. | Manager/Operator: Live map for the chosen organization's rented units. Staff: the chosen contract's invoices and receipts. Generated invoices and payments come from the real billing services. Do not narrate this as a real payment gateway transaction. |
+| WF-05 return | Contract target **Return due, check-in next**, then **Quick contract**; follow **Counter and invoices**. | Staff: Check-in, Reset and inspection, closing invoice and balance, Close. Use the asset tags in this contract, not TL-0017/TL-0018 from the old rehearsal. The term shift is a disclosed demo time control. |
+| WF-05 loss or fault | Choose a currently rented unit under **Loss and fault**, then **Quick loss case** or **Quick fault report**. Use a different unit from the incident demonstration. | Staff: follow the new loss-case link for triage and settlement, or the fault's contract link for replacement. The report goes through the normal custody/state checks and notifications. |
+
+**Demo time controls.** Before raising a fresh SOS, **Enable demo escalation**, review the Dialog and confirm. The profile reads **Demo active**, uses 30 seconds for each of the three tier timeouts and a 5-minute reopen window, and retains previous parameter values persistently. Existing incident deadlines keep their current times. Pick a simulated incident awaiting a tier, **Advance incident to next tier**, confirm, to run its next real routing/alert transition now. Pick an Active/Ending contract, **Advance contract to term end**, confirm, to give notice where needed, shift only its term and run its rollover. The result links the affected record. These are demo time controls, not elapsed real time.
+
+At the end, **Restore normal escalation**, confirm. If a parameter was edited by somebody else while the profile was active, restoration refuses with STALE_VERSION; inspect Parameters, History and the audit, rather than overwriting their change. Reload after any stale-version result. Authority reports default to **Show: All reports**; a closed report remains visible until the presenter selects **Open cases only**.
+
+**Deployment names only.** Backend: `DEMO_CONTROLS_ENABLED`, `VITE_APP_ENV`, `DATABASE_URL`, `DATABASE_DIRECT_URL`, `DEMO_SIMULATION_ENABLED`, `FIELD_SIMULATOR_ENABLED`, `JOBS_TICK_ON_REQUEST`, `DEMO_TEST_ACCOUNTS_ENABLED`, the four `SEED_*_PASSWORD` names above. Frontend: `VITE_APP_ENV`, `VITE_API_BASE_URL`, `VITE_LIVE_MODE`. Retain the deployment's existing auth, channel-key, letterhead and mail configuration. See the run book for the gate and the distinction from the AWS field host.
+
 The five main flows, as `specs/README.md:25-31` maps them to modules:
 
 | Flow | What it shows | Modules |
@@ -70,7 +96,7 @@ Repository root `.env` (read by the backend, the seed and the gateway: `backend/
 | `SEPAY_WEBHOOK_API_KEY` | Unset is fine: the demo pays at the counter (see Disclosures) | `environment-variables.ts:196-209` |
 | `VITE_API_BASE_URL`, `VITE_WS_URL` | The frontend's API and live socket | `.env.example` |
 
-### 1.2 Commands, Saturday evening and again Sunday before the meeting
+### 1.2 Local-only historical setup commands, never run on staging
 
 Run from the repository root.
 
@@ -214,6 +240,9 @@ Plus one terminal at the repository root for `replay:mqtt` and `demo:term-end`.
 
 ## 2a. MF-01a: onboarding, register to the Manager's first sign-in (about 4 minutes)
 
+**W43 start:** Demo control, Quick organization registration, then the returned organization link. The fixed codes below describe a local rehearsal.
+
+
 Run on the leader's dry run of 2026-10-30; the steps below are traced to the code on `dev`. The new
 organization is ORG-0002 (§1.3). MF-01 then continues with the seeded ORG-0001, whose devices, Field
 Station and contracts the later flows use; ORG-0002 rents nothing in this demo.
@@ -237,15 +266,18 @@ rehearsal, register with another one (§1.3).
 
 ## 2b. MF-01: request to handover (about 9 minutes)
 
+**W43 start:** Demo control, Quick contract, choose Requested or Approved, then use the returned contract and counter links.
+
+
 | # | Window | Page and click | Expected on screen | Source |
 |---|---|---|---|---|
 | 0 (optional) | Any window before sign-in | The public plans page at `/` (also `/plans`) | "Rent TrekLink devices", the monthly and day price per variant with a "Sandbox price" badge, "How renting works", **Register your organization** and **Sign in** | `frontend/src/app/router.tsx:87-88`; `frontend/src/pages/PlansPage.tsx:44, 87-110, 191-202` |
 | 1 | A Manager | Overview `/o`, **Request a contract** | The request page with three steps: Plan and devices, Start date, Review and send | `OrgDashboardPage.tsx:187-188`, `ContractRequestPage.tsx:24, 232` |
-| 2 | A | Plan **Monthly**, under Hardware variant the **TrekLink v3 (GPS, SOS button)** card (one radio card per variant, v1 to v4; this one reads "450,000 VND per device per month, 10 available"), Quantity **5**, **Next** | Under Quantity, once a variant is chosen: "10 available now" with **Refresh** (devices api-design 24, refreshed every 30 s; D-092 rule 1). The Quote panel shows, after a short pause, "Term fee (one month) 2,250,000 VND", "First payment, holding fee (50 %) 1,125,000 VND", "Balance at each term end 1,125,000 VND" and "Formula: 450000 x 5 x 0.5"; the quantity hint reads "At least 5 devices." | `ContractRequestPage.tsx:304, 332, 335, 349, 351-356, 429, 463, 471` (line numbers after `feat/request-availability-hold`); cards `frontend/src/widgets/VariantPicker/VariantPicker.tsx:25, 61`, "available now" `ContractRequestPage.tsx:451` (the card reads the variant name and price, not the code `treklink-v3`; name `seed-demo.ts:152`); `rentals.minOrderQuantity` 5 in `backend/prisma/migrations/20261004120100_seed/migration.sql:22` |
+| 2 | A | Plan **Monthly**, under Hardware variant the **TrekLink v3 (GPS, SOS button)** card (one radio card per variant, v1 to v4; this one reads "450,000 VND per device per month, 8 available"), Quantity **5**, **Next** | Under Quantity, once a variant is chosen: "8 available now" with **Refresh** (devices api-design 24, refreshed every 30 s; D-092 rule 1). The Quote panel shows, after a short pause, "Term fee (one month) 2,250,000 VND", "First payment, holding fee (50 %) 1,125,000 VND", "Balance at each term end 1,125,000 VND" and "Formula: 450000 x 5 x 0.5"; the quantity hint reads "At least 5 devices." | `ContractRequestPage.tsx:304, 332, 335, 349, 351-356, 429, 463, 471` (line numbers after `feat/request-availability-hold`); cards `frontend/src/widgets/VariantPicker/VariantPicker.tsx:25, 61`, "available now" `ContractRequestPage.tsx:451` (the card reads the variant name and price, not the code `treklink-v3`; name `seed-demo.ts:152`); `rentals.minOrderQuantity` 5 in `backend/prisma/migrations/20261004120100_seed/migration.sql:22` |
 | 2a (optional) | A | Before **Next**, type Quantity **11**, **Next**; then set it back to **5** | Under Quantity: "Only 10 TrekLink v3 (GPS, SOS button) devices are available. Lower the quantity or choose another variant." (MSG11) and the page stays on step 1. Say: the request holds its units at once, so a second organization asking for the last units is refused here, not the next day; the race is settled by the database (rentals AC-08) | `ContractRequestPage.tsx:39-40, 147-148`; rentals REQ-ERR-01, design §2.1; `backend/test/rentals-request-hold.db-spec.ts` |
 | 3 | A | Start date (handover day): **today**, **Next** | Today is the earliest date allowed | `ContractRequestPage.tsx:375-385` |
 | 4 | A | Review, **Send request** | Toast "Request sent. Your devices are held; TrekLink will confirm your handover appointment."; the page shows "Request RC-2026-0004 sent", "5 TrekLink v3 (GPS, SOS button) devices are held for you until" a time 24 hours from now, and "Deposit due before then: **1,125,000 VND**, the holding fee. Pay it at the TrekLink counter or online. If it is not paid by then, the request is cancelled and the devices are released." (D-092 amendment b) with **Open the contract** and **Pay the deposit**. Click **Open the contract**: code **RC-2026-0004**, Requested, "Devices held until" the same time. The five units are `RESERVED` from this moment (D-092 rule 1) | `ContractRequestPage.tsx:35-36, 208-243`; `ContractDetailPage.tsx:283`; `rentals.requestHoldHours` 24 in `backend/prisma/migrations/20261101200000_rentals_request_hold/migration.sql`; the request `backend/src/modules/rentals/contracts.service.ts` (`request`) |
-| 5 | B Staff | Sidebar **Contracts** (`/t/contracts`); the list opens on **Show: Requested** (the queue is the list's Show menu: Requested, Approved, All); on the **RC-2026-0004** row, **Show details** (the "i" icon at the end of the row) | Details pane beside the list: status, plan, devices, prices; status line "This request holds its 5 TrekLink v3 (GPS, SOS button) devices; approval keeps them. An unpaid hold ends ..." (a request sent before D-092 still reads "10 ... available now; approval reserves 5.") | `ContractApprovalPage.tsx:252, 388-392, 561-568`; ten v3 units in `seed-demo.ts:185-192` |
+| 5 | B Staff | Sidebar **Contracts** (`/t/contracts`); the list opens on **Show: All**, choose Requested to narrow it (the queue is the list's Show menu: Requested, Approved, All); on the **RC-2026-0004** row, **Show details** (the "i" icon at the end of the row) | Details pane beside the list: status, plan, devices, prices; status line "This request holds its 5 TrekLink v3 (GPS, SOS button) devices; approval keeps them. An unpaid hold ends ..." (a request sent before D-092 still reads "8 ... available now; approval reserves 5.") | `ContractApprovalPage.tsx:252, 388-392, 561-568`; ten v3 units in `seed-demo.ts:185-192` |
 | 6 | B | Handover appointment: it opens on today 09:00 local; **after 09:00 change it to a time later today** (for example the next full hour), then **Approve** | Toast "RC-2026-0004 approved. 5 devices reserved."; a green box "Reserved: TL-00xx, ..." (the five tags held at step 4) and "Reservation expires ...". An appointment in the past is refused under the field: "The handover appointment is in the past. Choose a time from now on." (dry run 2026-10-30, rentals REQ-ERR-09). A later appointment today does not hold up the handover, which checks only the start date | `ContractApprovalPage.tsx:50, 159-174, 217-222, 257-275`; refusal `backend/src/modules/rentals/contract-decisions.service.ts` (approve, REQ-ERR-09); handover day check `backend/src/modules/rentals/handover.service.ts:212` |
 | 7 | B | In the same panel **Open the contract**, then **Start handover**, the primary action of the contract home (since #349 the home runs the handover in place; it offers no **Open the counter** on an Approved contract) | The home switches to Handover mode (`?mode=handover`): the sticky row reads "Handover" with **Back to overview**, and below it the four steps Devices, Payment, Preview note, Sign; **Leave handover** is in **More actions** | `ContractApprovalPage.tsx:284-285`; `frontend/src/widgets/ContractHome/policy.ts:95-103`; `ContractDetailPage.tsx:229-233, 279-280, 302`; embedded counter `CounterPage.tsx:192-203, 624-630` and `frontend/src/app/router.tsx:58-59` |
 | 8 | B | Step 1 Devices: type a reserved tag (for example TL-0011) in **Scan or type an asset tag**, **Find**. Then once for all five units, **readings first**: tick **Select all units**; type **90** in **Battery % for selected**, choose **GPS fix** in **GPS fix for selected**, **Set readings for selected**; then **Record provisioning for selected**; **Next** in the action bar fixed at the bottom. Keep this order: a completed **Record provisioning for selected** clears the selection ("0 of 5 selected"), so readings set after it need **Select all units** ticked again (fourth demo smoke, 2026-11-01; `CounterPage.tsx:402-405`, screen 5.4 action table). (Each row also keeps its own **Record provisioning**, Battery % and GPS fix.) A unit provisioned by mistake shows an **Undo** link on its row: **Undo provisioning** in the dialog "Undo the provisioning of TL-00xx?" clears its record and readings before the handover, with the toast "Provisioning of TL-00xx undone. Record it again before handover." (rentals api-design 19, `CounterPage.tsx:136-174, 837-841, 1095-1106`). | The found row is highlighted, "TL-0011 is on this contract."; "5 of 5 selected"; "Readings set on 5 units." and every row shows 90 and GPS fix ticked, the selection still "5 of 5 selected"; "Recorded 5 of 5." and each row reads "Provisioned v1". An **Undo** also clears that unit's battery and GPS fix: type them on its row again after recording it again. The page header with the four steps stays at the top while the list scrolls | `CounterPage.tsx:603-628` (scan), `637-725` (bulk, note texts `332, 365`), `756-760` (row), action bar `983-1010`; checks in `CounterPage.tsx:369-389`; minimum battery 50 % in `migration.sql:16` |
@@ -270,6 +302,9 @@ laptop (`specs/frontend/tasks.md:84`). Then go straight to MF-02, where the seed
 ---
 
 ## 3. MF-02: device data through the Field Station bridge (about 5 minutes)
+
+**W43 start:** Demo control, Refresh simulated walkers. WF-02 is Simulated on staging; the physical gateway procedure below is local-only.
+
 
 No 2026-10-30 handoff covers MF-02; the steps below come from the gateway code, the sync status page
 of #147, and the gateway-sync task notes of 2026-10-27 and 2026-10-30
@@ -296,6 +331,9 @@ npm --prefix backend run replay:mqtt -- trek --now --new-ids --interval 2000
 ---
 
 ## 4. MF-03: SOS to incident (about 9 minutes)
+
+**W43 start:** Demo control, Quick incident on a rented unit, then its returned incident link. Demo time controls replace the manual parameter edits and replay below.
+
 
 Before the meeting (optional, to show escalation): as Admin (window D), sidebar **Parameters**
 (`/t/admin/parameters`, group Administration), **Module** filter `incidents`; on each of
@@ -326,9 +364,9 @@ totalPages }` whose items carry `key`, `value` and `version` (`parameter-reads.s
 | 5 | C | **Response under way**, What is being done "Ranger team dispatched from the Ta Nang post", **Save response**; then **Add status**, a line, **Save status** | State Responding; the status update appears with the author and time | `IncidentDetailPage.tsx:51-57, 310-325` |
 | 5b | C | Under the status update, **Correct**; Corrected status update "Team at km 6, voice contact with the hiker", **Save correction** | The form says "Corrects the update of <time>. The original stays in the history, marked corrected."; toast "Saved."; the new update carries the badge "Correction of <time>" and the old one "Corrected", greyed. Correct is offered only while the incident is open to its owner; it is gone after step 6 | `IncidentDetailPage.tsx:78-84, 356-390` (`01b40a7`, `f98b516`) |
 | 6 | C | **Report outcome**, Outcome "Hiker found, minor ankle injury, walked out", **Resolve incident** | State Resolved; the facts card adds Outcome; History shows each step with the actor and the saved notes ("Response under way, by Demo Operator, ..." with the response text, "Resolved, by Demo Operator, ..." with the outcome) | `IncidentDetailPage.tsx:58-62, 297-300`; History panel `docs/sessions/2026-10-30-0710-hoangtk-tk145-incident-history-panels.md:31-35` (`b975e68`) |
-| 7 | B Staff | Sidebar **Incidents** (`/t/incidents`); the queue opens on **Show: Unrouted and escalated** (the filter buttons are now the list's Show menu: Unrouted and escalated, Unrouted, Escalated, All incidents); on the seeded **TL-0001** row, **Show details** (the "i" icon) or the incident code | Inline detail beside the queue: Device TL-0001, Holder "No holder label", Owner "TrekLink Staff queue", state Unrouted | `StaffIncidentsPage.tsx:40-45, 338, 346`; seed `seed-demo.ts:783-838` |
+| 7 | B Staff | Sidebar **Incidents** (`/t/incidents`); the queue opens on **Show: All incidents**, choose Unrouted and escalated to narrow it (the filter buttons are now the list's Show menu: Unrouted and escalated, Unrouted, Escalated, All incidents); on the seeded **TL-0001** row, **Show details** (the "i" icon) or the incident code | Inline detail beside the queue: Device TL-0001, Holder "No holder label", Owner "TrekLink Staff queue", state Unrouted | `StaffIncidentsPage.tsx:40-45, 338, 346`; seed `seed-demo.ts:783-838` |
 | 8 | B | **Report to authorities**, fill Agency "Lam Dong Provincial Police", Authority reference "LD-2026-1101", Reported at (it starts at the time the dialog opened; leave it or correct it, not in the future), **Record report** | Toast "Saved."; badge "Reported to authority"; the detail lists "Lam Dong Provincial Police, LD-2026-1101, reported <time>, case open". The field hint names the browser's time zone ("Your time zone, Asia/Saigon. Not in the future.") | `StaffIncidentsPage.tsx:86`; `AuthorityReports.tsx:305, 317-389`; Reported at prefilled by `localInputOf(new Date())` (treklink-web#196); `status.ts:174`; `docs/sessions/2026-10-30-0904-incident-authority-reports.md:137-145` |
-| 9 | B | Tab **Authority reports**, **Record case closed** on the row (the check-mark icon), Closed at (it starts at the time the dialog opened; after the report time and not in the future), confirm | The dialog reads "Record case LD‑2026‑1101 with Lam Dong Provincial Police closed?"; toast "Saved."; while the reports' **Show** menu reads **Open cases only** (the default) the row leaves the list: "No open authority cases." | `AuthorityReports.tsx:468-481, 614, 630, 639`; Closed at prefilled the same way (treklink-web#196, `AuthorityReports.tsx:425`); handoff `2026-10-30-0904-incident-authority-reports.md:143-145` |
+| 9 | B | Tab **Authority reports**, **Record case closed** on the row (the check-mark icon), Closed at (it starts at the time the dialog opened; after the report time and not in the future), confirm | The dialog reads "Record case LD‑2026‑1101 with Lam Dong Provincial Police closed?"; toast "Saved."; while the reports' **Show** menu reads **Open cases only** (an optional filter; the default is All reports) the row leaves the list: "No open authority cases." | `AuthorityReports.tsx:468-481, 614, 630, 639`; Closed at prefilled the same way (treklink-web#196, `AuthorityReports.tsx:425`); handoff `2026-10-30-0904-incident-authority-reports.md:143-145` |
 | 10 | B | **Show** menu, **All reports** (the closed row is hidden under Open cases only), then **View incident** on the row | The TL-0001 incident is Closed; its Authority reports line reads "..., reported <time>, case closed <time>" | `AuthorityReports.tsx:567, 630-631`; handoff `2026-10-30-0904-incident-authority-reports.md:145` |
 | 11 | B | Back on **Incidents**, tab **Authority reports**, **Record report**; Subject kind **Defaulted contract** | "Only defaulted contracts can be reported."; one eligible record, **RC-2026-0003, TrekLink Demo Tours Co., Ltd.**, state Defaulted | `AuthorityReports.tsx:78-123, 549-551`; DEFAULTED contracts listed by `frontend/src/entities/incident/authorityReports.ts:64-67`; label `status.ts:95`; seed `seed-demo.ts:840-988` |
 | 12 | B | Click **RC-2026-0003**; Agency "Lam Dong Provincial Police", Authority reference "LD-2026-1102", Reported at (prefilled with now), Note "Device TL-0019 not returned after default", **Record report** | Toast "Saved."; a new row in the Authority reports list whose Subject column reads **View contract** (the "Contract report" label shows only on a phone-width card) | `AuthorityReports.tsx:37, 40, 132-143, 257, 305, 597-612` |
@@ -345,6 +383,9 @@ supervisor asks for the design, incidents design Figures 4 to 10 were redrawn fr
 ---
 
 ## 5. MF-04: live map and the organization API (about 4 minutes)
+
+**W43 start:** Demo control, Refresh simulated walkers, then the chosen organization Live map. Use WF-01 result links for its contract and invoices.
+
 
 The demo smoke of 2026-10-30 (`docs/sessions/2026-10-30-1830-demo-smoke.md` §2 MF-04, §3 and §5
 step 4) ran this flow: `operator@` on Live map, `staff@` on Fleet map, every page at 1280 px and
@@ -372,6 +413,9 @@ organization's custody is shown (D-040).
 ---
 
 ## 6. MF-05: term end to close on RC-2026-0002 (about 9 minutes)
+
+**W43 start:** Demo control, Quick contract, Return due, then its counter link; or select a running contract in Demo time controls. Use the current record and asset tags.
+
 
 **Changed on 2026-11-01 after the supervisor demo (D-092 rules 3 and 4).** At the demo the return of 4 of 5
 units, one damaged and one missing, could not finish: no screen offered Report lost at the counter, the Close tab
@@ -406,7 +450,7 @@ the MF-03 SOS sits on RC-2026-0001's TL-0010 and a contract with an open inciden
 | 13 (optional) | B | Sidebar **Maintenance**, row TL-0017 **Complete**: Status **Completed**, a Resolution (required), Actual cost **0**, **Save**; in the alert **Open TL-0017**; the page shows "Next step: Intake check", "Record an intake check on this page. A pass makes it available."; **Record intake check** (GPS fix, Radio, Battery are on), **Save** | Alert "TL-0017 stays in maintenance until it passes an intake check on its page."; after the intake check TL-0017 Available and no next step. A unit inspected Passed is Available at once, with no intake (leader ruling 2026-11-01) | `frontend/src/pages/MaintenancePage.tsx`; `frontend/src/pages/DeviceDetailPage.tsx` (Next step panel); devices REQ-EVT-23 |
 | 14 (optional) | B then D Admin | `/t/maintenance`, **Open maintenance**, Search **TL-0008**, Device TL-0008, **Continue**, type Description and **Expected completion** (both required), **Open maintenance**; row TL-0008 **Complete**, **Unrepairable**, Resolution, **Save**, confirm **Mark unrepairable**; as Admin **Devices**, **TL-0008**, **Retire** with a reason, then **Dispose** (tick Key removed, Node database cleared, Owner cleared, type a Method) | "TL-0008 stays in maintenance until an Admin retires it."; TL-0008 Retired, then Disposed | `docs/sessions/2026-10-30-0903-devices-retire-dispose.md:85-88`. The handoff used TL-0011; use **TL-0008** (treklink-v4) because the MF-01 approval may have reserved TL-0011, a v3 unit |
 
-Step 3: the approval queue opens on Show: Requested; RC-2026-0002 is under **All**
+Step 3: the approval queue opens on Show: All; choose the current quick scenario contract
 (`ContractApprovalPage.tsx:388-392`). The Return due date shows in the counter header
 (`CounterPage.tsx:395`).
 
