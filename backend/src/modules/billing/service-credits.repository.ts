@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, ServiceCreditCause, ServiceCreditStatus } from '@prisma/client';
+import { Prisma, ServiceCreditCause, ServiceCreditKind, ServiceCreditStatus } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 type Client = Prisma.TransactionClient | PrismaService;
@@ -10,6 +10,8 @@ export const SERVICE_CREDIT_SELECT = {
   organizationId: true,
   contractDeviceId: true,
   deviceId: true,
+  kind: true,
+  unitReleaseId: true,
   cause: true,
   faultInspectionId: true,
   outageFrom: true,
@@ -86,6 +88,25 @@ export class ServiceCreditsRepository {
         outageTo: { gt: from },
       },
       select: { id: true },
+    });
+  }
+
+  // A release credit (design §12.1, D-099): no fault fields, the unit release it pays for.
+  insertRelease(
+    credit: {
+      contractId: string;
+      organizationId: string;
+      contractDeviceId: string;
+      deviceId: string;
+      unitReleaseId: string;
+      computedVnd: bigint;
+      requestedById: string;
+    },
+    tx: Prisma.TransactionClient,
+  ): Promise<ServiceCreditRow> {
+    return tx.serviceCredit.create({
+      data: { ...credit, kind: ServiceCreditKind.RELEASE, status: ServiceCreditStatus.REQUESTED },
+      select: SERVICE_CREDIT_SELECT,
     });
   }
 

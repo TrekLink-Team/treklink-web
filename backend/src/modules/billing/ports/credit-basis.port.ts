@@ -37,7 +37,16 @@ export interface CreditContract {
   terms: CreditTerm[];
 }
 
+// The release a RELEASE credit pays for (design §12.1), shown with the credit.
+export interface CreditRelease {
+  reason: string;
+  releasedAt: Date;
+}
+
 export interface CreditBasis {
+  // The releases behind RELEASE credits, by `UnitRelease` id; an unknown id is absent.
+  releaseNotes(ids: readonly string[]): Promise<Map<string, CreditRelease>>;
+
   // null when the contract or the row does not exist, or the row is not on this contract
   basisOf(
     contractId: string,

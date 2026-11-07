@@ -291,14 +291,17 @@ REQ-EVT-16, REQ-STA-03, AC-09, AC-10, design §10, billing task 9.1.
 Specified 2026-11-07 in requirements REQ-UBI-03 (amended), REQ-STA-01 (amended), REQ-EVT-31 to REQ-EVT-33,
 REQ-ERR-19, REQ-ERR-20, AC-19 to AC-22 and design §13; endpoints api-design 33 and 34.
 
-- [ ] 13.1 Schema and permission (owner LongLP)
+- [x] 13.1 Schema and permission (owner LongLP)
   - **Files**: `backend/prisma/schema.prisma`, a forward migration, `scripts/specs/catalog.py`, `specs/auth/permission-matrix.md`, `backend/src/common/errors/error-code.enum.ts`
   - **Do**: `UnitRelease` and its `ReleasePhase` enum (design §13.2); `contract.releaseUnit` for STAFF; `LAST_UNIT`; the billing side is billing task 11.1
   - _Requirements: REQ-UBI-03, D-099 rule 5_
-- [ ] 13.2 Release and preview (owner LongLP)
+  - **Done** (2026-11-07, LongLP): `UnitRelease` and `ReleasePhase` in the rentals section of `schema.prisma`; migration `20261107120000_unit_release` (also the billing side of task 11.1); `contract.releaseUnit` for STAFF and ADMIN; `LAST_UNIT`
+- [x] 13.2 Release and preview (owner LongLP)
   - **Files**: `backend/src/modules/rentals/release.service.ts` (new), `custody.service.ts` (the `RELEASED` closure stamps `checkedInAt`), `contracts.repository.ts`, `contracts.controller.ts`, `dto/release-unit.dto.ts`
   - **Do**: api-design 33 and 34 with the JWT guard and `contract.releaseUnit`; the guards in the order of REQ-ERR-20; running and before-handover paths of design §13.2 in one transaction each; audit `contract.unitReleased` and `device.checkedIn` after commit
   - _Requirements: REQ-EVT-31 to REQ-EVT-33, REQ-ERR-19, REQ-ERR-20_
+  - **Done** (2026-11-07, LongLP): `ReleaseService` (`release`, `preview`) and `ReleaseController` (api-design 33 and 34); the `RELEASED` closure of `closeCustody` now stamps `checkedInAt` and `checkedInById` once through `markReleased`, refusing a second close; `ContractsRepository.setQuantity` (compare-and-set on `version`) and `insertUnitRelease`
 - [ ] 13.3 Tests (owner LongLP)
   - **Do**: unit specs for each guard, the day plan, the last day of a term, and the before-handover path; a Postgres db-spec for AC-19 to AC-22 including two concurrent releases; a release step in the WF-05 Playwright journey
   - _Requirements: AC-19 to AC-22_
+  - **Partly done** (2026-11-07, LongLP): `release.service.spec.ts` (5) and `test/release-unit.db-spec.ts` for AC-19 to AC-22 on a local Postgres 16, including the 403 for an Org Manager over HTTP and two releases with one `version`; `test/rental-groups-http.db-spec.ts` now expects the `RELEASED` closure to stamp the check-in. Open: the release step in the WF-05 Playwright journey

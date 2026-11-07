@@ -537,19 +537,27 @@ export const SERVICE_CREDIT_CAUSES: { value: ServiceCreditCause; label: string }
 export const causeLabel = (cause: ServiceCreditCause): string =>
   SERVICE_CREDIT_CAUSES.find((entry) => entry.value === cause)?.label ?? cause;
 
+// What a credit is for: its fault cause, or Release for a released unit (D-099).
+export const creditCauseLabel = (credit: Pick<ServiceCredit, 'kind' | 'cause'>): string =>
+  credit.kind === 'RELEASE' || !credit.cause ? 'Release' : causeLabel(credit.cause);
+
 export interface ServiceCredit {
   id: string;
   contractId: string;
   contractDeviceId: string;
   deviceId: string;
   assetTag: string | null;
-  cause: ServiceCreditCause;
-  faultInspectionId: string;
-  outageFrom: string;
+  // FAULT (billing design §9) or RELEASE (design §12.1, D-099): a release credit has no fault fields
+  kind: 'FAULT' | 'RELEASE';
+  unitReleaseId: string | null;
+  release: { reason: string; releasedAt: string } | null;
+  cause: ServiceCreditCause | null;
+  faultInspectionId: string | null;
+  outageFrom: string | null;
   outageSourceIncidentId: string | null;
   outageSourceNote: string | null;
-  outageTo: string;
-  outageDays: number;
+  outageTo: string | null;
+  outageDays: number | null;
   computedVnd: number;
   decidedVnd: number | null;
   appliedVnd: number;

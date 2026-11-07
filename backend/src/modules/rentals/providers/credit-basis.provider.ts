@@ -13,6 +13,12 @@ export class RentalsCreditBasis implements CreditBasis {
     private readonly faults: FaultReportsRepository,
   ) {}
 
+  // The release behind each RELEASE credit (billing design §12.1).
+  async releaseNotes(ids: readonly string[]) {
+    const rows = await this.contracts.releaseNotes(ids);
+    return new Map(rows.map((row) => [row.id, { reason: row.reason, releasedAt: row.releasedAt }]));
+  }
+
   faultReportSource(
     reportId: string,
     contractId: string,

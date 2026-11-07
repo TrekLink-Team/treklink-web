@@ -31,6 +31,7 @@ import { useToast } from '../shared/ui/toastStore';
 import { useConfirmStep } from '../shared/ui/useConfirmStep';
 import { HolderDialog } from '../widgets/ContractActions/HolderDialog';
 import { EndNowDialog } from '../widgets/ContractActions/EndNowDialog';
+import { ReleaseUnitDialog } from '../widgets/ContractActions/ReleaseUnitDialog';
 import { NoticeDialog } from '../widgets/ContractActions/NoticeDialog';
 import { ContractActionBar, type HomeTab } from '../widgets/ContractHome/ContractActionBar';
 import { ContractHeader, LifecycleCard } from '../widgets/ContractHome/ContractHeader';
@@ -180,7 +181,8 @@ type Open =
   | { kind: 'close' }
   | { kind: 'label'; device: ContractDevice }
   | { kind: 'lost'; deviceId: string; assetTag: string; scope: 'o' | 't' }
-  | { kind: 'credit'; device: ContractDevice };
+  | { kind: 'credit'; device: ContractDevice }
+  | { kind: 'release'; device: ContractDevice };
 
 /**
  * /o/contracts/:id and /t/contracts/:id, the contract home (chapter 06 §10.4, D-096; screen 5.2):
@@ -398,6 +400,7 @@ export const ContractDetailPage: React.FC<{
               })
             }
             onRequestCredit={(device) => setOpen({ kind: 'credit', device })}
+            onRelease={(device) => setOpen({ kind: 'release', device })}
           />
         )}
         {tab === 'money' && canSeeMoney && (
@@ -418,7 +421,11 @@ export const ContractDetailPage: React.FC<{
   })();
 
   return (
-    <section aria-labelledby="contract-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-3">
+    <section
+      aria-labelledby="contract-title"
+      data-fit-page=""
+      className="flex min-h-0 flex-1 flex-col gap-3"
+    >
       <ContractHeader contract={data} scope={scope} variantName={variant} />
       {!phone && <LifecycleCard contract={data} history={history.data} viewer={viewer} />}
       <ContractActionBar
@@ -458,6 +465,9 @@ export const ContractDetailPage: React.FC<{
       {open?.kind === 'notice' && <NoticeDialog contract={data} onClose={() => setOpen(null)} />}
       {open?.kind === 'end' && viewer !== 'operator' && (
         <EndNowDialog contract={data} viewer={viewer} onClose={() => setOpen(null)} />
+      )}
+      {open?.kind === 'release' && viewer === 'staff' && (
+        <ReleaseUnitDialog contract={data} device={open.device} onClose={() => setOpen(null)} />
       )}
       {open?.kind === 'label' && (
         <HolderDialog contract={data} device={open.device} onClose={() => setOpen(null)} />

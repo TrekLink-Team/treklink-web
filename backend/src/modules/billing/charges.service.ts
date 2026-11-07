@@ -4,7 +4,13 @@ import { DomainException, ErrorCode } from '../../common/errors';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { DamageChargeRow, DamageChargesRepository } from './damage-charges.repository';
 import { InvoiceRow, InvoicesRepository, LineRow, NewInvoiceLine } from './invoices.repository';
-import { EarlyEndCredit, earlyEndCreditOf, termFeeVnd } from './money';
+import {
+  dayPlanFeeVnd,
+  EarlyEndCredit,
+  earlyEndCreditOf,
+  holdingFeeVnd,
+  termFeeVnd,
+} from './money';
 import { PricingService } from './pricing.service';
 import { ServiceCreditLedger } from './service-credit-ledger';
 
@@ -29,6 +35,34 @@ export interface EndedTerm {
   startsAt: Date;
   endsAt: Date;
 }
+
+// A contract whose first invoice is lowered by a release before handover (design §12.2, D-099 rule 4):
+// the snapshot the first invoice was issued from, with the quantity before the release.
+export interface FirstInvoiceContract extends ChargedContract {
+  planType: PlanType;
+  quantity: number;
+  monthlyUnitPriceVnd: bigint;
+  holdingFeeRatio: Prisma.Decimal;
+  dayPremium: Prisma.Decimal | null;
+  dayPlanDays: number | null;
+}
+
+// One first-invoice line recomputed for `quantity` units with the function that issued it (design §12.2);
+// null for a line type a first invoice does not carry.
+const firstLineAmount = (
+  contract: FirstInvoiceContract,
+  type: InvoiceLineType,
+  quantity: number,
+): bigint | null => {
+  const P = contract.monthlyUnitPriceVnd;
+  if (type === InvoiceLineType.DAY_PLAN_FEE) {
+    return dayPlanFeeVnd(P, contract.dayPremium ?? 0, contract.dayPlanDays ?? 0, quantity);
+  }
+  const holding = holdingFeeVnd(P, quantity, contract.holdingFeeRatio);
+  if (type === InvoiceLineType.HOLDING_FEE) return holding;
+  if (type === InvoiceLineType.TERM_BALANCE) return termFeeVnd(P, quantity) - holding;
+  return null;
+};
 
 export interface EarlyEndQuote extends EarlyEndCredit {
   termFeeVnd: bigint;
@@ -156,6 +190,69 @@ export class ChargesService {
       endAt,
     );
     return { quote, invoice };
+  }
+
+  // What lowerFirstInvoice would leave (rentals api-design 34): the first invoice's total and paid amount
+  // now, its total for one unit fewer, and what would be owed to the organization. Stores nothing.
+  async previewLowerFirstInvoice(contract: FirstInvoiceContract, tx: Prisma.TransactionClient) {
+    const first = await this.invoices.firstChargeableInvoice(contract.id, tx);
+    if (!first) return null;
+    let newTotalVnd = first.totalVnd;
+    for (const line of first.lines) {
+      const before = firstLineAmount(contract, line.type, contract.quantity);
+      const lowered = firstLineAmount(contract, line.type, contract.quantity - 1);
+      if (before !== null && lowered !== null && before > lowered) newTotalVnd -= before - lowered;
+    }
+    const owed = first.paidVnd - newTotalVnd;
+    return {
+      totalVnd: first.totalVnd,
+      paidVnd: first.paidVnd,
+      newTotalVnd,
+      owedToOrganizationVnd: owed > 0n ? owed : 0n,
+    };
+  }
+
+  // A release before handover (REQ-EVT-19, design §12.2, D-099 rule 4): each line of the first invoice is
+  // recomputed for one unit fewer with the functions that issued it, and one negative ADJUSTMENT line of
+  // the difference is appended per line, so the invoice total is exactly that of the new quantity. A
+  // payment above the new total stays recorded and shows as owed to the organization. Returns the
+  // invoice, or null when none was issued yet. Called by `rentals` inside its release transaction.
+  async lowerFirstInvoice(
+    contract: FirstInvoiceContract,
+    actorId: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<{ invoice: InvoiceRow; loweredByVnd: bigint } | null> {
+    const found = await this.invoices.firstChargeableInvoice(contract.id, tx);
+    if (!found) return null;
+    const first = await this.invoices.lockWithLines(found.id, tx);
+    if (!first) return null;
+    const after = contract.quantity - 1;
+    const amountFor = (type: InvoiceLineType, quantity: number) =>
+      firstLineAmount(contract, type, quantity);
+    const LABEL: Partial<Record<InvoiceLineType, string>> = {
+      [InvoiceLineType.HOLDING_FEE]: 'holding fee',
+      [InvoiceLineType.TERM_BALANCE]: 'term balance',
+      [InvoiceLineType.DAY_PLAN_FEE]: 'day plan fee',
+    };
+    const lines: NewInvoiceLine[] = [];
+    for (const line of first.lines) {
+      const before = amountFor(line.type, contract.quantity);
+      const lowered = amountFor(line.type, after);
+      if (before === null || lowered === null || before <= lowered) continue;
+      const diff = before - lowered;
+      lines.push({
+        type: InvoiceLineType.ADJUSTMENT,
+        description: `Release of one unit: ${LABEL[line.type]}, ${contract.quantity} to ${after} units`,
+        quantity: 1,
+        unitVnd: -diff,
+        amountVnd: -diff,
+        dueAt: line.dueAt,
+        createdById: actorId,
+      });
+    }
+    if (lines.length === 0) return { invoice: first, loweredByVnd: 0n };
+    const invoice = await this.invoices.appendLines(first, lines, tx);
+    return { invoice, loweredByVnd: lines.reduce((sum, line) => sum - line.amountVnd, 0n) };
   }
 
   // A device checked in after `returnDueAt` plus `rentals.returnGraceHours` (REQ-EVT-04, FR-BILL-03,

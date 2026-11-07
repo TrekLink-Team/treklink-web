@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Cpu, Flag, HandCoins, Tag } from 'lucide-react';
+import { Cpu, Flag, HandCoins, Tag, Undo2 } from 'lucide-react';
 import type { ContractDetail, ContractDevice } from '../../entities/contract/api';
 import { NEXT_STEP_LABELS, nextStepPath } from '../../entities/device/api';
 import { DeviceRef } from '../../entities/device/DeviceRef';
@@ -31,6 +31,7 @@ interface Props {
   onLabel: (device: ContractDevice) => void;
   onReportLost: (device: ContractDevice) => void;
   onRequestCredit: (device: ContractDevice) => void;
+  onRelease: (device: ContractDevice) => void;
 }
 
 /**
@@ -47,6 +48,7 @@ export const DevicesTab: React.FC<Props> = ({
   onLabel,
   onReportLost,
   onRequestCredit,
+  onRelease,
 }) => {
   const variant = contract.devices.find((device) => device.hardwareVariant)?.hardwareVariant;
   const showState = scope === 't' && contract.devices.some((device) => device.afterReturn);
@@ -58,6 +60,13 @@ export const DevicesTab: React.FC<Props> = ({
     canCredit &&
     Boolean(device.checkedInAt && device.contractDeviceId) &&
     device.inspection?.result === 'FAILED';
+  // Release a unit (screen 5.2, D-099): Staff, on a unit out on a running contract or held before the
+  // handover; on the last such unit it stays visible, disabled, with where to go instead.
+  const running = contract.status === 'ACTIVE' || contract.status === 'ENDING';
+  const beforeHandover = contract.status === 'REQUESTED' || contract.status === 'APPROVED';
+  const releasable = (device: ContractDevice) =>
+    viewer === 'staff' && ((running && isOut(device)) || (beforeHandover && !device.handedOverAt));
+  const liveUnits = contract.devices.filter(releasable).length;
 
   const fields: CollectionField<ContractDevice>[] = [
     {
@@ -150,6 +159,24 @@ export const DevicesTab: React.FC<Props> = ({
       allowed: creditable,
       onSelect: onRequestCredit,
     },
+    ...(viewer === 'staff' && (running || beforeHandover)
+      ? [
+          {
+            key: 'release',
+            label: 'Release',
+            icon: <Undo2 />,
+            destructive: true,
+            allowed: (device: ContractDevice) => releasable(device) && liveUnits > 1,
+            unavailableReason: (device: ContractDevice) =>
+              releasable(device) && liveUnits <= 1
+                ? running
+                  ? 'This is the last unit. End the contract now instead.'
+                  : 'This is the last unit. Cancel the request instead.'
+                : undefined,
+            onSelect: onRelease,
+          },
+        ]
+      : []),
     {
       key: 'report',
       label: 'Report lost',

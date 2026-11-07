@@ -6,12 +6,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ServiceCredit } from '../../entities/billing/api';
 import { ServiceCreditsCard } from './ServiceCreditsCard';
 
-const credit = (id: string, assetTag: string, overrides: Partial<ServiceCredit> = {}): ServiceCredit => ({
+const credit = (
+  id: string,
+  assetTag: string,
+  overrides: Partial<ServiceCredit> = {},
+): ServiceCredit => ({
   id,
   contractId: 'c-1',
   contractDeviceId: `cd-${id}`,
   deviceId: `d-${id}`,
   assetTag,
+  kind: 'FAULT',
+  unitReleaseId: null,
+  release: null,
   cause: 'BATTERY_FAULT',
   faultInspectionId: 'fi-1',
   outageFrom: '2026-10-20T02:00:00Z',
@@ -59,7 +66,8 @@ describe('ServiceCreditsCard on CollectionView (screen 6.5, D-096)', () => {
       credit('3', 'TL-0003', { status: 'APPLIED', decidedVnd: 20_000 }),
     ];
     renderCard();
-    const table = () => within(screen.getByRole('table', { name: 'Service credits of this contract' }));
+    const table = () =>
+      within(screen.getByRole('table', { name: 'Service credits of this contract' }));
     expect(table().getAllByRole('row')).toHaveLength(4);
     expect(table().getByText('Damage by the customer')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /^Show: All statuses/ }));

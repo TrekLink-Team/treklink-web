@@ -195,6 +195,7 @@ PERMISSIONS = [
     # D-097 End now (rentals design §12.2); migration 20261105230000_contract_early_end.
     ("contract.end", "end", "RentalContract", None, ["STAFF"]),
     ("contract.end.own", "end", "RentalContract", OWN, ["ORG_MANAGER"]),
+    ("contract.releaseUnit", "releaseUnit", "RentalContract", None, ["STAFF"]),
     ("contract.label.own", "label", "RentalContract", OWN, ["ORG_OPERATOR"]),
     ("contract.operate", "operate", "RentalContract", None, ["STAFF"]),
     # D-082 decision 1: the derived channel key is returned once per docking, never stored on the

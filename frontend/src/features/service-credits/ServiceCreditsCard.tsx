@@ -1,7 +1,7 @@
 import React from 'react';
 import { Undo2 } from 'lucide-react';
 import {
-  causeLabel,
+  creditCauseLabel,
   useContractServiceCredits,
   type ServiceCredit,
 } from '../../entities/billing/api';
@@ -18,7 +18,7 @@ import { creditAmount, outageText } from './creditText';
 const deviceOf = (credit: ServiceCredit) => credit.assetTag ?? credit.deviceId;
 
 const FIELDS: CollectionField<ServiceCredit>[] = [
-  { key: 'cause', label: 'Cause', render: (credit) => causeLabel(credit.cause), compact: true },
+  { key: 'cause', label: 'Cause', render: (credit) => creditCauseLabel(credit), compact: true },
   { key: 'outage', label: 'Outage', render: outageText, hideWithPane: true },
   { key: 'amount', label: 'Credit', align: 'end', render: creditAmount, compact: true },
   {
@@ -57,7 +57,7 @@ export const ServiceCreditsCard: React.FC<{ contractId: string }> = ({ contractI
           ) : undefined
         }
         itemId={(credit) => credit.id}
-        itemName={(credit) => `${deviceOf(credit)} ${causeLabel(credit.cause)}`}
+        itemName={(credit) => `${deviceOf(credit)} ${creditCauseLabel(credit)}`}
         itemTitle={(credit) => <span className="font-mono text-ink">{deviceOf(credit)}</span>}
         fields={FIELDS}
         noun={{ one: 'credit', other: 'credits' }}

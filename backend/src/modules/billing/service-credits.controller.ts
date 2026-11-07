@@ -23,12 +23,21 @@ import { ServiceCreditRow } from './service-credits.repository';
 // A JSON body cannot hold a bigint; every VND amount here is far below Number.MAX_SAFE_INTEGER.
 const vnd = (amount: bigint | null): number | null => (amount === null ? null : Number(amount));
 
-const toServiceCreditView = (credit: ServiceCreditRow & { assetTag?: string | null }) => ({
+const toServiceCreditView = (
+  credit: ServiceCreditRow & {
+    assetTag?: string | null;
+    release?: { reason: string; releasedAt: Date } | null;
+  },
+) => ({
   id: credit.id,
   contractId: credit.contractId,
   contractDeviceId: credit.contractDeviceId,
   deviceId: credit.deviceId,
   assetTag: credit.assetTag ?? null,
+  kind: credit.kind,
+  unitReleaseId: credit.unitReleaseId,
+  // the release a RELEASE credit pays for (design §12.1), shown in place of the outage
+  release: credit.release ?? null,
   cause: credit.cause,
   faultInspectionId: credit.faultInspectionId,
   outageFrom: credit.outageFrom,

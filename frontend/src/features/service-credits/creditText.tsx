@@ -17,7 +17,15 @@ export const creditAmount = (credit: ServiceCredit): React.ReactNode => (
   </span>
 );
 
-export const outageText = (credit: ServiceCredit): string =>
-  `${formatDateTime(credit.outageFrom)} to ${formatDateTime(credit.outageTo)}, ${credit.outageDays} ${
-    credit.outageDays === 1 ? 'day' : 'days'
+// The outage of a fault credit, or the release a release credit pays for (D-099).
+export const outageText = (credit: ServiceCredit): string => {
+  if (credit.kind === 'RELEASE' || !credit.outageFrom || !credit.outageTo) {
+    return credit.release
+      ? `Released ${formatDateTime(credit.release.releasedAt)}: ${credit.release.reason}`
+      : 'Released';
+  }
+  const days = credit.outageDays ?? 0;
+  return `${formatDateTime(credit.outageFrom)} to ${formatDateTime(credit.outageTo)}, ${days} ${
+    days === 1 ? 'day' : 'days'
   }`;
+};

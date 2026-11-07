@@ -23,6 +23,8 @@ import { RentalsLossCaseListener } from './providers/loss-case-listener.provider
 import { RentalsOrganizationCount } from './providers/organization-count.provider';
 import { RentalsOrganizationExitCheck } from './providers/organization-exit-check.provider';
 import { RentalsPortsModule } from './rentals-ports.module';
+import { ReleaseController } from './release.controller';
+import { ReleaseService } from './release.service';
 import { ReturnController } from './return.controller';
 import { OverdueAndDefaultJob } from './overdue-and-default.job';
 import { ReplacementService } from './replacement.service';
@@ -44,6 +46,7 @@ import { TermRolloverJob } from './term-rollover.job';
     FaultReportsController,
     GroupsController,
     HandoverController,
+    ReleaseController,
     ReturnController,
   ],
   providers: [
@@ -60,6 +63,7 @@ import { TermRolloverJob } from './term-rollover.job';
     ContractDecisionsService,
     RentalsLossCaseListener,
     HandoverService,
+    ReleaseService,
     ReturnService,
     ReplacementService,
     OverdueAndDefaultJob,

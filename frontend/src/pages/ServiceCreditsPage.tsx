@@ -5,7 +5,7 @@ import { ReceiptText, Scale, Undo2 } from 'lucide-react';
 import { useAuth } from '../app/providers/useAuth';
 import {
   billingKeys,
-  causeLabel,
+  creditCauseLabel,
   decideServiceCredit,
   recordServiceCreditRefund,
   serviceCreditKeys,
@@ -142,7 +142,7 @@ const DecisionDialog: React.FC<{ credit: ServiceCredit; onClose: () => void }> =
     <Dialog
       titleId="credit-decision-title"
       title={`Decide the credit on ${tag}`}
-      description={`${causeLabel(credit.cause)}: ${outageText(credit)}, ${formatVnd(credit.computedVnd)}`}
+      description={`${creditCauseLabel(credit)}: ${outageText(credit)}, ${formatVnd(credit.computedVnd)}`}
       onClose={onClose}
       footer={
         <>
@@ -291,7 +291,7 @@ export const ServiceCreditsPage: React.FC = () => {
   const credits = useServiceCredits({ status: status || undefined, pageNumber });
 
   const fields: CollectionField<ServiceCredit>[] = [
-    { key: 'cause', label: 'Cause', render: (credit) => causeLabel(credit.cause), compact: true },
+    { key: 'cause', label: 'Cause', render: (credit) => creditCauseLabel(credit), compact: true },
     { key: 'outage', label: 'Outage', render: outageText, hideWithPane: true },
     { key: 'amount', label: 'Credit', align: 'end', render: creditAmount, compact: true },
     {
@@ -306,11 +306,20 @@ export const ServiceCreditsPage: React.FC = () => {
       ),
       compact: true,
     },
-    { key: 'raised', label: 'Requested', render: (credit) => formatDateTime(credit.createdAt), hideWithPane: true },
+    {
+      key: 'raised',
+      label: 'Requested',
+      render: (credit) => formatDateTime(credit.createdAt),
+      hideWithPane: true,
+    },
   ];
 
   return (
-    <section aria-labelledby="service-credits-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col gap-6">
+    <section
+      aria-labelledby="service-credits-title"
+      data-fit-page=""
+      className="flex min-h-0 flex-1 flex-col gap-6"
+    >
       <PageHeader id="service-credits-title" title="Service credits" />
       {!isAdmin && (
         <Alert tone="info">Only a TrekLink Admin who did not request a credit decides it.</Alert>
@@ -320,13 +329,22 @@ export const ServiceCreditsPage: React.FC = () => {
         label="Service credits"
         items={credits.data?.items}
         loading={credits.isLoading}
-        error={credits.error ? <ErrorState error={credits.error} onRetry={() => void credits.refetch()} /> : undefined}
+        error={
+          credits.error ? (
+            <ErrorState error={credits.error} onRetry={() => void credits.refetch()} />
+          ) : undefined
+        }
         itemId={(credit) => credit.id}
-        itemName={(credit) => `${credit.assetTag ?? credit.deviceId} ${causeLabel(credit.cause)}`}
+        itemName={(credit) => `${credit.assetTag ?? credit.deviceId} ${creditCauseLabel(credit)}`}
         itemTitle={(credit) => (
           <span className="flex flex-col">
-            <span className="font-mono font-semibold text-ink">{credit.assetTag ?? credit.deviceId}</span>
-            <Link to={`/t/contracts/${credit.contractId}`} className={`${LINK} inline-flex min-h-6 items-center text-body-sm`}>
+            <span className="font-mono font-semibold text-ink">
+              {credit.assetTag ?? credit.deviceId}
+            </span>
+            <Link
+              to={`/t/contracts/${credit.contractId}`}
+              className={`${LINK} inline-flex min-h-6 items-center text-body-sm`}
+            >
               Open contract
             </Link>
           </span>
@@ -339,7 +357,8 @@ export const ServiceCreditsPage: React.FC = () => {
             label: 'Decide',
             icon: <Scale />,
             allowed: (credit) => isAdmin && credit.status === 'REQUESTED',
-            unavailableReason: (credit) => (credit.requestedById === user?.id ? SELF_REQUESTED : undefined),
+            unavailableReason: (credit) =>
+              credit.requestedById === user?.id ? SELF_REQUESTED : undefined,
             onSelect: setDeciding,
           },
           {
@@ -364,7 +383,10 @@ export const ServiceCreditsPage: React.FC = () => {
         }}
         hideCommandBar={false}
         pageInfo={pageInfoOf(credits.data)}
-        details={{ href: (credit) => `/t/contracts/${credit.contractId}`, hrefLabel: 'Open the contract' }}
+        details={{
+          href: (credit) => `/t/contracts/${credit.contractId}`,
+          hrefLabel: 'Open the contract',
+        }}
         emptyState={{
           title:
             status === ''

@@ -296,7 +296,13 @@ describe('group API against Postgres (rentals 9.2)', () => {
         await flow.get(ContractsRepository).lockById(rental.contract.id, tx);
         await flow
           .get(CustodyService)
-          .closeCustody(rental.org.id, [row], { reason: 'RELEASED' }, at, tx);
+          .closeCustody(
+            rental.org.id,
+            [row],
+            { reason: 'RELEASED', actorId: flow.staff.id },
+            at,
+            tx,
+          );
         if (rollback) throw new Error('Rollback release');
       });
     await expect(release(endedAt, true)).rejects.toThrow('Rollback release');
@@ -312,8 +318,10 @@ describe('group API against Postgres (rentals 9.2)', () => {
     await expect(
       flow.prisma.contractDevice.findUniqueOrThrow({ where: { id: row.id } }),
     ).resolves.toMatchObject({
-      releasedAt: endedAt,
-      checkedInAt: null,
+      // A released unit is back at the counter (rentals design §13.2, D-099): its row is checked in.
+      releasedAt: null,
+      checkedInAt: endedAt,
+      checkedInById: flow.staff.id,
       lostAt: null,
     });
     await expect(

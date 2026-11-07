@@ -53,6 +53,8 @@ const credit = (overrides: Partial<ServiceCreditRow> = {}): ServiceCreditRow => 
   organizationId: 'org-1',
   contractDeviceId: 'cd-1',
   deviceId: 'dev-1',
+  kind: 'FAULT',
+  unitReleaseId: null,
   cause: ServiceCreditCause.BATTERY_FAULT,
   faultInspectionId: 'insp-1',
   outageFrom: day(10),
@@ -129,6 +131,7 @@ const build = (
   const basis = {
     basisOf: jest.fn().mockResolvedValue(basisRow),
     faultReportSource: jest.fn().mockResolvedValue(null),
+    releaseNotes: jest.fn().mockResolvedValue(new Map()),
   };
   const service = new ServiceCreditService(
     credits as unknown as ServiceCreditsRepository,
