@@ -81,11 +81,10 @@ hosted broker (D-055).
 
 ## What the broker with credentials does not yet allow
 
-- The Stage B bridge of `gateway/`. Without credentials it is refused at CONNECT; with its station's
-  credential only its health report on `treklink/fs/<username>/health` is allowed, and its uplinks on the
-  node topics `treklink/2/json/<channel>/<nodeId>` are refused, because a Field Station may publish only
-  under `treklink/fs/<username>/#` (design §4, gateway-sync task 3.1, open). Keep the default broker for
-  that flow.
+- The Stage B bridge of `gateway/` without credentials: it is refused at CONNECT. With its station's
+  credential it publishes its health report on `treklink/fs/<username>/health` and, under the interim rule
+  of 2026-11-07 (gateway-sync design §4, for the AWS field host of D-098), its uplinks on the node topics
+  `treklink/2/json/<channel>/<nodeId>`.
 
 ## Checking it by hand
 

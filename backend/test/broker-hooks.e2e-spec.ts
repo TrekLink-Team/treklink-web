@@ -147,6 +147,15 @@ describe('broker hooks behind MQTT_AUTH_HOOK_SECRET (e2e)', () => {
     expect(allowed.status).toBe(200);
     expect(body(allowed)).toMatchObject({ result: { allowed: true }, isSuccess: true });
 
+    // The interim rule of design §4 (D-098): the Stage B bridge's node JSON topic.
+    const bridged = await post('/api/internal/mqtt/acl', {
+      username: STATION,
+      clientid: 'fieldstation-1',
+      topic: 'treklink/2/json/LongFast/!a4b1c2d3',
+      acc: 2,
+    });
+    expect(bridged.status).toBe(200);
+
     const denied = await post('/api/internal/mqtt/acl', {
       username: STATION,
       clientid: 'fieldstation-1',

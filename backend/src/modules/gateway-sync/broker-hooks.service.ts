@@ -32,7 +32,8 @@ export interface AclCheck {
 // `fs-<organization code in lower case>-<n>` (organizations `FieldStationsService.create`).
 const FIELD_STATION_USERNAME = /^fs-[a-z0-9-]+-\d+$/;
 // `node-<nodeId>`, the node id as the stock firmware writes it in its topics: `!` and 8 hex digits.
-const FLEET_NODE_USERNAME = /^node-(![0-9a-f]{8})$/;
+const NODE_ID = '![0-9a-f]{8}';
+const FLEET_NODE_USERNAME = new RegExp(`^node-(${NODE_ID})$`);
 // One topic level a client may name in a publish: no separator and no wildcard.
 const LEVEL = '[^/+#]+';
 
@@ -65,7 +66,9 @@ export const kindOf = (
 // The topic rules of design §4 for one access, `root` being MQTT_ROOT (`treklink`):
 // - backend subscriber: subscribe to and read anything under `<root>/`, publish nothing;
 // - fleet node: publish `<root>/2/json/+/<nodeId>` and `<root>/2/e/+/<nodeId>`, subscribe nothing;
-// - Field Station: publish under `<root>/fs/<its username>/#`, subscribe nothing.
+// - Field Station: publish under `<root>/fs/<its username>/#` and, by the interim rule of design §4
+//   (2026-11-07, the AWS field host of D-098), on the node JSON topic `<root>/2/json/+/<any nodeId>` the
+//   gateway's Stage B bridge writes; subscribe nothing.
 export const topicAllowed = (
   kind: BrokerCredentialKind,
   username: string,
@@ -83,7 +86,10 @@ export const topicAllowed = (
     const nodeId = escape(FLEET_NODE_USERNAME.exec(username)?.[1] ?? '');
     return new RegExp(`^${base}/2/(json|e)/${LEVEL}/${nodeId}$`).test(topic);
   }
-  return new RegExp(`^${base}/fs/${escape(username)}(/${LEVEL})*$`).test(topic);
+  return (
+    new RegExp(`^${base}/fs/${escape(username)}(/${LEVEL})*$`).test(topic) ||
+    new RegExp(`^${base}/2/json/${LEVEL}/${NODE_ID}$`).test(topic)
+  );
 };
 
 // The mosquitto-go-auth HTTP hooks (task 3.1, api-design 01 and 02, design §4, REQ-EVT-07). go-auth

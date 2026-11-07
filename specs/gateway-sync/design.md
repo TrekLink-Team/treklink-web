@@ -197,7 +197,7 @@ fresh connection; the backend additionally drops every message from a revoked us
 |---|---|---|---|
 | Backend subscriber | `MQTT_USERNAME` | none | `treklink/#` |
 | Fleet node (Stage A, B) | `node-<nodeId>` | `treklink/2/json/+/<nodeId>`, `treklink/2/e/+/<nodeId>` | none |
-| Field Station | `fs-<org>-<n>` | `treklink/fs/<username>/#` | none |
+| Field Station | `fs-<org>-<n>` | `treklink/fs/<username>/#`; interim, `treklink/2/json/+/<any nodeId>` (below) | none |
 
 Implementation notes (2026-11-01, KhoaDD under D-078, task 3.1):
 
@@ -212,6 +212,14 @@ Implementation notes (2026-11-01, KhoaDD under D-078, task 3.1):
   Known limit: any holder of the shared secret can log in under any node username, accepted for Stage A
   and B until per-device secrets come with the hosted broker (D-055).
 - Open (review of #259): on the broker with credentials a Field Station may publish only under `treklink/fs/<username>/#` (design §4), so the Stage B uplinks the gateway sends on its nodes' topics `treklink/2/json/<channel>/<nodeId>` (`gateway/src/mqtt/mqtt-client.ts:110`) are refused with the station's credential; only its health report on `treklink/fs/<username>/health` is allowed. It closes when the gateway publishes on the station topic (task 2.1 subscription, task 5.1 Stage C topics). Keep the open broker for the Stage B demo flow.
+- Interim rule (2026-11-07, KhoaDD under D-078, for the AWS field host of D-098, platform design §2.5; raised to the
+  leader the same day, in force until the ruling or until the Stage C topic above is subscribed): a Field Station
+  may also publish on the node JSON topic `<root>/2/json/<channel>/<nodeId>` of any node id (`!` and eight
+  lower-case hex digits), the topic the gateway's Stage B bridge writes. Not the `2/e` topic, not a subscribe.
+  The credential stays per station and revocable at CONNECT; the limit is that a station can publish for any
+  node id, the limit the shared `MQTT_NODE_PASSWORD` already has, and a node-topic uplink goes through
+  `NodeJsonAdapter` with no station organization check (§2 step 2 applies to the station topic only).
+  Removing the rule is one line in `topicAllowed` and its tests.
 - Secrets (`X-Broker-Secret`, `MQTT_PASSWORD`, `MQTT_NODE_PASSWORD`) are compared as SHA-256 digests with
   `timingSafeEqual`, which hides their length. A Field Station check makes exactly one bcrypt compare on
   every path, against a dummy hash of `BCRYPT_COST` when no station holds the username.
