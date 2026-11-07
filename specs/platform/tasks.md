@@ -147,23 +147,25 @@
 ## Phase 7: The AWS field host (D-098, D-055 rule 4; design §2.5)
 
 - [ ] 7.1 Production backend image (owner KhoaDD)
+  - **Partly done** (2026-11-07, KhoaDD under D-078, branch `chore/aws-field-host`): `backend/Dockerfile` and `.dockerignore`. Built and booted in the sandbox with `NODE_IMAGE=node:22-bookworm` and the apt steps removed, because the sandbox proxy refuses `deb.debian.org`; that image holds `libquery_engine-debian-openssl-3.0.x`, runs as `node`, and its healthcheck turned `healthy` against a migrated and seeded Postgres 16. Open: a build of the slim image with its apt steps, and an arm64 build, both on the host (task 7.6)
   - **Files**: `backend/Dockerfile`, `.dockerignore`
   - **Do**: multi-stage on `node:22-bookworm-slim` (the root `engines` range, CI's Node 22); `npm ci` for the `backend` workspace only; `prisma generate` inside the build stage, so the `native` engine is the image's own platform (`debian-openssl-3.0.x` on amd64, `linux-arm64-openssl-3.0.x` on arm64) without a `binaryTargets` change that would also grow the Vercel function; `nest build`; production dependencies only in the runtime stage; user `node`; healthcheck on `GET /api/health`; command `node dist/main`, never a migration or a seed
   - **Test**: the image builds and boots against a local Postgres 16 with the migrations applied; `/api/health` answers 200
   - _Requirements: design §2.5, D-098_
-- [ ] 7.2 Compose for the field host, TLS and broker configuration (owner KhoaDD)
+- [x] 7.2 Compose for the field host, TLS and broker configuration (owner KhoaDD)
   - **Files**: `deploy/aws/compose.yml`, `deploy/aws/Caddyfile`, `deploy/aws/mosquitto/mosquitto.conf`, `deploy/aws/mosquitto/start.sh`
   - **Do**: the four services of design §2.5 with restart policies, log rotation, named volumes, host ports 80, 443 and 8883 only; Caddy as the ACME client, Mosquitto terminating TLS with Caddy's certificate and reloading it on change; every secret from `deploy/aws/.env` on the host
   - **Test**: task 7.5
   - _Depends on: 7.1_
-- [ ] 7.3 Host environment example (owner KhoaDD)
+- [x] 7.3 Host environment example (owner KhoaDD)
   - **Files**: `deploy/aws/.env.example`
   - **Do**: every variable the host reads, one line of meaning each, no real value; the database is `treklink_prod` on `vercel-prod` and the container never migrates or seeds it
-- [ ] 7.4 Runbook (owner KhoaDD)
+- [x] 7.4 Runbook (owner KhoaDD)
   - **Files**: `deploy/aws/RUNBOOK.md`, a pointer in `deploy/README.md`
   - **Do**: console steps (instance, region, static IP, firewall ports, budget alarms, cost traps), DNS, Docker, env, start, health checks, Field Station and phone configuration, logs, rollback, teardown; the `system-endpoints.json` change and the D-094 rule 1 amendment as the step after go-live
-- [ ] 7.5 Rehearsal in a sandbox (owner KhoaDD)
+- [x] 7.5 Rehearsal in a sandbox (owner KhoaDD)
   - **Do**: the whole stack with a local Postgres in place of Neon and Caddy's internal CA in place of Let's Encrypt (`deploy/aws/compose.rehearsal.yml`); `mosquitto_pub` and `mosquitto_sub` as each principal, allowed and refused; one Field Station style message on the real topic and the row it writes
+  - **Done** (2026-11-07, KhoaDD under D-078, branch `chore/aws-field-host`): results in `deploy/aws/RUNBOOK.md` (Rehearsal): 5 allowed and 10 refused broker cases as designed, 1883 unreachable, health 200 over HTTPS, 3 `field_events` rows and the station health row, a renewed certificate reloaded twice within 60 s, a clean broker stop with persistence (after fixing the root-owned volume in `start.sh`), and a QoS 1 message resent and stored once after a 65 s backend outage
 - [ ] 7.6 Go-live on AWS (owner KhoaDD, leader)
   - **Do**: the leader provisions the host and runs the runbook; a Wi-Fi node, a phone proxy and a Field Station each reach `field_events`; then the `system-endpoints.json` change and the D-094 rule 1 amendment
   - _Target: 2026-11-15_

@@ -1,0 +1,90 @@
+# The AWS field host of D-098 (specs/platform/design.md §2.5, deploy/aws/RUNBOOK.md). From this folder,
+# with deploy/aws/.env filled in from .env.example:
+#   docker compose up -d --build
+# Four services: Caddy (certificate, HTTPS health check), Mosquitto with go-auth (MQTT over TLS on 8883),
+# broker-hook-proxy (adds X-Broker-Secret to the go-auth calls) and the backend (broker hooks, the
+# gateway-sync subscriber, scheduled jobs). Host ports: 80, 443 and 8883 only. The backend writes the Neon
+# database of the Vercel staging and never migrates or seeds it.
+name: treklink-field
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      MQTT_DOMAIN: ${MQTT_DOMAIN:?set MQTT_DOMAIN in deploy/aws/.env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in deploy/aws/.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    logging: *logging
+
+  mosquitto:
+    image: iegomez/mosquitto-go-auth:3.0.0-mosquitto_2.0.18
+    restart: unless-stopped
+    init: true
+    ports:
+      - "8883:8883"
+    environment:
+      MQTT_DOMAIN: ${MQTT_DOMAIN:?set MQTT_DOMAIN in deploy/aws/.env}
+      CERT_CHECK_SECONDS: ${CERT_CHECK_SECONDS:-3600}
+    entrypoint: ["/bin/sh", "/start.sh"]
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/start.sh:/start.sh:ro
+      - caddy_data:/caddy-data:ro
+      - mosquitto_data:/mosquitto/data
+    depends_on:
+      - broker-hook-proxy
+    stop_grace_period: 30s
+    logging: *logging
+
+  broker-hook-proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    environment:
+      MQTT_AUTH_HOOK_SECRET: ${MQTT_AUTH_HOOK_SECRET:?set MQTT_AUTH_HOOK_SECRET in deploy/aws/.env}
+      BROKER_HOOK_BACKEND: http://backend:3000
+    volumes:
+      - ../../infra/mosquitto/broker-hook-proxy.conf.template:/etc/nginx/templates/default.conf.template:ro
+    logging: *logging
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+    image: treklink-backend:${BACKEND_TAG:-field}
+    restart: unless-stopped
+    init: true
+    env_file: .env
+    # The host's mode (design §2.5). These win over deploy/aws/.env, so a copied Vercel value cannot turn
+    # on a Vercel-only switch here.
+    environment:
+      NODE_ENV: production
+      PORT_BACKEND: "3000"
+      MQTT_BROKER_URL: mqtt://mosquitto:1883
+      MQTT_INGESTION_ENABLED: "true"
+      JOBS_TICK_ON_REQUEST: "false"
+      FIELD_SIMULATOR_ENABLED: "false"
+      DEMO_CONTROLS_ENABLED: "false"
+      DEMO_TEST_ACCOUNTS_ENABLED: "false"
+      DEMO_SIMULATION_ENABLED: "false"
+      SWAGGER_ENABLED: "false"
+      HANDOVER_NOTE_STORE: database
+    stop_grace_period: 30s
+    logging: *logging
+
+volumes:
+  caddy_data:
+  caddy_config:
+  mosquitto_data:
