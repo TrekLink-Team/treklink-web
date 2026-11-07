@@ -145,6 +145,17 @@ afterEach(() => {
   listeners.clear();
 });
 
+// The legend steps aside while a popup is open (W44: at 400 % zoom it covered the popup's focused link,
+// WCAG 2.4.11) and returns once Escape closes the popup.
+const legendAfterPopup = () => {
+  expect(screen.queryByRole('region', { name: 'Map legend' })).toBeNull();
+  act(() => {
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' });
+  });
+  expect(document.querySelector('.leaflet-popup')).toBeNull();
+  return within(screen.getByRole('region', { name: 'Map legend' }));
+};
+
 describe('LiveMapPage (screen 9.1)', () => {
   it('draws the snapshot as markers and list rows on the organization map', async () => {
     show('o');
@@ -355,7 +366,7 @@ describe('LiveMapPage (screen 9.1)', () => {
         ),
       );
       // The legend names every marker drawn.
-      const legend = within(screen.getByRole('region', { name: 'Map legend' }));
+      const legend = legendAfterPopup();
       for (const label of ['Live', 'Offline', 'Not heard since handover', 'SOS'])
         expect(legend.getByText(label)).toBeTruthy();
     });
@@ -435,7 +446,7 @@ describe('LiveMapPage (screen 9.1)', () => {
         'Docked at the counter: TrekLink counter',
       ),
     );
-    const legend = within(screen.getByRole('region', { name: 'Map legend' }));
+    const legend = legendAfterPopup();
     expect(legend.getByText('Docked at the counter')).toBeTruthy();
   });
 
