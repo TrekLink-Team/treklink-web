@@ -145,3 +145,13 @@ The quick buttons pick the first rented device by asset tag; a person can do the
 |---|---|
 | Live maps (`/t/map`, `/o/map`): the marker's popup and the device list row | monitoring api-design 02 `devices[].simulated` |
 | Incident queue rows and the incident detail header | incidents api-design 01 and 02 `simulated` |
+
+## W43 staging quick controls (2026-11-07)
+
+This section supersedes staging's simulation-only presentation. Demo status reports quickEnabled and roleSwitchEnabled separately. Admin navigation remains the existing route and policy. The role switcher and destructive local scenarios are rendered only when local controls are enabled; staging uses the public Sandbox test accounts box to sign in.
+
+The thin Demo control header stays outside PageScrollBody. The document fits dvh; only the named nested controls region scrolls. No extra banner consumes the first phone viewport. Cards stack at 320/360 px, two columns from 900 px. All primary buttons are 44 px; forms use shared Field, Input and Select with visible labels. Controls wrap without document overflow in either theme. At 400 percent zoom bars may release per 0-ui-standard.
+
+Group quick cards by workflow: WF-01 organization registration and contract (Active organization, variant, quantity, target state); WF-02 Simulated walkers refresh; WF-03 SOS on a rented unit and next tier; WF-04 the existing balance/invoice links from a created contract; WF-05 loss/fault on a rented unit and contract term end. Each card has one submit button, a cause-specific error and a persistent live result line with record links. Disable unavailable actions with their reason. Refetch options after every command; retain partial-result links on error.
+
+A Demo time controls disclosure contains profile toggle (shows Active/Normal and current version), chosen contract term end and chosen incident next tier, with version from the last options read. Each time control uses Dialog confirming its synthetic time change and affected record. The contract form discloses synthetic signature and manual provisioning before submission for ACTIVE/RETURN_DUE. Profile changes show 30-second tiers and a 5-minute reopen window, restore prior values on disable and explain stale versions as reload required. WF-02 and SOS results say Simulated. Mutations use entities/demo TanStack Query hooks and invalidate options/status/simulation. Test both themes at 1440, 1280, 900, 360, 320 px and 400 percent zoom, inspect screenshots and axe, keyboard focus, target sizes and document dimensions.

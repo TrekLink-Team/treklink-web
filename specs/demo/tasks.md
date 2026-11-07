@@ -50,3 +50,13 @@
   - **Done** (2026-11-06, KhoaDD under D-078, W33): `gateway-sync/simulator/field-styles.ts` holds the eight styles as pure functions of the anchor, the elapsed time and `styleSeed` (FNV-1a of `treklink-sim-v1:{assetTag}`, shifted to fit the signed column); `field-simulation.ts` uses them while the pattern walks and keeps the steady walk for a node with no style; a walking `STRAGGLER` sends nothing in its radio shadow. Migration `20261106090000_simulation_styles` adds `style` (nullable enum `SimulationStyle`) and `styleSeed`. Routes 06 to 08 list `styles`, take `style` and return it (api-design regenerated from `scripts/specs/endpoints/demo.py`); the panel has a style picker on Add node (default "From the asset tag", replacing the speed input) and a Style select with Apply on each row, stacked under the pattern. Tests: `field-styles.spec.ts` (each style's envelope with a fixed seed: fastest step, distance from the trail or anchor, rests, camp stay, group spread, shadow, battery, determinism, seed range), `field-simulation.service.spec.ts`, `demo-simulation.controller.spec.ts`, `FieldSimulationSection.test.tsx`; `test/demo-simulation.db-spec.ts` passes on a local Postgres 16 with the migration. Open: the speed question to the leader (styled nodes ignore `speedMetresPerMinute`)
 - [ ] 5.8 AC-08 on the Vercel staging after the pin moves (D-094): a person runs AC-06 and AC-07 from the browser alone
 
+
+## 6. W43 staging quick scenarios (2026-11-07, KhoaDD under D-078)
+
+- [x] 6.1 Specify explicit environment gate, additive scenarios, provenance, time controls and screen contract (REQ-QUICK-01 to 09).
+- [ ] 6.2 Implement environment and Admin guard, durable counter and audited registry, preserve local-only reset and switching.
+- [ ] 6.3 Implement organization, four contract targets, SOS, loss/fault and walker refresh through owning services.
+- [ ] 6.4 Implement persistent escalation profile, contract and incident time controls with optimistic versions.
+- [ ] 6.5 Build grouped WF-01 to WF-05 panel, result links, causes and synthetic/time disclosures.
+- [ ] 6.6 Unit tests, quick contract/SOS Postgres specs, lint, typecheck, boundaries and visual/axe matrix.
+- [ ] 6.7 Update demo script and run book to fresh scenario links and staging environment variables.

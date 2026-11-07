@@ -262,3 +262,15 @@ actions Change pattern, SOS, Fall, Cancel SOS, Stop; a form Add node (device pic
 `nodeNum`, trail, pattern, speed); quick buttons for the demo cases of the script (an SOS on a rented node,
 a node going silent, a node straying); the panel polls every 15 s. The nav entry shows while either the
 control panel or the simulation is enabled; staging and the role switch keep their own flag and guards.
+
+## 10. Additive staging controls (W43, 2026-11-07)
+
+The module condition combines DEMO_CONTROLS_ENABLED with explicit VITE_APP_ENV sandbox/staging, the signal used by EnvironmentBadge (#420). A quick guard rechecks these plus both URLs through simulationDatabaseAllowed and refuses any caller without ADMIN or with an organization context. Legacy DemoGuardService and DemoSessionService.switchTo retain their local production refusal. Read-only account lookup may be used by additive scenarios without issuing tokens.
+
+DemoScenarioRun owns a database counter and provenance: actual actor, action, demo label, result links and failure. DemoControlState owns the escalation profile snapshot and version. These are demo-owned models, added by a forward migration. No cross-module repository access is permitted. Existing demo.stage is reused, no new permission is introduced. Work calls owning exported services, followed by a committed registry update and audit event. Business operations have their own transactions; a multi-step failure leaves inspectable partial records, never a rollback claim about already committed work.
+
+Options come from small exported reads: Active organizations with an active Manager, active variants, live contract custody and incident versions. Quick contracts execute as the actual Admin with an explicit organization context for the request and notice; the organization's active Manager is the disclosed synthetic handover signer. The real HandoverService records manual provisioning, a demo identity description and a synthetic PNG signature, and creates its normal note. A fresh request has its own real stock reservation and invoice. Invoice amounts and minimum quantities come from their services and ParameterService. An ACTIVE scenario uses at least two units. A time control checks version under the owning contract lock before changing its open term and runs only that contract's rollover.
+
+Quick SOS uses the fixture's packet shape with the selected node number and fresh packet id, through UplinkIngress.ingest with simulated provenance. Existing incident deduplication remains effective. Incident time advance is an exported owning command, guarded by simulated provenance, which locks the incident, checks version, makes its current tier due and uses the normal lifecycle and routing in one transaction.
+
+ParameterService exposes transactional reads and updates so the four profile values, history, restore snapshot and audit commit together. Restoring requires the versions saved on activation, preventing an external parameter change from being lost. Simulator refresh changes only simulator-owned anchors and ingests through its existing run path.
