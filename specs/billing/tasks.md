@@ -157,9 +157,10 @@
   - _Requirements: REQ-EVT-12, REQ-EVT-13, REQ-EVT-14, REQ-EVT-15, REQ-ERR-06, REQ-ERR-07, REQ-ERR-08, AC-06, AC-07, AC-08, D-092 rule 5_
 - [x] 8.2 Screens for service credits per design §9.6, in `specs/frontend/ui-design` first (owner LongLP, assigned by the leader 2026-11-02)
   - **Done** (2026-11-02, LongLP): screen 6.5 (`specs/frontend/ui-design/6-5-service-credits-servicecreditspage-the-request-from.md`, frontend task 6.5). The request from the maintenance record and an incident picker for the outage source are left out; billing api-design 18 already takes `outageSourceIncidentId`. The credit view gains `requestedById` (billing api-design 19 to 22)
-- [ ] 8.3 The fault report as the source of a credit's outage start (owner LongLP, W10, after rentals 9.4)
+- [x] 8.3 The fault report as the source of a credit's outage start (owner LongLP, W10, after rentals 9.4)
   - **Do**: `ServiceCredit.outageSourceFaultReportId` with the CHECK of three sources, the report checked against the contract row through `CREDIT_BASIS`, `outageFrom` defaulting to its `reportedAt`; the request dialog of screen 6.5 offers the unit's open or resolved report (design §9.1, treklink-web#305)
-  - **Implemented** (2026-11-05, LongLP): the credit API accepts and stores the report, checks the custody row, and defaults the start to `reportedAt`. The report picker in screen 6.5 remains open.
+  - **Implemented** (2026-11-05, LongLP): the credit API accepts and stores the report, checks the custody row, and defaults the start to `reportedAt`.
+  - **Picker** (2026-11-07, TK-209): rentals api-design 29 exposes the custody row id. The Staff dialog uses it to list open and resolved reports for that row, with the manual note available. The Admin decision dialog identifies the fault report as the source. Covered by frontend component tests and the fault-report and service-credit Postgres specs.
   - _Requirements: REQ-EVT-12, rentals REQ-EVT-24_
 
 ## Phase 9: The early-end credit (D-097 rules 2 and 3; W29)

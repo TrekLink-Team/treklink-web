@@ -23,6 +23,7 @@ const credit = (
   faultInspectionId: 'fi-1',
   outageFrom: '2026-10-20T02:00:00Z',
   outageSourceIncidentId: null,
+  outageSourceFaultReportId: null,
   outageSourceNote: null,
   outageTo: '2026-10-22T02:00:00Z',
   outageDays: 2,

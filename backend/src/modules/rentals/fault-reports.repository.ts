@@ -45,6 +45,7 @@ export class FaultReportsRepository {
           orderBy: [{ reportedAt: 'desc' }, { id: 'desc' }],
           select: {
             id: true,
+            contractDeviceId: true,
             deviceId: true,
             description: true,
             reportedAt: true,

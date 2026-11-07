@@ -336,6 +336,15 @@ describe('group API against Postgres (rentals 9.2)', () => {
       resolvedAt: endedAt,
       resolution: 'RELEASED',
     });
+    const history = await flow.send(
+      flow.staff,
+      'get',
+      `/api/contracts/${rental.contract.id}/fault-reports`,
+    );
+    expect(history.status).toBe(200);
+    expect(history.body).toMatchObject({
+      result: [{ contractDeviceId: row.id, deviceId, resolution: 'RELEASED' }],
+    });
     await expect(release(new Date(endedAt.getTime() + 1000))).rejects.toThrow(
       'The custody interval is already closed.',
     );

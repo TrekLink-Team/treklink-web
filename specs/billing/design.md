@@ -897,6 +897,9 @@ The fault report of rentals REQ-EVT-24 (`DeviceFaultReport`, rentals design §11
 If the request omits `outageFrom`, the API uses the report's `reportedAt`. An incident id or a note can also back
 the start, with `outageFrom` supplied by Staff. Migration `20261105130000_credit_fault_report_source` allows all
 three sources and preserves existing incident and note references.
+The request dialog lists open and resolved reports from rentals api-design 29 for the same
+`contractDeviceId`. Choosing a report sends its id and uses its report time. The manual note and
+outage start remain available.
 
 | Cause | Meaning |
 |---|---|

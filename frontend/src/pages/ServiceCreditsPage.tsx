@@ -157,7 +157,9 @@ const DecisionDialog: React.FC<{ credit: ServiceCredit; onClose: () => void }> =
         {errors.form && <Alert tone="error">{errors.form}</Alert>}
         <p className="text-body-sm text-ink">
           Outage start source:{' '}
-          {credit.outageSourceNote ?? (credit.outageSourceIncidentId ? 'an incident' : 'not given')}
+          {credit.outageSourceFaultReportId
+            ? 'a fault report'
+            : credit.outageSourceNote ?? (credit.outageSourceIncidentId ? 'an incident' : 'not given')}
         </p>
         <RadioGroup<ServiceCreditDecision>
           name="credit-decision"

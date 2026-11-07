@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-The contract's fault reports, newest first, open and resolved, with the device's asset tag. `resolution` is null while open, then `REPLACED`, `CHECKED_IN`, `LOST` or `RELEASED`.
+The contract's fault reports, newest first, open and resolved, with the device's asset tag and `contractDeviceId`, the exact custody row used by the service credit picker (billing 18). `resolution` is null while open, then `REPLACED`, `CHECKED_IN`, `LOST` or `RELEASED`.
 
 ## API Specification
 
@@ -34,6 +34,7 @@ No body.
   "result": [
     {
       "id": "fr-2",
+      "contractDeviceId": "a0f0cafe-0202-4abc-8def-001122334455",
       "deviceId": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
       "assetTag": "TL-0042",
       "description": "Battery swollen, will not charge",
@@ -43,6 +44,7 @@ No body.
     },
     {
       "id": "fr-1",
+      "contractDeviceId": "a0f0cafe-0101-4abc-8def-001122334455",
       "deviceId": "6a0e4c1f-2b8d-4e37-9a51-7c3f0d2e8b14",
       "assetTag": "TL-0043",
       "description": "No GPS fix in the open",

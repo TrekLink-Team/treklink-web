@@ -137,10 +137,11 @@ describe('ServiceCreditsPage (screen 6.5, billing design §9.6)', () => {
   });
 
   it('asks before rejecting, naming the amount and the device', async () => {
-    credits = [credit('sc-1', 'staff-1')];
+    credits = [credit('sc-1', 'staff-1', { outageSourceNote: null, outageSourceFaultReportId: 'fr-1' })];
     decideServiceCredit.mockResolvedValue({ id: 'sc-1', status: 'REJECTED' });
     renderPage();
     fireEvent.click(within(rowOf('TL-0001')).getByRole('button', { name: /^Decide/ }));
+    expect(screen.getByText('Outage start source: a fault report')).toBeTruthy();
     fireEvent.click(screen.getByLabelText('Reject'));
     fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: 'Water damage' } });
     fireEvent.click(screen.getByRole('button', { name: 'Record decision' }));
