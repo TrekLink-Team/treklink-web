@@ -1,16 +1,20 @@
 import {
   DeviceStatus,
   InvoiceLineType,
+  PaymentMethod,
   ServiceCreditKind,
   ServiceCreditStatus,
 } from '@prisma/client';
+import { BalanceService } from '../src/modules/billing/balance.service';
+import { PaymentsService } from '../src/modules/billing/payments.service';
+import { SepayService } from '../src/modules/billing/sepay.service';
 import { ServiceCreditService } from '../src/modules/billing/service-credit.service';
 import { ReleaseService } from '../src/modules/rentals/release.service';
 import { TermRolloverJob } from '../src/modules/rentals/term-rollover.job';
 import { at, compileRentalFlow, RentalFlow } from './db-rental-flow';
 
 // Release a unit (rentals task 13.3, AC-19 to AC-22; billing AC-13, AC-14; D-099) against Postgres, through
-// the real services of AppModule and, for the permission, over HTTP (test/db-rental-flow.ts). A rented
+// the real services and the Staff and Org Manager HTTP paths of AppModule (test/db-rental-flow.ts). A rented
 // contract's term runs from 2 November 02:00 UTC to 2 December 02:00 UTC, 30 days.
 describe('release a unit against Postgres (AC-19 to AC-22)', () => {
   let flow: RentalFlow;
@@ -25,6 +29,22 @@ describe('release a unit against Postgres (AC-19 to AC-22)', () => {
   afterAll(async () => {
     await flow?.close();
   });
+
+  const approvedWithHeldUnit = async () => {
+    const org = await flow.organization();
+    const variantId = await flow.variant();
+    await flow.availableDevices(variantId, 5);
+    const contract = await flow.requested(org.id, org.manager.id, variantId, 5);
+    await flow.approve(contract.id);
+    const invoice = await flow.prisma.invoice.findFirstOrThrow({
+      where: { contractId: contract.id },
+      orderBy: { issuedAt: 'asc' },
+    });
+    const held = await flow.prisma.contractDevice.findFirstOrThrow({
+      where: { contractId: contract.id, releasedAt: null },
+    });
+    return { contract, invoice, held, org };
+  };
 
   it('AC-19, AC-13: a running unit released on day 10 is back, the quantity drops, and the approved credit lands on term 2', async () => {
     const { contract, deviceIds } = await flow.rented(5);
@@ -106,32 +126,105 @@ describe('release a unit against Postgres (AC-19 to AC-22)', () => {
     ).toBe('LAST_UNIT');
   });
 
-  it('AC-21, AC-14: before handover the held unit is free again and the paid first invoice is lowered', async () => {
-    const org = await flow.organization();
-    const variantId = await flow.variant();
-    await flow.availableDevices(variantId, 5);
-    const contract = await flow.requested(org.id, org.manager.id, variantId, 5);
-    await flow.approve(contract.id);
-    await flow.payAll(contract.id);
-    const held = await flow.prisma.contractDevice.findFirstOrThrow({
-      where: { contractId: contract.id, releasedAt: null },
-    });
+  it.each([
+    { payment: 'holding fee', paidVnd: 1_125_000, owedVnd: 0, outstandingVnd: 675_000n },
+    { payment: 'full invoice', paidVnd: 2_250_000, owedVnd: 450_000, outstandingVnd: 0n },
+  ])(
+    'AC-21, AC-14: Staff release a held unit over HTTP with the $payment paid',
+    async ({ paidVnd, owedVnd, outstandingVnd }) => {
+      const { contract, invoice: firstInvoice, held } = await approvedWithHeldUnit();
+      await flow.get(PaymentsService).recordCounter(
+        firstInvoice.id,
+        {
+          method: PaymentMethod.CASH,
+          amountVnd: BigInt(paidVnd),
+          reference: `RELEASE-${flow.next()}`,
+        },
+        flow.staff,
+        at('2026-11-02T00:30:00.000Z'),
+      );
+      const path = `/api/contracts/${contract.id}/devices/${held.deviceId}`;
+      const preview = await flow.send(flow.staff, 'get', `${path}/release-preview`);
+      expect(preview.status).toBe(200);
+      expect(preview.body).toMatchObject({
+        result: {
+          firstInvoice: {
+            totalVnd: 2_250_000,
+            paidVnd,
+            newTotalVnd: 1_800_000,
+            owedToOrganizationVnd: owedVnd,
+          },
+        },
+      });
+
+      const version = await flow.version(contract.id);
+      const released = await flow.send(flow.staff, 'post', `${path}/release`, {
+        reason,
+        expectedVersion: version,
+      });
+      expect(released.status).toBe(200);
+      expect(released.body).toMatchObject({
+        result: {
+          contract: { id: contract.id, quantity: 4, version: version + 1 },
+          firstInvoiceLoweredByVnd: 450_000,
+        },
+      });
+      await expect(
+        flow.prisma.device.findUniqueOrThrow({ where: { id: held.deviceId } }),
+      ).resolves.toMatchObject({ status: DeviceStatus.AVAILABLE });
+      const first = await flow.prisma.invoice.findUniqueOrThrow({
+        where: { id: firstInvoice.id },
+        include: { lines: { where: { type: InvoiceLineType.ADJUSTMENT } } },
+      });
+      expect(first.totalVnd).toBe(1_800_000n);
+      expect(first.paidVnd).toBe(BigInt(paidVnd));
+      expect(first.lines.map((line) => line.amountVnd)).toEqual([-225_000n, -225_000n]);
+      const balance = await flow.get(BalanceService).balanceSummary(contract.id);
+      expect(balance.dueNowVnd + balance.dueLaterVnd).toBe(outstandingVnd);
+      expect(balance.owedToOrganizationVnd).toBe(BigInt(owedVnd));
+    },
+  );
+
+  it('billing AC-15: reissues the unpaid deposit for SePay and the handover gate', async () => {
+    const { contract, invoice, held, org } = await approvedWithHeldUnit();
+    const beforeStart = at('2026-11-02T00:30:00Z');
     await releases.release(
       contract.id,
       held.deviceId,
       { reason, expectedVersion: await flow.version(contract.id) },
       flow.staff,
+      beforeStart,
     );
+    const balance = flow.get(BalanceService);
+    await expect(balance.firstPaymentConfirmed(contract.id)).resolves.toBe(false);
     await expect(
-      flow.prisma.device.findUniqueOrThrow({ where: { id: held.deviceId } }),
-    ).resolves.toMatchObject({ status: DeviceStatus.AVAILABLE });
-    const first = await flow.prisma.invoice.findFirstOrThrow({
-      where: { contractId: contract.id },
-      orderBy: { issuedAt: 'asc' },
-    });
-    expect(first.totalVnd).toBe(1_800_000n);
-    // what was paid above the new total is owed back
-    expect(first.paidVnd - first.totalVnd).toBe(450_000n);
+      flow.get(SepayService).request(invoice.id, undefined, org.manager, beforeStart),
+    ).resolves.toMatchObject({ amountVnd: 900_000n });
+    const detail = await flow.send(org.manager, 'get', `/api/invoices/${invoice.id}`);
+    expect(detail.status).toBe(200);
+    const { result } = detail.body as { result: { lines: unknown[] } };
+    expect(result.lines).toContainEqual(
+      expect.objectContaining({
+        type: InvoiceLineType.HOLDING_FEE,
+        amountVnd: 1_125_000,
+        payableAmountVnd: 900_000,
+      }),
+    );
+
+    const pay = (amountVnd: bigint) =>
+      flow
+        .get(PaymentsService)
+        .recordCounter(
+          invoice.id,
+          { method: PaymentMethod.CASH, amountVnd, reference: `RELEASE-${flow.next()}` },
+          flow.staff,
+          beforeStart,
+        );
+    await pay(899_999n);
+    await expect(balance.firstPaymentConfirmed(contract.id)).resolves.toBe(false);
+    await pay(1n);
+    await expect(balance.firstPaymentConfirmed(contract.id)).resolves.toBe(true);
+    await expect(balance.outstanding(contract.id)).resolves.toBe(900_000n);
   });
 
   it('AC-22: an Org Manager gets 403, and two releases with one version leave one STALE_VERSION', async () => {

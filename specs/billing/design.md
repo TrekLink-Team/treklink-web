@@ -1145,6 +1145,10 @@ computed rather than taken as one unit's `unitVnd`, because a line whose amount 
 stored with quantity 1 and the whole amount (`invoices.service.ts`, `line`).
 These negative `ADJUSTMENT` lines on the same invoice satisfy the reissue in D-099 rule 4 and preserve the
 issued lines as required by REQ-UBI-02.
+The deposit and handover gate use the original fee net of its release adjustments. SePay uses the same
+net amount when it requests a specific line or the earliest unpaid line. The invoice detail keeps the
+issued amounts and exposes `payableAmountVnd` on each fee lowered by a release for payment displays.
+If the contract is then cancelled, only the balance still unpaid on the adjusted invoice is voided.
 `appendLines` updates the total and the status; a payment above the new total stays recorded and shows as owed to the
 organization (§10.3), refunded outside TrekLink. A request with no invoice issued yet has nothing to lower.
 

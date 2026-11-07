@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { recordCounterPayment, type InvoiceDetail } from '../../entities/billing/api';
+import { payableAmountOf, recordCounterPayment, type InvoiceDetail } from '../../entities/billing/api';
 import { ApiError } from '../../shared/api/apiClient';
 import { formatVnd } from '../../shared/lib/format';
 import { Field } from '../../shared/ui/bits';
@@ -12,13 +12,13 @@ import { useToast } from '../../shared/ui/toastStore';
 import { ALERT, INPUT, PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../shared/ui/styles';
 
 // The unpaid part of the lines due by now, never more than the invoice's whole unpaid amount (a
-// credit line lowers the total, not a single line).
+// general credit lowers the total, and a release adjustment lowers its matching fee).
 export const dueNowOf = (invoice: InvoiceDetail, due: number, now: Date = new Date()): number =>
   Math.min(
     due,
     invoice.lines
       .filter((line) => new Date(line.dueAt).getTime() <= now.getTime())
-      .reduce((sum, line) => sum + Math.max(line.amountVnd - line.paidVnd, 0), 0),
+      .reduce((sum, line) => sum + Math.max(payableAmountOf(line) - line.paidVnd, 0), 0),
   );
 
 interface Errors {

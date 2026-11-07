@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Returns the immutable, itemized invoice with its dated lines and payments, and the two parties of the business document (screen 6.1): `organization` carries the buyer's registered legal name, tax code and address (null when the directory cannot name it), and `seller` TrekLink's from the `COMPANY_LEGAL_NAME`, `COMPANY_TAX_CODE`, `COMPANY_ADDRESS` and `COMPANY_HOTLINE` configuration. The list (08) keeps the organization code only. An invoice whose total is below zero is `CREDIT_DUE` with `creditDueVnd`, what TrekLink owes the organization on it (design section 11.3), until a refund is recorded (23); then it is `REFUNDED` with `refund`.
+Returns the immutable, itemized invoice with its dated lines and payments, and the two parties of the business document (screen 6.1): `organization` carries the buyer's registered legal name, tax code and address (null when the directory cannot name it), and `seller` TrekLink's from the `COMPANY_LEGAL_NAME`, `COMPANY_TAX_CODE`, `COMPANY_ADDRESS` and `COMPANY_HOTLINE` configuration. The list (08) keeps the organization code only. An invoice whose total is below zero is `CREDIT_DUE` with `creditDueVnd`, what TrekLink owes the organization on it (design section 11.3), until a refund is recorded (23); then it is `REFUNDED` with `refund`. When a release lowers an issued fee, its line also carries `payableAmountVnd` for payment displays (D-099).
 
 ## API Specification
 
@@ -103,6 +103,10 @@ No body.
   "message": "OK"
 }
 ```
+
+| Field | Description | Data Type | Examples |
+| --- | --- | --- | --- |
+| lines[].payableAmountVnd | Fee after before-handover release adjustments; omitted when unchanged | int | `900000` |
 
 ## Validation
 

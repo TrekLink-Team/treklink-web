@@ -34,6 +34,7 @@ export const LINE_SELECT = {
   invoiceId: true,
   seq: true,
   type: true,
+  description: true,
   amountVnd: true,
   paidVnd: true,
   dueAt: true,

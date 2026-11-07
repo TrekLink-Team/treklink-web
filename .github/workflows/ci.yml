@@ -194,6 +194,9 @@ jobs:
       - name: Playwright journeys
         working-directory: frontend
         run: npx playwright test --project=desktop a11y mf-01-request mf-01a mf-04 wf-04
+      - name: Playwright release journey after MF-01 handover
+        working-directory: frontend
+        run: npx playwright test --project=desktop mf-05-term-end --grep 'WF-05 release:'
       - name: Upload the Playwright report
         if: failure()
         uses: actions/upload-artifact@v4

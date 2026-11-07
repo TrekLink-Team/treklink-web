@@ -1,5 +1,5 @@
 import React from 'react';
-import { useInvoice, useInvoices } from '../../entities/billing/api';
+import { payableAmountOf, useInvoice, useInvoices } from '../../entities/billing/api';
 import type { ContractDetail } from '../../entities/contract/api';
 import { formatDateTime, formatVnd, viewerTimeZone } from '../../shared/lib/format';
 import { Alert } from '../../shared/ui/Alert';
@@ -26,7 +26,7 @@ export const DepositCard: React.FC<{
       .at(0)?.id ?? null;
   const invoice = useInvoice(firstId);
   const deposit = invoice.data?.lines.slice().sort((a, b) => a.seq - b.seq)[0];
-  const paid = deposit ? deposit.paidVnd >= deposit.amountVnd : false;
+  const paid = deposit ? deposit.paidVnd >= payableAmountOf(deposit) : false;
   const hold = contract.holdExpiresAt;
 
   return (
@@ -41,7 +41,7 @@ export const DepositCard: React.FC<{
           }
         >
           {viewer === 'manager'
-            ? `Your request holds its units until ${formatDateTime(hold)}. Pay the deposit of ${formatVnd(deposit.amountVnd - deposit.paidVnd)} before then. TrekLink Staff then review the request.`
+            ? `Your request holds its units until ${formatDateTime(hold)}. Pay the deposit of ${formatVnd(payableAmountOf(deposit) - deposit.paidVnd)} before then. TrekLink Staff then review the request.`
             : `The request holds its units until ${formatDateTime(hold)}. An unpaid hold then ends and the request is cancelled.`}
         </Alert>
       )}
@@ -60,7 +60,7 @@ export const DepositCard: React.FC<{
         {deposit && invoice.data && (
           <dl className="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)] gap-x-3 gap-y-2">
             <dt className="text-body-sm text-ink-muted">Amount</dt>
-            <dd className="text-title-sm tabular-nums text-ink">{formatVnd(deposit.amountVnd)}</dd>
+            <dd className="text-title-sm tabular-nums text-ink">{formatVnd(payableAmountOf(deposit))}</dd>
             <dt className="text-body-sm text-ink-muted">Line</dt>
             <dd className="text-body text-ink">{deposit.description}</dd>
             <dt className="text-body-sm text-ink-muted">Status</dt>

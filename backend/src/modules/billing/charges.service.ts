@@ -3,7 +3,7 @@ import { DamageChargeStatus, InvoiceKind, InvoiceLineType, PlanType, Prisma } fr
 import { DomainException, ErrorCode } from '../../common/errors';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { DamageChargeRow, DamageChargesRepository } from './damage-charges.repository';
-import { InvoiceRow, InvoicesRepository, LineRow, NewInvoiceLine } from './invoices.repository';
+import { InvoiceRow, InvoicesRepository, NewInvoiceLine } from './invoices.repository';
 import {
   dayPlanFeeVnd,
   EarlyEndCredit,
@@ -12,6 +12,7 @@ import {
   termFeeVnd,
 } from './money';
 import { PricingService } from './pricing.service';
+import { RELEASE_ADJUSTMENT_PREFIX } from './release-adjustments';
 import { ServiceCreditLedger } from './service-credit-ledger';
 
 export interface ChargedContract {
@@ -91,13 +92,6 @@ export interface DamageResult {
 const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
 
-const unpaidOf = (lines: readonly LineRow[]): bigint =>
-  lines.reduce(
-    (total, line) =>
-      line.amountVnd > line.paidVnd ? total + line.amountVnd - line.paidVnd : total,
-    0n,
-  );
-
 // Charges outside the plan, on the contract's closing invoice (billing design §1 and §2): the
 // cancellation adjustment (task 2.3), late fees and damage charges (task 2.5), and loss charges with
 // their adjustments (task 2.6).
@@ -124,8 +118,8 @@ export class ChargesService {
   ): Promise<InvoiceRow | null> {
     const first = await this.invoices.firstChargeableInvoice(contract.id, tx);
     if (!first) return null;
-    const unpaid = unpaidOf(first.lines);
-    if (unpaid === 0n) return null;
+    const unpaid = first.totalVnd - first.paidVnd;
+    if (unpaid <= 0n) return null;
 
     return this.addToClosing(
       contract,
@@ -242,7 +236,7 @@ export class ChargesService {
       const diff = before - lowered;
       lines.push({
         type: InvoiceLineType.ADJUSTMENT,
-        description: `Release of one unit: ${LABEL[line.type]}, ${contract.quantity} to ${after} units`,
+        description: `${RELEASE_ADJUSTMENT_PREFIX}${LABEL[line.type]}, ${contract.quantity} to ${after} units`,
         quantity: 1,
         unitVnd: -diff,
         amountVnd: -diff,
