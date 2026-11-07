@@ -43,6 +43,39 @@ test('MF-04 steps 1 to 3: the Operator live map, search and the sovereignty over
   await expect(page.locator('.leaflet-control-layers')).toHaveCount(0);
 });
 
+// Screen 9.1, W44 (TK-207 staging run 2026-11-07): a marker popup works from the keyboard. Focus moves
+// into the popup when it opens, Tab cycles through its links and its Close button, and Escape closes it
+// and returns focus to the marker, also after a live reading redrew it.
+test('MF-04 step 1b: the Operator opens and closes a marker popup from the keyboard', async ({ page }) => {
+  await signIn(page, 'operator');
+  await expect(page).toHaveURL(/\/o\/map$/);
+  const list = page.getByLabel('Devices', { exact: true });
+  // The list row centres the map at zoom 14 on the unit, out of any cluster, and opens its popup.
+  await list.getByRole('button', { name: /^TL-0009 / }).click();
+  const popup = page.locator('.leaflet-popup');
+  await expect(popup).toBeVisible();
+  const marker = page.locator('.leaflet-marker-icon[title^="TL-0009"]');
+  await page.keyboard.press('Escape');
+  await expect(popup).toHaveCount(0);
+  await expect(marker).toBeFocused();
+
+  await page.keyboard.press('Enter');
+  await expect(popup).toBeVisible();
+  // Focus lands in the popup: on the first link of a lone unit, or on the list of units that share its
+  // spot (units at the counter before the simulated gateway reports them).
+  const first = popup.locator('a[href], [tabindex="0"]').first();
+  await expect(first).toBeFocused();
+  const close = popup.getByRole('button', { name: 'Close popup' });
+  await close.focus();
+  await page.keyboard.press('Tab');
+  await expect(first).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(close).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(popup).toHaveCount(0);
+  await expect(marker).toBeFocused();
+});
+
 test('MF-04 step 4: Staff filter the fleet map by organization', async ({ page }) => {
   await signIn(page, 'staff');
   await expect(page).toHaveURL(/\/t\/map$/);

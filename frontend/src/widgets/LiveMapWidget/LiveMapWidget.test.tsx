@@ -605,10 +605,12 @@ describe('LiveMapWidget', () => {
     // Every device, most severe first, each with its popup content.
     const items = Array.from(list.querySelectorAll('li')).map((item) => item.textContent);
     expect(items).toEqual(['TL-0005SOS', 'TL-0004Not heard since handover']);
-    // Focus moves into the list, and Escape closes it and returns focus to the badge.
-    expect(document.activeElement).toBe(list);
+    // Focus moves into the scrolling list, so the arrow keys scroll it, and Escape closes it and
+    // returns focus to the badge.
+    const scroller = screen.getByRole('list', { name: '2 devices near 11.5600, 108.5400' });
+    expect(document.activeElement).toBe(scroller);
     act(() => {
-      fireEvent.keyDown(list, { key: 'Escape' });
+      fireEvent.keyDown(scroller, { key: 'Escape' });
     });
     expect(openPopup(mapOf())).toBeUndefined();
     expect(document.activeElement).toBe(badgesOf(container)[0]);
@@ -864,5 +866,164 @@ describe('LiveMapWidget marker glide (dry run defect 10)', () => {
     expect(frames.size).toBe(1);
     unmount();
     expect(frames.size).toBe(0);
+  });
+});
+
+// Screen 9.1, W44 (TK-207 staging run 2026-11-07): the keyboard in a marker popup. Enter on a marker
+// moves focus into its popup, Escape closes it and returns focus to the marker, Tab cycles inside, and a
+// live reading that redraws the popup keeps focus where it was.
+describe('LiveMapWidget marker popup keyboard', () => {
+  const links = [
+    { label: 'Open incident', to: '/o/incidents/INC-1' },
+    { label: 'Position history', to: '/o/devices/TL-0018/telemetry' },
+  ];
+  const sos = (details: string[] = ['Battery 80%']): MapMarker => ({
+    ...device('TL-0018', [11.5, 108.5]),
+    status: 'incident',
+    name: 'TL-0018, SOS, Open, live, Le Thi E',
+    details,
+    links,
+  });
+  const markerOf = async () =>
+    (await screen.findByRole('img', { name: 'TL-0018, SOS, Open, live, Le Thi E' })).closest(
+      '.leaflet-marker-icon',
+    ) as HTMLElement;
+  const pressEnter = (element: HTMLElement) =>
+    act(() => {
+      fireEvent.keyPress(element, { key: 'Enter', code: 'Enter', keyCode: 13, charCode: 13 });
+    });
+  const popupBox = () => document.querySelector<HTMLElement>('.leaflet-popup');
+  const closeButton = () =>
+    document.querySelector<HTMLElement>('.leaflet-popup-close-button') as HTMLElement;
+
+  it('moves focus to the first link when Enter opens the popup, inside a group named like the marker', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    renderWidget([sos()]);
+    const marker = await markerOf();
+    marker.focus();
+    pressEnter(marker);
+    await waitFor(() => expect(popupBox()).toBeTruthy());
+    expect(document.activeElement).toBe(screen.getByRole('link', { name: 'Open incident' }));
+    expect(screen.getByRole('group', { name: 'TL-0018, SOS, Open, live, Le Thi E' })).toBeTruthy();
+  });
+
+  it('focuses the popup content itself when the marker has no link', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    renderWidget([device('TL-0001', [11.5, 108.5])]);
+    const marker = (await screen.findByRole('img', { name: 'TL-0001, Battery 80%' })).closest(
+      '.leaflet-marker-icon',
+    ) as HTMLElement;
+    marker.focus();
+    pressEnter(marker);
+    await waitFor(() => expect(popupBox()).toBeTruthy());
+    expect(document.activeElement).toBe(screen.getByRole('group', { name: 'TL-0001, Battery 80%' }));
+  });
+
+  it('closes on Escape from a link or from the Close button and returns focus to the marker', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    renderWidget([sos()]);
+    const marker = await markerOf();
+    for (const from of [
+      () => screen.getByRole('link', { name: 'Position history' }),
+      () => closeButton(),
+    ]) {
+      marker.focus();
+      pressEnter(marker);
+      await waitFor(() => expect(popupBox()).toBeTruthy());
+      const start = from();
+      start.focus();
+      act(() => {
+        fireEvent.keyDown(start, { key: 'Escape' });
+      });
+      expect(popupBox()).toBeNull();
+      expect(document.activeElement).toBe(marker);
+    }
+  });
+
+  it('closes on Escape while the marker that opened it holds focus, as after a pointer opening', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    renderWidget([sos()]);
+    const marker = await markerOf();
+    fireEvent.click(marker);
+    await waitFor(() => expect(popupBox()).toBeTruthy());
+    marker.focus();
+    act(() => {
+      fireEvent.keyDown(marker, { key: 'Escape' });
+    });
+    expect(popupBox()).toBeNull();
+    expect(document.activeElement).toBe(marker);
+  });
+
+  it('returns focus to the marker when the Close button closes the popup', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    renderWidget([sos()]);
+    const marker = await markerOf();
+    marker.focus();
+    pressEnter(marker);
+    await waitFor(() => expect(popupBox()).toBeTruthy());
+    closeButton().focus();
+    act(() => {
+      fireEvent.click(closeButton());
+    });
+    expect(popupBox()).toBeNull();
+    expect(document.activeElement).toBe(marker);
+  });
+
+  it('cycles Tab and Shift+Tab through the links and the Close button', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    renderWidget([sos()]);
+    const marker = await markerOf();
+    marker.focus();
+    pressEnter(marker);
+    await waitFor(() => expect(popupBox()).toBeTruthy());
+    const first = screen.getByRole('link', { name: 'Open incident' });
+    // From the last stop, Tab wraps to the first link.
+    closeButton().focus();
+    act(() => {
+      fireEvent.keyDown(closeButton(), { key: 'Tab' });
+    });
+    expect(document.activeElement).toBe(first);
+    // From the first link, Shift+Tab wraps to the Close button.
+    act(() => {
+      fireEvent.keyDown(first, { key: 'Tab', shiftKey: true });
+    });
+    expect(document.activeElement).toBe(closeButton());
+    // Between the stops the browser moves focus itself.
+    const second = screen.getByRole('link', { name: 'Position history' });
+    second.focus();
+    expect(fireEvent.keyDown(second, { key: 'Tab' })).toBe(true);
+  });
+
+  it('keeps focus on the same link when a live reading redraws the open popup', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    const { rerender } = renderWidget([sos(['Battery 80%'])]);
+    const marker = await markerOf();
+    marker.focus();
+    pressEnter(marker);
+    await waitFor(() => expect(popupBox()).toBeTruthy());
+    screen.getByRole('link', { name: 'Position history' }).focus();
+    rerender(tree([sos(['Battery 79%'])]));
+    expect(document.querySelector('.leaflet-popup-content')?.textContent).toContain('Battery 79%');
+    expect(document.activeElement).toBe(screen.getByRole('link', { name: 'Position history' }));
+    // Escape still closes it and returns focus to the marker.
+    act(() => {
+      fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' });
+    });
+    expect(popupBox()).toBeNull();
+    expect(document.activeElement).toBe(marker);
+  });
+
+  it('leaves focus alone when a live reading redraws a popup that does not hold it', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    const { rerender } = renderWidget([sos(['Battery 80%'])]);
+    const marker = await markerOf();
+    fireEvent.click(marker);
+    await waitFor(() => expect(popupBox()).toBeTruthy());
+    const outside = document.createElement('button');
+    document.body.append(outside);
+    outside.focus();
+    rerender(tree([sos(['Battery 79%'])]));
+    expect(document.activeElement).toBe(outside);
+    outside.remove();
   });
 });
