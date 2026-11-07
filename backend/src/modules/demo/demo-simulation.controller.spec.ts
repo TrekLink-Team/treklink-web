@@ -88,6 +88,8 @@ describe('DemoSimulationController (specs/demo api-design 06 to 10)', () => {
     await controller.raise(NODE_ID, { kind: 'SOS' }, CALLER);
     expect(simulation.raise).toHaveBeenCalledWith(NODE_ID, 'SOS', expect.any(Object));
     expect(guard.assertAllowed).toHaveBeenCalledTimes(4);
+    for (const call of [1, 2, 3, 4])
+      expect(guard.assertAllowed).toHaveBeenNthCalledWith(call, CALLER);
   });
 
   it('changes nothing when the database is not allowed', () => {

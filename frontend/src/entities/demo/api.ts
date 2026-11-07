@@ -1,13 +1,15 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, apiClient } from '../../shared/api/apiClient';
 
 // The demo control panel as specs/demo api-design 01 to 04 return it (screen 7.5, D-088). The backend
-// serves these routes only when DEMO_CONTROLS_ENABLED is true; otherwise every one answers 404.
+// serves controls only with DEMO_CONTROLS_ENABLED and explicit VITE_APP_ENV sandbox/staging.
 
 export type DemoRole = 'ADMIN' | 'STAFF' | 'ORG_MANAGER' | 'ORG_OPERATOR';
 
 export interface DemoStatus {
   enabled: boolean;
+  quickEnabled?: boolean;
+  roleSwitchEnabled?: boolean;
   databaseLocal: boolean;
   lastStaged: { scenarioId: string; at: string } | null;
 }
@@ -138,4 +140,68 @@ export const demoMessageOf = (error: unknown, fallback: (error: unknown) => stri
     if (error.statusCode === 404 && /seeded account/i.test(error.message)) return error.message;
   }
   return fallback(error);
+};
+
+export interface QuickOptions {
+  organizations: { id: string; code: string; legalName: string }[];
+  variants: { id: string; code: string }[];
+  units: {
+    deviceId: string;
+    assetTag: string;
+    contractId: string;
+    contractCode: string;
+    nodeNum: number | null;
+  }[];
+  contracts: { id: string; code: string; version: number }[];
+  incidents: { id: string; code: string; state: string; version: number }[];
+  profile: { active: boolean; version: number };
+  minimumQuantity: number;
+}
+export type QuickAction =
+  | 'organization'
+  | 'contract'
+  | 'incident'
+  | 'loss'
+  | 'fault'
+  | 'walkers'
+  | 'profile'
+  | 'term-end'
+  | 'next-tier';
+export interface QuickInput {
+  organizationId?: string;
+  hardwareVariantId?: string;
+  quantity?: number;
+  target?: 'REQUESTED' | 'APPROVED' | 'ACTIVE' | 'RETURN_DUE';
+  deviceId?: string;
+  recordId?: string;
+  expectedVersion?: number;
+  active?: boolean;
+}
+export interface QuickResult {
+  runId: number;
+  label: string;
+  records: StagedRecord[];
+  error: string | null;
+  errorCode: string | null;
+}
+export const useDemoQuickOptions = (enabled: boolean) =>
+  useQuery({
+    queryKey: ['demo', 'quick'],
+    queryFn: () => apiClient<QuickOptions>('/demo/quick'),
+    enabled,
+    retry: false,
+  });
+export const useRunDemoQuick = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ action, input }: { action: QuickAction; input: QuickInput }) =>
+      apiClient<QuickResult>(`/demo/quick/${action}`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSettled: () => {
+      // A scenario can change inventory, organizations, billing and live views together.
+      void client.invalidateQueries();
+    },
+  });
 };

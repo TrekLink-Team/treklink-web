@@ -103,7 +103,7 @@ export class DemoSimulationController {
   @CheckPolicies((ability) => ability.can('simulate', 'Demo'))
   @ResponseMessage('Simulated node started')
   start(@Body() dto: StartSimulatedNodeDto, @CurrentCaller() caller: Caller) {
-    this.guard.assertAllowed();
+    this.guard.assertAllowed(caller);
     return this.simulation.start(dto, actorOf(caller));
   }
 
@@ -115,7 +115,7 @@ export class DemoSimulationController {
     @Body() dto: UpdateSimulatedNodeDto,
     @CurrentCaller() caller: Caller,
   ) {
-    this.guard.assertAllowed();
+    this.guard.assertAllowed(caller);
     return this.simulation.update(id, dto, actorOf(caller));
   }
 
@@ -128,7 +128,7 @@ export class DemoSimulationController {
     @Body() dto: StopSimulatedNodeDto,
     @CurrentCaller() caller: Caller,
   ) {
-    this.guard.assertAllowed();
+    this.guard.assertAllowed(caller);
     return this.simulation.stop(id, dto.expectedVersion, actorOf(caller));
   }
 
@@ -141,7 +141,7 @@ export class DemoSimulationController {
     @Body() dto: SimulationEventDto,
     @CurrentCaller() caller: Caller,
   ) {
-    this.guard.assertAllowed();
+    this.guard.assertAllowed(caller);
     return this.simulation.raise(id, dto.kind, actorOf(caller));
   }
 }

@@ -69,7 +69,9 @@ describe('DemoSimulationGuard (specs/demo REQ-SIM-02, design §9)', () => {
       DATABASE_DIRECT_URL: NEON_STAGING.replace('ep-y', 'ep-y-direct'),
     });
     expect(guard.databaseAllowed()).toBe(true);
-    expect(() => guard.assertAllowed()).not.toThrow();
+    expect(() =>
+      guard.assertAllowed({ id: 'admin', roles: ['ADMIN'], organizationId: null }),
+    ).not.toThrow();
   });
 
   it('refuses a Neon database not named treklink_prod with 403 DEMO_DATABASE_NOT_ALLOWED', () => {
@@ -77,7 +79,7 @@ describe('DemoSimulationGuard (specs/demo REQ-SIM-02, design §9)', () => {
     expect(guard.databaseAllowed()).toBe(false);
     let thrown: unknown;
     try {
-      guard.assertAllowed();
+      guard.assertAllowed({ id: 'admin', roles: ['ADMIN'], organizationId: null });
     } catch (error) {
       thrown = error;
     }
@@ -93,5 +95,24 @@ describe('DemoSimulationGuard (specs/demo REQ-SIM-02, design §9)', () => {
     expect(guardOf({ DATABASE_URL: LOCAL, DATABASE_DIRECT_URL: LOCAL }).databaseAllowed()).toBe(
       true,
     );
+  });
+});
+
+describe('W43 simulator command roles', () => {
+  it.each(['STAFF', 'ORG_MANAGER', 'ORG_OPERATOR'])('refuses %s before database work', (role) => {
+    const guard = guardOf({ DATABASE_URL: LOCAL, DATABASE_DIRECT_URL: LOCAL });
+    let refusal: unknown = null;
+    try {
+      guard.assertAllowed({ id: 'caller', roles: [role], organizationId: null });
+    } catch (error) {
+      refusal = error;
+    }
+    expect(refusal).toMatchObject({ httpStatus: 403, errorCode: ErrorCode.FORBIDDEN });
+  });
+  it('refuses an organization-scoped Admin', () => {
+    const guard = guardOf({ DATABASE_URL: LOCAL, DATABASE_DIRECT_URL: LOCAL });
+    expect(() =>
+      guard.assertAllowed({ id: 'caller', roles: ['ADMIN'], organizationId: 'org' }),
+    ).toThrow(DomainException);
   });
 });

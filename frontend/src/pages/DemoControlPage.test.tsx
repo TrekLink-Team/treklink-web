@@ -102,7 +102,7 @@ describe('DemoControlPage (screen 7.5, D-088)', () => {
   });
   afterEach(() => cleanup());
 
-  it('shows the field simulation alone while only the simulation answers (the Vercel staging)', () => {
+  it('keeps the panel closed when the control gate is off, even if a stale simulation query answers', () => {
     status = { data: null, isPending: false, error: null };
     simulation = {
       data: {
@@ -117,8 +117,8 @@ describe('DemoControlPage (screen 7.5, D-088)', () => {
       error: null,
     };
     show();
-    expect(screen.getByRole('heading', { name: 'Field simulation' })).toBeTruthy();
-    expect(screen.getByText('Run simulated field nodes for the demo cases.')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Field simulation' })).toBeNull();
+    expect(screen.getByRole('alert').textContent).toBe('You do not have access to this.');
     expect(screen.queryByRole('heading', { name: 'Scenarios' })).toBeNull();
     expect(screen.queryByRole('group', { name: 'Switch role' })).toBeNull();
     simulation = { data: null, isPending: false, error: null };

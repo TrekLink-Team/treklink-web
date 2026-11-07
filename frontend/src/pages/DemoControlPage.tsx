@@ -11,6 +11,7 @@ import {
 } from '../entities/demo/api';
 import { useDemoSimulation } from '../entities/demo/simulation';
 import { FieldSimulationSection } from '../features/demo-field-simulation/FieldSimulationSection';
+import { DemoQuickSection } from '../features/demo-quick/DemoQuickSection';
 import { RoleSwitcher } from '../features/demo-role-switch/RoleSwitcher';
 import { useAdoptDemoSession } from '../features/demo-role-switch/useDemoSession';
 import {
@@ -29,15 +30,16 @@ import { NoAccessPage } from './NoAccessPage';
 
 const NOT_LOCAL = 'Demo controls run only against a local database.';
 
-// Screen 7.5 (specs/frontend/ui-design/7-5-demo-control-panel.md, D-088): stage a main flow's starting
-// state on the local database from one button, and switch the signed-in role; and the field simulation
-// (section "Field simulation", D-093 amendment, D-094), which has its own flag and also runs on the Vercel
-// staging, where the page shows it alone. TrekLink Admin only; the page is a 404 notice while both are off.
+// Screen 7.5, W43: Admin quick scenarios and simulation controls share the explicit environment gate.
+// Destructive staging and password-free switching remain local-only. Each quick action keeps result
+// links, including partial records when a later service step fails.
 export const DemoControlPage: React.FC = () => {
   const status = useDemoStatus();
   const demoOn = status.data?.enabled === true;
   const local = status.data?.databaseLocal === true;
-  const scenarios = useDemoScenarios(demoOn);
+  const quickOn = status.data?.quickEnabled === true;
+  const legacyOn = demoOn && local && (status.data?.roleSwitchEnabled ?? true);
+  const scenarios = useDemoScenarios(legacyOn);
   const simulation = useDemoSimulation();
   const adopt = useAdoptDemoSession();
   const showToast = useToast((state) => state.show);
@@ -61,7 +63,7 @@ export const DemoControlPage: React.FC = () => {
       </Alert>
     );
   }
-  if (!demoOn && !simulationOn) {
+  if (!demoOn) {
     if (simulation.error) {
       return (
         <Alert tone="error" title="The field simulation could not be read.">
@@ -100,9 +102,11 @@ export const DemoControlPage: React.FC = () => {
       <PageHeader
         title="Demo control"
         description={
-          demoOn
-            ? 'Stage the starting state of a main flow on the local database, then switch roles.'
-            : 'Run simulated field nodes for the demo cases.'
+          quickOn
+            ? 'Create fresh demo records by workflow. Each action keeps existing data.'
+            : demoOn
+              ? 'Stage the starting state of a main flow on the local database, then switch roles.'
+              : 'Run simulated field nodes for the demo cases.'
         }
         meta={
           status.data?.lastStaged
@@ -114,7 +118,8 @@ export const DemoControlPage: React.FC = () => {
       />
 
       <PageScrollBody label="Demo controls" className="flex flex-col gap-5">
-        {demoOn && (
+        {quickOn && <DemoQuickSection />}
+        {(legacyOn || (demoOn && !quickOn)) && (
           <>
             {!local && (
               <Alert tone="error" title={NOT_LOCAL}>

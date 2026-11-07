@@ -49,6 +49,8 @@ export interface MenuProps {
   header?: React.ReactNode;
   /** Which edge of the button the list lines up with. */
   align?: 'start' | 'end';
+  /** Keep header menus below the trigger when an alert banner occupies the space above. */
+  side?: 'auto' | 'below';
   disabled?: boolean;
   /** Tooltip of the trigger, for icon-only triggers. */
   title?: string;
@@ -78,6 +80,7 @@ export const Menu: React.FC<MenuProps> = ({
   triggerClassName,
   header,
   align = 'end',
+  side = 'auto',
   disabled,
   title,
   className,
@@ -107,7 +110,7 @@ export const Menu: React.FC<MenuProps> = ({
     // menu ran past the bottom of a 1280 x 800 window and its last filters could not be reached).
     const roomBelow = window.innerHeight - VIEWPORT_MARGIN_PX - below;
     const roomAbove = rect.top - GAP_PX - VIEWPORT_MARGIN_PX;
-    const flip = height > roomBelow && roomAbove > roomBelow;
+    const flip = side === 'auto' && height > roomBelow && roomAbove > roomBelow;
     const maxHeight = Math.max(flip ? roomAbove : roomBelow, 0);
     const top = flip ? rect.top - GAP_PX - Math.min(height, maxHeight) : below;
     const rawLeft = align === 'end' ? rect.right - width : rect.left;
@@ -116,7 +119,7 @@ export const Menu: React.FC<MenuProps> = ({
       Math.min(rawLeft, window.innerWidth - width - VIEWPORT_MARGIN_PX),
     );
     setPosition({ top, left, minWidth: rect.width, maxHeight });
-  }, [align]);
+  }, [align, side]);
 
   const openAt = (index: number) => {
     if (disabled || items.length === 0) return;

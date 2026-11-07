@@ -1,5 +1,6 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { simulationDatabaseAllowed } from '../platform/config/database-url';
@@ -23,7 +24,14 @@ export class DemoSimulationGuard {
     return simulationDatabaseAllowed(this.config);
   }
 
-  assertAllowed(): void {
+  assertAllowed(caller: Caller): void {
+    if (!caller.roles.includes('ADMIN') || caller.organizationId !== null) {
+      throw new DomainException(
+        HttpStatus.FORBIDDEN,
+        ErrorCode.FORBIDDEN,
+        'TrekLink Admin access is required.',
+      );
+    }
     if (!this.databaseAllowed())
       throw new DomainException(
         HttpStatus.FORBIDDEN,

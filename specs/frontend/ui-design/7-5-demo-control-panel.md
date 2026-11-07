@@ -87,10 +87,9 @@ looks as before.
 Section "Field simulation" of `/t/admin/demo`, D-093 amendment and D-094 of 2026-11-02,
 `specs/demo/requirements.md` §2.4 and design §9 (task 5.7). It renders while `GET /api/demo/simulation`
 (demo api-design 06) answers, that is while `DEMO_SIMULATION_ENABLED` is `true` and the caller holds
-`demo.simulate` (TrekLink Admin); on a 404 or 403 it renders nothing. It does not depend on
-`DEMO_CONTROLS_ENABLED`: on the Vercel staging the page shows this section alone, with no scenario cards and no
-role switcher, and the nav entry "Demo control" shows while either the status (demo 01) or the simulation
-(demo 06) answers.
+`demo.simulate` (TrekLink Admin); on a 404 or 403 it renders nothing. Since W43, it also requires the explicit control/environment gate. On Vercel staging the page shows quick
+scenario cards and this section when its simulation flag is enabled, with no role switcher. The nav entry
+"Demo control" requires enabled control status (demo 01), never a simulation response alone.
 
 ### Data
 
@@ -157,3 +156,5 @@ Group quick cards by workflow: WF-01 organization registration and contract (Act
 A Demo time controls disclosure contains profile toggle (shows Active/Normal and current version), chosen contract term end and chosen incident next tier, with version from the last options read. Each time control uses Dialog confirming its synthetic time change and affected record. The contract form discloses synthetic signature and manual provisioning before submission for ACTIVE/RETURN_DUE. Profile changes show 30-second tiers and a 5-minute reopen window, restore prior values on disable and explain stale versions as reload required. WF-02 and SOS results say Simulated. Mutations use entities/demo TanStack Query hooks and invalidate options/status/simulation. Test both themes at 1440, 1280, 900, 360, 320 px and 400 percent zoom, inspect screenshots and axe, keyboard focus, target sizes and document dimensions.
 
 W43 gate clarification: neither the page nor its nav entry appears from a simulation response alone. The simulation control routes share the explicit control/environment gate in addition to their own flag.
+
+At 400 percent zoom, the account menu stays below its header trigger and scrolls internally in the available height. It must not flip into the persistent SOS banner and hide its focused item. Other menus keep automatic placement.

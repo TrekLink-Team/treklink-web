@@ -228,14 +228,14 @@ describe('Menu placement in the viewport', () => {
     expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Retire device' }));
     expect(screen.getByRole('menu').style.left).toBe('460px');
   });
-  const place = (buttonTop: number) => {
-    vi.stubGlobal('innerHeight', 800);
+  const place = (buttonTop: number, side: 'auto' | 'below' = 'auto', viewportHeight = 800) => {
+    vi.stubGlobal('innerHeight', viewportHeight);
     vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (
       this: HTMLElement,
     ) {
       return this.getAttribute('role') === 'menu' ? 600 : 0;
     });
-    render(<Menu label="Actions for TL-0042" items={items()} />);
+    render(<Menu label="Actions for TL-0042" items={items()} side={side} />);
     const button = screen.getByRole('button', { name: 'Actions for TL-0042' });
     vi.spyOn(button, 'getBoundingClientRect').mockReturnValue({
       top: buttonTop,
@@ -258,6 +258,13 @@ describe('Menu placement in the viewport', () => {
     const style = place(200);
     expect(style.top).toBe('244px');
     expect(style.maxHeight).toBe('548px');
+  });
+
+  it('keeps a header menu below its trigger at 400 percent reflow so the SOS banner cannot hide it', () => {
+    const style = place(120, 'below', 236);
+    expect(style.top).toBe('164px');
+    expect(style.maxHeight).toBe('64px');
+    expect(document.activeElement).toBe(screen.getAllByRole('menuitem')[0]);
   });
 
   it('opens above a button low on the screen, held to the room there', () => {
