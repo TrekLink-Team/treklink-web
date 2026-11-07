@@ -136,8 +136,26 @@ cd treklink-web/deploy/aws && cp .env.example .env && chmod 600 .env && nano .en
 
 - Generate each secret with `openssl rand -hex 32`. That covers `MQTT_AUTH_HOOK_SECRET`, `MQTT_PASSWORD`,
   `MQTT_NODE_PASSWORD` and `JWT_ACCESS_SECRET`.
-- Copy `DATABASE_URL`, `DATABASE_DIRECT_URL`, the mail values, the `COMPANY_*` values, `HANDOVER_PLACE`,
-  `CHANNEL_KEY_MASTER` and `VITE_APP_ENV` from the Vercel project's Production environment.
+- Give the host its own Neon role, one that can read and write rows but cannot change the schema. Run this in the
+  Neon SQL editor on `treklink_prod` (branch `vercel-prod`) as the owner role, with your own password in
+  place of the placeholder. Create the role with SQL, not on the console's Roles page: roles created there
+  join `neon_superuser` (unverified; check Neon's "Manage roles" page). `<owner>` is the role the Vercel
+  build migrates with, so tables that later migrations create get the same grants.
+
+  ```sql
+  CREATE ROLE treklink_field LOGIN PASSWORD '<long random password>';
+  GRANT CONNECT ON DATABASE treklink_prod TO treklink_field;
+  GRANT USAGE ON SCHEMA public TO treklink_field;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO treklink_field;
+  GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO treklink_field;
+  ALTER DEFAULT PRIVILEGES FOR ROLE <owner> IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO treklink_field;
+  ALTER DEFAULT PRIVILEGES FOR ROLE <owner> IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO treklink_field;
+  ```
+
+  Build the pooled connection string for `treklink_field` (Connect, Pooled connection) and put it in both
+  `DATABASE_URL` and `DATABASE_DIRECT_URL`.
+- Copy the mail values, the `COMPANY_*` values, `HANDOVER_PLACE`, `CHANNEL_KEY_MASTER` and `VITE_APP_ENV`
+  from the Vercel project's Production environment.
 - The container never runs `prisma migrate` or a seed. Migrations stay with the Vercel production build
   (`backend/scripts/vercel-build.sh`).
 
@@ -218,9 +236,10 @@ online. Known limit: a JSON message longer than 434 bytes is cut on the way to t
 MQTT_BROKER_URL="mqtts://mqtt.<domain>:8883"
 ```
 
-Set `GATEWAY_FS_USERNAME` and `GATEWAY_FS_SECRET` to the Username and Secret of its credential. Its
-uplinks pass under the interim rule of gateway-sync design §4 while the leader's ruling of 2026-11-07 is
-pending. In the Vercel project, set `FIELD_STATION_BROKER_URL` to the same `mqtts://` URL and redeploy,
+Set `GATEWAY_FS_USERNAME` and `GATEWAY_FS_SECRET` to the Username and Secret of its credential, and
+`GATEWAY_MQTT_STATION_TOPIC=true`. Its uplinks go on its data topic and pass only for nodes its
+organization holds, with `MQTT_STATION_UPLINK_ENABLED=true` on the host (gateway-sync design §4). The
+station's own USB node must be one of its organization's rented units. In the Vercel project, set `FIELD_STATION_BROKER_URL` to the same `mqtts://` URL and redeploy,
 so new credentials show the right address.
 
 ## 9. Logs
@@ -277,6 +296,18 @@ docker compose down -v
 
 Remove the DNS record and check the bill the following day.
 
+Rotate every secret the host held, because its disk and its `.env` may outlive the instance in a snapshot
+or a backup:
+
+- the Neon password of `treklink_field`: `ALTER ROLE treklink_field PASSWORD '<new>'`, or `DROP ROLE` it
+  (after `REASSIGN OWNED BY treklink_field TO <owner>; DROP OWNED BY treklink_field;`) if the host is gone
+  for good;
+- `MQTT_NODE_PASSWORD`: a new value on the next broker, and re-dock every node that carried the old one
+  (devices design §8.8);
+- `MQTT_AUTH_HOOK_SECRET` and `MQTT_PASSWORD`: new values on the next host;
+- each Field Station credential that pointed at this host: revoke it and issue a new one in the portal if
+  its secret was ever copied onto the host.
+
 ## 13. After go-live (do not do these before the host is live)
 
 1. `deploy/system-endpoints.json` on `main`, in a pull request: the landing page sends visitors to the
@@ -328,11 +359,33 @@ built in the sandbox.
 | 80 | 308 to HTTPS |
 | 8883 against the Caddy CA / against another CA | verify 0 / verify failed |
 | 1883 from outside the compose network | connection refused |
-| Allowed: node JSON topic (RC 0), node `2/e` topic (RC 16, no subscriber), station health (RC 0), station Field Station style position on the node topic (RC 0, interim rule), backend subscribe `treklink/#` (granted QoS 1) | 5 of 5 |
+| Allowed: node JSON topic (RC 0), node `2/e` topic (RC 16, no subscriber), station health (RC 0), backend subscribe `treklink/#` (granted QoS 1) | 4 of 4 |
 | Refused at CONNECT (CONNACK 135): anonymous, wrong node password, wrong station secret, unknown username | 4 of 4 |
 | Refused publish (PUBACK 135): node on another node's topic, station on another station's topic, station on `2/e`, backend publish | 4 of 4 |
 | Refused subscribe (SUBACK 135): node, station | 2 of 2 |
-| Rows: the node telemetry and the station's position reached `field_events` (`TL-0010` telemetry, `TL-0009` position, `ingress` `MQTT_NODE`, `ACCEPTED_UNATTRIBUTED` because the seed's handover is minutes old, `NEAR_HANDOVER`); the station health report set `lastSyncAt` and `queueDepth {0,0,1,3}` | 3 events, 1 station row |
+| Rows: the node telemetry reached `field_events` (`ingress` `MQTT_NODE`, `ACCEPTED_UNATTRIBUTED` because the seed's handover is minutes old, `NEAR_HANDOVER`); the station health report set `lastSyncAt` and `queueDepth {0,0,1,3}` | events and 1 station row |
 | A new certificate in Caddy's folder, as a renewal writes it: copied and reloaded by `start.sh` within one `CERT_CHECK_SECONDS` (60 s), new connections got it; the same after Caddy reissued its own | yes, twice |
 | `docker compose stop mosquitto`: clean exit in 1 s, persistence saved (before the fix in `start.sh`, the root-owned volume made the save fail) | yes |
 | Backend stopped: new CONNECT dropped after the 5 s hook timeout; a connected QoS 1 client publishing 65 s into the outage was disconnected, resent after the backend returned, and the event was stored once | yes |
+
+#### Station uplinks after the review of treklink-web#431 (same day, second run)
+
+Image rebuilt after the review: no Prisma CLI in the runtime stage (`node_modules/prisma`, `.bin/prisma` and
+`@prisma/engines` absent), code owned by root (`touch dist/x` as `node`: permission denied), the query engine
+present, `healthy` against the migrated and seeded Postgres. The demo seed has no second organization, so the
+rehearsal database got `ORG-0002` and its contract `RC-2026-0003` (`TL-0019`, `!de000013`). Every publish is
+`fs-org-0001-1` (ORG-0001, which holds `TL-0009`, `TL-0010`, `TL-0017`, `TL-0018`).
+
+| Case | `MQTT_STATION_UPLINK_ENABLED` | Result |
+|---|---|---|
+| Data topic for its own node `!de000009` | false | PUBACK 135, subscriber not subscribed to `treklink/fs/+/2/json/+/+` |
+| Node topic `treklink/2/json/LongFast/!de000009` | false | PUBACK 135 |
+| Health report | false | PUBACK 0 |
+| Data topic for its own node `!de000009`, a `TL-0009` position | true | PUBACK 0; one `field_events` row, `ingress FIELD_STATION`, `uplinkKey` and `fieldStationId` = `fs-org-0001-1`, `timeSource STATION_CORRECTED` |
+| Data topic for the unrented `!de000001` (`TL-0001`) | true | PUBACK 135 |
+| Data topic for ORG-0002's rented `!de000013` (`TL-0019`) | true | PUBACK 135 |
+| Node topic | true | PUBACK 135 |
+| Another station's data topic | true | PUBACK 135 |
+| A forged `SOS - FALL DETECTED` from `TL-0019` inside its own node's data topic | true | PUBACK 0 at the broker; audited `NOT_RENTED_TO_STATION_ORG`, no `field_events` row, no incident |
+| TLS 1.1 client on 8883 (`tls_version tlsv1.2`) | either | refused with a protocol version alert; TLS 1.2 verifies |
+
