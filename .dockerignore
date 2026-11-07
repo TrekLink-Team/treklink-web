@@ -1,0 +1,21 @@
+# Build context of backend/Dockerfile (docker build -f backend/Dockerfile .). Only the root manifests, the
+# three workspace manifests and backend/ are copied; everything else is kept out of the context.
+**/node_modules
+**/dist
+**/coverage
+**/.env
+**/.env.*
+!**/.env.example
+.git
+ignore
+docs
+frontend/*
+!frontend/package.json
+gateway/*
+!gateway/package.json
+deploy/aws/.env
+backend/storage
+backend/test
+**/*.db
+**/*.db-wal
+**/*.db-shm
