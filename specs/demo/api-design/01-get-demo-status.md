@@ -44,7 +44,9 @@ No body.
 | Field | Description | Data Type | Examples |
 | --- | --- | --- | --- |
 | enabled | True when local or additive quick controls are available | boolean | `true` |
-| databaseLocal | The host of `DATABASE_URL` is loopback | boolean | `true` |
+| quickEnabled | The explicit control/environment gate permits additive actions | boolean | `true` |
+| roleSwitchEnabled | Local role switching is allowed; always false in production | boolean | `false` |
+| databaseLocal | Both database URLs are loopback with no target overrides | boolean | `false` |
 | lastStaged | Last scenario staged by this process, or null | object | `null` |
 
 ## Validation

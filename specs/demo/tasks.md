@@ -59,8 +59,8 @@
 - [x] 6.4 Implement persistent escalation profile, contract and incident time controls with optimistic versions.
 - [x] 6.5 Build grouped WF-01 to WF-05 panel, result links, causes and synthetic/time disclosures.
 - [x] 6.6 Unit tests, quick contract/SOS Postgres specs, lint, typecheck, boundaries and visual/axe matrix.
-- [ ] 6.7 Update demo script and run book to fresh scenario links and staging environment variables.
+- [x] 6.7 Update demo script and run book to fresh scenario links and staging environment variables.
 
-**Partly done** (2026-11-07, KhoaDD under D-078): W43 backend scenarios, guards and time controls are built. Local Postgres proves contract, SOS, profile restore, targeted rollover and escalation. Panel visual matrix and final docs delivery continue in the following slices.
 
-**Partly done** (2026-11-07, KhoaDD under D-078): Panel, 246 frontend tests, 369 backend tests, 6 Postgres tests and the visual/axe matrix are complete. Native Chromium 400 percent zoom was verified at 318 by 236 CSS px in both themes. Final demo script, run book and delivery evidence follow in the docs slice.
+
+**Done** (2026-11-07, KhoaDD under D-078): W43 specification, additive controls, guarded panel and docs delivered on the feature branch. Verification: 376 backend unit tests, 6 Postgres tests, 264 frontend tests, both typechecks/lint and module boundaries; 42 axe-clean visual configurations in both themes, native 400 percent zoom and focus checks. The leader still handles staging environment activation, PR/merge and deployment. Evidence: docs/sessions/2026-11-07-1558-w43-demo-quick-scenarios.md.
