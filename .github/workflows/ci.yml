@@ -131,8 +131,9 @@ jobs:
       MQTT_BROKER_URL: mqtt://localhost:1883
       MQTT_INGESTION_ENABLED: 'false'
       FIELD_SIMULATOR_ENABLED: 'true'
-      # The demo control panel (a11y.spec.ts, /t/admin/demo); its guard holds because the database is loopback.
+      # The Admin demo a11y route requires the flag and explicit sandbox environment; writes use loopback Postgres.
       DEMO_CONTROLS_ENABLED: 'true'
+      VITE_APP_ENV: 'sandbox'
       BCRYPT_COST: '4'
       VITE_API_BASE_URL: http://localhost:3000/api
       VITE_WS_URL: http://localhost:3000

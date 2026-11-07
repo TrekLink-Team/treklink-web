@@ -43,6 +43,8 @@ or from `E2E_ENV_FILE`.
 | Variable | Use |
 |---|---|
 | `SEED_ADMIN_PASSWORD`, `SEED_STAFF_PASSWORD`, `SEED_MANAGER_PASSWORD`, `SEED_OPERATOR_PASSWORD` | The four seeded accounts; required |
+| `DEMO_CONTROLS_ENABLED` | `true` on the local/CI backend enables the Admin demo route together with the explicit application environment |
+| `VITE_APP_ENV` | `sandbox` for the local/CI backend and Vite; the demo gate has no default and requires explicit `sandbox` or `staging` |
 | `SEED_ORG_API_KEY` | MF-04 step 5; the step skips without it |
 | `MQTT_BROKER_URL`, `MQTT_USERNAME`, `MQTT_PASSWORD` | The SOS replay of MF-03 and the 360 px spec |
 | `VITE_API_BASE_URL` or `E2E_API_URL` | The backend API, default `http://localhost:3000/api` |
@@ -52,6 +54,10 @@ or from `E2E_ENV_FILE`.
 | `E2E_STUB_TILES` | `true` answers basemap tile requests with a blank tile, for a network that blocks the tile hosts. Leave it off where the real tiles load |
 | `E2E_CHROMIUM_PATH` | A Chromium binary other than the one `playwright install` downloads |
 | `E2E_ENV_FILE` | Another env file instead of the root `.env` |
+
+Export the backend demo variables before starting the backend and Vite. The CI e2e job supplies
+`DEMO_CONTROLS_ENABLED=true` and `VITE_APP_ENV=sandbox` to both processes. Other environments keep
+their existing strict gate; an omitted application environment does not load the demo routes.
 
 ## Commands
 
@@ -96,7 +102,7 @@ Type check and lint of these files: `npm --prefix frontend run typecheck:e2e` an
   The 360 px spec publishes one SOS from TL-0009 in the same packet shape.
 - **MF-05 timed job**: `npm --prefix backend run demo:term-end -- RC-2026-0002` runs the term rollover
   instead of waiting for the 09:00 cutoff. The demo control panel stage `term-ended` (`/t/admin/demo`,
-  `DEMO_CONTROLS_ENABLED=true`) does the same for a rehearsal.
+  `DEMO_CONTROLS_ENABLED=true`, `VITE_APP_ENV=sandbox` on the backend) does the same for a rehearsal.
 - **Invitation email**: `MAIL_TRANSPORT=console` writes it to the backend log, read through
   `E2E_BACKEND_LOG`.
 - **Handover note**: the preview frame shows a PDF, which the browser's viewer draws outside the DOM; the
