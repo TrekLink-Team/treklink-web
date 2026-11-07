@@ -20,9 +20,10 @@ const DevicesItem: React.FC<{ children: (item: MenuItem) => React.ReactNode }> =
 );
 
 /**
- * The header's More menu below 640 px (design-system §5, W41): Go to page, Devices for TrekLink accounts and the
- * theme switch, which do not fit beside the badge, the live state and the account menu at 320 px or at 400 % zoom
- * (chapter 06 §11.1, WCAG 1.4.10). Every control keeps its name as the item's text.
+ * The header's More menu (design-system §5, W41 and W41b): Go to page, Devices for TrekLink accounts and the theme
+ * switch, which do not fit beside the badge, the live state and the account menu below 640 px, and for TrekLink
+ * accounts below 1024 px (320 px, 200 % and 400 % zoom; chapter 06 §11.1, WCAG 1.4.10). Every control keeps its
+ * name as the item's text.
  */
 export const HeaderMoreMenu: React.FC<{ treklink: boolean; className?: string }> = ({ treklink, className }) => {
   const setQuickNav = useShell((state) => state.setQuickNav);
