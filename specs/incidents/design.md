@@ -486,6 +486,26 @@ classDiagram
     IncidentLifecycle --> IncidentsRepository
     IncidentLifecycle --> AlertDeliveriesRepository : enqueue
     AlertDispatcherJob --> AlertDeliveriesRepository
+
+    class Incident
+    class AlertDelivery
+    class FieldEvent
+    class ContractCloseCheck {
+        <<interface>>
+    }
+    class IncidentsCloseCheck
+    %% backend/prisma/schema.prisma:1807-1830; each delivery belongs to one incident; backend/src/modules/incidents/alert-deliveries.repository.ts:42; no independent delivery ownership. Restrict, not Cascade.
+    Incident "1" *-- "0..*" AlertDelivery : outbox deliveries
+    %% backend/prisma/schema.prisma:1943; nullable incidentId; events are ingested independently and can remain uncorrelated.
+    Incident "0..1" o-- "0..*" FieldEvent : correlated events
+    %% backend/src/modules/incidents/incidents.repository.ts:361; locks and writes the incident aggregate.
+    IncidentsRepository ..> Incident : persists
+    %% backend/src/modules/incidents/providers/contract-close-check.provider.ts:10; implements the rentals close port.
+    IncidentsCloseCheck ..|> ContractCloseCheck
+    %% sdd-view: incident actions | IncidentsController,IncidentsService,IncidentsQueryService
+    %% sdd-view: authority reports | AuthorityReportsController,AuthorityReportsService,AuthorityReportsRepository,ContractsService
+    %% sdd-view: routing and timers | IncidentIngress,RoutingService,IncidentLifecycle,IncidentTimersJob,AlertDispatcherJob,RosterService,AccountsService
+    %% sdd-view: persistence and domain | IncidentsRepository,AlertDeliveriesRepository,Incident,AlertDelivery,FieldEvent,IncidentsCloseCheck,ContractCloseCheck
 ```
 
 ***Figure 4***: incidents classes. `ContractsService` belongs to `rentals`, `RosterService` to

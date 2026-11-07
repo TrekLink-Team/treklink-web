@@ -372,6 +372,16 @@ classDiagram
     ContractsService ..> ContractsRepository : calls
     ContractsService ..> OrganizationsService : calls
     ContractsService ..> PricingService : calls
+
+    class RentalContract
+    class ContractDevice
+    class Device
+    %% backend/prisma/schema.prisma:1218-1253; exclusive contract rows; backend/src/modules/rentals/contracts.repository.ts:258; rows cannot outlive the retained contract. Restrict, not Cascade.
+    RentalContract "1" *-- "0..*" ContractDevice : custody rows
+    %% backend/prisma/schema.prisma:1221-1223,1253; devices are reusable assets; at most one live custody row, many historical contracts.
+    RentalContract "0..*" o-- "0..*" Device : rents via ContractDevice
+    %% backend/src/modules/rentals/contracts.repository.ts:258; operations work on the contract custody row.
+    ContractsRepository ..> ContractDevice : reads and writes
 ```
 
 ***Figure 4***: rentals classes used in MF-01, UC-15. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -409,6 +419,18 @@ classDiagram
     ContractDecisionsService ..> DevicesService : calls
     ContractDecisionsService ..> InvoicesService : calls
     ContractsController ..> ContractDecisionsService : calls
+
+    class RentalContract
+    class ContractDevice
+    class Device
+    %% backend/prisma/schema.prisma:1218-1253; exclusive contract rows; backend/src/modules/rentals/contracts.repository.ts:258; rows cannot outlive the retained contract. Restrict, not Cascade.
+    RentalContract "1" *-- "0..*" ContractDevice : custody rows
+    %% backend/prisma/schema.prisma:1221-1223,1253; devices are reusable assets; at most one live custody row, many historical contracts.
+    RentalContract "0..*" o-- "0..*" Device : rents via ContractDevice
+    %% backend/src/modules/rentals/contracts.repository.ts:258; operations work on the contract custody row.
+    ContractsRepository ..> ContractDevice : reads and writes
+    %% sdd-view: operations | ContractsController,ContractDecisionsService,ContractLifecycleService,DevicesService,InvoicesService,ContractsRepository
+    %% sdd-view: domain relations | RentalContract,ContractDevice,Device
 ```
 
 ***Figure 5***: rentals classes used in MF-01, UC-17. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -432,6 +454,16 @@ classDiagram
     HandoverController ..> HandoverService : calls
     HandoverService ..> DevicesService : calls
     HandoverService ..> OrganizationsService : calls
+
+    class RentalContract
+    class ContractDevice
+    class Device
+    %% backend/prisma/schema.prisma:1218-1253; exclusive contract rows; backend/src/modules/rentals/contracts.repository.ts:258; rows cannot outlive the retained contract. Restrict, not Cascade.
+    RentalContract "1" *-- "0..*" ContractDevice : custody rows
+    %% backend/prisma/schema.prisma:1221-1223,1253; devices are reusable assets; at most one live custody row, many historical contracts.
+    RentalContract "0..*" o-- "0..*" Device : rents via ContractDevice
+    %% backend/src/modules/rentals/handover.service.ts:178-198; operations work on the contract custody row.
+    HandoverService ..> ContractDevice : provisions custody asset
 ```
 
 ***Figure 6***: rentals classes used in MF-01, UC-20 part 1 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -464,6 +496,16 @@ classDiagram
     HandoverService ..> ContractLifecycleService : calls
     HandoverService ..> ContractsRepository : calls
     HandoverService ..> DevicesService : calls
+
+    class RentalContract
+    class ContractDevice
+    class Device
+    %% backend/prisma/schema.prisma:1218-1253; exclusive contract rows; backend/src/modules/rentals/contracts.repository.ts:258; rows cannot outlive the retained contract. Restrict, not Cascade.
+    RentalContract "1" *-- "0..*" ContractDevice : custody rows
+    %% backend/prisma/schema.prisma:1221-1223,1253; devices are reusable assets; at most one live custody row, many historical contracts.
+    RentalContract "0..*" o-- "0..*" Device : rents via ContractDevice
+    %% backend/src/modules/rentals/contracts.repository.ts:258; operations work on the contract custody row.
+    ContractsRepository ..> ContractDevice : reads and writes
 ```
 
 ***Figure 7***: rentals classes used in MF-01, UC-20 part 2 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -483,6 +525,13 @@ classDiagram
     }
     DevicesController ..> DevicesService : calls
     DevicesService ..> DevicesRepository : calls
+
+    class HardwareVariant
+    class Device
+    %% backend/prisma/schema.prisma:718; a variant is a type, not a whole that owns device lifetime.
+    HardwareVariant "1" -- "0..*" Device : classifies
+    %% backend/src/modules/devices/devices.repository.ts:185-205; groups available units by variant.
+    DevicesRepository ..> Device : counts available
 ```
 
 ***Figure 8***: rentals classes used in MF-01, UC-16. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -521,6 +570,18 @@ classDiagram
     ContractDecisionsService ..> ContractsRepository : calls
     ContractDecisionsService ..> DevicesService : calls
     ContractsController ..> ContractDecisionsService : calls
+
+    class RentalContract
+    class ContractDevice
+    class Device
+    %% backend/prisma/schema.prisma:1218-1253; exclusive contract rows; backend/src/modules/rentals/contracts.repository.ts:258; rows cannot outlive the retained contract. Restrict, not Cascade.
+    RentalContract "1" *-- "0..*" ContractDevice : custody rows
+    %% backend/prisma/schema.prisma:1221-1223,1253; devices are reusable assets; at most one live custody row, many historical contracts.
+    RentalContract "0..*" o-- "0..*" Device : rents via ContractDevice
+    %% backend/src/modules/rentals/contracts.repository.ts:258; operations work on the contract custody row.
+    ContractsRepository ..> ContractDevice : reads and writes
+    %% sdd-view: operations | ContractsController,ContractDecisionsService,ContractLifecycleService,DevicesService,ChargesService,BalanceService,ContractsRepository
+    %% sdd-view: domain relations | RentalContract,ContractDevice,Device
 ```
 
 ***Figure 9***: rentals classes used in MF-01, UC-18. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -543,6 +604,16 @@ classDiagram
     }
     ContractDecisionsService ..> ContractsRepository : calls
     ContractsController ..> ContractDecisionsService : calls
+
+    class RentalContract
+    class ContractDevice
+    class Device
+    %% backend/prisma/schema.prisma:1218-1253; exclusive contract rows; backend/src/modules/rentals/contracts.repository.ts:258; rows cannot outlive the retained contract. Restrict, not Cascade.
+    RentalContract "1" *-- "0..*" ContractDevice : custody rows
+    %% backend/prisma/schema.prisma:1221-1223,1253; devices are reusable assets; at most one live custody row, many historical contracts.
+    RentalContract "0..*" o-- "0..*" Device : rents via ContractDevice
+    %% backend/src/modules/rentals/contracts.repository.ts:258; operations work on the contract custody row.
+    ContractsRepository ..> ContractDevice : reads and writes
 ```
 
 ***Figure 10***: rentals classes used in MF-01, UC-25. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -579,6 +650,16 @@ classDiagram
     ReturnService ..> ContractLifecycleService : calls
     ReturnService ..> ContractsRepository : calls
     ReturnService ..> DevicesService : calls
+
+    class RentalContract
+    class ContractDevice
+    class Device
+    %% backend/prisma/schema.prisma:1218-1253; exclusive contract rows; backend/src/modules/rentals/contracts.repository.ts:258; rows cannot outlive the retained contract. Restrict, not Cascade.
+    RentalContract "1" *-- "0..*" ContractDevice : custody rows
+    %% backend/prisma/schema.prisma:1221-1223,1253; devices are reusable assets; at most one live custody row, many historical contracts.
+    RentalContract "0..*" o-- "0..*" Device : rents via ContractDevice
+    %% backend/src/modules/rentals/contracts.repository.ts:258; operations work on the contract custody row.
+    ContractsRepository ..> ContractDevice : reads and writes
 ```
 
 ***Figure 11***: rentals classes used in MF-05, UC-43. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -621,6 +702,21 @@ classDiagram
     ReturnService ..> ContractCloseCheck : calls
     ReturnService ..> ContractLifecycleService : calls
     ReturnService ..> ContractsRepository : calls
+
+    class RentalContract
+    class ContractDevice
+    class Device
+    class IncidentsCloseCheck
+    %% backend/prisma/schema.prisma:1218-1253; exclusive contract rows; backend/src/modules/rentals/contracts.repository.ts:258; rows cannot outlive the retained contract. Restrict, not Cascade.
+    RentalContract "1" *-- "0..*" ContractDevice : custody rows
+    %% backend/prisma/schema.prisma:1221-1223,1253; devices are reusable assets; at most one live custody row, many historical contracts.
+    RentalContract "0..*" o-- "0..*" Device : rents via ContractDevice
+    %% backend/src/modules/rentals/contracts.repository.ts:258; operations work on the contract custody row.
+    ContractsRepository ..> ContractDevice : reads and writes
+    %% backend/src/modules/incidents/providers/contract-close-check.provider.ts:10; implements the rentals close port.
+    IncidentsCloseCheck ..|> ContractCloseCheck
+    %% sdd-view: operations | ReturnController,ReturnService,ContractLifecycleService,BalanceService,ChargesService,ContractCloseCheck,ContractsRepository
+    %% sdd-view: domain relations | RentalContract,ContractDevice,Device,IncidentsCloseCheck
 ```
 
 ***Figure 12***: rentals classes used in MF-05, UC-51. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -656,6 +752,16 @@ classDiagram
     ReplacementService ..> DevicesService : calls
     ReplacementService ..> HandoverService : calls
     ReturnController ..> ReplacementService : calls
+
+    class RentalContract
+    class ContractDevice
+    class Device
+    %% backend/prisma/schema.prisma:1218-1253; exclusive contract rows; backend/src/modules/rentals/contracts.repository.ts:258; rows cannot outlive the retained contract. Restrict, not Cascade.
+    RentalContract "1" *-- "0..*" ContractDevice : custody rows
+    %% backend/prisma/schema.prisma:1221-1223,1253; devices are reusable assets; at most one live custody row, many historical contracts.
+    RentalContract "0..*" o-- "0..*" Device : rents via ContractDevice
+    %% backend/src/modules/rentals/contracts.repository.ts:258; operations work on the contract custody row.
+    ContractsRepository ..> ContractDevice : reads and writes
 ```
 
 ***Figure 13***: rentals classes used in MF-05, UC-61. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -687,6 +793,16 @@ classDiagram
     ContractDecisionsService ..> ContractLifecycleService : calls
     ContractDecisionsService ..> ContractsRepository : calls
     ContractsController ..> ContractDecisionsService : calls
+
+    class RentalContract
+    class ContractDevice
+    class Device
+    %% backend/prisma/schema.prisma:1218-1253; exclusive contract rows; backend/src/modules/rentals/contracts.repository.ts:258; rows cannot outlive the retained contract. Restrict, not Cascade.
+    RentalContract "1" *-- "0..*" ContractDevice : custody rows
+    %% backend/prisma/schema.prisma:1221-1223,1253; devices are reusable assets; at most one live custody row, many historical contracts.
+    RentalContract "0..*" o-- "0..*" Device : rents via ContractDevice
+    %% backend/src/modules/rentals/contracts.repository.ts:258; operations work on the contract custody row.
+    ContractsRepository ..> ContractDevice : reads and writes
 ```
 
 ***Figure 14***: rentals classes used in MF-05, UC-23. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -721,6 +837,13 @@ classDiagram
     TermRolloverJob ..> ContractsRepository : calls
     TermRolloverJob ..> InvoicesService : calls
     TermRolloverJob ..> ParameterService : calls
+
+    class RentalContract
+    class ContractTerm
+    %% backend/prisma/schema.prisma:1191-1203; exclusive contract-scoped seq; backend/src/modules/rentals/contracts.repository.ts:587; terms cannot exist without their contract. Restrict, not Cascade.
+    RentalContract "1" *-- "0..*" ContractTerm : terms
+    %% backend/src/modules/rentals/contracts.repository.ts:587; term writes keep contractId fixed.
+    ContractsRepository ..> ContractTerm : inserts and closes
 ```
 
 ***Figure 15***: rentals classes used in MF-05, UC-24. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -753,6 +876,16 @@ classDiagram
     OverdueAndDefaultJob ..> ContractsRepository : calls
     OverdueAndDefaultJob ..> OrganizationsService : calls
     OverdueAndDefaultJob ..> ParameterService : calls
+
+    class RentalContract
+    class ContractDevice
+    class Device
+    %% backend/prisma/schema.prisma:1218-1253; exclusive contract rows; backend/src/modules/rentals/contracts.repository.ts:258; rows cannot outlive the retained contract. Restrict, not Cascade.
+    RentalContract "1" *-- "0..*" ContractDevice : custody rows
+    %% backend/prisma/schema.prisma:1221-1223,1253; devices are reusable assets; at most one live custody row, many historical contracts.
+    RentalContract "0..*" o-- "0..*" Device : rents via ContractDevice
+    %% backend/src/modules/rentals/contracts.repository.ts:258; operations work on the contract custody row.
+    ContractsRepository ..> ContractDevice : reads and writes
 ```
 
 ***Figure 16***: rentals classes used in MF-05, UC-50. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.

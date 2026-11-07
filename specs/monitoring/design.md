@@ -262,6 +262,24 @@ classDiagram
     DeviceHistoryService --> AccountsService : contactCard
     StaleSweepJob --> DevicesService
     StaleSweepJob --> IncidentsService : markDeviceStale
+
+    class Organization
+    class StreamEvent
+    class LiveIoAdapter
+    class IoAdapter
+    class OnGatewayConnection {
+        <<interface>>
+    }
+    %% backend/src/modules/monitoring/live.gateway.ts:108-109; implements Nest gateway hook.
+    LiveGateway ..|> OnGatewayConnection
+    %% backend/src/modules/monitoring/live-io.adapter.ts:7; extends IoAdapter.
+    IoAdapter <|-- LiveIoAdapter
+    %% backend/prisma/schema.prisma:2077-2088; nullable tenant FK; stream entries are pruned separately, no shared lifetime asserted.
+    Organization "0..1" -- "0..*" StreamEvent : scopes
+    %% backend/src/modules/monitoring/stream.repository.ts:39; stores replay entries.
+    StreamRepository ..> StreamEvent : persists
+    %% sdd-view: map and history | MapController,TelemetryHistoryController,DeviceHistoryController,LiveMapService,HistoryService,DeviceHistoryService,ContractsService,DevicesService,IncidentsQueryService,FieldEventQueryService,ParameterService,OrganizationsService,AccountsService
+    %% sdd-view: stream and lifecycle | OrgApiController,LiveGateway,StreamListener,StreamService,StreamRepository,StaleSweepJob,IncidentsService,Organization,StreamEvent,LiveIoAdapter,IoAdapter,OnGatewayConnection
 ```
 
 ***Figure 2***: monitoring classes. It owns only `StreamEvent`; everything else is read through other

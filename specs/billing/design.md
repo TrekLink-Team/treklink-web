@@ -247,6 +247,13 @@ classDiagram
     PaymentsService ..> PaymentsRepository : calls
     PricingAdminController ..> PricingService : calls
     PricingService ..> PricingRepository : calls
+
+    class Invoice
+    class InvoiceLine
+    %% backend/prisma/schema.prisma:1500-1527; exclusive invoice-scoped seq; backend/src/modules/billing/invoices.repository.ts:129-145,175-187; created under one invoice and never reparented. Restrict, not Cascade.
+    Invoice "1" *-- "0..*" InvoiceLine : numbered lines
+    %% backend/src/modules/billing/invoices.repository.ts:123-145; owns invoice persistence.
+    InvoicesRepository ..> Invoice : reads and writes
 ```
 
 ***Figure 3***: billing classes used in MF-01, UC-22, UC-56. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -280,6 +287,13 @@ classDiagram
     SepayService ..> BalanceService : calls
     SepayService ..> InvoicesRepository : calls
     SepayService ..> PaymentsRepository : calls
+
+    class Invoice
+    class InvoiceLine
+    %% backend/prisma/schema.prisma:1500-1527; exclusive invoice-scoped seq; backend/src/modules/billing/invoices.repository.ts:129-145,175-187; created under one invoice and never reparented. Restrict, not Cascade.
+    Invoice "1" *-- "0..*" InvoiceLine : numbered lines
+    %% backend/src/modules/billing/invoices.repository.ts:123-145; owns invoice persistence.
+    InvoicesRepository ..> Invoice : reads and writes
 ```
 
 ***Figure 4***: billing classes used in MF-05, UC-19 part 1 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -311,6 +325,13 @@ classDiagram
     SepayController ..> SepayService : calls
     SepayService ..> InvoicesRepository : calls
     SepayService ..> PaymentsRepository : calls
+
+    class Invoice
+    class InvoiceLine
+    %% backend/prisma/schema.prisma:1500-1527; exclusive invoice-scoped seq; backend/src/modules/billing/invoices.repository.ts:129-145,175-187; created under one invoice and never reparented. Restrict, not Cascade.
+    Invoice "1" *-- "0..*" InvoiceLine : numbered lines
+    %% backend/src/modules/billing/invoices.repository.ts:123-145; owns invoice persistence.
+    InvoicesRepository ..> Invoice : reads and writes
 ```
 
 ***Figure 5***: billing classes used in MF-05, UC-19 part 2 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -346,6 +367,19 @@ classDiagram
     DamageChargeService ..> InvoicesRepository : calls
     DamageChargeService ..> ChargesService : calls
     DamageChargeService ..> DevicesService : calls
+
+    class Invoice
+    class InvoiceLine
+    class DamageCharge
+    class Device
+    %% backend/prisma/schema.prisma:1500-1527; exclusive invoice-scoped seq; backend/src/modules/billing/invoices.repository.ts:129-145,175-187; created under one invoice and never reparented. Restrict, not Cascade.
+    Invoice "1" *-- "0..*" InvoiceLine : numbered lines
+    %% backend/src/modules/billing/invoices.repository.ts:123-145; owns invoice persistence.
+    InvoicesRepository ..> Invoice : reads and writes
+    %% backend/prisma/schema.prisma:1566-1575; a charge refers to an independently retained asset, not its lifetime.
+    DamageCharge "0..*" -- "1" Device : charged asset
+    %% sdd-view: operations | DamageChargesController,DamageChargeService,DamageChargesRepository,InvoicesRepository,ChargesService,DevicesService
+    %% sdd-view: domain relations | Invoice,InvoiceLine,DamageCharge,Device
 ```
 
 ***Figure 6***: billing classes used in MF-05, UC-48. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -372,6 +406,13 @@ classDiagram
     BillingReadsService ..> BalanceService : calls
     BillingReadsService ..> InvoicesRepository : calls
     InvoicesController ..> BillingReadsService : calls
+
+    class Invoice
+    class InvoiceLine
+    %% backend/prisma/schema.prisma:1500-1527; exclusive invoice-scoped seq; backend/src/modules/billing/invoices.repository.ts:129-145,175-187; created under one invoice and never reparented. Restrict, not Cascade.
+    Invoice "1" *-- "0..*" InvoiceLine : numbered lines
+    %% backend/src/modules/billing/invoices.repository.ts:123-145; owns invoice persistence.
+    InvoicesRepository ..> Invoice : reads and writes
 ```
 
 ***Figure 7***: billing classes used in MF-05, UC-45. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -401,6 +442,13 @@ classDiagram
     ChargesService ..> ParameterService : calls
     ReturnController ..> ReturnService : calls
     ReturnService ..> ChargesService : calls
+
+    class Invoice
+    class InvoiceLine
+    %% backend/prisma/schema.prisma:1500-1527; exclusive invoice-scoped seq; backend/src/modules/billing/invoices.repository.ts:129-145,175-187; created under one invoice and never reparented. Restrict, not Cascade.
+    Invoice "1" *-- "0..*" InvoiceLine : numbered lines
+    %% backend/src/modules/billing/invoices.repository.ts:123-145; owns invoice persistence.
+    InvoicesRepository ..> Invoice : reads and writes
 ```
 
 ***Figure 8***: billing classes used in MF-05, UC-46. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -442,6 +490,19 @@ classDiagram
     ReturnController ..> ReturnService : calls
     ReturnService ..> ChargesService : calls
     ReturnService ..> DevicesService : calls
+
+    class Invoice
+    class InvoiceLine
+    class DamageCharge
+    class Device
+    %% backend/prisma/schema.prisma:1500-1527; exclusive invoice-scoped seq; backend/src/modules/billing/invoices.repository.ts:129-145,175-187; created under one invoice and never reparented. Restrict, not Cascade.
+    Invoice "1" *-- "0..*" InvoiceLine : numbered lines
+    %% backend/src/modules/billing/invoices.repository.ts:123-145; owns invoice persistence.
+    InvoicesRepository ..> Invoice : reads and writes
+    %% backend/prisma/schema.prisma:1566-1575; a charge refers to an independently retained asset, not its lifetime.
+    DamageCharge "0..*" -- "1" Device : charged asset
+    %% sdd-view: operations | ReturnController,ReturnService,DevicesService,ChargesService,PricingService,ParameterService,DamageChargesRepository,InvoicesRepository
+    %% sdd-view: domain relations | Invoice,InvoiceLine,DamageCharge,Device
 ```
 
 ***Figure 9***: billing classes used in MF-05, UC-47. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.

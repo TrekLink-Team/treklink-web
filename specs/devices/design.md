@@ -365,6 +365,13 @@ classDiagram
     DevicesService --> DeviceFsm
     DeviceLifecycleService --> DevicesRepository
     DevicesService --> DevicesRepository
+
+    class Device
+    class DeviceProvisioning
+    %% backend/prisma/schema.prisma:880; retained history references its asset; no deletion cascade or joint lifetime asserted.
+    Device "1" -- "0..*" DeviceProvisioning : provisioning history
+    %% backend/src/modules/devices/devices.repository.ts:264-290; writes the history record.
+    DevicesRepository ..> DeviceProvisioning : persists
 ```
 
 ***Figure 4***: devices classes. `DeviceFsm` holds the transition table of Figure 2.
@@ -451,8 +458,12 @@ classDiagram
         +dueForConfirmation(now) LossCase[]
     }
     class DevicesService
-    class CustodyResolver
-    class LossCaseListener
+    class CustodyResolver {
+        <<interface>>
+    }
+    class LossCaseListener {
+        <<interface>>
+    }
     class ChannelKeyService
     class ComplianceCaseService
     LossCasesController --> LossCaseService
@@ -463,6 +474,24 @@ classDiagram
     LossCaseService --> ChannelKeyService : markKeyExposed
     LossCaseService --> ComplianceCaseService : openOrLink
     LossCaseService ..> LossCaseListener : onConfirmed, onSettled (port, billing and rentals provide)
+
+    class RentalsCustodyResolver
+    class BillingLossCaseListener
+    class RentalsLossCaseListener
+    class LossCase
+    class Device
+    %% backend/src/modules/rentals/providers/custody-resolver.provider.ts:11; implements CustodyResolver.
+    RentalsCustodyResolver ..|> CustodyResolver
+    %% backend/src/modules/billing/providers/loss-case-listener.provider.ts:18; implements LossCaseListener.
+    BillingLossCaseListener ..|> LossCaseListener
+    %% backend/src/modules/rentals/providers/loss-case-listener.provider.ts:23; implements LossCaseListener.
+    RentalsLossCaseListener ..|> LossCaseListener
+    %% backend/prisma/schema.prisma:933-937; a case references the asset, no shared lifetime asserted.
+    Device "1" -- "0..*" LossCase : loss history
+    %% backend/src/modules/devices/loss-cases.repository.ts:129; stores loss cases.
+    LossCasesRepository ..> LossCase : persists
+    %% sdd-view: operations | LossCasesController,LossCaseService,LossSearchJob,LossCasesRepository,DevicesService,CustodyResolver,LossCaseListener,ChannelKeyService,ComplianceCaseService
+    %% sdd-view: domain relations | RentalsCustodyResolver,BillingLossCaseListener,RentalsLossCaseListener,LossCase,Device
 ```
 
 ***Figure 7***: devices classes for loss cases (D-045).
@@ -617,6 +646,21 @@ classDiagram
     MaintenanceService --> DevicesRepository : transition, serviceDueAt, firmwareVersion
     MaintenanceService --> ParametersService : lead days, threshold
     ServiceScanJob --> MailerService : week's list to Staff
+
+    class Device
+    class MaintenanceRecord
+    class PagedQueryDto
+    class MaintenanceQueryDto
+    %% backend/prisma/schema.prisma:1035; retained history references its asset; no deletion cascade or joint lifetime asserted.
+    Device "1" -- "0..*" MaintenanceRecord : maintenance history
+    %% backend/src/modules/devices/maintenance.repository.ts:102; writes the history record.
+    MaintenanceRepository ..> MaintenanceRecord : persists
+    %% backend/src/modules/devices/dto/maintenance.dto.ts:158; extends PagedQueryDto.
+    PagedQueryDto <|-- MaintenanceQueryDto
+    %% backend/src/modules/devices/maintenance.controller.ts:106; list query DTO.
+    MaintenanceController ..> MaintenanceQueryDto : accepts
+    %% sdd-view: maintenance operations | MaintenanceController,MaintenanceService
+    %% sdd-view: scan persistence and queries | ServiceScanJob,MaintenanceRepository,DevicesRepository,ParametersService,MailerService,Device,MaintenanceRecord,PagedQueryDto,MaintenanceQueryDto
 ```
 
 ***Figure 12***: devices classes for maintenance (D-047). `DevicesService.recordInspection()` calls
