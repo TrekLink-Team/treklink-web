@@ -24,7 +24,7 @@ export class BrokerAuthController {
   @Post('acl')
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('OK')
-  acl(@Body() dto: BrokerAclCheckDto): { allowed: true } {
+  acl(@Body() dto: BrokerAclCheckDto): Promise<{ allowed: true }> {
     return this.brokerAuth.checkAcl(dto);
   }
 }

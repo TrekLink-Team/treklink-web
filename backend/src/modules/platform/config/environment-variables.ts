@@ -144,6 +144,13 @@ export class EnvironmentVariables {
   @IsString()
   MQTT_PASSWORD?: string;
 
+  // Owned by `gateway-sync` (design §4, review of treklink-web#431): true opens the Field Station data
+  // topic `<root>/fs/<username>/2/json/<channel>/<nodeId>` at the ACL hook, only for a node in the custody of
+  // the station's organization, and subscribes to it. Off by default; set only on the AWS field host (D-098).
+  @Transform(toBoolean)
+  @IsBoolean()
+  MQTT_STATION_UPLINK_ENABLED = false;
+
   // The password every Stage A and B fleet node (`node-<nodeId>`) presents to the broker with
   // credentials (gateway-sync design §4); unset, fleet nodes are refused there. Never logged.
   @Transform(blankToUndefined)

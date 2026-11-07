@@ -53,7 +53,7 @@ describe('Broker user check against Postgres (organizations AC-06)', () => {
     events,
     config,
   );
-  const brokerAuth = new BrokerAuthService(stations, config);
+  const brokerAuth = new BrokerAuthService(stations, {} as never, {} as never, config);
   const runId = randomUUID();
   let serial = 0;
 

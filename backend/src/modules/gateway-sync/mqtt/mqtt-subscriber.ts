@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { connect, MqttClient } from 'mqtt';
 import { ValidatedEnvironment } from '../../platform/config/environment-variables';
 import { MQTT_HEALTH_PROBE } from '../../platform/ports';
+import { FieldStationJsonAdapter } from '../adapters/field-station-json.adapter';
 import { NodeJsonAdapter } from '../adapters/node-json.adapter';
 import { IngestionService } from '../ingestion.service';
 import { StationHealthHandler } from '../station-health.handler';
@@ -23,8 +24,8 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 // after ingestion committed and a crash mid-transaction gets it redelivered (design §2).
 //
 // It subscribes to the node topic and to the Field Station health topic `<root>/fs/+/health` (task 2.5,
-// health part). The Field Station event topic `<root>/fs/+/2/json/+/+` has its adapter
-// (`FieldStationJsonAdapter`) and its ingestion path, but is not subscribed yet: that waits for the
+// health part). The Field Station event topic `<root>/fs/+/2/json/+/+` is subscribed only with
+// MQTT_STATION_UPLINK_ENABLED (design §4, the AWS field host of D-098); otherwise it waits for the
 // leader's ruling on the outcome of a revoked or unknown station (task 2.1, D-058 rule 2).
 @Injectable()
 export class MqttSubscriber implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -38,12 +39,22 @@ export class MqttSubscriber implements OnApplicationBootstrap, OnApplicationShut
     private readonly ingestion: IngestionService,
     @Optional() @Inject(MQTT_HEALTH_PROBE) private readonly state?: MqttConnectionState | null,
     @Optional() private readonly stationHealth?: StationHealthHandler,
+    @Optional() private readonly stationAdapter?: FieldStationJsonAdapter,
   ) {}
 
+  // The station data adapter, only while MQTT_STATION_UPLINK_ENABLED is on (design §4).
+  private get stationData(): FieldStationJsonAdapter | undefined {
+    return this.config.get('MQTT_STATION_UPLINK_ENABLED', { infer: true }) === true
+      ? this.stationAdapter
+      : undefined;
+  }
+
   private get subscriptions(): string[] {
+    const stationData = this.stationData;
     return [
       this.adapter.subscription,
       ...(this.stationHealth ? [this.stationHealth.subscription] : []),
+      ...(stationData ? [stationData.subscription] : []),
     ];
   }
 
@@ -93,7 +104,10 @@ export class MqttSubscriber implements OnApplicationBootstrap, OnApplicationShut
       await this.withRetry(() => health.handle(topic, body, receivedAt));
       return;
     }
-    const result = this.adapter.adapt(topic, body, receivedAt);
+    const stationData = this.stationData;
+    const result = stationData?.matches(topic)
+      ? stationData.adapt(topic, body, receivedAt)
+      : this.adapter.adapt(topic, body, receivedAt);
     if (result.kind === 'ignored') return;
     await this.withRetry(() =>
       result.kind === 'malformed'

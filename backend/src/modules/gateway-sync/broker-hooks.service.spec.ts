@@ -3,7 +3,9 @@ import { ConfigService } from '@nestjs/config';
 import { OrganizationStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { DomainException, ErrorCode } from '../../common/errors';
+import { DevicesService } from '../devices';
 import { FieldStationsService } from '../organizations';
+import { ContractsService } from '../rentals';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import {
   ACC_READ,
@@ -12,6 +14,7 @@ import {
   BrokerAuthService,
   kindOf,
   sameSecret,
+  stationDataNode,
   topicAllowed,
 } from './broker-hooks.service';
 
@@ -73,11 +76,18 @@ const expectRejection = async (promise: Promise<unknown>, status: HttpStatus, co
 
 describe('BrokerAuthService (gateway-sync task 3.1, api-design 01 and 02, design §4)', () => {
   let secretHash: string;
-  let stations: { byUsername: jest.Mock };
+  let stations: { byUsername: jest.Mock; stationByUsername: jest.Mock };
+  let devices: { byNodeNum: jest.Mock };
+  let contracts: { custodyAt: jest.Mock };
   let warn: jest.SpyInstance;
 
   const service = (env: Record<string, unknown> = BASE_ENV) =>
-    new BrokerAuthService(stations as unknown as FieldStationsService, configOf(env));
+    new BrokerAuthService(
+      stations as unknown as FieldStationsService,
+      devices as unknown as DevicesService,
+      contracts as unknown as ContractsService,
+      configOf(env),
+    );
 
   const credential = (overrides: Record<string, unknown> = {}) => ({
     id: 'fs-1',
@@ -94,7 +104,17 @@ describe('BrokerAuthService (gateway-sync task 3.1, api-design 01 and 02, design
   });
 
   beforeEach(() => {
-    stations = { byUsername: jest.fn().mockResolvedValue(credential()) };
+    stations = {
+      byUsername: jest.fn().mockResolvedValue(credential()),
+      stationByUsername: jest.fn().mockResolvedValue({
+        id: 'fs-1',
+        organizationId: 'org-1',
+        mqttUsername: STATION,
+        revokedAt: null,
+      }),
+    };
+    devices = { byNodeNum: jest.fn().mockResolvedValue({ id: 'dev-1', nodeNum: 0xa4b1c2d3n }) };
+    contracts = { custodyAt: jest.fn().mockResolvedValue({ organizationId: 'org-1' }) };
     warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
   });
 
@@ -318,95 +338,153 @@ describe('BrokerAuthService (gateway-sync task 3.1, api-design 01 and 02, design
   });
 
   describe('ACL check (api-design 02, the table of design §4)', () => {
-    const acl = (username: string, topic: string, acc: number, env = BASE_ENV) =>
-      service(env).checkAcl({ username, clientid: 'c', topic, acc });
-    const denied = (username: string, topic: string, acc: number, env = BASE_ENV) =>
-      expectDomain(
-        () => acl(username, topic, acc, env),
-        HttpStatus.FORBIDDEN,
-        ErrorCode.TOPIC_DENIED,
+    const ON = { ...BASE_ENV, MQTT_STATION_UPLINK_ENABLED: true };
+    const DATA = `treklink/fs/${STATION}/2/json/LongFast/!a4b1c2d3`;
+    const acl = (
+      username: string,
+      topic: string,
+      acc: number,
+      env: Record<string, unknown> = BASE_ENV,
+    ) => service(env).checkAcl({ username, clientid: 'c', topic, acc });
+    const denied = (
+      username: string,
+      topic: string,
+      acc: number,
+      env: Record<string, unknown> = BASE_ENV,
+    ) =>
+      expectRejection(acl(username, topic, acc, env), HttpStatus.FORBIDDEN, ErrorCode.TOPIC_DENIED);
+
+    it('backend subscriber: subscribes to and reads treklink/#', async () => {
+      expect(await acl('treklink-backend', 'treklink/#', ACC_SUBSCRIBE)).toEqual({ allowed: true });
+      expect(await acl('treklink-backend', 'treklink/2/json/+/+', ACC_SUBSCRIBE)).toEqual({
+        allowed: true,
+      });
+      expect(await acl('treklink-backend', 'treklink/fs/+/health', ACC_SUBSCRIBE)).toEqual({
+        allowed: true,
+      });
+      expect(await acl('treklink-backend', 'treklink/2/json/LongFast/!a4b1c2d3', ACC_READ)).toEqual(
+        {
+          allowed: true,
+        },
       );
-
-    it('backend subscriber: subscribes to and reads treklink/#', () => {
-      expect(acl('treklink-backend', 'treklink/#', ACC_SUBSCRIBE)).toEqual({ allowed: true });
-      expect(acl('treklink-backend', 'treklink/2/json/+/+', ACC_SUBSCRIBE)).toEqual({
-        allowed: true,
-      });
-      expect(acl('treklink-backend', 'treklink/fs/+/health', ACC_SUBSCRIBE)).toEqual({
-        allowed: true,
-      });
-      expect(acl('treklink-backend', 'treklink/2/json/LongFast/!a4b1c2d3', ACC_READ)).toEqual({
-        allowed: true,
-      });
     });
 
-    it('backend subscriber: publishes nothing and reads nothing outside treklink/', () => {
-      denied('treklink-backend', 'treklink/2/json/LongFast/!a4b1c2d3', ACC_WRITE);
-      denied('treklink-backend', 'treklink/2/json/LongFast/!a4b1c2d3', ACC_READ | ACC_WRITE);
-      denied('treklink-backend', '#', ACC_SUBSCRIBE);
-      denied('treklink-backend', '$SYS/broker/uptime', ACC_READ);
-      denied('treklink-backend', 'treklinkX/2/json/a/b', ACC_READ);
+    it('backend subscriber: publishes nothing and reads nothing outside treklink/', async () => {
+      await denied('treklink-backend', 'treklink/2/json/LongFast/!a4b1c2d3', ACC_WRITE);
+      await denied('treklink-backend', 'treklink/2/json/LongFast/!a4b1c2d3', ACC_READ | ACC_WRITE);
+      await denied('treklink-backend', '#', ACC_SUBSCRIBE);
+      await denied('treklink-backend', '$SYS/broker/uptime', ACC_READ);
+      await denied('treklink-backend', 'treklinkX/2/json/a/b', ACC_READ);
     });
 
-    it('fleet node: publishes its own json and e topics', () => {
-      expect(acl(NODE, 'treklink/2/json/LongFast/!a4b1c2d3', ACC_WRITE)).toEqual({ allowed: true });
-      expect(acl(NODE, 'treklink/2/e/LongFast/!a4b1c2d3', ACC_WRITE)).toEqual({ allowed: true });
-    });
-
-    it('fleet node: no other node, topic shape or access, and no subscribe', () => {
-      denied(NODE, 'treklink/2/json/LongFast/!deadbeef', ACC_WRITE);
-      denied(NODE, 'treklink/2/json/LongFast/!a4b1c2d3/extra', ACC_WRITE);
-      denied(NODE, 'treklink/2/json/a/b/!a4b1c2d3', ACC_WRITE);
-      denied(NODE, 'treklink/2/map/LongFast/!a4b1c2d3', ACC_WRITE);
-      denied(NODE, 'treklink/fs/fs-org-0007-1/2/json/LongFast/!a4b1c2d3', ACC_WRITE);
-      denied(NODE, 'treklink/2/json/LongFast/!a4b1c2d3', ACC_READ);
-      denied(NODE, 'treklink/2/json/LongFast/!a4b1c2d3', ACC_SUBSCRIBE);
-      denied(NODE, 'treklink/#', ACC_SUBSCRIBE);
-    });
-
-    it('Field Station: publishes under treklink/fs/<its username>/#', () => {
-      expect(acl(STATION, `treklink/fs/${STATION}/2/json/LongFast/!a4b1c2d3`, ACC_WRITE)).toEqual({
+    it('fleet node: publishes its own json and e topics', async () => {
+      expect(await acl(NODE, 'treklink/2/json/LongFast/!a4b1c2d3', ACC_WRITE)).toEqual({
         allowed: true,
       });
-      expect(acl(STATION, `treklink/fs/${STATION}/health`, ACC_WRITE)).toEqual({ allowed: true });
-    });
-
-    it('Field Station: publishes on the node JSON topic of any node (interim rule, design §4, D-098)', () => {
-      expect(acl(STATION, 'treklink/2/json/LongFast/!a4b1c2d3', ACC_WRITE)).toEqual({
-        allowed: true,
-      });
-      expect(acl(STATION, 'treklink/2/json/TrekOrg/!deadbeef', ACC_WRITE)).toEqual({
+      expect(await acl(NODE, 'treklink/2/e/LongFast/!a4b1c2d3', ACC_WRITE)).toEqual({
         allowed: true,
       });
     });
 
-    it('Field Station: never another station, another node topic shape, or a subscribe', () => {
-      denied(STATION, 'treklink/fs/fs-org-0007-2/health', ACC_WRITE);
-      denied(STATION, `treklink/fs/${STATION}0/health`, ACC_WRITE);
-      denied(STATION, 'treklink/2/e/LongFast/!a4b1c2d3', ACC_WRITE);
-      denied(STATION, 'treklink/2/map/LongFast/!a4b1c2d3', ACC_WRITE);
-      denied(STATION, 'treklink/2/json/LongFast/!A4B1C2D3', ACC_WRITE);
-      denied(STATION, 'treklink/2/json/LongFast/!a4b1c2d', ACC_WRITE);
-      denied(STATION, 'treklink/2/json/LongFast/!a4b1c2d3/extra', ACC_WRITE);
-      denied(STATION, 'treklink/2/json/+/!a4b1c2d3', ACC_WRITE);
-      denied(STATION, 'treklink/2/json/LongFast/+', ACC_WRITE);
-      denied(STATION, 'other/2/json/LongFast/!a4b1c2d3', ACC_WRITE);
-      denied(STATION, 'treklink/2/json/LongFast/!a4b1c2d3', ACC_READ);
-      denied(STATION, 'treklink/2/json/+/+', ACC_SUBSCRIBE);
-      denied(STATION, `treklink/fs/${STATION}/health`, ACC_READ);
-      denied(STATION, `treklink/fs/${STATION}/#`, ACC_SUBSCRIBE);
-      denied(STATION, 'treklink/#', ACC_SUBSCRIBE);
+    it('fleet node: no other node, topic shape or access, and no subscribe', async () => {
+      await denied(NODE, 'treklink/2/json/LongFast/!deadbeef', ACC_WRITE);
+      await denied(NODE, 'treklink/2/json/LongFast/!a4b1c2d3/extra', ACC_WRITE);
+      await denied(NODE, 'treklink/2/json/a/b/!a4b1c2d3', ACC_WRITE);
+      await denied(NODE, 'treklink/2/map/LongFast/!a4b1c2d3', ACC_WRITE);
+      await denied(NODE, 'treklink/fs/fs-org-0007-1/2/json/LongFast/!a4b1c2d3', ACC_WRITE);
+      await denied(NODE, 'treklink/2/json/LongFast/!a4b1c2d3', ACC_READ);
+      await denied(NODE, 'treklink/2/json/LongFast/!a4b1c2d3', ACC_SUBSCRIBE);
+      await denied(NODE, 'treklink/#', ACC_SUBSCRIBE);
     });
 
-    it('denies a username of no credential kind', () => {
-      denied('mallory', 'treklink/fs/mallory/health', ACC_WRITE);
-      denied('fs-org/../x-1', 'treklink/fs/fs-org/../x-1/health', ACC_WRITE);
+    it('Field Station: publishes its health under treklink/fs/<its username>/, flag or not', async () => {
+      expect(await acl(STATION, `treklink/fs/${STATION}/health`, ACC_WRITE)).toEqual({
+        allowed: true,
+      });
+      expect(await acl(STATION, `treklink/fs/${STATION}/health`, ACC_WRITE, ON)).toEqual({
+        allowed: true,
+      });
+      expect(devices.byNodeNum).not.toHaveBeenCalled();
     });
 
-    it('follows MQTT_ROOT', () => {
+    it('Field Station data topic: refused with MQTT_STATION_UPLINK_ENABLED off, without a lookup', async () => {
+      await denied(STATION, DATA, ACC_WRITE);
+      await denied(STATION, DATA, ACC_WRITE, { ...BASE_ENV, MQTT_STATION_UPLINK_ENABLED: false });
+      expect(stations.stationByUsername).not.toHaveBeenCalled();
+      expect(devices.byNodeNum).not.toHaveBeenCalled();
+    });
+
+    it('Field Station data topic: allowed with the flag on for a node in its organization custody', async () => {
+      expect(await acl(STATION, DATA, ACC_WRITE, ON)).toEqual({ allowed: true });
+      expect(stations.stationByUsername).toHaveBeenCalledWith(STATION);
+      expect(devices.byNodeNum).toHaveBeenCalledWith(0xa4b1c2d3n);
+      expect(contracts.custodyAt).toHaveBeenCalledWith('dev-1', expect.any(Date));
+    });
+
+    it('Field Station data topic: refused for an unrented unit and for another organization unit', async () => {
+      contracts.custodyAt.mockResolvedValueOnce(null);
+      await denied(STATION, DATA, ACC_WRITE, ON);
+      contracts.custodyAt.mockResolvedValueOnce({ organizationId: 'org-2' });
+      await denied(STATION, DATA, ACC_WRITE, ON);
+      expect(logged()).toContain("node not in the custody of the station's organization");
+    });
+
+    it('Field Station data topic: refused for an unknown node, an unknown or a revoked station', async () => {
+      devices.byNodeNum.mockResolvedValueOnce(null);
+      await denied(STATION, DATA, ACC_WRITE, ON);
+      stations.stationByUsername.mockResolvedValueOnce(null);
+      await denied(STATION, DATA, ACC_WRITE, ON);
+      stations.stationByUsername.mockResolvedValueOnce({
+        id: 'fs-1',
+        organizationId: 'org-1',
+        mqttUsername: STATION,
+        revokedAt: new Date(),
+      });
+      await denied(STATION, DATA, ACC_WRITE, ON);
+    });
+
+    it('Field Station data topic: never another station, another shape, a read or a subscribe', async () => {
+      await denied(STATION, 'treklink/fs/fs-org-0007-2/2/json/LongFast/!a4b1c2d3', ACC_WRITE, ON);
+      await denied(STATION, `treklink/fs/${STATION}/2/json/LongFast/!A4B1C2D3`, ACC_WRITE, ON);
+      await denied(STATION, `treklink/fs/${STATION}/2/json/LongFast/!a4b1c2d3/x`, ACC_WRITE, ON);
+      await denied(STATION, `treklink/fs/${STATION}/2/e/LongFast/!a4b1c2d3`, ACC_WRITE, ON);
+      await denied(STATION, `treklink/fs/${STATION}/2`, ACC_WRITE, ON);
+      await denied(STATION, DATA, ACC_READ, ON);
+      await denied(STATION, `treklink/fs/${STATION}/2/json/+/+`, ACC_SUBSCRIBE, ON);
+      expect(contracts.custodyAt).not.toHaveBeenCalled();
+    });
+
+    it('Field Station: never another station, a node topic, or a subscribe', async () => {
+      await denied(STATION, 'treklink/fs/fs-org-0007-2/health', ACC_WRITE);
+      await denied(STATION, `treklink/fs/${STATION}0/health`, ACC_WRITE);
+      await denied(STATION, 'treklink/2/json/LongFast/!a4b1c2d3', ACC_WRITE);
+      await denied(STATION, 'treklink/2/json/LongFast/!a4b1c2d3', ACC_WRITE, ON);
+      await denied(STATION, 'treklink/2/e/LongFast/!a4b1c2d3', ACC_WRITE);
+      await denied(STATION, 'treklink/2/map/LongFast/!a4b1c2d3', ACC_WRITE);
+      await denied(STATION, 'treklink/2/json/LongFast/!A4B1C2D3', ACC_WRITE);
+      await denied(STATION, 'treklink/2/json/LongFast/!a4b1c2d', ACC_WRITE);
+      await denied(STATION, 'treklink/2/json/LongFast/!a4b1c2d3/extra', ACC_WRITE);
+      await denied(STATION, 'treklink/2/json/+/!a4b1c2d3', ACC_WRITE);
+      await denied(STATION, 'treklink/2/json/LongFast/+', ACC_WRITE);
+      await denied(STATION, 'other/2/json/LongFast/!a4b1c2d3', ACC_WRITE);
+      await denied(STATION, 'treklink/2/json/LongFast/!a4b1c2d3', ACC_READ);
+      await denied(STATION, 'treklink/2/json/+/+', ACC_SUBSCRIBE);
+      await denied(STATION, `treklink/fs/${STATION}/health`, ACC_READ);
+      await denied(STATION, `treklink/fs/${STATION}/#`, ACC_SUBSCRIBE);
+      await denied(STATION, 'treklink/#', ACC_SUBSCRIBE);
+    });
+
+    it('denies a username of no credential kind', async () => {
+      await denied('mallory', 'treklink/fs/mallory/health', ACC_WRITE);
+      await denied('fs-org/../x-1', 'treklink/fs/fs-org/../x-1/health', ACC_WRITE);
+    });
+
+    it('follows MQTT_ROOT', async () => {
       const env = { ...BASE_ENV, MQTT_ROOT: 'trial' };
-      expect(acl(STATION, `trial/fs/${STATION}/health`, ACC_WRITE, env)).toEqual({ allowed: true });
-      denied(STATION, `treklink/fs/${STATION}/health`, ACC_WRITE, env);
+      expect(await acl(STATION, `trial/fs/${STATION}/health`, ACC_WRITE, env)).toEqual({
+        allowed: true,
+      });
+      await denied(STATION, `treklink/fs/${STATION}/health`, ACC_WRITE, env);
     });
   });
 
@@ -422,7 +500,26 @@ describe('BrokerAuthService (gateway-sync task 3.1, api-design 01 and 02, design
     });
   });
 
-  describe('kindOf and topicAllowed', () => {
+  describe('kindOf, topicAllowed and stationDataNode', () => {
+    it('reads the node id of a station data topic under its own username only', () => {
+      expect(
+        stationDataNode(STATION, `treklink/fs/${STATION}/2/json/LongFast/!a4b1c2d3`, 'treklink'),
+      ).toBe('!a4b1c2d3');
+      expect(stationDataNode(STATION, `treklink/fs/${STATION}/health`, 'treklink')).toBeNull();
+      expect(
+        stationDataNode(STATION, 'treklink/fs/fs-org-0007-2/2/json/L/!a4b1c2d3', 'treklink'),
+      ).toBeNull();
+      expect(
+        topicAllowed(
+          'FIELD_STATION',
+          STATION,
+          `treklink/fs/${STATION}/2/json/L/!a4b1c2d3`,
+          ACC_WRITE,
+          'treklink',
+        ),
+      ).toBe(false);
+    });
+
     it('matches the backend username before the node and station patterns', () => {
       expect(kindOf(NODE, NODE)).toBe('BACKEND');
       expect(kindOf(NODE, undefined)).toBe('FLEET_NODE');

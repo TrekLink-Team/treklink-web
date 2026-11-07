@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { ValidatedEnvironment } from '../../platform/config/environment-variables';
+import { FieldStationJsonAdapter } from '../adapters/field-station-json.adapter';
 import { NodeJsonAdapter } from '../adapters/node-json.adapter';
 import { IngestionService } from '../ingestion.service';
 import { StationHealthHandler } from '../station-health.handler';
@@ -102,5 +103,65 @@ describe('MqttSubscriber with the Field Station health handler', () => {
     await subscriber.handle(position.topic, position.body);
     expect(health.handle).toHaveBeenCalledTimes(1);
     expect(ingestion.ingest).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Design §4, review of treklink-web#431: the station data topic is subscribed and routed to the Stage C
+// adapter only with MQTT_STATION_UPLINK_ENABLED.
+describe('MqttSubscriber and MQTT_STATION_UPLINK_ENABLED', () => {
+  const STATION_TOPIC = 'treklink/fs/fs-org-0001-1/2/json/LongFast/!de000009';
+  const configWith = (flag: boolean) =>
+    ({
+      get: (key: string) => (key === 'MQTT_STATION_UPLINK_ENABLED' ? flag : 'treklink'),
+    }) as unknown as ConfigService<ValidatedEnvironment, true>;
+  const stationBody = (): Buffer => {
+    const [position] = fixture('position');
+    const message = JSON.parse(position.body.toString('utf8')) as Record<string, unknown>;
+    return Buffer.from(
+      JSON.stringify({ ...message, fs_captured_at: 1792724399000, fs_sent_at: 1792724400000 }),
+    );
+  };
+  const subscriberWith = (flag: boolean, ingestion: object) => {
+    const config = configWith(flag);
+    return new MqttSubscriber(
+      config,
+      new NodeJsonAdapter(config),
+      ingestion as unknown as IngestionService,
+      null,
+      undefined,
+      new FieldStationJsonAdapter(config),
+    );
+  };
+  const subscriptionsOf = (subscriber: MqttSubscriber) =>
+    (subscriber as unknown as { subscriptions: string[] }).subscriptions;
+
+  it('off: does not subscribe to the station data topic and does not ingest it', async () => {
+    const ingestion = { ingest: jest.fn(), rejectMalformed: jest.fn() };
+    const subscriber = subscriberWith(false, ingestion);
+    expect(subscriptionsOf(subscriber)).toEqual(['treklink/2/json/+/+']);
+    await subscriber.handle(STATION_TOPIC, stationBody());
+    expect(ingestion.ingest).not.toHaveBeenCalled();
+    expect(ingestion.rejectMalformed).not.toHaveBeenCalled();
+  });
+
+  it('on: subscribes to it and hands a FIELD_STATION envelope with the station username to ingestion', async () => {
+    const ingestion = {
+      ingest: jest.fn().mockResolvedValue('ACCEPTED'),
+      rejectMalformed: jest.fn(),
+    };
+    const subscriber = subscriberWith(true, ingestion);
+    expect(subscriptionsOf(subscriber)).toEqual([
+      'treklink/2/json/+/+',
+      'treklink/fs/+/2/json/+/+',
+    ]);
+    await subscriber.handle(STATION_TOPIC, stationBody());
+    expect(ingestion.ingest).toHaveBeenCalledWith(
+      expect.objectContaining({ ingress: 'FIELD_STATION', uplinkKey: 'fs-org-0001-1' }),
+    );
+    const [position] = fixture('position');
+    await subscriber.handle(position.topic, position.body);
+    expect(ingestion.ingest).toHaveBeenLastCalledWith(
+      expect.objectContaining({ ingress: 'MQTT_NODE', uplinkKey: '!de000009' }),
+    );
   });
 });

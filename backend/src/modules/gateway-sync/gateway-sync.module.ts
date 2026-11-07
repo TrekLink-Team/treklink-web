@@ -5,6 +5,7 @@ import { IncidentEventsPortsModule } from './incident-events-ports.module';
 import { OrganizationsModule } from '../organizations';
 import { PlatformModule } from '../platform/platform.module';
 import { RentalsModule } from '../rentals';
+import { FieldStationJsonAdapter } from './adapters/field-station-json.adapter';
 import { NodeJsonAdapter } from './adapters/node-json.adapter';
 import { BrokerHookSecretGuard } from './broker-hook-secret.guard';
 import { BrokerAuthController } from './broker-hooks.controller';
@@ -44,6 +45,7 @@ import { UplinkIngress } from './uplink-ingress';
   controllers: [GatewaySyncController, BrokerAuthController],
   providers: [
     NodeJsonAdapter,
+    FieldStationJsonAdapter,
     Normalizer,
     IngestionRepository,
     IngestionService,

@@ -25,6 +25,11 @@ export class FieldStationJsonAdapter {
     this.subscription = `${root}/fs/+/2/json/+/+`;
   }
 
+  // True for a topic of this adapter's shape, so the subscriber routes it here (design §4).
+  matches(topic: string): boolean {
+    return this.topic.test(topic);
+  }
+
   adapt(topic: string, body: Buffer, receivedAt: Date): AdaptResult {
     const match = this.topic.exec(topic);
     if (!match) {
