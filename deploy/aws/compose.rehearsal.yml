@@ -1,0 +1,37 @@
+# Rehearsal of the field host on a laptop or sandbox (platform task 7.5, RUNBOOK.md "Rehearsal"):
+#   docker compose -f compose.yml -f compose.rehearsal.yml up -d
+# A local Postgres 16 stands in for Neon, and Caddy's internal CA for Let's Encrypt, so MQTT_DOMAIN needs no
+# public DNS (point it at 127.0.0.1 in /etc/hosts). Never used on the AWS host.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: rehearsal
+      POSTGRES_DB: treklink_rehearsal
+    # Published on the loopback only, for `prisma migrate deploy` and the seed from the repository.
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - rehearsal_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d treklink_rehearsal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  caddy:
+    volumes:
+      - ./Caddyfile.rehearsal:/etc/caddy/Caddyfile:ro
+
+  backend:
+    environment:
+      DATABASE_URL: postgresql://postgres:rehearsal@postgres:5432/treklink_rehearsal
+      DATABASE_DIRECT_URL: postgresql://postgres:rehearsal@postgres:5432/treklink_rehearsal
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  rehearsal_postgres:

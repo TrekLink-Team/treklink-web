@@ -423,6 +423,12 @@ The Vercel production build migrates and seeds `treklink_prod` (`backend/scripts
 is built from the commit the Vercel staging runs, after that build has migrated, so the Prisma client matches
 the schema.
 
+**Backend outage.** While the backend is down the broker cannot ask its hooks: a new connection is dropped
+after the 5 s hook timeout, and a connected client whose 60 s ACL cache entry has expired is disconnected at
+its next publish, because go-auth treats a hook error as an error and not as a denial. A QoS 1 client keeps the
+message and sends it again after reconnecting (rehearsal of 2026-11-07, RUNBOOK.md). A backend update is
+therefore kept short and made outside field tests.
+
 **Not on the host**: the frontend, Postgres, migrations and seeds, the field data simulator, the demo
 routes, the websocket listener 9001, a public 1883, any public API path other than `/api/health`, and
 Socket.io clients (the Vercel staging polls, `VITE_LIVE_MODE=poll`).

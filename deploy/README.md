@@ -66,3 +66,12 @@ Staging branch (D-094 amendment 2, 2026-11-05): the Vercel project builds only t
 
 Project settings in the Vercel dashboard: framework preset Services, root directory empty (the repository root), Node.js 22.x to match CI. The project's environment variables are set in the Vercel dashboard; secrets (database URLs, JWT
 secrets, seed passwords) are entered by the leader. The list of names lives with the leader, not here.
+
+## The AWS field host (D-098)
+
+`deploy/aws/` holds the Docker Compose stack of the one always-on host that runs the MQTT broker and a
+backend instance for the field flow (broker hooks, the `gateway-sync` subscriber, scheduled jobs), writing
+the Neon database of the Vercel staging: `compose.yml`, the Caddyfile, the broker configuration, `.env.example`
+and `RUNBOOK.md`, which the leader follows to provision, start, check, update, roll back and tear it down.
+Design: `specs/platform/design.md` §2.5. It serves no page, so it is not a candidate in `system-endpoints.json`
+(RUNBOOK.md §13).
