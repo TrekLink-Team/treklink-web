@@ -31,7 +31,8 @@ export const AccountMenu: React.FC = () => {
   const [changing, setChanging] = useState(false);
   // Demo mode (D-088, screen 7.5): every signed-in user can switch to a seeded role from the menu, so
   // a window signed in as the Manager can switch back to the Admin.
-  const demoOn = useDemoStatus(tokens !== null).data?.enabled === true;
+  const demo = useDemoStatus(tokens !== null).data;
+  const demoOn = demo?.roleSwitchEnabled ?? demo?.enabled === true;
   const adoptDemoSession = useAdoptDemoSession();
   const [switching, setSwitching] = useState(false);
 
@@ -88,6 +89,7 @@ export const AccountMenu: React.FC = () => {
         label={me ? `${initialsOf(me.fullName)} ${me.fullName}, account menu` : 'Account menu'}
         items={items}
         align="end"
+        side="below"
         // Below 640 px the initials alone, without the chevron, so the header fits 320 px (design-system §5, W41).
         triggerClassName="h-11 min-w-11 gap-1 px-1 sm:gap-2 sm:pr-3 [&_[data-menu-chevron]]:hidden sm:[&_[data-menu-chevron]]:block"
         header={

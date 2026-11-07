@@ -3,7 +3,7 @@ import { ApiError, apiClient } from '../../shared/api/apiClient';
 
 // The field simulation of the demo panel as specs/demo api-design 06 to 10 return it (screen 7.5,
 // section "Field simulation"; D-093 amendment, D-094). The backend serves these routes only while
-// DEMO_SIMULATION_ENABLED is true, and only to a TrekLink Admin (`demo.simulate`).
+// DEMO_SIMULATION_ENABLED and the W43 control/environment gate pass, for Admin (`demo.simulate`).
 
 export type SimulationPattern = 'WALK' | 'STOP' | 'STRAY' | 'SILENT' | 'LOW_BATTERY';
 export type SimulationEventKind = 'SOS' | 'FALL' | 'SOS_CANCEL';

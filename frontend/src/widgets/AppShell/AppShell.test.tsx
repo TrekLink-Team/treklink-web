@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -34,7 +34,11 @@ const MANAGER: SessionUser = {
   },
 };
 
-const show = (path: string, page: React.ReactNode = <p>page body</p>, user: SessionUser = MANAGER) => {
+const show = (
+  path: string,
+  page: React.ReactNode = <p>page body</p>,
+  user: SessionUser = MANAGER,
+) => {
   act(() =>
     useSession
       .getState()
@@ -46,7 +50,11 @@ const show = (path: string, page: React.ReactNode = <p>page body</p>, user: Sess
   return render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter initialEntries={[path]}>
-        <AppShell user={user} home={user.accountType === 'TREKLINK' ? '/t/fleet' : '/o/contracts'} banner={<div role="alert">SOS banner</div>}>
+        <AppShell
+          user={user}
+          home={user.accountType === 'TREKLINK' ? '/t/fleet' : '/o/contracts'}
+          banner={<div role="alert">SOS banner</div>}
+        >
           {page}
         </AppShell>
       </MemoryRouter>
@@ -168,10 +176,14 @@ describe('AppShell (specs/frontend/design.md §2)', () => {
     // The plain class, not the fit-page variant `has-[[data-fit-page]]:min-h-0` every page carries
     // (ui standard §7, W24b).
     show('/o/map');
-    expect(document.getElementById('main')!.firstElementChild!.classList.contains('min-h-0')).toBe(true);
+    expect(document.getElementById('main')!.firstElementChild!.classList.contains('min-h-0')).toBe(
+      true,
+    );
     cleanup();
     show('/o/contracts');
-    expect(document.getElementById('main')!.firstElementChild!.classList.contains('min-h-0')).toBe(false);
+    expect(document.getElementById('main')!.firstElementChild!.classList.contains('min-h-0')).toBe(
+      false,
+    );
   });
 
   it('opens the Info pane as a sheet below 1280 px only when asked', () => {
@@ -198,7 +210,8 @@ describe('AppShell header, the More menu below 640 px (and below 1024 px for Tre
     roles: ['STAFF'],
     organization: null,
   };
-  const wrapper = (element: HTMLElement) => element.closest('span.inline-flex, button') as HTMLElement;
+  const wrapper = (element: HTMLElement) =>
+    element.closest('span.inline-flex, button') as HTMLElement;
 
   afterEach(() => act(() => useConnectorStore.setState({ open: false })));
 
@@ -209,10 +222,12 @@ describe('AppShell header, the More menu below 640 px (and below 1024 px for Tre
     const more = within(header).getByRole('button', { name: 'More header actions' });
     expect(wrapper(more).parentElement?.className).toContain('lg:hidden');
     expect(within(header).queryByRole('button', { name: 'Go to page' })).toBeNull();
-    expect(within(header).getByRole('button', { name: /^Devices, 0 connected/ }).className).toContain('hidden lg:flex');
-    expect(within(header).getByRole('button', { name: /^Switch to (dark|light) theme$/ }).className).toContain(
-      'hidden lg:inline-flex',
-    );
+    expect(
+      within(header).getByRole('button', { name: /^Devices, 0 connected/ }).className,
+    ).toContain('hidden lg:flex');
+    expect(
+      within(header).getByRole('button', { name: /^Switch to (dark|light) theme$/ }).className,
+    ).toContain('hidden lg:inline-flex');
     // The account menu drops its chevron below 640 px; the environment badge keeps its text.
     expect(within(header).getByRole('button', { name: /account menu$/ }).className).toContain(
       '[&_[data-menu-chevron]]:hidden',
@@ -246,13 +261,16 @@ describe('AppShell header, the More menu below 640 px (and below 1024 px for Tre
   it('holds no Devices item for an organization account and keeps its More menu below 640 px only', () => {
     const { container } = show('/o/contracts');
     const header = container.querySelector('header') as HTMLElement;
-    expect(wrapper(within(header).getByRole('button', { name: 'More header actions' })).parentElement?.className).toContain(
-      'sm:hidden',
+    expect(
+      wrapper(within(header).getByRole('button', { name: 'More header actions' })).parentElement
+        ?.className,
+    ).toContain('sm:hidden');
+    expect(within(header).getByRole('button', { name: 'Go to page' }).className).toContain(
+      'hidden sm:inline-flex lg:hidden',
     );
-    expect(within(header).getByRole('button', { name: 'Go to page' }).className).toContain('hidden sm:inline-flex lg:hidden');
-    expect(within(header).getByRole('button', { name: /^Switch to (dark|light) theme$/ }).className).toContain(
-      'hidden sm:inline-flex',
-    );
+    expect(
+      within(header).getByRole('button', { name: /^Switch to (dark|light) theme$/ }).className,
+    ).toContain('hidden sm:inline-flex');
     fireEvent.click(screen.getByRole('button', { name: 'More header actions' }));
     expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
       'Go to page',
@@ -271,7 +289,7 @@ describe('AppShell, Demo control entry', () => {
     organization: null,
   };
 
-  it('shows the entry while only the simulation answers', async () => {
+  it('hides the entry when the control status is off despite a simulation response', async () => {
     const { apiClient, ApiError } = await import('../../shared/api/apiClient');
     const api = vi.mocked(apiClient);
     api.mockImplementation((path: string) =>
@@ -288,17 +306,15 @@ describe('AppShell, Demo control entry', () => {
           : new Promise(() => undefined),
     );
     act(() =>
-      useSession
-        .getState()
-        .signIn(
-          {
-            accessToken: 'a',
-            accessTokenExpiresIn: 1,
-            refreshToken: 'r',
-            refreshTokenExpiresIn: 1,
-          },
-          ADMIN,
-        ),
+      useSession.getState().signIn(
+        {
+          accessToken: 'a',
+          accessTokenExpiresIn: 1,
+          refreshToken: 'r',
+          refreshTokenExpiresIn: 1,
+        },
+        ADMIN,
+      ),
     );
     render(
       <QueryClientProvider client={new QueryClient()}>
@@ -310,7 +326,10 @@ describe('AppShell, Demo control entry', () => {
       </QueryClientProvider>,
     );
     const nav = screen.getByRole('navigation', { name: 'Modules' });
-    expect(await within(nav).findByRole('link', { name: 'Demo control' })).toBeTruthy();
+    await waitFor(() =>
+      expect(api.mock.calls.some(([path]) => path === '/demo/status')).toBe(true),
+    );
+    expect(within(nav).queryByRole('link', { name: 'Demo control' })).toBeNull();
     api.mockImplementation(() => new Promise(() => undefined));
   });
 
@@ -334,7 +353,13 @@ describe('SideNav, expanded', () => {
               id: 'admin',
               label: 'Administration',
               entries: [
-                { route: '/t/admin/prices', label: 'Prices and damage rates', icon: Tag, roles: ['ADMIN'], built: true },
+                {
+                  route: '/t/admin/prices',
+                  label: 'Prices and damage rates',
+                  icon: Tag,
+                  roles: ['ADMIN'],
+                  built: true,
+                },
               ],
             },
           ]}

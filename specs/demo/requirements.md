@@ -17,9 +17,9 @@
   - A controlled field simulation (D-093 amendment, 2026-11-02): an Admin picks devices, gives each a trail and a pattern, starts and stops them, and raises an SOS, a fall or a cancel on demand; the packets go through the normal ingestion path, so positions, staleness, incidents and alerts behave as for a real node, and everything they create is marked simulated
   - A public, read-only list of the seeded test accounts with their passwords, shown on `/` and `/sign-in` only while `DEMO_TEST_ACCOUNTS_ENABLED` is `true` (D-088 amendment of 2026-11-01, D-089)
 - **Out-of-Scope**:
-  - Any control panel action (status, scenarios, stage, role switch) against a shared or production database; the module refuses both. The test accounts list is the one exception: it reads no database (D-089)
+  - Destructive staging and password-free role switching against a shared or production database; both remain refused. Additive quick controls follow section 4. The test accounts list reads no database (D-089)
   - New business rules: a scenario only calls services that already exist, or a small exported read or command added to the owning module
-  - Loss cases (scenario 7 is listed as unavailable until treklink-web#228)
+  - The legacy reset-based loss scenario remains unavailable; additive loss/fault reporting follows section 4
   - Real devices: the simulation of §2.4 drives seeded devices with synthetic stock packets; it never writes to a node
 - **Depends on**: `platform`, `auth`, `organizations`, `devices`, `billing`, `rentals`, `incidents`, `gateway-sync` (design Figure 1).
 
@@ -51,7 +51,7 @@
 
 ### 2.4 Field simulation (D-093 amendment, D-094, 2026-11-02)
 
-- **REQ-SIM-01**: The system SHALL load the simulation routes only WHEN `DEMO_SIMULATION_ENABLED` is `true` (default `false`), independently of `DEMO_CONTROLS_ENABLED`; with the flag off they answer 404. While the flag is on, the field data simulator of gateway-sync design §2 reads its nodes from the simulation table instead of its two fixed nodes; with it off the fixed simulator of D-090 is unchanged.
+- **REQ-SIM-01**: The system SHALL load simulation control routes only WHEN `DEMO_SIMULATION_ENABLED` is `true` (default `false`) and the W43 control/environment gate passes; otherwise they answer 404. While the flag is on, the field data simulator of gateway-sync design §2 reads its nodes from the simulation table instead of its two fixed nodes; with it off the fixed simulator of D-090 is unchanged.
 - **REQ-SIM-02**: The system SHALL accept a simulation write only WHEN the database of `DATABASE_URL` and `DATABASE_DIRECT_URL` is on a loopback host (REQ-ERR-02) OR is named `treklink_prod` (the Vercel staging of D-094, the same check as `backend/scripts/vercel-build.sh`); otherwise 403 `DEMO_DATABASE_NOT_ALLOWED` and nothing changes. `NODE_ENV` is not checked, because the staging runs as production. The simulation never truncates, resets or deletes a row.
 - **REQ-SIM-03**: WHEN an Admin starts a simulated node for a device that has a `nodeNum`, a trail from the trail list and a pattern, the system SHALL store it and, from the next simulator run, ingest one position and one telemetry packet for it per `gatewaySync.simulatorIntervalSeconds` through the node uplink path, with the packet ids derived from node, kind and interval start so a repeated run stores nothing twice (D-006).
 - **REQ-SIM-04**: The patterns SHALL be: `WALK` (along the trail at the node's speed, from its start offset, turning back at the end), `STOP` (stays at its current point), `STRAY` (leaves the trail at its current point, 300 m to one side over ten minutes), `SILENT` (sends nothing, so the device turns stale after the staleness threshold), `LOW_BATTERY` (walks while the battery falls 2 points a minute to 5 %). An Admin MAY change a running node's pattern; the move starts from where the node is.
@@ -90,3 +90,5 @@ This section supersedes the local-only scope for additive quick actions. The leg
 - **AC-QUICK-02**: Repeated quick actions SHALL yield distinct identifiers without deleting earlier records; real-service invoices, incidents, alerts and audit actor SHALL be observable in Postgres integration tests.
 
 W43 also supersedes REQ-SIM-01's independent route loading: DemoSimulationModule requires DEMO_CONTROLS_ENABLED, explicit VITE_APP_ENV sandbox/staging and DEMO_SIMULATION_ENABLED together. The existing field simulator job retains its independent job flag. The page and navigation require control status, never a simulation response alone.
+
+Simulation control writes also enforce live ADMIN role plus the demo.simulate CASL policy, with the verified caller passed into the database/role guard. An organization-scoped caller is refused.

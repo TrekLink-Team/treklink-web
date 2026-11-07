@@ -57,8 +57,10 @@
 - [x] 6.2 Implement environment and Admin guard, durable counter and audited registry, preserve local-only reset and switching.
 - [x] 6.3 Implement organization, four contract targets, SOS, loss/fault and walker refresh through owning services.
 - [x] 6.4 Implement persistent escalation profile, contract and incident time controls with optimistic versions.
-- [ ] 6.5 Build grouped WF-01 to WF-05 panel, result links, causes and synthetic/time disclosures.
-- [ ] 6.6 Unit tests, quick contract/SOS Postgres specs, lint, typecheck, boundaries and visual/axe matrix.
+- [x] 6.5 Build grouped WF-01 to WF-05 panel, result links, causes and synthetic/time disclosures.
+- [x] 6.6 Unit tests, quick contract/SOS Postgres specs, lint, typecheck, boundaries and visual/axe matrix.
 - [ ] 6.7 Update demo script and run book to fresh scenario links and staging environment variables.
 
 **Partly done** (2026-11-07, KhoaDD under D-078): W43 backend scenarios, guards and time controls are built. Local Postgres proves contract, SOS, profile restore, targeted rollover and escalation. Panel visual matrix and final docs delivery continue in the following slices.
+
+**Partly done** (2026-11-07, KhoaDD under D-078): Panel, 246 frontend tests, 369 backend tests, 6 Postgres tests and the visual/axe matrix are complete. Native Chromium 400 percent zoom was verified at 318 by 236 CSS px in both themes. Final demo script, run book and delivery evidence follow in the docs slice.

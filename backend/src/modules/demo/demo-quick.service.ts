@@ -382,7 +382,7 @@ export class DemoQuickService {
     const { contract } = requested;
     await remember([
       {
-        label: `Demo contract ${input.target}`,
+        label: 'Demo contract',
         code: contract.code,
         path: `/t/contracts/${contract.id}`,
       },

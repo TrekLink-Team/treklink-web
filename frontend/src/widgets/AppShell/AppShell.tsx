@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useDemoStatus } from '../../entities/demo/api';
-import { useDemoSimulation } from '../../entities/demo/simulation';
 import type { SessionUser } from '../../entities/session/model';
 import {
   ConnectorAside,
@@ -52,10 +51,8 @@ const HubFlashPanel: FlashPanel = (props) => <FlashFirmwarePanel {...props} />;
 
 export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children }) => {
   const { pathname } = useLocation();
-  // The Demo control entry shows while the backend's demo controls are on (D-088) or, for an Admin, while
-  // the field simulation answers (screen 7.5, D-094: the Vercel staging has the simulation alone).
-  const simulation = useDemoSimulation(user.roles.includes('ADMIN'), false);
-  const demoEnabled = useDemoStatus().data?.enabled === true || Boolean(simulation.data);
+  // W43: the server status owns the explicit control/environment gate, including simulator controls.
+  const demoEnabled = useDemoStatus().data?.enabled === true;
   const groups = useMemo(
     () => visibleNav(user.accountType, user.roles, { demoEnabled }),
     [user.accountType, user.roles, demoEnabled],
@@ -204,7 +201,9 @@ export const AppShell: React.FC<AppShellProps> = ({ user, home, banner, children
           </div>
         </main>
 
-        {connectorOpen && connectorPushed && <ConnectorAside onClose={() => setConnectorOpen(false)} />}
+        {connectorOpen && connectorPushed && (
+          <ConnectorAside onClose={() => setConnectorOpen(false)} />
+        )}
         {!fullBleed && !connectorOpen && <InfoPane docked={wide} />}
       </div>
 
