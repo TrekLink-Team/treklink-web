@@ -164,7 +164,9 @@ const popupContent = (marker: MapMarker, openLink: OpenLink): HTMLElement => {
     const anchor = document.createElement('a');
     anchor.href = link.to;
     anchor.textContent = link.label;
-    anchor.className = `mt-1 inline-block text-xs ${LINK}`;
+    // A 24 by 24 px target at least (WCAG 2.2, 2.5.8), the text centred in it. The 4 px top margin keeps
+    // the focus ring clear of the line above.
+    anchor.className = `mt-1 inline-flex min-h-6 min-w-6 items-center text-xs ${LINK}`;
     // A plain click stays in the single-page app; a modified click opens a tab as any link does.
     anchor.addEventListener('click', (event) => {
       if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
@@ -372,6 +374,7 @@ const LeafletMap: React.FC<{
   compact?: boolean;
   cardMode?: boolean;
   onSelect?: (id: string | null) => void;
+  onPopupChange?: (open: boolean) => void;
 }> = ({
   config,
   markers,
@@ -382,6 +385,7 @@ const LeafletMap: React.FC<{
   compact = false,
   cardMode = false,
   onSelect,
+  onPopupChange,
 }) => {
   const [map, setMap] = useState<L.Map | null>(null);
   const [tilesFailed, setTilesFailed] = useState(false);
@@ -403,6 +407,10 @@ const LeafletMap: React.FC<{
   useEffect(() => {
     onSelectRef.current = onSelect;
   }, [onSelect]);
+  const onPopupRef = useRef(onPopupChange);
+  useEffect(() => {
+    onPopupRef.current = onPopupChange;
+  }, [onPopupChange]);
   // The opening view and the compact flag are read once, when the map is built; a later view moves the
   // map in the effect below rather than rebuilding it.
   const opening = useRef({ view, compact });
@@ -846,6 +854,19 @@ const LeafletMap: React.FC<{
     };
   }, [map]);
 
+  // The page hears when a popup opens and closes, so it can move what it draws over the map aside.
+  useEffect(() => {
+    if (!map) return;
+    const opens = () => onPopupRef.current?.(true);
+    const closes = () => onPopupRef.current?.(false);
+    map.on('popupopen', opens);
+    map.on('popupclose', closes);
+    return () => {
+      map.off('popupopen', opens);
+      map.off('popupclose', closes);
+    };
+  }, [map]);
+
   // A tap on the map outside any marker puts the card away.
   useEffect(() => {
     if (!map) return;
@@ -926,6 +947,8 @@ export const LiveMapWidget: React.FC<{
    * a tap on the bare map reports null. The page shows the device as a card (screen 9.1). */
   cardMode?: boolean;
   onSelect?: (id: string | null) => void;
+  /** Reports true when a popup opens and false when it closes, for a page that draws over the map. */
+  onPopupChange?: (open: boolean) => void;
   /** Size of the map box. The default keeps the interim dashboard's height; a full-bleed map page
    * passes `h-full` inside MapWorkspace. */
   className?: string;
@@ -938,6 +961,7 @@ export const LiveMapWidget: React.FC<{
   compact,
   cardMode,
   onSelect,
+  onPopupChange,
   className,
 }) => {
   const config = useQuery({
@@ -967,6 +991,7 @@ export const LiveMapWidget: React.FC<{
           compact={compact}
           cardMode={cardMode}
           onSelect={onSelect}
+          onPopupChange={onPopupChange}
         />
       )}
       {config.isPending && (

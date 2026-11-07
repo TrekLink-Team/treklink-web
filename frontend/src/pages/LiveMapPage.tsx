@@ -347,6 +347,9 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
   const now = useNow(CLOCK_TICK_MS);
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // The legend sits over the map, above Leaflet's popups, so it steps aside while one is open: on a
+  // short map, at 400 % zoom for one, it would cover the popup and its focused link (WCAG 2.4.11).
+  const [popupOpen, setPopupOpen] = useState(false);
   const navigate = useNavigate();
   // A phone (below 600 px, chapter 06 section 10.5): the device panel is a bottom sheet with three
   // snap positions, and one device shows as a card under the map instead of a popup (screen 9.1).
@@ -547,9 +550,10 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
             onLink={(link) => navigate(link.to, { state: link.state })}
             cardMode={phone}
             onSelect={phone ? chooseDevice : undefined}
+            onPopupChange={setPopupOpen}
             className="h-full rounded-none border-0"
           />
-          {!(phone && card) && (
+          {!(phone && card) && !popupOpen && (
             <MapLegend
               className="absolute bottom-3 left-3 z-[500]"
               // The Staff map also shows units docked at the counter (devices design section 12.8).

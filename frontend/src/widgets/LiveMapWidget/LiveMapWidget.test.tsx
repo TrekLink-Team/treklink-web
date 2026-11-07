@@ -907,6 +907,21 @@ describe('LiveMapWidget marker popup keyboard', () => {
     expect(screen.getByRole('group', { name: 'TL-0018, SOS, Open, live, Le Thi E' })).toBeTruthy();
   });
 
+  // jsdom lays nothing out, so this pins the classes; MF-04 step 1b measures the boxes in Chromium.
+  it('gives every popup link a target of at least 24 by 24 px (WCAG 2.2, 2.5.8)', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    renderWidget([sos()]);
+    fireEvent.click(await markerOf());
+    await waitFor(() => expect(popupBox()).toBeTruthy());
+    const anchors = [...(popupBox() as HTMLElement).querySelectorAll('.leaflet-popup-content a')];
+    expect(anchors).toHaveLength(2);
+    for (const anchor of anchors) {
+      expect(anchor.classList).toContain('inline-flex');
+      expect(anchor.classList).toContain('min-h-6');
+      expect(anchor.classList).toContain('min-w-6');
+    }
+  });
+
   it('focuses the popup content itself when the marker has no link', async () => {
     vi.mocked(getMapConfig).mockResolvedValue(config);
     renderWidget([device('TL-0001', [11.5, 108.5])]);
@@ -1011,6 +1026,24 @@ describe('LiveMapWidget marker popup keyboard', () => {
     });
     expect(popupBox()).toBeNull();
     expect(document.activeElement).toBe(marker);
+  });
+
+  it('reports a popup opening and closing to onPopupChange', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    const onPopupChange = vi.fn();
+    render(
+      <QueryClientProvider client={client}>
+        <LiveMapWidget markers={[sos()]} onPopupChange={onPopupChange} />
+      </QueryClientProvider>,
+    );
+    const marker = await markerOf();
+    marker.focus();
+    pressEnter(marker);
+    await waitFor(() => expect(onPopupChange).toHaveBeenLastCalledWith(true));
+    act(() => {
+      fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' });
+    });
+    expect(onPopupChange).toHaveBeenLastCalledWith(false);
   });
 
   it('leaves focus alone when a live reading redraws a popup that does not hold it', async () => {

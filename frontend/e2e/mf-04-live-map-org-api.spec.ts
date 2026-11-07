@@ -65,6 +65,15 @@ test('MF-04 step 1b: the Operator opens and closes a marker popup from the keybo
   // spot (units at the counter before the simulated gateway reports them).
   const first = popup.locator('a[href], [tabindex="0"]').first();
   await expect(first).toBeFocused();
+  // WCAG 2.2, 2.5.8: every link and the Close button is a target of at least 24 by 24 CSS px.
+  const targets = popup.locator('.leaflet-popup-content a, .leaflet-popup-close-button');
+  expect(await targets.count()).toBeGreaterThan(1);
+  for (const box of await targets.evaluateAll((elements) =>
+    elements.map((element) => element.getBoundingClientRect()),
+  )) {
+    expect(box.width).toBeGreaterThanOrEqual(24);
+    expect(box.height).toBeGreaterThanOrEqual(24);
+  }
   const close = popup.getByRole('button', { name: 'Close popup' });
   await close.focus();
   await page.keyboard.press('Tab');
