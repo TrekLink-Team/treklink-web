@@ -189,7 +189,7 @@ describe('AppShell (specs/frontend/design.md §2)', () => {
 // even with the control panel off (the Vercel staging), and never asks a non-Admin.
 // The header below 640 px and at 400 % zoom (design-system §5, W41): Go to page, Devices and the theme switch move
 // into one More menu; jsdom applies no CSS, so the tests check the breakpoint classes and the menu's items.
-describe('AppShell header, the More menu below 640 px', () => {
+describe('AppShell header, the More menu below 640 px (and below 1024 px for TrekLink accounts)', () => {
   const STAFF: SessionUser = {
     id: 's',
     email: 'staff@treklink.local',
@@ -205,12 +205,13 @@ describe('AppShell header, the More menu below 640 px', () => {
   it('collapses Go to page, Devices and the theme switch into More on a phone, and keeps them from 640 px', () => {
     const { container } = show('/t/fleet', <p>page body</p>, STAFF);
     const header = container.querySelector('header') as HTMLElement;
+    // A TrekLink account keeps the More menu up to 1023 px (W41b): its Devices button does not fit from 640 to 816 px.
     const more = within(header).getByRole('button', { name: 'More header actions' });
-    expect(wrapper(more).parentElement?.className).toContain('sm:hidden');
-    expect(within(header).getByRole('button', { name: 'Go to page' }).className).toContain('hidden sm:inline-flex');
-    expect(within(header).getByRole('button', { name: /^Devices, 0 connected/ }).className).toContain('hidden sm:flex');
+    expect(wrapper(more).parentElement?.className).toContain('lg:hidden');
+    expect(within(header).queryByRole('button', { name: 'Go to page' })).toBeNull();
+    expect(within(header).getByRole('button', { name: /^Devices, 0 connected/ }).className).toContain('hidden lg:flex');
     expect(within(header).getByRole('button', { name: /^Switch to (dark|light) theme$/ }).className).toContain(
-      'hidden sm:inline-flex',
+      'hidden lg:inline-flex',
     );
     // The account menu drops its chevron below 640 px; the environment badge keeps its text.
     expect(within(header).getByRole('button', { name: /account menu$/ }).className).toContain(
@@ -242,8 +243,16 @@ describe('AppShell header, the More menu below 640 px', () => {
     act(() => useTheme.getState().toggle());
   });
 
-  it('holds no Devices item for an organization account (devices REQ-UBI-07)', () => {
-    show('/o/contracts');
+  it('holds no Devices item for an organization account and keeps its More menu below 640 px only', () => {
+    const { container } = show('/o/contracts');
+    const header = container.querySelector('header') as HTMLElement;
+    expect(wrapper(within(header).getByRole('button', { name: 'More header actions' })).parentElement?.className).toContain(
+      'sm:hidden',
+    );
+    expect(within(header).getByRole('button', { name: 'Go to page' }).className).toContain('hidden sm:inline-flex lg:hidden');
+    expect(within(header).getByRole('button', { name: /^Switch to (dark|light) theme$/ }).className).toContain(
+      'hidden sm:inline-flex',
+    );
     fireEvent.click(screen.getByRole('button', { name: 'More header actions' }));
     expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
       'Go to page',
