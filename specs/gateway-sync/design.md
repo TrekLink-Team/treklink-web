@@ -379,6 +379,29 @@ classDiagram
     IngestionService --> ContractsService : custodyAt
     IngestionService --> DevicesService : byNodeNum, projectReading
     IngestionService --> IncidentIngress : onSos, onPosition
+
+    class TypeStrategy {
+        <<interface>>
+    }
+    class PositionStrategy
+    class TextStrategy
+    class TelemetryStrategy
+    class NormalizationError
+    class Error
+    %% backend/src/modules/gateway-sync/normalizer/position.strategy.ts:6; implements TypeStrategy.
+    PositionStrategy ..|> TypeStrategy
+    %% backend/src/modules/gateway-sync/normalizer/text.strategy.ts:9; implements TypeStrategy.
+    TextStrategy ..|> TypeStrategy
+    %% backend/src/modules/gateway-sync/normalizer/telemetry.strategy.ts:6; implements TypeStrategy.
+    TelemetryStrategy ..|> TypeStrategy
+    %% backend/src/modules/gateway-sync/normalizer/normalized-reading.ts:14; extends Error.
+    Error <|-- NormalizationError
+    %% backend/src/modules/gateway-sync/normalizer/normalizer.ts:13-17; creates three private instances, never shared or exposed.
+    Normalizer "1" *-- "3" TypeStrategy : private strategies
+    %% backend/src/modules/gateway-sync/normalizer/position.strategy.ts:10; invalid payload raises NormalizationError.
+    TypeStrategy ..> NormalizationError : may throw
+    %% sdd-view: operations | FieldStationJsonAdapter,NodeJsonAdapter,StationHealthHandler,BrokerAuthController,IngestionService,Normalizer,FieldEventsRepository,SyncAuditRepository,ContractsService,DevicesService,IncidentIngress,FieldStationsService
+    %% sdd-view: domain relations | TypeStrategy,PositionStrategy,TextStrategy,TelemetryStrategy,NormalizationError,Error
 ```
 
 ***Figure 4***: gateway-sync classes. The right-hand services belong to `rentals`, `devices`,

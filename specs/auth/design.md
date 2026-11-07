@@ -245,6 +245,15 @@ classDiagram
     AuthService ..> ParameterService : calls
     AuthService ..> PasswordService : calls
     AuthService ..> TokenService : calls
+
+    class User
+    class Role
+    %% backend/prisma/schema.prisma:273-285; role grants refer to reusable Role rows, not owned role lifetimes.
+    User "0..*" o-- "0..*" Role : assigned roles via UserRole
+    %% backend/src/modules/auth/accounts.repository.ts:64-79; account rows are Prisma User projections.
+    AccountsRepository ..> User : reads and writes
+    %% sdd-view: operations | AuthController,AuthService,PasswordService,AccountSessionService,TokenService,AccountsRepository,ParameterService
+    %% sdd-view: domain relations | User,Role
 ```
 
 ***Figure 3***: auth classes used in MF-01, UC-08. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -269,12 +278,26 @@ classDiagram
         +recordLoginFailure(string, number, Date ?, Client) void
     }
     class MailPort {
+        <<interface>>
         +send(MailMessage) void
     }
     AuthController ..> PasswordFlowsService : calls
     PasswordFlowsService ..> AccountsRepository : calls
     PasswordFlowsService ..> MailPort : calls
     PasswordFlowsService ..> OneTimeCodeService : calls
+
+    class User
+    class Role
+    class SmtpMailTransport
+    class ConsoleMailTransport
+    %% backend/prisma/schema.prisma:273-285; role grants refer to reusable Role rows, not owned role lifetimes.
+    User "0..*" o-- "0..*" Role : assigned roles via UserRole
+    %% backend/src/modules/auth/accounts.repository.ts:64-79; account rows are Prisma User projections.
+    AccountsRepository ..> User : reads and writes
+    %% backend/src/modules/auth/mail/smtp.transport.ts:8; implements MailPort.
+    SmtpMailTransport ..|> MailPort
+    %% backend/src/modules/auth/mail/console.transport.ts:6; implements MailPort.
+    ConsoleMailTransport ..|> MailPort
 ```
 
 ***Figure 4***: auth classes used in MF-01, UC-09 part 1 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -309,6 +332,19 @@ classDiagram
     PasswordFlowsService ..> AccountsRepository : calls
     PasswordFlowsService ..> OneTimeCodeService : calls
     PasswordFlowsService ..> PasswordService : calls
+
+    class User
+    class Role
+    class CodeDto
+    class ResetPasswordDto
+    %% backend/prisma/schema.prisma:273-285; role grants refer to reusable Role rows, not owned role lifetimes.
+    User "0..*" o-- "0..*" Role : assigned roles via UserRole
+    %% backend/src/modules/auth/accounts.repository.ts:64-79; account rows are Prisma User projections.
+    AccountsRepository ..> User : reads and writes
+    %% backend/src/modules/auth/dto/auth.dto.ts:54; extends CodeDto.
+    CodeDto <|-- ResetPasswordDto
+    %% backend/src/modules/auth/auth.controller.ts:96-117; typed request parameter in the operation above.
+    AuthController ..> ResetPasswordDto : accepts
 ```
 
 ***Figure 5***: auth classes used in MF-01, UC-09 part 2 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -336,6 +372,7 @@ classDiagram
         +recordLoginFailure(string, number, Date ?, Client) void
     }
     class MailPort {
+        <<interface>>
         +send(MailMessage) void
     }
     AccountsController ..> AccountsService : calls
@@ -343,6 +380,21 @@ classDiagram
     AccountsService ..> OneTimeCodeService : calls
     AccountsService ..> PasswordFlowsService : calls
     PasswordFlowsService ..> MailPort : calls
+
+    class User
+    class Role
+    class SmtpMailTransport
+    class ConsoleMailTransport
+    %% backend/prisma/schema.prisma:273-285; role grants refer to reusable Role rows, not owned role lifetimes.
+    User "0..*" o-- "0..*" Role : assigned roles via UserRole
+    %% backend/src/modules/auth/accounts.repository.ts:64-79; account rows are Prisma User projections.
+    AccountsRepository ..> User : reads and writes
+    %% backend/src/modules/auth/mail/smtp.transport.ts:8; implements MailPort.
+    SmtpMailTransport ..|> MailPort
+    %% backend/src/modules/auth/mail/console.transport.ts:6; implements MailPort.
+    ConsoleMailTransport ..|> MailPort
+    %% sdd-view: operations | AccountsController,AccountsService,OneTimeCodeService,PasswordFlowsService,AccountsRepository,MailPort
+    %% sdd-view: domain relations | User,Role,SmtpMailTransport,ConsoleMailTransport
 ```
 
 ***Figure 6***: auth classes used in MF-01, UC-10 part 1 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.
@@ -380,6 +432,19 @@ classDiagram
     PasswordFlowsService ..> OneTimeCodeService : calls
     PasswordFlowsService ..> PasswordService : calls
     PasswordFlowsService ..> TokenService : calls
+
+    class User
+    class Role
+    class CodeDto
+    class SetPasswordDto
+    %% backend/prisma/schema.prisma:273-285; role grants refer to reusable Role rows, not owned role lifetimes.
+    User "0..*" o-- "0..*" Role : assigned roles via UserRole
+    %% backend/src/modules/auth/accounts.repository.ts:64-79; account rows are Prisma User projections.
+    AccountsRepository ..> User : reads and writes
+    %% backend/src/modules/auth/dto/auth.dto.ts:62; extends CodeDto.
+    CodeDto <|-- SetPasswordDto
+    %% backend/src/modules/auth/auth.controller.ts:96-117; typed request parameter in the operation above.
+    AuthController ..> SetPasswordDto : accepts
 ```
 
 ***Figure 7***: auth classes used in MF-01, UC-10 part 2 of 2. Dependencies are call-only (`..>`). Parameter types are listed in source order; `Tx` means `Prisma.TransactionClient`, and a result or structural type the code leaves unnamed is named after what it holds. The source remains authoritative for defaults, optional arguments and full type shapes.

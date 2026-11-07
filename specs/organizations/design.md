@@ -302,6 +302,18 @@ classDiagram
     RosterService --> OrganizationsRepository
     FieldStationsService --> FieldStationsRepository
     FieldStationsService --> FieldStationReleaseService
+
+    class Organization
+    class OrganizationMember
+    class User
+    %% backend/prisma/schema.prisma:468-486; required organizationId; membership records are retained.
+    Organization "1" -- "0..*" OrganizationMember : memberships
+    %% backend/prisma/schema.prisma:168,470-473; userId unique; accounts and their roles live independently of membership activity.
+    Organization "0..1" o-- "0..*" User : accounts via OrganizationMember
+    %% backend/src/modules/organizations/organizations.repository.ts:119; creates pending organizations.
+    OrganizationsRepository ..> Organization : reads and writes
+    %% sdd-view: operations | OrganizationsController,FieldStationsController,ChannelKeyController,OrganizationsService,ChannelKeyService,RosterService,FieldStationsService,FieldStationReleaseService,OrganizationsRepository,FieldStationsRepository,AccountsService
+    %% sdd-view: domain relations | Organization,OrganizationMember,User
 ```
 
 ***Figure 4***: organizations classes. `AccountsService` belongs to `auth`.
@@ -468,6 +480,16 @@ classDiagram
     ComplianceCaseService --> FieldStationsService : revoke
     ComplianceCaseService --> ApiKeysService : revoke
     LossCaseService --> ComplianceCaseService : openOrLink
+
+    class ComplianceCase
+    class ComplianceAction
+    class LossCase
+    %% backend/prisma/schema.prisma:631-644; exclusive append-only action history; backend/src/modules/organizations/compliance-cases.repository.ts:129-140; actions cannot exist without their retained case. Restrict, not Cascade.
+    ComplianceCase "1" *-- "0..*" ComplianceAction : actions
+    %% backend/prisma/schema.prisma:959-961; loss cases exist before linking and keep their own device/custody lifecycle.
+    ComplianceCase "0..1" o-- "0..*" LossCase : linked cases
+    %% backend/src/modules/organizations/compliance-cases.repository.ts:78-90; creates the case.
+    ComplianceCasesRepository ..> ComplianceCase : persists
 ```
 
 ***Figure 10***: organizations classes for compliance cases (D-046). `LossCaseService` belongs to `devices`.
