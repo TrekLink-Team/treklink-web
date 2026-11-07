@@ -322,6 +322,131 @@ flowchart LR
 
 ***Figure 6a***: Hardware connections. v1 units compile MQTT out, so they are never a Wi-Fi uplink (D-005); they join the demo catalog as AVAILABLE units from W17 (devices design §10) and are left out of this figure.
 
+### 2.5 The AWS field host (D-098, D-055 rule 4)
+
+> **Status**: Spec, 2026-11-07, KhoaDD under D-078 (W38, branch `chore/aws-field-host`). Files:
+> `backend/Dockerfile`, `.dockerignore`, `deploy/aws/` (compose, Caddyfile, broker configuration, env
+> example, runbook). The leader provisions the host; nothing here creates a cloud resource.
+
+One always-on host runs the broker and the subscriber of the field flow, as the registration form states
+(MQTT Mosquitto between Field Station and backend, Docker Compose). The Vercel staging of D-094 keeps
+serving the web app and the API; the host serves no page and no API except the health check. Both write
+the same Neon database, `treklink_prod` on the branch `vercel-prod`. Host: one Lightsail 2 GB or EC2
+`t4g.small` instance in Singapore (`ap-southeast-1`, next to Neon and the Vercel function in `sin1`),
+Ubuntu 24.04, amd64 or arm64; every image is multi-architecture (checked 2026-11-07 with
+`docker buildx imagetools inspect`).
+
+```mermaid
+flowchart LR
+    subgraph Field["Field"]
+        NODE["Wi-Fi node<br/>node-nodeId"]
+        PHONE["Phone, Meshtastic app<br/>MQTT client proxy"]
+        FS["Field Station laptop<br/>fs-org-n"]
+    end
+    subgraph Host["AWS field host, Docker Compose"]
+        CADDY["caddy<br/>:80 ACME, :443 /api/health"]
+        BRK["mosquitto + go-auth<br/>:8883 TLS public, :1883 internal"]
+        PROXY["broker-hook-proxy<br/>nginx :8080 internal"]
+        API["backend<br/>hooks, subscriber, jobs :3000 internal"]
+    end
+    NEON[("Neon treklink_prod<br/>branch vercel-prod")]
+    VERCEL["Vercel staging<br/>web app and API"]
+    NODE -->|"MQTT over TLS 8883"| BRK
+    PHONE -->|"MQTT over TLS 8883"| BRK
+    FS -->|"MQTT over TLS 8883"| BRK
+    BRK -->|"HTTP hooks"| PROXY
+    PROXY -->|"X-Broker-Secret"| API
+    API -->|"subscribe QoS 1, internal 1883"| BRK
+    CADDY -->|"/api/health only"| API
+    CADDY -.->|"certificate files, read-only"| BRK
+    API -->|"TLS"| NEON
+    VERCEL -->|"TLS"| NEON
+```
+
+***Figure 6b***: The AWS field host (D-098). The browsers and the landing page reach the Vercel staging,
+never this host, except for its health check.
+
+| Service | Image | Role | Host ports |
+|---|---|---|---|
+| `caddy` | `caddy:2.10-alpine` | Obtains and renews the Let's Encrypt certificate for `MQTT_DOMAIN` (HTTP-01 on 80); serves `GET /api/health` on 443 by proxy to the backend and answers 404 to every other path | 80, 443 |
+| `mosquitto` | `iegomez/mosquitto-go-auth:3.0.0-mosquitto_2.0.18`, as `docker-compose.broker-auth.yml` | Broker with the go-auth plugin (gateway-sync design §4): listener 8883 with TLS for every field client; listener 1883 without TLS on the compose network only, for the backend; no websocket listener | 8883 |
+| `broker-hook-proxy` | `nginx:1.27-alpine` | `infra/mosquitto/broker-hook-proxy.conf.template` unchanged: adds `X-Broker-Secret` and forwards the two hook paths to `http://backend:3000` | none |
+| `backend` | built from `backend/Dockerfile` | Answers the broker hooks (gateway-sync api-design 01 and 02), runs the `gateway-sync` subscriber and the scheduled jobs of §4.6 | none |
+
+Who connects to what:
+
+| From | To | Protocol, credential |
+|---|---|---|
+| Wi-Fi node (Stage A, B) | `mosquitto:8883` | MQTT over TLS, `node-<nodeId>` with `MQTT_NODE_PASSWORD` |
+| Phone running the Meshtastic app for a node with `proxy_to_client_enabled` | `mosquitto:8883` | MQTT over TLS, the node's module config (the same `node-<nodeId>` and password); the node hands each topic and payload to the phone (`treklink-firmware` `src/mqtt/MQTT.cpp:473-512`, `main` `c324689`) |
+| Field Station | `mosquitto:8883` | MQTT over TLS (`mqtts://`), `fs-<org>-<n>` with its secret (gateway-sync design §3) |
+| `mosquitto` | `broker-hook-proxy:8080` | HTTP, JSON, inside the compose network |
+| `broker-hook-proxy` | `backend:3000` | HTTP with `X-Broker-Secret` |
+| `backend` | `mosquitto:1883` | MQTT, `MQTT_USERNAME` and `MQTT_PASSWORD`, persistent session |
+| `backend` | Neon | TLS, `DATABASE_URL` (pooled) |
+| Landing page, an operator | `caddy:443` `/api/health` | HTTPS |
+| Let's Encrypt | `caddy:80` | HTTP-01 challenge |
+
+**TLS.** Caddy is the only ACME client: it renews on its own and needs no cron or reload. Mosquitto
+terminates TLS itself on 8883 with Caddy's certificate, which `deploy/aws/mosquitto/start.sh` copies from
+Caddy's data volume (read-only) into the container, readable by the broker's user, and then checks every
+`CERT_CHECK_SECONDS`; when the files change it copies them again and sends the broker `SIGHUP`. Both
+behaviours were checked on 2026-11-07 against the pinned image (Mosquitto 2.0.18): the broker reads the key
+after it drops to its user (uid 1000), so a key readable only by root stops it ("Unable to load server
+key file"), and a `SIGHUP` makes the next connection get the new certificate. Caddy 2 in its stock image
+has no TCP proxy, so it cannot terminate MQTT itself; certbot with nginx would need a renewal timer and a
+reload hook across containers. The issuer is pinned to Let's Encrypt (`cert_issuer acme`), so the files
+stay at the path the script reads.
+
+**Plain 1883 is not published.** The TrekLink firmware builds TLS into every board with Wi-Fi
+(`MQTT_SUPPORTS_TLS` where `WiFiClientSecure.h` exists, `src/mqtt/MQTT.h:85-89`), defaults to 8883 when
+`tls_enabled` is set (`src/mqtt/MQTT.cpp:297-299`), and does not verify the server certificate
+(`setInsecure()`, `MQTT.cpp:535` and `:658`); the docking page already writes the TLS switch (devices design
+§8.8, `meshtastic-dock.ts` `tlsEnabled`). The Field Station takes `mqtts://` (gateway-sync design §3). No
+documented client needs 1883, so the security group opens 8883 only. Whether the Meshtastic phone app
+verifies the certificate is not established here **(unverified)**; a publicly trusted certificate works
+either way.
+
+**Backend mode.** `NODE_ENV=production`, `MQTT_INGESTION_ENABLED=true`, `MQTT_BROKER_URL=mqtt://mosquitto:1883`,
+`JOBS_TICK_ON_REQUEST=false` (the in-process timers run), `FIELD_SIMULATOR_ENABLED=false`, every `DEMO_*`
+flag `false`, `SWAGGER_ENABLED=false`, `HANDOVER_NOTE_STORE=database`. Every variable is listed in
+`deploy/aws/.env.example`; values live in `deploy/aws/.env` on the host only.
+
+**Two job runners, one database.** The host's timers and the Vercel request tick both run the jobs of §4.6
+against `treklink_prod`. The advisory lock per job name keeps one run at a time (REQ-EVT-05), so nothing runs
+twice, but either host may deliver an email alert or a staff notification. The host therefore carries the
+Vercel production's values for `MAIL_TRANSPORT`, `SMTP_URL`, `MAIL_FROM`, `CHANNEL_KEY_MASTER`, the
+`COMPANY_*` letterhead and `DISPLAY_TIMEZONE_DEFAULT`.
+
+**Migrations stay with Vercel.** The container runs `node dist/main` only: never `prisma migrate` or a seed.
+The Vercel production build migrates and seeds `treklink_prod` (`backend/scripts/vercel-build.sh`). The image
+is built from the commit the Vercel staging runs, after that build has migrated, so the Prisma client matches
+the schema.
+
+**Not on the host**: the frontend, Postgres, migrations and seeds, the field data simulator, the demo
+routes, the websocket listener 9001, a public 1883, any public API path other than `/api/health`, and
+Socket.io clients (the Vercel staging polls, `VITE_LIVE_MODE=poll`).
+
+**Broker principals** (gateway-sync design §4; the hooks decide, no second scheme):
+
+| Principal | Username | Password | Publish | Subscribe | Rotation |
+|---|---|---|---|---|---|
+| Backend subscriber | `MQTT_USERNAME` | `MQTT_PASSWORD` | none | `treklink/#` | change both in `deploy/aws/.env`, `docker compose up -d backend` |
+| Every Wi-Fi node and its phone proxy | `node-<nodeId>` | `MQTT_NODE_PASSWORD`, shared by the fleet | `treklink/2/json/+/<nodeId>`, `treklink/2/e/+/<nodeId>` | none | change the variable and re-dock every node (devices design §8.8) |
+| Field Station | `fs-<org>-<n>` | the station secret, bcrypt-hashed in `field_stations` | `treklink/fs/<username>/#` | none | revoke and issue a new credential in the portal (organizations api-design 24); refused within the 60 s plugin cache |
+| Administrator | none | none | none | none | no admin principal exists; the broker has no superuser (`auth_opt_disable_superuser true`) |
+
+The hook secret `MQTT_AUTH_HOOK_SECRET` is shared only by the backend and `broker-hook-proxy` on the host.
+
+**Open.**
+- The Field Station's uplinks: the gateway publishes on the node topic (`gateway/src/mqtt/mqtt-client.ts`,
+  `topicOf`), which a station credential may not write (gateway-sync design §4, task 3.1), and the station
+  topic is not subscribed yet (gateway-sync task 2.1). Raised to the leader on 2026-11-07; the interim rule
+  is in gateway-sync design §4.
+- The phone proxy carries a JSON payload of at most 434 bytes (`MqttClientProxyMessage.text[435]`,
+  `src/mesh/generated/meshtastic/mesh.pb.h:876`, copied with `strncpy` in `MQTT.cpp:479-481`); a longer packet
+  arrives cut and is audited `MALFORMED_ENVELOPE`. Checked on a phone after go-live (task 7.6).
+
 ---
 
 ## 3. Domain Model & Data Schema
