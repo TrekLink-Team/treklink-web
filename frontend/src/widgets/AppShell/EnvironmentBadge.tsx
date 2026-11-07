@@ -19,7 +19,7 @@ export const EnvironmentBadge: React.FC<{ className?: string }> = ({ className }
   return (
     <span
       className={cn(
-        'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-badge border border-dashed border-status-waiting-fg px-1.5 text-caption sm:px-2 font-extrabold uppercase tracking-wider text-status-waiting-fg',
+        'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-badge border border-dashed border-status-waiting-fg px-1.5 text-caption sm:px-2 font-extrabold uppercase tracking-normal sm:tracking-wider text-status-waiting-fg',
         className,
       )}
     >

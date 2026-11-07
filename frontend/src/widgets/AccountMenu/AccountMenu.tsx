@@ -88,7 +88,8 @@ export const AccountMenu: React.FC = () => {
         label={me ? `${initialsOf(me.fullName)} ${me.fullName}, account menu` : 'Account menu'}
         items={items}
         align="end"
-        triggerClassName="h-11 min-w-11 gap-1 px-1 sm:gap-2 sm:pr-3"
+        // Below 640 px the initials alone, without the chevron, so the header fits 320 px (design-system §5, W41).
+        triggerClassName="h-11 min-w-11 gap-1 px-1 sm:gap-2 sm:pr-3 [&_[data-menu-chevron]]:hidden sm:[&_[data-menu-chevron]]:block"
         header={
           me && (
             <>
