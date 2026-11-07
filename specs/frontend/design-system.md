@@ -249,6 +249,13 @@ The header then measures about 300 px and fits 320 px and 318 by 236 CSS px with
 640 px the items show as before. The Organization header is the same component without Devices, so its More menu
 holds Go to page and the theme switch.
 
+**TrekLink accounts from 640 to 1023 px (W41b, 2026-11-07).** With the Devices button the Staff header still overflowed
+from 640 to 720 px (83 px at most, cutting the theme switch and the account menu) and from 768 to 816 px (51 px,
+where the environment badge takes its long text and the account menu was cut), which is 200 % zoom on a 1280 px
+screen. For TrekLink accounts the More menu therefore stays up to 1023 px (`lg`), with Go to page, Devices and the
+theme switch; from 1024 px the header shows the page search, Devices and the theme switch as before. The
+Organization header has no Devices button, fits from 640 px, and keeps its More menu below 640 px only.
+
 ### 5.1 Adding a page to the navigation
 
 1. Add the route in `app/router.tsx` with its guard.
