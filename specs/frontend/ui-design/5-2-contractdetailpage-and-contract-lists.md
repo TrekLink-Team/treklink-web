@@ -161,3 +161,25 @@ as for any due return. The credit appears on the closing invoice as an Early end
 On a monthly contract ended from Active, the lifecycle card marks Ending "not reached", and the History tab
 reads the move as "Ended early, return due now" with the reason.
 
+
+## Release a unit (D-099, 2026-11-07)
+
+Added by LongLP for TK-209 (rentals design §13, billing design §12). Release this unit is a row action of the device
+table on the Staff contract home, shown for TrekLink Staff on a live unit of a `REQUESTED`, `APPROVED`, `ACTIVE` or
+`ENDING` contract. On the contract's last live unit the action stays visible, disabled, with the reason "This is
+the last unit. End the contract now instead." (or "Cancel the request instead." before handover), following §2 of
+the UI standard. Organization roles never see it.
+
+| Part | Content |
+|---|---|
+| Opens | rentals 34 `GET /api/contracts/:id/devices/:deviceId/release-preview`; a failed preview names the error and keeps Release disabled |
+| Dialog | `Dialog` "Release {asset tag} from {code}?" with the quantity before and after; on a running contract "Bring the unit to the counter first: it is checked in now, then reset and inspected." and the credit as text from rentals 34 (`unusedDays` of `termDays`, `computedVnd`, "an Admin approves it before it reaches an invoice"), or "No credit: day plans are billed per day." or "No credit: the term ends today."; before handover the first invoice's new total and what would be owed to the organization |
+| Field | Reason, required, 1 to 500 characters (rentals 33 `reason`) |
+| Focus | on Keep the unit; Release is the destructive button |
+| Success | toast "Unit released. The quantity is now {n}."; the contract detail, the balance, the device table and the service credit queue refetch; on a running contract the unit then shows Next: Reset (REQ-EVT-19) |
+| Errors | `LAST_UNIT` and `DEVICE_NOT_ON_CONTRACT` as the server's text in the dialog; `STALE_VERSION` "Someone else changed this contract. Reload to see the latest." with Reload; `VALIDATION_FAILED` under Reason |
+
+The contract home lists the releases under History ("Released TL-0042: {reason}, quantity 5 to 4") from the
+`unit_releases` rows. Screen 6.5 shows a release credit with the kind Release and the release reason and time in
+place of the outage; screen 6.1 shows its line as Release credit. The fault-report picker of screen 6.5 is billing
+task 8.3, unchanged here.

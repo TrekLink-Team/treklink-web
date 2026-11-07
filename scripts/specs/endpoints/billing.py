@@ -22,6 +22,8 @@ SERVICE_CREDIT = {"id": "sc-1", "contractId": CONTRACT_ID, "contractDeviceId": "
                   "outageSourceFaultReportId": None, "outageSourceNote": None,
                   "outageTo": "2026-10-13T03:00:00.000Z", "outageDays": 3,
                   "computedVnd": 45000, "decidedVnd": None, "appliedVnd": 0, "status": "REQUESTED",
+                  # FAULT, or RELEASE for a released unit (design §12.1, D-099); a RELEASE credit has no fault fields
+                  "kind": "FAULT", "unitReleaseId": None,
                   "requestedById": USER_ID,
                   "decisionReason": None, "decidedAt": None, "refundReference": None, "refundedAt": None,
                   "version": 1, "createdAt": NOW}

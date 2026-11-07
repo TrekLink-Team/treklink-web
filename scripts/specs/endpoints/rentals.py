@@ -879,6 +879,66 @@ ENDPOINTS = [
             "Svc->>Dev: reserve(variant, 1, contractId, tx, [replacementDeviceId])",
             "Svc->>DB: UPDATE contract_devices releasedAt; INSERT contract_devices; UPDATE contract version"]),
 
+    ep("POST", "/api/contracts/:id/devices/:deviceId/release", "Release a unit", "TrekLink Staff",
+       "Gives one unit back before the term end (D-099, design §13). On an `ACTIVE` or `ENDING` contract the unit "
+       "must be back at the counter: its custody row closes `RELEASED` and is stamped checked in, its group "
+       "assignment ends and its open fault report resolves, the unit goes `RETURNED` for its reset and inspection, "
+       "and a monthly contract with an open term gets a release credit `REQUESTED` for the unused whole days, which "
+       "an Admin decides in the service credit queue (billing design §12.1). On a `REQUESTED` or `APPROVED` "
+       "contract the held unit goes back to `AVAILABLE` and the first invoice is lowered to the new quantity "
+       "(billing design §12.2). Either way the quantity drops by one, the minimum order quantity is not checked, and "
+       "the last unit is refused. Audited as `contract.unitReleased`.",
+       "D-099, BR-05 as amended, REQ-EVT-31, REQ-EVT-32, REQ-ERR-19, REQ-ERR-20",
+       path=[C_PATH, D_PATH],
+       body=[["reason", "Why the organization gives the unit back, 1 to 500 characters", "string", "yes",
+              "`The group shrank to 4 trekkers`"],
+             VERSION],
+       sample={"reason": "The group shrank to 4 trekkers", "expectedVersion": 9},
+       response={"release": {"id": "ur-1", "contractId": CONTRACT_ID, "deviceId": DEVICE_ID, "phase": "RUNNING",
+                             "reason": "The group shrank to 4 trekkers", "releasedAt": NOW, "quantityBefore": 5,
+                             "quantityAfter": 4, "serviceCreditId": "sc-7"},
+                 "contract": {"id": CONTRACT_ID, "quantity": 4, "version": 10},
+                 "credit": {"id": "sc-7", "kind": "RELEASE", "status": "REQUESTED", "computedVnd": 300000,
+                            "unusedDays": 20, "termDays": 30}},
+       message="Unit released", entity="Unit release",
+       errors=[(400, "VALIDATION_FAILED", "No reason, or longer than 500 characters",
+                "reason must be 1 to 500 characters."),
+               state_409("contract", "RETURN_DUE"), STALE,
+               (409, "DEVICE_NOT_ON_CONTRACT", "The unit is not live on the contract",
+                "TL-0042 does not belong to contract RC-2026-0042."),
+               (409, "LAST_UNIT", "The unit is the contract's last live unit",
+                "This is the last unit. End the contract now instead.")],
+       steps=["Lock the contract", "Check reason, state, version, unit and last unit",
+              "Running: closeCustody RELEASED, markReturned, quantity - 1, requestReleaseCredit",
+              "Before handover: release the held row, unit AVAILABLE, quantity - 1, lowerFirstInvoice",
+              "Insert unit_releases; audit and device.checkedIn after commit"],
+       controller="ContractsController", service="ReleaseService", call="release(id, deviceId, input, actor)",
+       participants=[["Cus", "CustodyService"], ["Dev", "DevicesService"], ["Bill", "ChargesService"]],
+       seq=["Svc->>DB: SELECT contract FOR UPDATE", "Svc->>Cus: closeCustody(rows, RELEASED, at, tx)",
+            "Svc->>Dev: markReturned([deviceId], at, tx)", "Svc->>DB: UPDATE rental_contracts SET quantity, version",
+            "Svc->>Bill: requestReleaseCredit(contract, term, unit, at, tx)", "Svc->>DB: INSERT unit_releases"]),
+
+    ep("GET", "/api/contracts/:id/devices/:deviceId/release-preview", "Preview a unit release", "TrekLink Staff",
+       "What releasing the unit now would do, for the confirmation dialog: the quantity after it, and either the "
+       "release credit (unused and term days, the amount the Admin will decide) or that none applies (a day plan, no "
+       "open term, the term's last day), or, before the handover, the first invoice's new total and what would be "
+       "owed to the organization. Nothing is stored or locked (REQ-EVT-33). The same refusals as the release apply, "
+       "except the version.",
+       "D-099, REQ-EVT-33",
+       path=[C_PATH, D_PATH],
+       response={"phase": "RUNNING", "quantityBefore": 5, "quantityAfter": 4, "lastUnit": False,
+                 "credit": {"applies": True, "unusedDays": 20, "termDays": 30, "computedVnd": 300000},
+                 "firstInvoice": None},
+       entity="Unit release",
+       errors=[state_409("contract", "RETURN_DUE"),
+               (409, "DEVICE_NOT_ON_CONTRACT", "The unit is not live on the contract",
+                "TL-0042 does not belong to contract RC-2026-0042."),
+               (409, "LAST_UNIT", "The unit is the contract's last live unit",
+                "This is the last unit. End the contract now instead.")],
+       steps=["Read the contract, the unit's row and the open term", "Compute through billing without storing"],
+       controller="ContractsController", service="ReleaseService", call="preview(id, deviceId, actor)",
+       seq=["Svc->>DB: SELECT contract, contract_devices, open term", "Svc->>Svc: releaseCreditOf or firstInvoiceAfter"]),
+
 ]
 
 NOTES = ("Scheduler moves that have no endpoint (rentals design §5): term rollover and day-plan end "
