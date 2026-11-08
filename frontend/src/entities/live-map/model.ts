@@ -1,6 +1,6 @@
 import type { LiveEntry } from '../../shared/socket/socketClient';
 import type { IncidentState } from '../../shared/ui/status';
-import type { MapSnapshot, SnapshotDevice, UnitState } from './api';
+import type { MapSnapshot, SnapshotDevice, SnapshotFieldStation, UnitState } from './api';
 
 // The live map's in-memory state (screen 9.1): the snapshot, then every stream entry after its cursor
 // applied in `seq` order (monitoring ws-live-contract). Pure functions, so the page and the tests
@@ -10,6 +10,8 @@ export interface LiveMapState {
   devices: Record<string, SnapshotDevice>;
   /** Device ids in snapshot order, so the side panel does not reshuffle as entries arrive. */
   order: string[];
+  /** Field Stations in snapshot order; `station.stale` updates a row in place (screen 9.1). */
+  fieldStations: SnapshotFieldStation[];
 }
 
 const asNumber = (value: unknown): number | null =>
@@ -24,6 +26,7 @@ export const fromSnapshot = (snapshot: MapSnapshot): LiveMapState => ({
   cursor: snapshot.cursor,
   devices: Object.fromEntries(snapshot.devices.map((device) => [device.id, device])),
   order: snapshot.devices.map((device) => device.id),
+  fieldStations: snapshot.fieldStations,
 });
 
 const withDevice = (
@@ -95,6 +98,23 @@ export const applyEntry = (state: LiveMapState, entry: LiveEntry): LiveMapState 
           lastSeenAt: latest(device.lastSeenAt, lastSeenAt),
         };
       });
+    // One entry per transition of a Field Station (ws-live-contract); a station the snapshot does not
+    // list only moves the cursor, as an unknown device does.
+    case 'station.stale': {
+      const stationId = asString(payload.fieldStationId);
+      if (stationId === null || typeof payload.stale !== 'boolean') return { ...state, cursor: seq };
+      const stale = payload.stale;
+      const lastSyncAt = asString(payload.lastSyncAt);
+      return {
+        ...state,
+        cursor: seq,
+        fieldStations: state.fieldStations.map((station) =>
+          station.id === stationId
+            ? { ...station, stale, lastSyncAt: latest(station.lastSyncAt, lastSyncAt) }
+            : station,
+        ),
+      };
+    }
     case 'device.label': {
       const holder = payload.holder as { name?: unknown } | null | undefined;
       const name = asString(holder?.name);
@@ -123,7 +143,7 @@ export const applyEntry = (state: LiveMapState, entry: LiveEntry): LiveMapState 
       if (device.state === 'DOCKED') {
         const devices = { ...state.devices };
         delete devices[id];
-        return { cursor: seq, devices, order: state.order.filter((other) => other !== id) };
+        return { ...state, cursor: seq, devices, order: state.order.filter((other) => other !== id) };
       }
       return withDevice(state, seq, id, (current) => ({
         ...current,
@@ -135,7 +155,7 @@ export const applyEntry = (state: LiveMapState, entry: LiveEntry): LiveMapState 
       if (!state.devices[id]) return { ...state, cursor: seq };
       const devices = { ...state.devices };
       delete devices[id];
-      return { cursor: seq, devices, order: state.order.filter((other) => other !== id) };
+      return { ...state, cursor: seq, devices, order: state.order.filter((other) => other !== id) };
     }
     // The entry names the incident's device (`deviceId`). One stored before the field was added names
     // none and only moves the cursor here. `useLiveMap` reloads the snapshot for it, and for an

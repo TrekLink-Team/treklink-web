@@ -384,7 +384,7 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
         ),
       )
     : rows;
-  const fieldStations = snapshot.data?.fieldStations ?? [];
+  const fieldStations = state?.fieldStations ?? snapshot.data?.fieldStations ?? [];
   const sosCount = rows.filter(({ device }) => sosOf(device)).length;
   const count = (unit: UnitState) => rows.filter((row) => row.state === unit).length;
 

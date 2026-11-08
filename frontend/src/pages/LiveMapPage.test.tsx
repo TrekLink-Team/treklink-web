@@ -547,6 +547,31 @@ describe('LiveMapPage (screen 9.1)', () => {
     expect(stations.getAllByText('Stale')).toHaveLength(1);
   });
 
+  it('updates a Field Station row from a station.stale entry', async () => {
+    snapshot = {
+      cursor: 100,
+      devices: [device()],
+      fieldStations: [{ id: 'fs-1', name: 'Station A', lastSyncAt: recent(), stale: false }],
+    };
+    show('o');
+    const section = await screen.findByRole('region', { name: 'Field Stations' });
+    expect(within(section).queryByText('Stale')).toBeNull();
+    feed({
+      seq: 101,
+      type: 'station.stale',
+      deviceId: null,
+      payload: { fieldStationId: 'fs-1', stale: true, lastSyncAt: recent() },
+    });
+    await waitFor(() => expect(within(section).getByText('Stale')).toBeTruthy());
+    feed({
+      seq: 102,
+      type: 'station.stale',
+      deviceId: null,
+      payload: { fieldStationId: 'fs-1', stale: false, lastSyncAt: recent() },
+    });
+    await waitFor(() => expect(within(section).queryByText('Stale')).toBeNull());
+  });
+
   it('shows no Field Stations section when the snapshot has none', async () => {
     show('o');
     await marker('TL-0009, Le Thi E');

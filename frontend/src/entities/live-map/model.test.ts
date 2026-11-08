@@ -109,6 +109,41 @@ describe('live map reducer (screen 9.1)', () => {
     );
   });
 
+  it('applies station.stale to the Field Station row and leaves other rows alone', () => {
+    const state = fromSnapshot({
+      ...snapshot(),
+      fieldStations: [
+        { id: 'fs-1', name: 'Station A', lastSyncAt: at(0), stale: false },
+        { id: 'fs-2', name: 'Station B', lastSyncAt: null, stale: false },
+      ],
+    });
+    const stale = applyEntry(
+      state,
+      entry(11, 'station.stale', { fieldStationId: 'fs-1', stale: true, lastSyncAt: at(0) }, ''),
+    );
+    expect(stale.cursor).toBe(11);
+    expect(stale.fieldStations[0]).toMatchObject({ id: 'fs-1', stale: true, lastSyncAt: at(0) });
+    expect(stale.fieldStations[1]).toEqual(state.fieldStations[1]);
+
+    const recovered = applyEntry(
+      stale,
+      entry(12, 'station.stale', { fieldStationId: 'fs-1', stale: false, lastSyncAt: at(9) }, ''),
+    );
+    expect(recovered.fieldStations[0]).toMatchObject({ stale: false, lastSyncAt: at(9) });
+    // An entry at or below the cursor, an unknown station or a malformed payload change no row.
+    expect(
+      applyEntry(recovered, entry(12, 'station.stale', { fieldStationId: 'fs-1', stale: true }, '')),
+    ).toBe(recovered);
+    const unknown = applyEntry(
+      recovered,
+      entry(13, 'station.stale', { fieldStationId: 'fs-9', stale: true, lastSyncAt: null }, ''),
+    );
+    expect(unknown.fieldStations).toEqual(recovered.fieldStations);
+    expect(unknown.cursor).toBe(13);
+    const malformed = applyEntry(unknown, entry(14, 'station.stale', { stale: true }, ''));
+    expect(malformed.fieldStations).toEqual(recovered.fieldStations);
+  });
+
   it('applies stale, label and release entries', () => {
     const state = fromSnapshot(snapshot());
     const stale = applyEntry(state, entry(11, 'device.stale', { stale: true, lastSeenAt: at(0) }));
