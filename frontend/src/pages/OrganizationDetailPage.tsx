@@ -23,12 +23,15 @@ export const OrganizationDetailPage: React.FC = () => {
   const failure = organization.error;
   if (failure instanceof ApiError && (failure.statusCode === 403 || failure.statusCode === 404)) {
     return (
-      <div role="alert" className="flex flex-col items-center gap-3 py-16">
-        <p className="text-lg font-semibold text-ink">{messageOf(failure)}</p>
-        <Link to="/t/organizations" className={`${LINK} inline-flex min-h-6 items-center`}>
-          Back to organizations
-        </Link>
-      </div>
+      <section aria-labelledby="org-detail-title" className="flex flex-col gap-4">
+        <PageHeader id="org-detail-title" title="Organization" />
+        <div role="alert" className="flex flex-col items-center gap-3 py-16">
+          <p className="text-lg font-semibold text-ink">{messageOf(failure)}</p>
+          <Link to="/t/organizations" className={`${LINK} inline-flex min-h-6 items-center`}>
+            Back to organizations
+          </Link>
+        </div>
+      </section>
     );
   }
   if (organization.isPending) {

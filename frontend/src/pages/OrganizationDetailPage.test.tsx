@@ -230,6 +230,7 @@ describe('OrganizationDetailPage (screen 3.2, read-only roles of 3.7)', () => {
     renderPage();
 
     expect(await screen.findByText('You do not have access to this.')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'Organization' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Back to organizations' }).getAttribute('href')).toBe(
       '/t/organizations',
     );
