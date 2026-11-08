@@ -110,7 +110,12 @@ describe('organization roles view over HTTP against Postgres (api-design 33)', (
 
     expect({ status: response.status, body: response.body as unknown }).toMatchObject({
       status: 404,
-      body: { isSuccess: false, statusCode: 404, result: { errorCode: 'NOT_FOUND' } },
+      body: {
+        isSuccess: false,
+        statusCode: 404,
+        message: 'Organization not found.',
+        result: { errorCode: 'NOT_FOUND' },
+      },
     });
   });
 });
