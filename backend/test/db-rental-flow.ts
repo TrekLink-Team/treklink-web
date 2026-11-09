@@ -322,6 +322,20 @@ export const compileRentalFlow = async (options: { http?: boolean; sockets?: boo
     return body ? call.send(body) : call;
   };
 
+  // An HTTP call with a bearer token the caller already holds, or with none (a public route), so a
+  // suite can sign in through the real endpoints; only with `http`.
+  const sendAs = (
+    token: string | null,
+    method: 'get' | 'post' | 'put' | 'patch' | 'delete',
+    path: string,
+    body?: object,
+  ) => {
+    if (!app) throw new Error('compileRentalFlow({ http: true }) serves HTTP.');
+    const call = request(app.getHttpServer())[method](path);
+    if (token) call.set('Authorization', `Bearer ${token}`);
+    return body ? call.send(body) : call;
+  };
+
   // A GET with an organization API key in `X-Api-Key` (monitoring 3.2); only with `http`.
   const sendKey = (key: string, path: string) => {
     if (!app) throw new Error('compileRentalFlow({ http: true }) serves HTTP.');
@@ -349,6 +363,7 @@ export const compileRentalFlow = async (options: { http?: boolean; sockets?: boo
     codeOf,
     seededParameters,
     send,
+    sendAs,
     sendKey,
     liveUrl,
     close: () => (app ? app.close() : moduleRef.close()),
