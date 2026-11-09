@@ -124,7 +124,12 @@ const page = (items: unknown[]) => ({
   totalPages: items.length > 0 ? 2 : 0,
 });
 
-const renderAt = (path: string, user: SessionUser = ME, previous?: string) => {
+const renderAt = (
+  path: string,
+  user: SessionUser = ME,
+  previous?: string,
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) => {
   const router = createMemoryRouter(
     [{
       path: '*',
@@ -144,9 +149,7 @@ const renderAt = (path: string, user: SessionUser = ME, previous?: string) => {
   );
   render(
     <AuthContext.Provider value={{ user, signOut: vi.fn() }}>
-      <QueryClientProvider
-        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-      >
+      <QueryClientProvider client={client}>
         <RouterProvider router={router} />
       </QueryClientProvider>
     </AuthContext.Provider>,
@@ -377,6 +380,51 @@ describe('IncidentDetailPage (/o/incidents/:id, screen 8.1)', () => {
     expect(await screen.findByText('Map destination')).toBeTruthy();
     expect(unload()).toBe(true);
     expect(posted()).toEqual([]);
+  });
+
+  it.each([
+    ['network loss', new TypeError('Failed to fetch')],
+    ['server failure', new ApiError(500, 'INTERNAL_ERROR', 'Read unavailable')],
+  ])('warns about cached data after %s and retries without losing the draft', async (_name, failure) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    let failed = false;
+    api.mockImplementation((endpoint: string) => {
+      if (endpoint.endsWith('/transitions')) return Promise.resolve(TRAIL);
+      return failed
+        ? Promise.reject(failure)
+        : Promise.resolve(view({ state: 'ACKNOWLEDGED', owner: ME }));
+    });
+    renderAt('/o/incidents/inc-1', ME, undefined, client);
+    fireEvent.click(await screen.findByRole('button', { name: 'Response under way' }));
+    const draft = screen.getByLabelText(/What is being done/);
+    fireEvent.change(draft, { target: { value: 'Keep this response draft' } });
+    failed = true;
+    await act(() => client.invalidateQueries({ queryKey: ['incident', 'inc-1'], exact: true }));
+    expect(screen.getByRole('heading', { name: 'INC-2026-000001' })).toBeTruthy();
+    expect((draft as HTMLTextAreaElement).value).toBe('Keep this response draft');
+    expect(await screen.findByText('These incident details may be out of date.')).toBeTruthy();
+    const notice = screen.getByRole('alert');
+    expect(within(notice).getByRole('button', { name: 'Try again' })).toBeTruthy();
+    const reads = gets('/incidents/inc-1');
+    failed = false;
+    fireEvent.click(within(notice).getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(gets('/incidents/inc-1')).toBe(reads + 1));
+    await waitFor(() => expect(screen.queryByText('These incident details may be out of date.')).toBeNull());
+    expect((draft as HTMLTextAreaElement).value).toBe('Keep this response draft');
+    expect(posted()).toEqual([]);
+  });
+
+  it.each([403, 404])('clears cached incident evidence after access changes to %s', async (status) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    detail();
+    renderAt('/o/incidents/inc-1', ME, undefined, client);
+    await screen.findByRole('heading', { name: 'INC-2026-000001' });
+    api.mockRejectedValue(new ApiError(status, 'NOT_FOUND', 'Private record'));
+    await act(() => client.invalidateQueries({ queryKey: ['incident', 'inc-1'], exact: true }));
+    expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'You do not have access to this.Try again');
+    expect(screen.queryByRole('heading', { name: 'INC-2026-000001' })).toBeNull();
+    expect(screen.queryByRole('list', { name: 'Episode events, oldest first' })).toBeNull();
+    expect(screen.queryByText('These incident details may be out of date.')).toBeNull();
   });
 
   it('shows the summary, the evidence lists and the notifying actions', async () => {
@@ -629,6 +677,13 @@ describe('IncidentDetailPage (/o/incidents/:id, screen 8.1)', () => {
     expect(screen.getByText(/^Correction of /)).toBeTruthy();
     // Only the correction can still be corrected.
     expect(screen.getAllByRole('button', { name: /^Correct the update of / })).toHaveLength(1);
+  });
+
+  it('labels a correction whose original is absent without inventing an original timestamp', async () => {
+    detail({ statusUpdates: [{ ...ORIGINAL, correctsId: 'unavailable-original' }] });
+    renderAt('/o/incidents/inc-1');
+    expect(await screen.findByText('Correction', { exact: true })).toBeTruthy();
+    expect(screen.queryByText(/^Correction of /)).toBeNull();
   });
 
   it('offers Correct only to a member who may add a status', async () => {

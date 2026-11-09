@@ -132,13 +132,10 @@ test('MF-03 steps 7 to 10: Staff report the UNROUTED TL-0001 incident and close 
   await expect(close).toContainText(shownReference(incidentReference));
   await close.getByRole('button', { name: 'Record case closed' }).click();
   await expectToast(page, 'Saved.');
-  await expect(reportRow).toHaveCount(0);
+  await expect(statusBadge(reportRow, 'Closed')).toBeVisible();
 
   // Step 10
-  // Open cases only is the default of the reports' Show menu (CollectionView, D-096); All reports shows
-  // the closed case again.
-  await page.getByRole('button', { name: /^Show: Open cases only/ }).click();
-  await page.getByRole('menuitem', { name: 'All reports' }).click();
+  // Screen 8.3 defaults to All reports (leader ruling 2026-11-06), so the closed case stays visible.
   await page.getByRole('row').filter({ hasText: incidentReference }).getByRole('link', { name: 'View incident' }).or(
     page.getByRole('row').filter({ hasText: incidentReference }).getByRole('button', { name: 'View incident' }),
   ).first().click();
