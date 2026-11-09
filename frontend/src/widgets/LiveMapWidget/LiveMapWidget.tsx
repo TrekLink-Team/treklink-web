@@ -345,12 +345,14 @@ const decorateStacked = (
   if (!element) return;
   const chip = element.querySelector<HTMLElement>('.tl-marker--unheard + .tl-marker-label');
   if (chip) chip.style.display = stack && stack.index > 0 ? 'none' : '';
-  element
-    .querySelector('[role="img"]')
-    ?.setAttribute(
-      'aria-label',
-      stack ? `${textOf(m)}, ${stack.index + 1} of ${stack.count} devices at this spot` : textOf(m),
-    );
+  const name = stack
+    ? `${textOf(m)}, ${stack.index + 1} of ${stack.count} devices at this spot`
+    : textOf(m);
+  element.querySelector('[role="img"]')?.setAttribute('aria-label', name);
+  // The focusable marker element is named by its title, so it carries the place in the stack too
+  // (treklink-web#443); Leaflet reads the option again when it redraws the icon.
+  marker.options.title = name;
+  element.setAttribute('title', name);
   const body = element.querySelector('.tl-marker-body');
   let count = body?.querySelector<HTMLElement>(':scope > .tl-stack-count') ?? null;
   if (stack && stack.index === 0) {

@@ -645,6 +645,13 @@ describe('LiveMapWidget', () => {
     expect(
       screen.getByRole('img', { name: 'TL-0009, Battery 80%, 2 of 2 devices at this spot' }),
     ).toBeTruthy();
+    // The focusable marker element is named by its title, so it carries the place too (#443).
+    expect(byName('TL-0010').getElement()!.getAttribute('title')).toBe(
+      'TL-0010, Battery 80%, 1 of 2 devices at this spot',
+    );
+    expect(byName('TL-0009').getElement()!.getAttribute('title')).toBe(
+      'TL-0009, Battery 80%, 2 of 2 devices at this spot',
+    );
   });
 
   it('opens the list of every device of a stack from any of its markers', async () => {

@@ -719,6 +719,27 @@ describe('LiveMapPage at 360 px (screen 9.1)', () => {
     expect(sheet().getAttribute('data-sheet')).toBe('half');
   });
 
+  it('drops the sheet to its peek when a popup opens over it', async () => {
+    // Two units on one reading draw one badge, and a badge whose members share a spot opens a list
+    // popup, which a sheet at half would cover (#442).
+    const spot = { lat: 11.5, lon: 108.5, at: new Date().toISOString() };
+    snapshot = {
+      cursor: 100,
+      devices: [
+        device({ position: spot }),
+        device({ id: 'd-10', assetTag: 'TL-0010', position: spot }),
+      ],
+      fieldStations: [],
+    };
+    show('o');
+    const badge = await screen.findByRole('img', { name: /^2 devices/ });
+    fireEvent.click(screen.getByRole('button', { name: /2 devices, 0 SOS open/ }));
+    expect(sheet().getAttribute('data-sheet')).toBe('half');
+    fireEvent.click(badge.closest<HTMLElement>('.leaflet-marker-icon')!);
+    await screen.findByRole('group', { name: /^2 devices near / });
+    expect(sheet().getAttribute('data-sheet')).toBe('peek');
+  });
+
   it('keeps the list beside the map, not a sheet, from 600 px', async () => {
     windowOf(1280);
     show('o');

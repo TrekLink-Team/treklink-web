@@ -550,7 +550,12 @@ export const LiveMapPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) => {
             onLink={(link) => navigate(link.to, { state: link.state })}
             cardMode={phone}
             onSelect={phone ? chooseDevice : undefined}
-            onPopupChange={setPopupOpen}
+            onPopupChange={(open) => {
+              setPopupOpen(open);
+              // A popup opens over a sheet held at half or full, which would cover its links:
+              // the sheet drops to its peek, as it does for a card (treklink-web#442).
+              if (open && phone) setSheet('peek');
+            }}
             className="h-full rounded-none border-0"
           />
           {!(phone && card) && !popupOpen && (
