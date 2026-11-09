@@ -587,6 +587,44 @@ describe('LiveMapWidget', () => {
     await waitFor(() => expect(mapOf().getZoom()).toBeGreaterThan(config.defaultViewport.zoom));
   });
 
+  it('moves focus to a member marker when Enter on a badge zooms in, not to the page body', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    giveContainersASize();
+    const mapOf = catchMap();
+    const { container } = renderWidget(nearPair());
+    await waitFor(() => expect(badgesOf(container)).toHaveLength(1));
+    const badge = badgesOf(container)[0];
+    badge.focus();
+    expect(document.activeElement).toBe(badge);
+    act(() => {
+      fireEvent.keyPress(badge, { key: 'Enter', code: 'Enter', charCode: 13 });
+    });
+    await waitFor(() => expect(mapOf().getZoom()).toBeGreaterThan(config.defaultViewport.zoom));
+    act(() => {
+      mapOf().fire('zoomend');
+    });
+    expect(badgesOf(container)).toHaveLength(0);
+    // The badge is gone; focus is on a marker of the map (#447), not on the body.
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement?.classList.contains('leaflet-marker-icon')).toBe(true);
+  });
+
+  it('leaves focus alone when a click, not the keyboard, zooms the badge', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    giveContainersASize();
+    const mapOf = catchMap();
+    const { container } = renderWidget(nearPair());
+    await waitFor(() => expect(badgesOf(container)).toHaveLength(1));
+    act(() => {
+      fireEvent.click(badgesOf(container)[0]);
+    });
+    await waitFor(() => expect(mapOf().getZoom()).toBeGreaterThan(config.defaultViewport.zoom));
+    act(() => {
+      mapOf().fire('zoomend');
+    });
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it('lists the members of a badge whose devices share one spot instead of zooming', async () => {
     vi.mocked(getMapConfig).mockResolvedValue(config);
     giveContainersASize();
