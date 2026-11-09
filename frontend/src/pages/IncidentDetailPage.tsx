@@ -317,6 +317,12 @@ const IncidentDetailRecord: React.FC<{ id: string }> = ({ id }) => {
 
       {/* The record body is the one scroll region; the title and the actions stay (ui standard §7). */}
       <PageScrollBody label="Incident details">
+        {error && (
+          <div className="mb-4">
+            <p className="mb-2 text-body text-ink">These incident details may be out of date.</p>
+            <ErrorState error={error} onRetry={() => void refetch()} />
+          </div>
+        )}
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="flex flex-col gap-4">
             <div className={CARD}>
