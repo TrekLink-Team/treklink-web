@@ -47,6 +47,7 @@ const incident = (state: IncidentState, overrides: Partial<Incident> = {}): Inci
     state,
     version: 3,
     organizationId: 'org-a',
+    contractId: 'c-a',
     ownerId: null,
     firstEventAt: new Date('2026-10-29T02:45:00Z'),
     lastEventAt: new Date('2026-10-29T02:50:00Z'),
@@ -331,6 +332,29 @@ describe('IncidentIngress.onSos (incidents 2.3, design §4)', () => {
         tier: null,
         ownerId: 'u-1',
       });
+    });
+
+    it.each([
+      ['another organization', { organizationId: 'org-b' }],
+      ['another contract in the same organization', { contractId: 'c-b' }],
+      ['unattributed evidence', { organizationId: null, contractId: null }],
+    ])('does not attach a position from %s to the running episode', async (_label, attribution) => {
+      repository.lockOpenByDevice.mockResolvedValue(incident('NOTIFY_PRIMARY'));
+      await expect(ingress.onPosition(position(attribution), tx, history)).resolves.toBeNull();
+      expect(repository.movePosition).not.toHaveBeenCalled();
+      expect(events.emitAfterCommit).not.toHaveBeenCalled();
+      expect(history.plottedPositionTimes).not.toHaveBeenCalled();
+      expect(repository.insert).not.toHaveBeenCalled();
+    });
+
+    it('still joins unattributed positions to an unattributed Staff-only episode', async () => {
+      const open = incident('UNROUTED', { organizationId: null, contractId: null });
+      repository.lockOpenByDevice.mockResolvedValue(open);
+      repository.movePosition.mockResolvedValue(open);
+      await expect(
+        ingress.onPosition(position({ organizationId: null, contractId: null }), tx, history),
+      ).resolves.toBe(open);
+      expect(repository.movePosition).toHaveBeenCalled();
     });
 
     it('tags a position up to the grace before the first SOS into the episode', async () => {
