@@ -158,6 +158,10 @@ export class IncidentIngress {
     tx: Prisma.TransactionClient,
   ): Promise<Incident | null> {
     if (REOPENABLE.has(open.state)) return null;
+    // D-040: a device may have changed custody before a late SOS opened this episode.
+    // Keep other custody's positions in their own stream, outside this incident's summary/evidence.
+    if (open.organizationId !== event.organizationId || open.contractId !== event.contractId)
+      return null;
     const graceSeconds = await this.parameters.get('gatewaySync.retroTagGraceSeconds', tx);
     if (event.occurredAt.getTime() < open.firstEventAt.getTime() - graceSeconds * 1000) return null;
     const moved = await this.repository.movePosition(open, event, tx);

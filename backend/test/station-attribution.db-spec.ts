@@ -358,6 +358,40 @@ describe('Station attribution (AC-06 to AC-08) against Postgres', () => {
     ).resolves.toBe(0);
   });
 
+  it("does not expose B's position through an open incident created by A's late SOS (TK-211)", async () => {
+    const now = new Date();
+    const unit = await device();
+    await custody(
+      'a',
+      unit.id,
+      new Date(now.getTime() - 30 * HOUR),
+      new Date(now.getTime() - 6 * HOUR),
+    );
+    const intervalB = await custody('b', unit.id, new Date(now.getTime() - 5 * HOUR), null);
+    await ingestion.ingest(stationSos(unit.nodeNum, new Date(now.getTime() - 20 * HOUR), now));
+    const before = await prisma.incident.findFirstOrThrow({ where: { deviceId: unit.id } });
+    expect(before.organizationId).toBe(org.a.id);
+    expect(before.lastLatitude).toBeNull();
+
+    await expect(ingestion.ingest(nodePacket(unit.nodeNum, 'position', now))).resolves.toBe(
+      'ACCEPTED',
+    );
+    const position = await prisma.fieldEvent.findFirstOrThrow({
+      where: { deviceId: unit.id, kind: 'POSITION' },
+    });
+    expect(position).toMatchObject({
+      organizationId: org.b.id,
+      contractDeviceId: intervalB.id,
+      incidentId: null,
+    });
+    const after = await prisma.incident.findUniqueOrThrow({ where: { id: before.id } });
+    expect(after).toEqual(before);
+    expect(positions.filter((event) => event.deviceId === unit.id)).toEqual([
+      expect.objectContaining({ organizationId: org.b.id }),
+    ]);
+    await expect(prisma.incident.count({ where: { deviceId: unit.id } })).resolves.toBe(1);
+  });
+
   it("leaves an event A's station captured during B's custody UNATTRIBUTED, for Staff only", async () => {
     const now = new Date();
     const unit = await device();
