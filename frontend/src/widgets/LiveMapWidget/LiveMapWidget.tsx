@@ -522,7 +522,7 @@ const LeafletMap: React.FC<{
   // The first member of a badge the keyboard just activated: the badge is replaced as the map zooms,
   // so focus moves to that member (or the smaller badge now holding it) instead of falling to the
   // page body (treklink-web#447, WCAG 2.4.3).
-  const focusAfterZoom = useRef<string | null>(null);
+  const focusAfterZoom = useRef<{ id: string; from: HTMLElement } | null>(null);
   // The open popup and the marker or badge that opened it, which takes focus back when it closes.
   const opened = useRef<{ popup: L.Popup; opener: () => HTMLElement | null | undefined } | null>(
     null,
@@ -575,8 +575,9 @@ const LeafletMap: React.FC<{
         entryOf(content).focus({ preventScroll: true });
         return;
       }
-      if (document.activeElement === badge.marker.getElement())
-        focusAfterZoom.current = badge.ids[0] ?? null;
+      const from = badge.marker.getElement();
+      if (from && document.activeElement === from && badge.ids[0])
+        focusAfterZoom.current = { id: badge.ids[0], from };
       const fit = map.getBoundsZoom(bounds, false, L.point(CLUSTER_REACH_PX, CLUSTER_REACH_PX));
       const next = Math.min(max, Math.max(Number.isFinite(fit) ? fit : zoom + 2, zoom + 1));
       map.setView(bounds.getCenter(), next);
@@ -711,13 +712,21 @@ const LeafletMap: React.FC<{
 
     const keep = focusAfterZoom.current;
     if (keep) {
-      const own = markerRefs.current.get(keep);
-      const holder = [...badges.current].find(([key]) => key.split('|').includes(keep))?.[1].marker;
-      const target = own && map.hasLayer(own) ? own : holder;
-      const element = target?.getElement();
-      if (element) {
-        focusAfterZoom.current = null;
-        element.focus({ preventScroll: true });
+      const active = document.activeElement;
+      // Focus is still on the badge, or fell to the body when the badge went: move it. Anywhere else,
+      // the user has moved on, and the zoom must not pull them back.
+      if (active && active !== document.body && active !== keep.from) focusAfterZoom.current = null;
+      else {
+        const own = markerRefs.current.get(keep.id);
+        const holder = [...badges.current].find(([key]) => key.split('|').includes(keep.id))?.[1]
+          .marker;
+        const element = (own && map.hasLayer(own) ? own : holder)?.getElement();
+        // While the zoom animates, a live reading redraws the layout and the old badge still holds
+        // the member: keep waiting until the members, or another badge, replace it.
+        if (element && element !== keep.from) {
+          focusAfterZoom.current = null;
+          element.focus({ preventScroll: true });
+        }
       }
     }
 
@@ -794,9 +803,16 @@ const LeafletMap: React.FC<{
 
   useEffect(() => {
     if (!map) return;
+    // Registered after layoutMarkers, so it runs once the zoom has been laid out: a focus request
+    // that found no new element by then is dropped rather than left to fire on a later redraw.
+    const settle = () => {
+      focusAfterZoom.current = null;
+    };
     map.on('zoomend viewreset', layoutMarkers);
+    map.on('zoomend', settle);
     return () => {
       map.off('zoomend viewreset', layoutMarkers);
+      map.off('zoomend', settle);
     };
   }, [map, layoutMarkers]);
 
