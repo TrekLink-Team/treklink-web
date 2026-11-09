@@ -122,7 +122,8 @@ describe('InvoiceDetailView, lines on CollectionView (screen 6.1, D-096)', () =>
       line(2, 'Monthly fee, TrekLink v3', 0, 'TERM_BALANCE'),
       line(3, 'Late return', 0, 'ADJUSTMENT'),
     ];
-    renderView();
+    // The invoice page keeps the Details list; the side panel opens the lines as cards (below).
+    renderView(false, true);
     const table = () => within(screen.getByRole('table', { name: 'Lines of INV-2026-000001' }));
     expect(table().getAllByRole('row')).toHaveLength(4);
     fireEvent.click(screen.getByRole('button', { name: /^Show: Every status/ }));
@@ -134,6 +135,18 @@ describe('InvoiceDetailView, lines on CollectionView (screen 6.1, D-096)', () =>
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search lines' }), { target: { value: 'adjustment' } });
     expect(table().getAllByRole('row')).toHaveLength(2);
     expect(table().getByText('Late return')).toBeTruthy();
+  });
+
+  // TK-212: beside the TrekLink list the 440 px panel cannot hold the five-column table without a
+  // sideways scroll, so the lines open as cards there, each still with its type, quantity and due date.
+  it('opens the lines as cards in the side panel, with type, quantity and due date', () => {
+    lines = [line(1, 'Term 1, 3 units', 0)];
+    renderView();
+    expect(screen.queryByRole('table', { name: 'Lines of INV-2026-000001' })).toBeNull();
+    const row = within(screen.getByRole('list', { name: 'Lines of INV-2026-000001' })).getByRole('listitem');
+    expect(within(row).getByText('Holding fee')).toBeTruthy();
+    expect(within(row).getByText('1 x 750,000 VND')).toBeTruthy();
+    expect(within(row).getByText(/^Due \d{2} \w{3} 2026$/)).toBeTruthy();
   });
 });
 

@@ -68,6 +68,7 @@ Scope from the task: billing api-design 08, 09; lines with due dates and status
 ## Mobile, accessibility, live data
 
 - 360 px layout: list rows become cards (number, contract, status label, total, paid); the detail stacks the header, Pay with SePay as a full-width button at least 44 px high, the lines as cards and the payments.
+- Narrow TrekLink list (TK-212, 2026-11-09): when the `/t/billing` list is narrower than 1100 px, at 900 px or beside an open invoice at 1440 px, Organization, Kind and Issued leave the table, because the open invoice shows them; the table then fits without a sideways scroll. In the 440 px side panel the lines open as cards; the view menu still offers the table, and the invoice page keeps it.
 - Tab order and focus after each action: filters, list, pager, then the detail (primary action, lines, payments). Opening an invoice moves focus to its heading. Statuses are text labels in the billing palette (chapter 06 §8.3); amounts are VND with thousands separators and right-aligned; due dates show the viewer's timezone (§8.8).
 - WebSocket events and invalidated query keys: `device.released` invalidates `['invoices']` and `['invoice', id]` of the contract it names, as screen 5.6 describes; no other live event. Query keys `['invoices', scope, filters]` and `['invoice', id]`; a confirmed payment (screen 6.2 or 6.3) invalidates both and `['contract-balance', contractId]`.
 

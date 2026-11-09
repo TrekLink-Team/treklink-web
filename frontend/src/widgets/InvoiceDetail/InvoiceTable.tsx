@@ -80,6 +80,8 @@ export const InvoiceTable: React.FC<{
             label: 'Organization',
             render: (invoice: Invoice) => invoice.organization.code,
             compact: true,
+            // The open invoice names its buyer, so the column leaves a narrow list (§10.8).
+            hideWithPane: true,
           },
         ]
       : []),
@@ -148,6 +150,10 @@ export const InvoiceTable: React.FC<{
         </button>
       )}
       fields={fields}
+      // The TrekLink list sits beside its own invoice panel (screen 6.1), outside CollectionView's
+      // pane, so the hideWithPane columns leave by the list's width: at 900 px, and at 1440 px with an
+      // invoice open, the table then fits without a sideways scroll (TK-212).
+      fitNarrow={showOrganization}
       noun={{ one: 'invoice', other: 'invoices' }}
       search={{
         label: showOrganization

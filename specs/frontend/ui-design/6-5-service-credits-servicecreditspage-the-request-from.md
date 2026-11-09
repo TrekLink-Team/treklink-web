@@ -57,7 +57,7 @@ you requested this credit." (BR-24, as screen 6.4); the server's 403 remains for
 | State | What the user sees |
 |---|---|
 | Loading | Table skeleton rows; each primary button shows its pending state until the server answers |
-| Empty | Queue on Requested: "No service credits are waiting for a decision." On Refund due: "No refunds are waiting to be recorded." Other filters: "No service credits match these filters." Contract card: "No service credits on this contract." |
+| Empty | Queue on All statuses, with nothing recorded: "No service credits recorded." On Requested: "No service credits are waiting for a decision." On Refund due: "No refunds are waiting to be recorded." Other filters: "No service credits match these filters." Contract card: "No service credits on this contract." |
 | Error `VALIDATION_FAILED` (400, billing 18, 21) | The server's message in the dialog, under the field it names when it names one (outage start, fault record, amount, reason) |
 | Error `DEVICE_NOT_ON_CONTRACT` (409, billing 18) | The server's message in the dialog |
 | Error `INVALID_STATE_TRANSITION` (409, billing 18, 21, 22) | MSG28 text from the server; the queue or the card refetches (another Admin decided first, or the unit is not back) |
@@ -114,7 +114,8 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 ## Service credits on CollectionView (D-096, 2026-11-04)
 
 Added by KhoaDD. `/t/service-credits` renders through `CollectionView` (chapter 06 §9): the status is the
-Show filter, opening on Requested, which keeps the command bar even for one or two credits; Decide (Admin,
+Show filter, opening on All statuses since the leader ruling of 2026-11-06 that lists open on All (chapter 06
+§11.7, commit `3317f3ed`; Requested stays a choice), which keeps the command bar even for one or two credits; Decide (Admin,
 unavailable with its reason on a credit the viewer requested, BR-24) and Record refund (Staff, on a
 REFUND_DUE credit) are item actions; the refund reference sits beside the status badge as text.
 
