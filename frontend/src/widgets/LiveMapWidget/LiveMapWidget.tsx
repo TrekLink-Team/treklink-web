@@ -519,6 +519,10 @@ const LeafletMap: React.FC<{
   const data = useRef<Map<string, MapMarker>>(new Map());
   const pendingOpen = useRef<string | null>(null);
   const listPopup = useRef<{ key: string; popup: L.Popup } | null>(null);
+  // The first member of a badge the keyboard just activated: the badge is replaced as the map zooms,
+  // so focus moves to that member (or the smaller badge now holding it) instead of falling to the
+  // page body (treklink-web#447, WCAG 2.4.3).
+  const focusAfterZoom = useRef<string | null>(null);
   // The open popup and the marker or badge that opened it, which takes focus back when it closes.
   const opened = useRef<{ popup: L.Popup; opener: () => HTMLElement | null | undefined } | null>(
     null,
@@ -571,6 +575,8 @@ const LeafletMap: React.FC<{
         entryOf(content).focus({ preventScroll: true });
         return;
       }
+      if (document.activeElement === badge.marker.getElement())
+        focusAfterZoom.current = badge.ids[0] ?? null;
       const fit = map.getBoundsZoom(bounds, false, L.point(CLUSTER_REACH_PX, CLUSTER_REACH_PX));
       const next = Math.min(max, Math.max(Number.isFinite(fit) ? fit : zoom + 2, zoom + 1));
       map.setView(bounds.getCenter(), next);
@@ -700,6 +706,18 @@ const LeafletMap: React.FC<{
       if (listPopup.current?.key === key) {
         listPopup.current.popup.remove();
         listPopup.current = null;
+      }
+    }
+
+    const keep = focusAfterZoom.current;
+    if (keep) {
+      const own = markerRefs.current.get(keep);
+      const holder = [...badges.current].find(([key]) => key.split('|').includes(keep))?.[1].marker;
+      const target = own && map.hasLayer(own) ? own : holder;
+      const element = target?.getElement();
+      if (element) {
+        focusAfterZoom.current = null;
+        element.focus({ preventScroll: true });
       }
     }
 
