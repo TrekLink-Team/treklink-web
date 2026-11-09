@@ -107,4 +107,16 @@ describe('InvoiceTable (screen 6.1 on CollectionView, D-096)', () => {
     expect(seen.at(-1)).toEqual({ pageNumber: 1, status: 'PARTIALLY_PAID', overdue: true });
     expect(screen.getByRole('button', { name: /^Show: Partly paid, Due: Overdue only/ })).toBeTruthy();
   });
+
+  // TK-212: on /t/billing the list sits beside its own invoice panel, so the columns the panel repeats
+  // leave by the list's width (below 1100 px), and the table fits at 900 px and beside an open invoice.
+  it('lets the organization, kind and issued columns leave a narrow TrekLink list', () => {
+    setup();
+    const narrow = (name: string) =>
+      screen.getByRole('columnheader', { name: new RegExp(`^${name}`) }).className.includes(
+        '[@container(max-width:1099px)]:hidden',
+      );
+    expect(['Organization', 'Kind', 'Issued'].map(narrow)).toEqual([true, true, true]);
+    expect(['Contract', 'Status', 'Total', 'Paid'].map(narrow)).toEqual([false, false, false, false]);
+  });
 });

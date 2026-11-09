@@ -296,6 +296,10 @@ export const InvoiceDetailView: React.FC<{
               </span>
             )}
             fields={LINE_FIELDS}
+            // Beside the TrekLink list the panel is 440 px wide, too narrow for the five-column table,
+            // so the lines open as cards there, as on a phone (screen 6.1); the view menu still offers
+            // the table. The invoice page keeps the Details list (TK-212).
+            defaultView={asPageTitle ? undefined : 'mediumCards'}
             noun={{ one: 'line', other: 'lines' }}
             search={{ label: 'Search lines', placeholder: 'Description or type' }}
             filters={[
