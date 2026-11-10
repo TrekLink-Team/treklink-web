@@ -5,10 +5,15 @@ import {
   ServiceCreditKind,
   ServiceCreditStatus,
 } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { BalanceService } from '../src/modules/billing/balance.service';
 import { PaymentsService } from '../src/modules/billing/payments.service';
 import { SepayService } from '../src/modules/billing/sepay.service';
 import { ServiceCreditService } from '../src/modules/billing/service-credit.service';
+import {
+  DEVICE_GROUP_CHANGED,
+  type DeviceGroupChangedEvent,
+} from '../src/modules/rentals/groups.service';
 import { ReleaseService } from '../src/modules/rentals/release.service';
 import { TermRolloverJob } from '../src/modules/rentals/term-rollover.job';
 import { at, compileRentalFlow, RentalFlow } from './db-rental-flow';
@@ -246,5 +251,74 @@ describe('release a unit against Postgres (AC-19 to AC-22)', () => {
       ),
     );
     expect(codes.sort()).toEqual([null, 'STALE_VERSION'].sort());
+  });
+
+  // Rentals task 9.3 (AC-10, AC-13, REQ-EVT-22, REQ-EVT-23): the release is a caller of closeCustody, so a
+  // released unit leaves its group and its open fault report is resolved, in the release's transaction, and
+  // the group change reaches the stream only after the commit.
+  it('9.3: a release through HTTP ends the group assignment and resolves the fault report, a refused one leaves both open', async () => {
+    const { contract, deviceIds, org } = await flow.rented(5);
+    const [deviceId, otherId] = deviceIds;
+    const grouped = await flow.send(org.manager, 'post', '/api/groups', { name: 'Ridge team' });
+    expect(grouped.status).toBe(201);
+    const groupId = (grouped.body as { result: { id: string } }).result.id;
+    const assigned = await flow.send(org.manager, 'post', `/api/groups/${groupId}/devices`, {
+      deviceIds: [deviceId, otherId],
+    });
+    expect(assigned.status).toBe(200);
+    for (const id of [deviceId, otherId]) {
+      const reported = await flow.send(
+        org.manager,
+        'post',
+        `/api/contracts/${contract.id}/devices/${id}/fault-reports`,
+        { description: 'The radio drops out' },
+      );
+      expect(reported.status).toBe(201);
+    }
+
+    const changes: DeviceGroupChangedEvent[] = [];
+    const listener = (event: DeviceGroupChangedEvent) => changes.push(event);
+    const emitter = flow.get(EventEmitter2);
+    emitter.on(DEVICE_GROUP_CHANGED, listener);
+    try {
+      const path = (id: string) => `/api/contracts/${contract.id}/devices/${id}/release`;
+      const version = await flow.version(contract.id);
+      const stale = await flow.send(flow.staff, 'post', path(otherId), {
+        reason,
+        expectedVersion: version - 1,
+      });
+      expect(stale.status).toBe(409);
+      expect(stale.body).toMatchObject({ result: { errorCode: 'STALE_VERSION' } });
+
+      const released = await flow.send(flow.staff, 'post', path(deviceId), {
+        reason,
+        expectedVersion: version,
+      });
+      expect(released.status).toBe(200);
+      const row = await flow.prisma.contractDevice.findFirstOrThrow({
+        where: { contractId: contract.id, deviceId },
+      });
+      expect(row.checkedInAt).not.toBeNull();
+
+      await expect(
+        flow.prisma.groupAssignment.findFirstOrThrow({ where: { deviceId, groupId } }),
+      ).resolves.toMatchObject({ endedReason: 'RELEASED', endedAt: row.checkedInAt });
+      await expect(
+        flow.prisma.deviceFaultReport.findFirstOrThrow({ where: { contractDeviceId: row.id } }),
+      ).resolves.toMatchObject({ resolution: 'RELEASED', resolvedAt: row.checkedInAt });
+      expect(changes).toEqual([{ organizationId: org.id, deviceId, group: null }]);
+
+      // The refused release changed nothing on the other unit.
+      await expect(
+        flow.prisma.groupAssignment.findFirstOrThrow({ where: { deviceId: otherId, groupId } }),
+      ).resolves.toMatchObject({ endedAt: null, endedReason: null });
+      await expect(
+        flow.prisma.deviceFaultReport.findFirstOrThrow({
+          where: { contractId: contract.id, deviceId: otherId },
+        }),
+      ).resolves.toMatchObject({ resolvedAt: null, resolution: null });
+    } finally {
+      emitter.off(DEVICE_GROUP_CHANGED, listener);
+    }
   });
 });
