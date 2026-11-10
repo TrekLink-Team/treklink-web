@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { PageScrollBody } from '../shared/ui/PageChrome';
 import { useAuth } from '../app/providers/useAuth';
 import { ME_KEY } from '../features/account-menu/api';
+import { useOrganization } from '../entities/organization/api';
 import {
   organizationRoleKeys,
   saveOrganizationRole,
@@ -68,6 +69,7 @@ export const OrganizationRolesPage: React.FC = () => {
   const queryClient = useQueryClient();
   const showToast = useToast((state) => state.show);
   const view = useOrganizationRoles();
+  const organization = useOrganization(user?.organization?.id);
   const wide = useMediaQuery('(min-width: 768px)', true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [stored, setDrafts] = useState<Drafts>({});
@@ -95,7 +97,9 @@ export const OrganizationRolesPage: React.FC = () => {
   );
   const changed = roles ? changedRoles(roles, drafts) : [];
   const dirty = changed.length > 0;
-  const status = user?.organization?.status ?? 'ACTIVE';
+  // The session holds the status of sign-in, so the page reads the current one from the API. Until it is
+  // known the grid stays read-only: an unknown status never offers a change.
+  const status = organization.data?.status;
   const readOnly = status !== 'ACTIVE';
 
   // A closed or reloaded tab would lose the draft: the browser asks first.
@@ -251,10 +255,16 @@ export const OrganizationRolesPage: React.FC = () => {
         description="What the roles of your organization may do, inside the limits TrekLink sets. A change applies to their holders on their next request."
       />
 
-      {readOnly && (
+      {status !== undefined && readOnly && (
         <Alert tone="warning">
           Role permissions can be read but not changed while your organization is{' '}
           {status.toLowerCase()}.
+        </Alert>
+      )}
+      {organization.isError && (
+        <Alert tone="warning">
+          The status of your organization could not be read, so role permissions can be read but not
+          changed.
         </Alert>
       )}
 

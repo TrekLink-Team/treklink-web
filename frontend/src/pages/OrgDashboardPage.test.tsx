@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { landingRoute, type SessionUser } from '../entities/session/model';
 import { OrgDashboardPage } from './OrgDashboardPage';
 
+// The status the API reports; the session below was signed in while the organization was PENDING.
 let organizationStatus = 'ACTIVE';
 let contracts: object[] = [];
 let invoices: object[] = [];
@@ -26,11 +27,16 @@ vi.mock('../app/providers/useAuth', () => ({
         id: 'org-1',
         code: 'ORG-0001',
         legalName: 'TrekLink Demo Tours',
-        status: organizationStatus,
+        status: 'PENDING',
         memberRole: 'MANAGER',
       },
     },
   }),
+}));
+
+vi.mock('../entities/organization/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../entities/organization/api')>()),
+  useOrganization: () => ({ data: { id: 'org-1', status: organizationStatus } }),
 }));
 
 vi.mock('../entities/contract/api', async (importOriginal) => ({
@@ -346,6 +352,12 @@ describe('OrgDashboardPage (screen 5.6)', () => {
     organizationStatus = 'SUSPENDED';
     renderPage();
     expect(screen.getByText('This cannot be done while it is SUSPENDED.')).toBeTruthy();
+  });
+
+  it('reads the status from the API, not from the session of sign-in', () => {
+    organizationStatus = 'ACTIVE';
+    renderPage();
+    expect(screen.queryByText(/This cannot be done while it is/)).toBeNull();
   });
 });
 

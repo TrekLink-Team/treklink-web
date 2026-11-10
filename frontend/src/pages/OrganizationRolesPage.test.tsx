@@ -14,10 +14,11 @@ vi.mock('../shared/api/apiClient', async (importOriginal) => ({
   apiClient: (...args: unknown[]) => api(...args),
 }));
 
+// The status the API reports for the organization; the session below was signed in while it was PENDING.
 let status = 'ACTIVE';
 vi.mock('../app/providers/useAuth', () => ({
   useAuth: () => ({
-    user: { id: 'm-1', roles: ['ORG_MANAGER'], organization: { id: 'org-a', status } },
+    user: { id: 'm-1', roles: ['ORG_MANAGER'], organization: { id: 'org-a', status: 'PENDING' } },
   }),
 }));
 
@@ -68,6 +69,7 @@ const serve = (
   respond: (endpoint: string, options?: RequestInit) => unknown = () => ({}),
 ) =>
   api.mockImplementation((endpoint: string, options?: RequestInit) => {
+    if (endpoint === '/organizations/org-a') return Promise.resolve({ id: 'org-a', status });
     if (!options?.method) return Promise.resolve(data);
     return Promise.resolve().then(() => respond(endpoint, options));
   });
@@ -95,8 +97,15 @@ const confirm = async () =>
   fireEvent.click(
     within(await screen.findByRole('dialog')).getByRole('button', { name: 'Save permissions' }),
   );
-const loaded = () =>
-  screen.findByRole('table', { name: 'Permissions by role of your organization' });
+// The grid and the organization status are two reads; the controls follow the status.
+const loaded = async () => {
+  const grid = await screen.findByRole('table', {
+    name: 'Permissions by role of your organization',
+  });
+  if (status === 'ACTIVE') await screen.findByRole('button', { name: 'Save permissions' });
+  else await screen.findByText(/can be read but not changed/);
+  return grid;
+};
 
 beforeEach(() => {
   api.mockReset();
@@ -334,6 +343,42 @@ describe('OrganizationRolesPage (screen 3.7), states', () => {
     expect(screen.queryByRole('button', { name: /Reset to TrekLink default/ })).toBeNull();
   });
 
+  it('reads the status from the API, so an approval since sign-in enables the grid', async () => {
+    serve();
+    renderPage();
+    await loaded();
+
+    expect(screen.queryByText(/can be read but not changed/)).toBeNull();
+    expect(cell(RESPOND, 'ORG_OPERATOR').disabled).toBe(false);
+  });
+
+  it('keeps the grid read-only, without a warning, until the status is known', async () => {
+    api.mockImplementation((endpoint: string) =>
+      endpoint === '/organizations/org-a' ? new Promise(() => undefined) : Promise.resolve(view()),
+    );
+    renderPage();
+    await screen.findByRole('table', { name: 'Permissions by role of your organization' });
+
+    expect(cell(RESPOND, 'ORG_OPERATOR').disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Save permissions' })).toBeNull();
+    expect(screen.queryByText(/can be read but not changed/)).toBeNull();
+  });
+
+  it('says so when the status cannot be read, and stays read-only', async () => {
+    api.mockImplementation((endpoint: string) =>
+      endpoint === '/organizations/org-a'
+        ? Promise.reject(new ApiError(500, 'INTERNAL', 'Something went wrong.'))
+        : Promise.resolve(view()),
+    );
+    renderPage();
+
+    expect(
+      await screen.findByText(/The status of your organization could not be read/),
+    ).toBeTruthy();
+    expect(cell(RESPOND, 'ORG_OPERATOR').disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Save permissions' })).toBeNull();
+  });
+
   it('shows MSG26 alone for a 403', async () => {
     api.mockRejectedValue(new ApiError(403, 'FORBIDDEN', 'You do not have access to this.'));
     renderPage();
@@ -356,6 +401,7 @@ describe('OrganizationRolesPage (screen 3.7), under 768 px', () => {
     serve(view([READ]));
     renderPage();
     await screen.findByLabelText('Role');
+    await screen.findByRole('button', { name: 'Save permissions' });
 
     expect(screen.queryByRole('table')).toBeNull();
     expect(screen.getByRole('heading', { name: 'ORG_MANAGER' })).toBeTruthy();
