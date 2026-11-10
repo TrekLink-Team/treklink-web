@@ -185,6 +185,40 @@ describe('ContractRequestPage availability and the hold at request', () => {
     onRequest = () => REQUESTED;
   });
 
+  it('below 768 px collapses the quote into a summary bar with the first payment that expands on tap (#465)', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: !/min-width/.test(query),
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    try {
+      renderActive();
+      await choose('5');
+      const bar = await screen.findByRole('button', { name: /First payment 625,000 VND/ });
+      expect(bar.getAttribute('aria-expanded')).toBe('false');
+      expect(screen.queryByRole('complementary', { name: 'Quote' })).toBeNull();
+      fireEvent.click(bar);
+      expect(bar.getAttribute('aria-expanded')).toBe('true');
+      const panel = screen.getByRole('complementary', { name: 'Quote' });
+      expect(bar.getAttribute('aria-controls')).toBe(panel.id);
+      expect(panel.textContent).toContain('Term fee (one month)');
+      // One live region on a phone: the bar announces the new amount, the panel does not.
+      expect(panel.hasAttribute('aria-live')).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('keeps the whole quote beside the steps from 768 px', async () => {
+    renderActive();
+    await choose('5');
+    const panel = await screen.findByRole('complementary', { name: 'Quote' });
+    expect(panel.getAttribute('aria-live')).toBe('polite');
+    expect(await screen.findByText('Term fee (one month)')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /First payment/ })).toBeNull();
+  });
+
   it('shows the count per variant and beside Quantity, and refreshes it on request', async () => {
     renderActive();
     await choose('5');

@@ -13,7 +13,9 @@ import {
 import { useOrganization } from '../entities/organization/api';
 import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime, formatDay, formatVnd, todayDay } from '../shared/lib/format';
+import { ChevronDown } from 'lucide-react';
 import { useDebounced } from '../shared/lib/useDebounced';
+import { useMediaQuery } from '../shared/lib/useMediaQuery';
 import { Empty, ErrorState, Field, Loading, PageTitle } from '../shared/ui/bits';
 import { PageActionBar, StickyPageHeader, PageScrollBody } from '../shared/ui/PageChrome';
 import { VariantPicker } from '../widgets/VariantPicker/VariantPicker';
@@ -86,6 +88,10 @@ export const ContractRequestPage: React.FC = () => {
   const heading = useRef<HTMLHeadingElement>(null);
   const sentHeading = useRef<HTMLHeadingElement>(null);
   const availability = useAllAvailability();
+  // Below 768 px the quote collapses into a summary bar with the first payment that expands on tap
+  // (screen 5.1 "Mobile", treklink-web#465); from 768 px it stands beside the steps.
+  const phone = !useMediaQuery('(min-width: 768px)', true);
+  const [quoteOpen, setQuoteOpen] = useState(false);
 
   // Read from the API (organizations api-design 03), never the sign-in session: a Manager who signed in
   // while PENDING sees the approval without signing in again. Unknown until the head loads.
@@ -243,9 +249,19 @@ export const ContractRequestPage: React.FC = () => {
     );
   }
 
+  // The summary bar is the live region on a phone, so a new amount is announced once.
+  const quoteSummary = !quoteRequest
+    ? 'Choose a plan, a variant and a quantity.'
+    : quote.isFetching
+      ? 'Calculating…'
+      : quote.data
+        ? `First payment ${formatVnd(quote.data.firstPaymentVnd)}`
+        : 'The quote could not be calculated.';
+
   const quotePanel = (
     <aside
-      aria-live="polite"
+      id="request-quote"
+      aria-live={phone ? undefined : 'polite'}
       aria-label="Quote"
       className={`${CARD} h-fit border-chrome-strong md:sticky md:top-[calc(var(--tl-page-header-h,0px)+1rem)]`}
     >
@@ -261,42 +277,46 @@ export const ContractRequestPage: React.FC = () => {
         </p>
       )}
       {quoteRequest && quote.data && !quote.isFetching && (
-        <dl className="mt-3 flex flex-col gap-2 text-sm">
-          {quote.data.planType === 'MONTHLY' ? (
-            <>
-              <div className="flex justify-between">
-                <dt>Term fee (one month)</dt>
-                <dd className="font-semibold">{formatVnd(quote.data.termFeeVnd ?? 0)}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt>
-                  First payment, holding fee ({Math.round(catalogue.holdingFeeRatio * 100)} %)
-                </dt>
-                <dd className="font-semibold">{formatVnd(quote.data.firstPaymentVnd)}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt>Balance at each term end</dt>
-                <dd className="font-semibold">
-                  {formatVnd((quote.data.termFeeVnd ?? 0) - quote.data.firstPaymentVnd)}
-                </dd>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="flex justify-between">
-                <dt>Per device per day</dt>
-                <dd className="font-semibold">{formatVnd(quote.data.unitPerDayVnd ?? 0)}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt>Days</dt>
-                <dd className="font-semibold">{quote.data.days}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt>Total, paid up front</dt>
-                <dd className="font-semibold">{formatVnd(quote.data.totalVnd ?? 0)}</dd>
-              </div>
-            </>
-          )}
+        <div className="mt-3 flex flex-col gap-2 text-sm">
+          {/* Only term and definition groups inside the list; the formula and the note follow it (axe
+            definition-list, WCAG 1.3.1). */}
+          <dl className="flex flex-col gap-2">
+            {quote.data.planType === 'MONTHLY' ? (
+              <>
+                <div className="flex justify-between">
+                  <dt>Term fee (one month)</dt>
+                  <dd className="font-semibold">{formatVnd(quote.data.termFeeVnd ?? 0)}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt>
+                    First payment, holding fee ({Math.round(catalogue.holdingFeeRatio * 100)} %)
+                  </dt>
+                  <dd className="font-semibold">{formatVnd(quote.data.firstPaymentVnd)}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt>Balance at each term end</dt>
+                  <dd className="font-semibold">
+                    {formatVnd((quote.data.termFeeVnd ?? 0) - quote.data.firstPaymentVnd)}
+                  </dd>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex justify-between">
+                  <dt>Per device per day</dt>
+                  <dd className="font-semibold">{formatVnd(quote.data.unitPerDayVnd ?? 0)}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt>Days</dt>
+                  <dd className="font-semibold">{quote.data.days}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt>Total, paid up front</dt>
+                  <dd className="font-semibold">{formatVnd(quote.data.totalVnd ?? 0)}</dd>
+                </div>
+              </>
+            )}
+          </dl>
           <div className="rounded-lg bg-sunken px-3 py-2 text-xs text-ink-muted">
             Formula: <span className="font-mono">{quote.data.formula}</span>
           </div>
@@ -304,13 +324,17 @@ export const ContractRequestPage: React.FC = () => {
             Prices are fixed when you send the request. The request holds the devices; the first
             payment is the deposit that keeps them.
           </p>
-        </dl>
+        </div>
       )}
     </aside>
   );
 
   return (
-    <section aria-labelledby="request-title" data-fit-page="" className="flex min-h-0 flex-1 flex-col">
+    <section
+      aria-labelledby="request-title"
+      data-fit-page=""
+      className="flex min-h-0 flex-1 flex-col"
+    >
       <StickyPageHeader>
         <PageTitle
           title="Request a contract"
@@ -351,9 +375,37 @@ export const ContractRequestPage: React.FC = () => {
           </div>
         )}
 
+        {phone && (
+          <div className="mb-4 flex flex-col gap-2">
+            <button
+              type="button"
+              aria-expanded={quoteOpen}
+              aria-controls="request-quote"
+              onClick={() => setQuoteOpen((open) => !open)}
+              className="flex min-h-11 w-full items-center justify-between gap-3 rounded-panel border border-chrome-strong bg-surface px-4 py-2 text-left"
+            >
+              <span className="flex min-w-0 flex-col">
+                <span className="text-label uppercase text-ink-muted">Quote</span>
+                <span aria-live="polite" className="text-body-sm font-semibold text-ink">
+                  {quoteSummary}
+                </span>
+              </span>
+              <ChevronDown
+                aria-hidden="true"
+                className={`h-4 w-4 shrink-0 transition ${quoteOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+            {quoteOpen && quotePanel}
+          </div>
+        )}
         <div className="grid gap-5 md:grid-cols-[1fr_320px]">
           <div className={`${CARD} flex min-w-0 flex-col gap-4`}>
-            <h2 id="request-title" ref={heading} tabIndex={-1} className="text-lg font-bold text-ink">
+            <h2
+              id="request-title"
+              ref={heading}
+              tabIndex={-1}
+              className="text-lg font-bold text-ink"
+            >
               {STEPS[step]}
             </h2>
             {errors.form && (
@@ -505,13 +557,13 @@ export const ContractRequestPage: React.FC = () => {
                   <dd>{startDate && formatDay(startDate)}</dd>
                 </div>
                 <p className="sm:col-span-2 text-ink-muted">
-                  Plan, variant and quantity cannot change after the request. Need more devices? Send
-                  another request.
+                  Plan, variant and quantity cannot change after the request. Need more devices?
+                  Send another request.
                 </p>
               </dl>
             )}
           </div>
-          {quotePanel}
+          {!phone && quotePanel}
         </div>
       </PageScrollBody>
       <PageActionBar
