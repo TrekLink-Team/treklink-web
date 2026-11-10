@@ -31,10 +31,17 @@ import {
 import { ApiError } from '../shared/api/apiClient';
 import { toNodeId } from '../shared/lib/meshtastic-dock';
 import { formatDateTime, formatDay, formatVnd } from '../shared/lib/format';
+import { useMediaQuery } from '../shared/lib/useMediaQuery';
 import { Badge, ErrorState, Field, Loading, PageTitle } from '../shared/ui/bits';
 import { invalid, messageOf } from '../shared/ui/errors';
 import { ConfirmDialog, Dialog } from '../shared/ui/Dialog';
-import { COMPACT_HIDDEN, PageActionBar, StickyPageHeader, PageScrollBody } from '../shared/ui/PageChrome';
+import {
+  COMPACT_HIDDEN,
+  PageActionBar,
+  StickyPageHeader,
+  PageScrollBody,
+  ScrollingTitle,
+} from '../shared/ui/PageChrome';
 import { useToast } from '../shared/ui/toastStore';
 import {
   ALERT,
@@ -256,6 +263,9 @@ export const CounterPage: React.FC<{
   // The connected units and the hub show the new key and status after a provisioning or a swap (REQ-EVT-49).
   const { refresh: refreshConnector } = useConnectorRefresh();
 
+  // Below 768 px the counter page pins only a one-row step bar and the action bar; the back link,
+  // the title and the summary scroll with the checklist (chapter 06 §11.1, treklink-web#470).
+  const phone = !useMediaQuery('(min-width: 768px)', true);
   const [today] = useState(() => new Date(Date.now() + ZONE_OFFSET_MS).toISOString().slice(0, 10));
   const [step, setStep] = useState(0);
   const [checks, setChecks] = useState<Record<string, Check>>({});
@@ -873,6 +883,62 @@ export const CounterPage: React.FC<{
 
   // Embedded in the contract home, which holds the title and the sticky row, the stepper is plain.
   const Header = embedded ? EmbeddedHeader : StickyPageHeader;
+  // The counter page below 768 px: the title block scrolls in the checklist, the step bar stays.
+  const phonePage = phone && !embedded;
+
+  const titleBlock = !embedded && (
+    <>
+      <Link to={`/t/contracts/${data.id}`} className={`${LINK} text-sm ${COMPACT_HIDDEN}`}>
+        Back to the contract
+      </Link>
+      <PageTitle
+        id="counter-title"
+        title={`Counter handover: ${data.code}`}
+        action={<Badge tone={STATUS_TONES[data.status]}>{STATUS_LABELS[data.status]}</Badge>}
+      />
+    </>
+  );
+  const summary = (
+    <p className={`${embedded ? '' : '-mt-3'} mb-5 text-ink-muted ${COMPACT_HIDDEN}`}>
+      {data.organization
+        ? `${data.organization.code}, ${data.organization.legalName.replace(/\.$/, '')}. `
+        : ''}
+      {planLabel(data)}, {data.quantity} x {variantName(data.hardwareVariant)}, from{' '}
+      {formatDay(data.requestedStartDate)}
+      {data.handoverAppointmentAt
+        ? `. Handover appointment ${formatDateTime(data.handoverAppointmentAt)}`
+        : ''}
+    </p>
+  );
+  // Below 768 px on the page the bar keeps one row: each step shows its number, the current step its
+  // label too; the other labels stay for screen readers.
+  const steps = (
+    <ol
+      className={
+        phonePage ? 'mb-3 flex gap-2 text-sm' : 'mb-5 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4'
+      }
+      aria-label="Steps"
+    >
+      {STEPS.map((label, index) => (
+        <li
+          key={label}
+          aria-current={index === step ? 'step' : undefined}
+          className={`rounded-lg border px-3 py-2 font-semibold group-data-[compact=true]/chrome:py-1 ${
+            phonePage && index === step ? 'min-w-0 flex-1' : ''
+          } ${index === step ? '' : 'group-data-[compact=true]/chrome:max-sm:hidden'} ${
+            index === step
+              ? 'border-accent bg-chrome text-ink'
+              : index < step
+                ? 'border-status-done-line bg-status-done-tint text-status-done-fg'
+                : 'border-line bg-surface text-ink-muted'
+          }`}
+        >
+          {index + 1}.{' '}
+          <span className={phonePage && index !== step ? 'sr-only' : undefined}>{label}</span>
+        </li>
+      ))}
+    </ol>
+  );
 
   return (
     <section
@@ -881,51 +947,23 @@ export const CounterPage: React.FC<{
       data-fit-page={embedded ? undefined : ''}
       className={embedded ? 'flex flex-1 flex-col' : 'flex min-h-0 flex-1 flex-col'}
     >
-      <Header>
-        {!embedded && (
-          <>
-            <Link to={`/t/contracts/${data.id}`} className={`${LINK} text-sm ${COMPACT_HIDDEN}`}>
-              Back to the contract
-            </Link>
-            <PageTitle
-              id="counter-title"
-              title={`Counter handover: ${data.code}`}
-              action={<Badge tone={STATUS_TONES[data.status]}>{STATUS_LABELS[data.status]}</Badge>}
-            />
-          </>
-        )}
-        <p className={`${embedded ? '' : '-mt-3'} mb-5 text-ink-muted ${COMPACT_HIDDEN}`}>
-          {data.organization
-            ? `${data.organization.code}, ${data.organization.legalName.replace(/\.$/, '')}. `
-            : ''}
-          {planLabel(data)}, {data.quantity} x {variantName(data.hardwareVariant)}, from{' '}
-          {formatDay(data.requestedStartDate)}
-          {data.handoverAppointmentAt
-            ? `. Handover appointment ${formatDateTime(data.handoverAppointmentAt)}`
-            : ''}
-        </p>
-        <ol className="mb-5 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4" aria-label="Steps">
-          {STEPS.map((label, index) => (
-            <li
-              key={label}
-              aria-current={index === step ? 'step' : undefined}
-              className={`rounded-lg border px-3 py-2 font-semibold group-data-[compact=true]/chrome:py-1 ${
-                index === step ? '' : 'group-data-[compact=true]/chrome:max-sm:hidden'
-              } ${
-                index === step
-                  ? 'border-accent bg-chrome text-ink'
-                  : index < step
-                    ? 'border-status-done-line bg-status-done-tint text-status-done-fg'
-                    : 'border-line bg-surface text-ink-muted'
-              }`}
-            >
-              {index + 1}. {label}
-            </li>
-          ))}
-        </ol>
-      </Header>
+      {phonePage ? (
+        steps
+      ) : (
+        <Header>
+          {titleBlock}
+          {summary}
+          {steps}
+        </Header>
+      )}
 
       <HandoverBody page={!embedded}>
+        {phonePage && (
+          <ScrollingTitle>
+            {titleBlock}
+            {summary}
+          </ScrollingTitle>
+        )}
         {beforeStart && (
           <div role="status" className={`${WARNING} mb-5`}>
             Handover is possible from {formatDay(data.requestedStartDate)}.
