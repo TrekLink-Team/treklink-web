@@ -173,6 +173,7 @@ echo "  MQTT_DOMAIN $HOST_NAME, CORS_ORIGINS $CORS_ORIGINS"
 step "build the backend image (the longest step on a t4g.small)"
 quiet compose config --quiet
 echo "  memory before the build: $(free -m | awk '/^Mem:/ {print $7 " MiB available"}'), swap $(free -m | awk '/^Swap:/ {print $3 "/" $2 " MiB used"}')"
+# No memory cap on this build: its arm64 peak is not measured yet (RUNBOOK, "What has not been tested").
 quiet compose build backend
 echo "  treklink-backend:$(printf '%s' "$COMMIT" | cut -c1-12) built"
 
@@ -201,8 +202,9 @@ compose ps --format 'table {{.Service}}\t{{.State}}\t{{.Status}}'
 step "build the web app (Node in a container)"
 quiet docker pull "$NODE_IMAGE"
 echo "  memory before the build: $(free -m | awk '/^Mem:/ {print $7 " MiB available"}'), swap $(free -m | awk '/^Swap:/ {print $3 "/" $2 " MiB used"}')"
-# The services keep running during this build. The container limit keeps an out-of-memory kill inside
-# the build instead of letting the kernel pick the backend or the broker; it may use swap up to 3 GiB.
+# The services keep running during this build. The container limit (1536 MiB of RAM, and 1536 MiB of swap
+# on top, since --memory-swap counts both) makes the build the first to be killed when it runs out of its
+# share; it does not rule out an out-of-memory kill elsewhere when the whole host runs short.
 quiet docker run --rm \
   --memory=1536m --memory-swap=3072m \
   -v "$APP:/src" \
