@@ -252,6 +252,36 @@ describe('ContractDetailPage', () => {
     expect(screen.getByRole('dialog', { name: 'Report TL-0042 lost' })).toBeTruthy();
   });
 
+  it('shows an open loss case on its unit and keeps Report lost unavailable there (#469)', async () => {
+    roles = ['ORG_MANAGER'];
+    const row = { holder: null, checkedInAt: null, lostAt: null, handedOverAt: '2026-10-30T09:00:00Z' };
+    contract = {
+      ...baseContract,
+      status: 'ACTIVE',
+      devices: [
+        { ...row, deviceId: 'dev-1', assetTag: 'TL-0042' },
+        { ...row, deviceId: 'dev-2', assetTag: 'TL-0043' },
+      ],
+    };
+    // devices api-design 18 answers the open cases; one is on TL-0042.
+    billing = {
+      '/loss-cases': {
+        items: [{ id: 'lc-1', code: 'LOSS-0007', state: 'REPORTED', device: { id: 'dev-1', assetTag: 'TL-0042' } }],
+        pageNumber: 1,
+        pageSize: 100,
+        totalCount: 1,
+      },
+    };
+    renderPage('o', '?tab=devices');
+    const link = await screen.findAllByRole('link', { name: 'Loss reported, LOSS-0007' });
+    expect(link[0].getAttribute('href')).toBe('/o/loss-cases');
+    const blocked = screen.getByRole('button', { name: /^Report lost TL-0042/ });
+    expect(blocked.getAttribute('aria-disabled')).toBe('true');
+    expect(screen.getAllByText('Already reported: loss case LOSS-0007 is open.').length).toBeGreaterThan(0);
+    const open = screen.getByRole('button', { name: /^Report lost TL-0043/ });
+    expect(open.getAttribute('aria-disabled')).not.toBe('true');
+  });
+
   // D-092 rule 3: the close action is visible to Staff whenever the close check passes, and the page
   // says what still blocks it otherwise.
   const backRow = (deviceId: string, assetTag: string, afterReturn: unknown) => ({

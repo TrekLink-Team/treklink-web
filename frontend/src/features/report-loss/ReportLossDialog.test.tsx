@@ -46,6 +46,20 @@ describe('ReportLossDialog (devices api-design 17, screen 4.4)', () => {
     expect(onReported).toHaveBeenCalledWith({ id: 'lc-1', code: 'LOSS-0003' });
   });
 
+  it('moves focus to Close in the confirmation panel, not to the page body (#468)', async () => {
+    api.mockResolvedValue({ id: 'lc-1', code: 'LOSS-0003' });
+    renderDialog('o');
+    fireEvent.change(screen.getByLabelText(/Description/), { target: { value: 'Lost on the ridge' } });
+    const report = screen.getByRole('button', { name: 'Report lost' });
+    report.focus();
+    fireEvent.click(report);
+    await screen.findByText('Loss reported. TrekLink will contact you.');
+    const close = screen
+      .getAllByRole('button', { name: 'Close' })
+      .find((button) => button.textContent === 'Close');
+    expect(document.activeElement).toBe(close);
+  });
+
   it('names an open case with a link to the loss cases (LOSS_CASE_OPEN)', async () => {
     const refusal = new ApiError(409, 'LOSS_CASE_OPEN', 'This device is already reported lost.');
     api.mockImplementation(() => Promise.reject(refusal));

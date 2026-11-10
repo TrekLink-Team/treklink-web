@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '../../shared/api/apiClient';
@@ -31,6 +31,7 @@ export const ReportLossDialog: React.FC<{
   const [openCase, setOpenCase] = useState(false);
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
+  const closeButton = useRef<HTMLButtonElement>(null);
 
   const submit = async () => {
     const text = description.trim();
@@ -64,13 +65,18 @@ export const ReportLossDialog: React.FC<{
   };
 
   if (done) {
+    // Its own key: the form's dialog unmounts with the Report lost button that held focus, and this
+    // one mounts and focuses Close; on close, focus returns to the row action (screen 4.4,
+    // treklink-web#468). Reusing the form's dialog left focus on the page body.
     return (
       <Dialog
+        key="done"
         titleId="report-loss-title"
         title={`${assetTag} reported lost`}
         onClose={onClose}
+        initialFocus={closeButton}
         footer={
-          <Button variant="primary" onClick={onClose}>
+          <Button ref={closeButton} variant="primary" onClick={onClose}>
             Close
           </Button>
         }
