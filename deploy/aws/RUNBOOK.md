@@ -1,26 +1,206 @@
-# Runbook: the AWS field host (D-098)
+# Runbook: the AWS host (D-098)
 
-What it is: one always-on host running the MQTT broker and one backend instance for the field flow. The
-Vercel staging keeps serving the web app and the API, and both write the same Neon database
-(`treklink_prod` on the branch `vercel-prod`). Design: `specs/platform/design.md` §2.5. Tasks:
-`specs/platform/tasks.md` Phase 7. Target: deployed for testing by Sunday 2026-11-15.
+What it is: one always-on host running the MQTT broker and one backend instance, both written for the field
+flow of D-098 (`specs/platform/design.md` §2.5, `specs/platform/tasks.md` Phase 7). Since 2026-11-10 the
+same host also serves the whole API, and the web app is published to S3 behind CloudFront, so the system
+can run on AWS alone. Neon stays the database (`treklink_prod` on the branch `vercel-prod`), shared with the
+Vercel staging, which stays the fallback until AWS passes the W10 checks (leader ruling, 2026-11-10).
+
+There are two ways to deploy it:
+
+- **One command** (the next section): `up.sh`, `status.sh` and `down.sh` from a laptop with bash, git and
+  AWS CLI v2. Recommended.
+- **The manual path** (sections 1 to 13 further down): the console steps written before 2026-11-10. Kept for
+  reference and for debugging a host by hand.
 
 Files in this folder:
 
 | File | Purpose |
 |---|---|
+| `up.sh` | One command: deploys or redeploys the stack, the secrets, the backend and the web app |
+| `status.sh` | Stack status, instance state, compose services on the host, health URLs |
+| `down.sh` | Stops compose, empties the buckets, deletes the stack and the SSM parameters |
+| `lib.sh` | Shared by the three scripts; never run on its own |
+| `host/deploy.sh` | Run on the host by `up.sh` through SSM Run Command; never run on a laptop |
+| `cfn/treklink.yml` | The CloudFormation stack: EC2 host, security group, Elastic IP, buckets, CloudFront, budget |
+| `.env.aws.example` | Every value `up.sh` needs. Copy it to `.env.aws` on your laptop; git-ignored |
 | `compose.yml` | The four services: `caddy`, `mosquitto`, `broker-hook-proxy`, `backend` |
-| `Caddyfile` | Let's Encrypt certificate for `MQTT_DOMAIN`; HTTPS for `/api/health` only |
+| `Caddyfile` | Let's Encrypt certificate for `MQTT_DOMAIN`; HTTPS for `/api/*` and `/socket.io/*`, 404 for the broker hooks and every other path |
 | `mosquitto/mosquitto.conf` | Broker: TLS on 8883 (public), plain 1883 on the compose network only, go-auth hooks |
 | `mosquitto/start.sh` | Copies Caddy's certificate for the broker and reloads the broker when Caddy renews it |
-| `.env.example` | Every variable the host needs. Copy it to `.env` on the host and never commit that file |
+| `.env.example` | Manual path: every variable the host needs. Copy it to `.env` on the host and never commit that file |
 | `compose.rehearsal.yml`, `Caddyfile.rehearsal` | The same stack on a laptop, with a local Postgres and Caddy's internal CA |
 
-Prices change. Check every amount below on the AWS pricing pages before you rely on it.
+Prices change. Check every amount in this runbook on the AWS pricing pages before you rely on it.
 
 ---
 
-## 1. Decide the host name
+## One command (2026-11-10)
+
+### What it builds
+
+All in `ap-southeast-2` (Sydney), the only region where the organisation's SCP allows EC2 (verified
+2026-11-10). Stack `treklink-<stage>`, stage `staging` by default:
+
+| Piece | Detail |
+|---|---|
+| EC2 host | `t4g.small` (2 GB, arm64), latest Amazon Linux 2023 arm64 AMI at creation, 20 GiB encrypted gp3 root volume deleted with the instance, 2 GB swap, in the default VPC |
+| Access | No SSH and no key pair. Admin shell through SSM Session Manager. No IAM user and no console password (the organisation denies `iam:CreateLoginProfile`) |
+| Security group | Inbound TCP 80, 443 and 8883 from anywhere, nothing else |
+| Elastic IP | Gives the host name: the IP with dashes on sslip.io, for example `3-104-1-2.sslip.io`. It is `MQTT_DOMAIN`, the API host and the broker address |
+| Host services | `compose.yml`: Caddy (Let's Encrypt certificate, HTTPS API and socket), Mosquitto (MQTT over TLS on 8883, same certificate), broker-hook-proxy, backend |
+| Web app | Built on the host in a Node container, published to a private S3 bucket, served by CloudFront (Origin Access Control, HTTPS, client routes answered with `index.html`, price class 200) |
+| Secrets | SSM Parameter Store SecureString under `/treklink/<stage>/`, written from your `deploy/aws/.env.aws`; the host writes `deploy/aws/.env` from them on every deploy |
+| Artifacts | A private S3 bucket for the source archives and the SSM command output, emptied after 14 days |
+| Budget | Monthly AWS Budgets cost budget of 40 USD for the whole account, email alert at 80 % actual to `BUDGET_EMAIL` |
+
+The browser calls the API across origins, from the CloudFront domain to the sslip.io host. The host sets
+`CORS_ORIGINS` to the CloudFront origin (plus `CORS_EXTRA_ORIGINS`), and the web app is built with
+`VITE_API_BASE_URL=https://<host name>/api` and `VITE_WS_URL=https://<host name>`. Tokens travel in the
+request body and the `Authorization` header, not in cookies, so the two origins need nothing more.
+
+### Prerequisites
+
+1. **AWS CLI v2** (`aws --version` prints `aws-cli/2.`), bash (macOS's bash 3.2 works) and git, run from a
+   checkout of this repository. No Docker, Node or Terraform is needed on the laptop. `curl` is optional:
+   with it, `up.sh` and `status.sh` also check the URLs from the laptop.
+2. **A profile named `treklink`** in the team account, either way:
+   - `aws login --profile treklink`, the browser sign-in of a recent AWS CLI v2 (the minimum CLI version
+     is unverified; update the CLI if the command is unknown), or `aws configure sso --profile treklink`
+     where the account offers IAM Identity Center;
+   - an access key profile: `aws configure --profile treklink`, with the key of an existing identity the
+     leader gives you. Do not create IAM users for this.
+
+   Check it with `aws sts get-caller-identity --profile treklink`. Another profile name works with
+   `--profile <name>`.
+3. **The Neon role** `treklink_field` and its pooled connection string: manual path §5 creates it once.
+4. **A ref that contains these files.** `up.sh` refuses a commit whose `deploy/aws/Caddyfile` predates the
+   public API. Its schema must also already be migrated on `treklink_prod` by the Vercel production build,
+   because the host never runs `prisma migrate` (manual path §5).
+
+### The env file
+
+```bash
+cp deploy/aws/.env.aws.example deploy/aws/.env.aws && chmod 600 deploy/aws/.env.aws
+```
+
+Fill in every uncommented key. Generate each secret with `openssl rand -hex 32`. Copy the mail values, the
+`COMPANY_*` values, `HANDOVER_PLACE` and `CHANNEL_KEY_MASTER` from the Vercel project's Production
+environment. `up.sh` checks the file before it calls AWS, names each problem without printing a value,
+and refuses the keys it computes itself (`MQTT_DOMAIN`, `CORS_ORIGINS`, `FIELD_STATION_BROKER_URL`,
+`BACKEND_TAG`, `VITE_API_BASE_URL`, `VITE_WS_URL`). The file is git-ignored by `deploy/aws/.gitignore`.
+Never commit it, paste it in chat or send it in Zalo.
+
+### Up
+
+```bash
+deploy/aws/up.sh
+```
+
+Options: `--profile`, `--region`, `--stage`, `--ref` (default `HEAD`, the commit you have checked out;
+uncommitted changes are not deployed), `--instance-type`, `--skip-infra` (code and secrets only),
+`--new-ami` (moves the host to the latest AMI by replacing the instance) and `--dry-run` (checks the
+options, the env file and the ref, prints the plan, calls nothing on AWS). `deploy/aws/up.sh --help`
+lists them.
+
+What it does, each step named in its output and in its error message when it fails:
+
+1. Checks the AWS CLI, the credentials, the env file and the ref.
+2. `aws cloudformation deploy` of `cfn/treklink.yml`: creates the stack, or updates it. The AMI is pinned
+   to the one the host runs, so an update never replaces the instance unless you pass `--new-ami`.
+3. Reads the stack outputs.
+4. Writes each value of `.env.aws` to SSM as a SecureString, only when it changed, and deletes the
+   parameters whose key you removed from the file. Values go through a private temporary file, never on
+   a command line.
+5. `git archive` of the ref and the host script into the artifact bucket.
+6. SSM Run Command on the host: installs the release in `/opt/treklink/app`, writes `deploy/aws/.env`
+   (mode 0600), builds the backend image, starts compose, waits for the backend to be healthy, builds the
+   web app, syncs it to the frontend bucket, invalidates CloudFront and checks
+   `https://<host name>/api/health` from the host. The build logs stay on the host in
+   `/opt/treklink/logs/`; the last lines are printed when a host step fails.
+7. Prints the URLs and the health results.
+
+The first run creates everything, including Caddy's first certificate from Let's Encrypt. sslip.io names
+share Let's Encrypt's rate limits with every other sslip.io user, so issuance can fail on a busy week
+(manual path §1). The certificate lives on the host's disk and survives redeploys; `down.sh` deletes it.
+
+Run `up.sh` again to redeploy. A redeploy rebuilds the backend image and the web app, restarts the backend
+(the restart window of manual path §10 applies), and restarts Caddy, Mosquitto or the proxy only when their
+mounted files changed.
+
+### Status
+
+```bash
+deploy/aws/status.sh
+```
+
+Prints the stack status, the instance state, the deployed commit, `docker compose ps` on the host and the
+two health URLs. Read-only.
+
+For a shell on the host: `aws ssm start-session --target <InstanceId> --profile treklink --region
+ap-southeast-2` (needs the Session Manager plugin for the AWS CLI on the laptop), then
+`sudo -i` and `cd /opt/treklink/app/deploy/aws`. Logs: manual path §9.
+
+### Down
+
+```bash
+deploy/aws/down.sh
+```
+
+Asks you to type the stack name, then stops compose, empties both buckets, deletes the stack (instance,
+volume, Elastic IP, buckets, CloudFront distribution, budget) and deletes the SSM parameters under
+`/treklink/<stage>/` (`--keep-parameters` keeps them). Nothing billable is left. The Neon database is not
+touched. The next `up.sh` gets a new Elastic IP, so the host name changes and every node, phone and Field
+Station needs the new broker address. Rotate the secrets as in manual path §12 if the host is gone for good.
+
+### Cost notes
+
+Check every price on the AWS pricing pages before relying on it; prices differ by region and change.
+On 2026-11-10 the leader saw on-demand `t4g.small` at 0.0212 USD per hour in Sydney, which is about
+15.5 USD for a 730-hour month before any free-plan credit. What else bills while the stack exists:
+
+- the public IPv4 address of the Elastic IP, billed by the hour;
+- the 20 GiB gp3 root volume, billed per GB-month;
+- CloudFront requests and data transfer out, and S3 storage and requests (small for this web app);
+- data transfer out of the host, and to Neon in Singapore.
+
+Standard SSM parameters and the budget are expected to cost nothing (check the pricing pages). A stopped
+instance still pays for its volume and its Elastic IP: `down.sh` is the way to stop paying. The stack's
+budget alerts at 80 % of 40 USD; the manual budgets of manual path §2 may exist next to it.
+
+### Rollback to Vercel
+
+The Vercel project is not touched by any of this and keeps serving the staging, so a rollback needs no
+deploy:
+
+1. Send testers back to the Vercel staging URL. The landing page already lists it: `deploy/system-endpoints.json`
+   on `main` is changed only after AWS passes the W10 checks.
+2. Stop the AWS backend so that only Vercel writes Neon: `down.sh`, or for a pause
+   `aws ssm start-session` then `cd /opt/treklink/app/deploy/aws && docker compose stop`.
+3. Field clients pointed at the sslip.io broker fall back to their queues as in manual path §11.
+
+To roll the AWS host back to an earlier commit instead: `deploy/aws/up.sh --ref <commit>`. Nothing on the
+host migrates the database, so there is no schema to roll back.
+
+### What has not been tested (2026-11-10)
+
+The scripts and the template were checked with shellcheck, cfn-lint, a dry run and a run against a mock
+AWS CLI, without AWS credentials. Nothing has been deployed to AWS yet, so the first real `up.sh` is also
+the first test of: the stack creation in the team account under its SCPs (IAM role creation, Budgets,
+CloudFront), the first-boot set-up on Amazon Linux 2023 (Compose v2.32.4 and Buildx v0.19.3 from GitHub),
+the backend and web app builds on a `t4g.small`, the certificate for the sslip.io name, and the web app
+calling the API across origins. Record the result here.
+
+---
+
+# The manual path (written before 2026-11-10)
+
+The sections below are the console steps of D-098. The one-command deploy above replaces them. Note that
+section 2 names Singapore, `ap-southeast-1`, where the organisation's SCP now denies EC2 (verified
+2026-11-10): use `ap-southeast-2` if you follow it. The Caddyfile now serves the whole API, not only
+`/api/health` as section 7 describes.
+
+## 1. Decide the host name (manual path)
 
 Let's Encrypt needs a DNS name that resolves to the host's static IP. The name goes in `MQTT_DOMAIN` and
 becomes the broker address of every node, phone and Field Station.
@@ -33,7 +213,7 @@ becomes the broker address of every node, phone and Field Station.
    does not verify the certificate (`setInsecure()`), but the Field Station's MQTT client does verify it and
    would refuse.
 
-## 2. AWS console (the leader)
+## 2. AWS console (the leader) (manual path)
 
 Pick one of the two options. Both run in Singapore, `ap-southeast-1`, next to Neon and the Vercel
 function.
@@ -75,7 +255,7 @@ Billing and Cost Management, Budgets, Create budget, Cost budget, monthly:
 - Data transfer out above the plan's allowance. MQTT field traffic is small, but a loop that republishes
   is not.
 
-## 3. DNS
+## 3. DNS (manual path)
 
 Create the `A` record `MQTT_DOMAIN` with the static IP as its value, then check it from your laptop:
 
@@ -86,7 +266,7 @@ dig +short mqtt.<domain>
 Wait until it prints the static IP before step 6. Otherwise Caddy's first attempts fail, and Let's
 Encrypt counts the failures against its rate limit.
 
-## 4. Prepare the host
+## 4. Prepare the host (manual path)
 
 SSH in (`ssh ubuntu@<static IP>`), then:
 
@@ -112,7 +292,7 @@ sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapf
 Docker publishes ports past `ufw`, so the Lightsail firewall or the security group is the firewall. Do
 not rely on `ufw` for 80, 443 and 8883.
 
-## 5. Code and environment
+## 5. Code and environment (manual path)
 
 The backend image must come from the commit the Vercel staging runs, after that build has migrated
 `treklink_prod`, so that the Prisma client matches the schema. The repository is private. Either clone it
@@ -159,7 +339,7 @@ cd treklink-web/deploy/aws && cp .env.example .env && chmod 600 .env && nano .en
 - The container never runs `prisma migrate` or a seed. Migrations stay with the Vercel production build
   (`backend/scripts/vercel-build.sh`).
 
-## 6. Start
+## 6. Start (manual path)
 
 ```bash
 docker compose build backend
@@ -182,7 +362,7 @@ Expected within about two minutes:
 - `backend` is `healthy` and logs
   `Connected to mqtt://mosquitto:1883; subscribing to treklink/2/json/+/+, treklink/fs/+/health`.
 
-## 7. Check it
+## 7. Check it (manual path)
 
 From your laptop:
 
@@ -210,7 +390,7 @@ mosquitto_pub -h mqtt.<domain> -p 8883 --capath /etc/ssl/certs -V 5 -q 1 -d -u '
 staging, signed in as `admin@treklink.local`. On macOS use `--cafile` with the system bundle instead of
 `--capath`.
 
-## 8. Point the field clients at it
+## 8. Point the field clients at it (manual path)
 
 **Wi-Fi node (Stage A, B).** At the docking page (devices design §8.8), set:
 
@@ -242,7 +422,7 @@ organization holds, with `MQTT_STATION_UPLINK_ENABLED=true` on the host (gateway
 station's own USB node must be one of its organization's rented units. In the Vercel project, set `FIELD_STATION_BROKER_URL` to the same `mqtts://` URL and redeploy,
 so new credentials show the right address.
 
-## 9. Logs
+## 9. Logs (manual path)
 
 ```bash
 docker compose logs -f --tail=100 backend
@@ -252,7 +432,7 @@ Swap `backend` for `mosquitto` or `caddy` to follow another service. A refused c
 backend log as `Broker credential refused: username "..." (<reason>)` or `Broker topic denied: ...`;
 passwords are never logged. Each service keeps 5 files of 10 MB.
 
-## 10. Update the backend
+## 10. Update the backend (manual path)
 
 When the Vercel staging moves to a new commit and its build has succeeded:
 
@@ -273,7 +453,7 @@ firmware's MQTT client, and a message it had written to the closed connection is
 (unverified; the firmware's onboard queue covers only the time it knows it is offline). Keep the restart
 short, and update when no field test is running.
 
-## 11. Roll back
+## 11. Roll back (manual path)
 
 ```bash
 docker compose stop
@@ -283,7 +463,7 @@ The Vercel staging keeps working with its field simulator. The Field Station kee
 retries, and nodes keep their onboard queue. To go back further, check out the previous commit and
 repeat step 10. Nothing here migrated the database, so there is no schema to roll back.
 
-## 12. Tear down
+## 12. Tear down (manual path)
 
 ```bash
 docker compose down -v
@@ -308,7 +488,7 @@ or a backup:
 - each Field Station credential that pointed at this host: revoke it and issue a new one in the portal if
   its secret was ever copied onto the host.
 
-## 13. After go-live (do not do these before the host is live)
+## 13. After go-live (do not do these before the host is live) (manual path)
 
 1. `deploy/system-endpoints.json` on `main`, in a pull request: the landing page sends visitors to the
    Vercel staging, and this host serves no page, so it is not a candidate `url`. Its health URL,
@@ -345,6 +525,10 @@ The CA to trust is `/data/caddy/pki/authorities/local/root.crt` in the `caddy` c
 (`docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt .`).
 
 ### Results of the rehearsal of 2026-11-07 (sandbox, amd64)
+
+Recorded before 2026-11-10. Since then Caddy also serves `/api/*` and `/socket.io/*` on 443, so
+`/api/auth/login` no longer answers 404 there; `/api/internal/*` still does. The new routes have not been
+rehearsed.
 
 The backend image was built from `backend/Dockerfile` with two sandbox-only differences: `NODE_IMAGE=node:22-bookworm`
 in place of the slim image, and no apt step, because the sandbox's proxy refuses `deb.debian.org`. The full image already

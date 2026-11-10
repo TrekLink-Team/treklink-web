@@ -1,0 +1,406 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  TrekLink web system on one EC2 host (Caddy, Mosquitto, broker-hook-proxy, backend) with the web app
+  on S3 and CloudFront. Deployed and updated by deploy/aws/up.sh; deleted by deploy/aws/down.sh.
+
+# Region: ap-southeast-2 (Sydney). The organisation's SCP denies EC2 in ap-southeast-1. Neon stays the
+# database and is reached over the internet. Admin access goes through SSM Session Manager: no SSH port,
+# no key pair, no IAM user.
+
+Parameters:
+  Stage:
+    Type: String
+    Default: staging
+    AllowedPattern: "^[a-z][a-z0-9-]{1,19}$"
+    Description: Name of the environment. Also the SSM path /treklink/<Stage>/ the host reads.
+  InstanceType:
+    Type: String
+    Default: t4g.small
+    AllowedValues: [t4g.small, t4g.medium, t4g.large]
+    Description: Graviton (arm64) type. t4g.small (2 GB) is the free-plan eligible default.
+  RootVolumeGiB:
+    Type: Number
+    Default: 20
+    MinValue: 12
+    MaxValue: 100
+    Description: Size of the encrypted gp3 root volume.
+  ImageId:
+    Type: String
+    Default: ""
+    AllowedPattern: "^(ami-[0-9a-f]{8,17})?$"
+    Description: >-
+      Empty takes the latest Amazon Linux 2023 arm64 AMI from the public SSM parameter. up.sh passes the
+      AMI the instance already runs, so an update never replaces the instance because AWS published a
+      newer AMI (up.sh --new-ami opts in).
+  BudgetEmail:
+    Type: String
+    AllowedPattern: "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+    ConstraintDescription: must be an email address
+    Description: Receives the 80 % alert of the monthly budget.
+  BudgetLimitUsd:
+    Type: Number
+    Default: 40
+    MinValue: 1
+    Description: Monthly cost budget of the account, in USD.
+
+Conditions:
+  UseLatestAmi: !Equals [!Ref ImageId, ""]
+
+Resources:
+  # ---- Storage ----
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-after-14-days
+            Status: Enabled
+            ExpirationInDays: 14
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      Tags:
+        - Key: Project
+          Value: treklink
+        - Key: Stage
+          Value: !Ref Stage
+
+  ArtifactBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ArtifactBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt ArtifactBucket.Arn
+              - !Sub "${ArtifactBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: Project
+          Value: treklink
+        - Key: Stage
+          Value: !Ref Stage
+
+  # Only this distribution may read the web app, through Origin Access Control.
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontRead
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${FrontendBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${FrontendDistribution}"
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt FrontendBucket.Arn
+              - !Sub "${FrontendBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+  # ---- Web app: CloudFront in front of the private bucket ----
+  FrontendOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${AWS::StackName}-frontend"
+        Description: TrekLink web app bucket
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  FrontendDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: !Sub "TrekLink web app (${Stage})"
+        Enabled: true
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        PriceClass: PriceClass_200
+        DefaultRootObject: index.html
+        Origins:
+          - Id: frontend-bucket
+            DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt FrontendOriginAccessControl.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+        DefaultCacheBehavior:
+          TargetOriginId: frontend-bucket
+          # Plain HTTP is answered with a redirect to HTTPS; content is served over HTTPS only.
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          # Managed policy CachingOptimized. It follows the Cache-Control the host sets on each object:
+          # no-cache for index.html, a year for the hashed files under assets/.
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+        # The web app routes on the client: a path the bucket does not hold answers index.html with 200.
+        # The bucket gives CloudFront no list right, so a missing object is a 403, not a 404.
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 10
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 10
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+      Tags:
+        - Key: Project
+          Value: treklink
+        - Key: Stage
+          Value: !Ref Stage
+
+  # ---- Host ----
+  HostRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: TrekLink host, SSM managed, reads its own parameters, deploys the web app
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
+      Policies:
+        - PolicyName: treklink-host
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # SecureString values use the AWS managed key aws/ssm, whose key policy allows decryption
+              # through SSM for principals of this account, so no KMS statement is needed.
+              - Sid: ReadOwnParameters
+                Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/treklink/${Stage}"
+                  - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/treklink/${Stage}/*"
+              - Sid: ListBuckets
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource:
+                  - !GetAtt ArtifactBucket.Arn
+                  - !GetAtt FrontendBucket.Arn
+              - Sid: ReadWriteObjects
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub "${ArtifactBucket.Arn}/*"
+                  - !Sub "${FrontendBucket.Arn}/*"
+              - Sid: InvalidateOwnDistribution
+                Effect: Allow
+                Action:
+                  - cloudfront:CreateInvalidation
+                  - cloudfront:GetInvalidation
+                Resource: !Sub "arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${FrontendDistribution}"
+      Tags:
+        - Key: Project
+          Value: treklink
+        - Key: Stage
+          Value: !Ref Stage
+
+  HostInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref HostRole
+
+  # Inbound 80 (ACME HTTP-01 and the redirect), 443 (API) and 8883 (MQTT over TLS) only. No SSH.
+  HostSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: TrekLink host, HTTP, HTTPS and MQTT over TLS
+      SecurityGroupIngress:
+        - Description: HTTP, ACME challenge and redirect
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - Description: HTTPS, API and socket
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - Description: MQTT over TLS
+          IpProtocol: tcp
+          FromPort: 8883
+          ToPort: 8883
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "treklink-${Stage}"
+        - Key: Project
+          Value: treklink
+
+  Host:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !If
+        - UseLatestAmi
+        - "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64}}"
+        - !Ref ImageId
+      IamInstanceProfile: !Ref HostInstanceProfile
+      SecurityGroupIds:
+        - !GetAtt HostSecurityGroup.GroupId
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeType: gp3
+            VolumeSize: !Ref RootVolumeGiB
+            Encrypted: true
+            DeleteOnTermination: true
+      # Runs once, at the first boot. deploy/aws/host/deploy.sh waits for it and checks its result.
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          set -euo pipefail
+          exec > >(tee -a /var/log/treklink-user-data.log) 2>&1
+          echo "treklink user data: start $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          dnf install -y docker git
+          systemctl enable --now docker
+          usermod -aG docker ec2-user
+          # Amazon Linux 2023 packages neither the Compose plugin nor a recent Buildx; both come from
+          # their GitHub releases, pinned.
+          case "$(uname -m)" in
+            aarch64) compose_arch=aarch64; buildx_arch=arm64 ;;
+            x86_64) compose_arch=x86_64; buildx_arch=amd64 ;;
+            *) echo "unsupported architecture $(uname -m)"; exit 1 ;;
+          esac
+          plugins=/usr/local/lib/docker/cli-plugins
+          mkdir -p "$plugins"
+          curl -fsSL --retry 5 -o "$plugins/docker-compose" \
+            "https://github.com/docker/compose/releases/download/v2.32.4/docker-compose-linux-${compose_arch}"
+          curl -fsSL --retry 5 -o "$plugins/docker-buildx" \
+            "https://github.com/docker/buildx/releases/download/v0.19.3/buildx-v0.19.3.linux-${buildx_arch}"
+          chmod 0755 "$plugins/docker-compose" "$plugins/docker-buildx"
+          docker compose version
+          docker buildx version
+          # 2 GB of swap: building the backend image needs more than 2 GB of memory at its peak.
+          if [ ! -f /swapfile ]; then
+            dd if=/dev/zero of=/swapfile bs=1M count=2048 status=none
+            chmod 0600 /swapfile
+            mkswap /swapfile
+            echo '/swapfile none swap sw 0 0' >> /etc/fstab
+          fi
+          swapon -a
+          mkdir -p /opt/treklink/logs
+          chmod 0700 /opt/treklink
+          touch /opt/treklink/.user-data-done
+          echo "treklink user data: done $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      Tags:
+        - Key: Name
+          Value: !Sub "treklink-${Stage}"
+        - Key: Project
+          Value: treklink
+        - Key: Stage
+          Value: !Ref Stage
+
+  HostElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref Host
+      Tags:
+        - Key: Name
+          Value: !Sub "treklink-${Stage}"
+        - Key: Project
+          Value: treklink
+
+  # ---- Cost guard ----
+  MonthlyBudget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: !Sub "treklink-${Stage}-monthly"
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: !Ref BudgetLimitUsd
+          Unit: USD
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref BudgetEmail
+
+Outputs:
+  InstanceId:
+    Value: !Ref Host
+  ElasticIp:
+    Value: !GetAtt HostElasticIp.PublicIp
+  HostName:
+    Description: The API, socket and broker host name (the Elastic IP with dashes, on sslip.io)
+    Value: !Join
+      - ""
+      - - !Join ["-", !Split [".", !GetAtt HostElasticIp.PublicIp]]
+        - ".sslip.io"
+  FrontendUrl:
+    Value: !Sub "https://${FrontendDistribution.DomainName}"
+  FrontendBucketName:
+    Value: !Ref FrontendBucket
+  ArtifactBucketName:
+    Value: !Ref ArtifactBucket
+  DistributionId:
+    Value: !Ref FrontendDistribution
