@@ -1,10 +1,12 @@
 # The AWS field host of D-098 (specs/platform/design.md §2.5, deploy/aws/RUNBOOK.md). From this folder,
 # with deploy/aws/.env filled in from .env.example:
 #   docker compose up -d --build
-# Four services: Caddy (certificate, HTTPS health check), Mosquitto with go-auth (MQTT over TLS on 8883),
-# broker-hook-proxy (adds X-Broker-Secret to the go-auth calls) and the backend (broker hooks, the
-# gateway-sync subscriber, scheduled jobs). Host ports: 80, 443 and 8883 only. The backend writes the Neon
-# database of the Vercel staging and never migrates or seeds it.
+# Four services: Caddy (certificate; HTTPS for the API under /api and the socket under /socket.io, never
+# the broker hooks), Mosquitto with go-auth (MQTT over TLS on 8883), broker-hook-proxy (adds
+# X-Broker-Secret to the go-auth calls) and the backend (API, broker hooks, the gateway-sync subscriber,
+# scheduled jobs). Host ports: 80, 443 and 8883 only. The backend writes the Neon database of the Vercel
+# staging and never migrates or seeds it. deploy/aws/up.sh writes .env on the AWS host from SSM Parameter
+# Store, CORS_ORIGINS (the CloudFront origin of the web app) included; the backend reads it through env_file.
 name: treklink-field
 
 x-logging: &logging

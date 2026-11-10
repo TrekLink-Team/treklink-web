@@ -1,7 +1,9 @@
-# Caddy on the AWS field host (specs/platform/design.md §2.5). It is the host's only ACME client: it
+# Caddy on the AWS host (specs/platform/design.md §2.5, RUNBOOK.md). It is the host's only ACME client: it
 # obtains and renews the Let's Encrypt certificate of MQTT_DOMAIN (HTTP-01 on port 80), which the broker
-# also uses for MQTT over TLS on 8883 (mosquitto/start.sh). On 443 it serves the backend's health check and
-# nothing else; the broker hooks and the rest of the API stay on the compose network.
+# also uses for MQTT over TLS on 8883 (mosquitto/start.sh). On 443 it serves the backend's public API
+# (/api/*) and the live socket (/socket.io/*, WebSocket upgrade included, which reverse_proxy passes on by
+# itself), so the web app on CloudFront can call it (one-command deploy, 2026-11-10). The broker hooks
+# (/api/internal/*) stay on the compose network: 443 answers 404 for them, as for every other path.
 {
 	email {$ACME_EMAIL}
 	# Let's Encrypt only, so the certificate stays under the folder mosquitto/start.sh reads.
@@ -12,7 +14,15 @@
 }
 
 {$MQTT_DOMAIN} {
-	handle /api/health {
+	# The broker hooks answer on the compose network only.
+	handle /api/internal/* {
+		respond "Not found" 404
+	}
+	handle /api/* {
+		reverse_proxy backend:3000
+	}
+	# Socket.io: long polling and the WebSocket upgrade, which reverse_proxy passes on by itself.
+	handle /socket.io/* {
 		reverse_proxy backend:3000
 	}
 	handle {

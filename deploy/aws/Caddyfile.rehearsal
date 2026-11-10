@@ -1,5 +1,6 @@
 # Rehearsal only (compose.rehearsal.yml): Caddy's internal CA in place of Let's Encrypt, so the stack runs
-# where the host name has no public DNS. Everything else is the production Caddyfile.
+# where the host name has no public DNS. Everything else, the routes included,
+# is the production Caddyfile.
 {
 	local_certs
 	skip_install_trust
@@ -9,7 +10,15 @@
 }
 
 {$MQTT_DOMAIN} {
-	handle /api/health {
+	# The broker hooks answer on the compose network only.
+	handle /api/internal/* {
+		respond "Not found" 404
+	}
+	handle /api/* {
+		reverse_proxy backend:3000
+	}
+	# Socket.io: long polling and the WebSocket upgrade, which reverse_proxy passes on by itself.
+	handle /socket.io/* {
 		reverse_proxy backend:3000
 	}
 	handle {
