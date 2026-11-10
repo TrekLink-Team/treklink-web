@@ -505,6 +505,10 @@ check_health() {
     200 | "not checked"*) ;;
     *) die "GET $api answered $api_code from this machine" ;;
   esac
+  case "$web_code" in
+    200 | "not checked"*) ;;
+    *) die "GET $web answered $web_code from this machine" ;;
+  esac
 }
 
 main() {

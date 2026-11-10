@@ -48,12 +48,32 @@ parse_args() {
 empty_bucket() {
   local bucket="$1"
   [ -n "$bucket" ] || return 0
-  if ! awsc s3api head-bucket --bucket "$bucket" >/dev/null 2>&1; then
-    log "  $bucket: already gone"
-    return 0
+  local err batch deleted=0
+  err="$(mktemp)"
+  if ! awsc s3api head-bucket --bucket "$bucket" >/dev/null 2>"$err"; then
+    if grep -qE '\(404\)|Not Found|NoSuchBucket' "$err"; then
+      rm -f "$err"
+      log "  $bucket: already gone"
+      return 0
+    fi
+    die "cannot read bucket $bucket: $(tr '\n' ' ' < "$err")"
   fi
+  rm -f "$err"
   awsc s3 rm "s3://$bucket" --recursive --only-show-errors
-  log "  $bucket: emptied"
+  # The template leaves versioning off, but a bucket that had it on keeps old versions and delete markers,
+  # which are billed and block the bucket delete. Remove them in batches of up to 1000.
+  while :; do
+    batch="$(awsc s3api list-object-versions --bucket "$bucket" --max-items 1000 \
+      --query '{Objects: [Versions, DeleteMarkers][][].{Key: Key, VersionId: VersionId}}' --output json)"
+    printf '%s' "$batch" | grep -q '"Key"' || break
+    awsc s3api delete-objects --bucket "$bucket" --delete "$batch" --output text >/dev/null
+    deleted=$((deleted + 1))
+  done
+  if [ "$deleted" -gt 0 ]; then
+    log "  $bucket: emptied, old versions and delete markers removed"
+  else
+    log "  $bucket: emptied"
+  fi
 }
 
 delete_parameters() {
