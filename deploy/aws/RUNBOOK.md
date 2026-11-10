@@ -194,8 +194,8 @@ host migrates the database, so there is no schema to roll back.
 ### What has not been tested (2026-11-10)
 
 The scripts and the template were checked with shellcheck, cfn-lint, a dry run and a run against a mock
-AWS CLI, without AWS credentials. Nothing has been deployed to AWS yet, so the first real `up.sh` is also
-the first test of: the stack creation in the team account under its SCPs (IAM role creation, Budgets,
+AWS CLI, without AWS credentials. No run has completed in AWS yet (the first attempts are recorded below), so
+the first complete `up.sh` is also the first test of: the stack creation in the team account under its SCPs (IAM role creation, Budgets,
 CloudFront), the first-boot set-up on Amazon Linux 2023 (Compose v2.32.4 and Buildx v0.19.3 from GitHub),
 the backend and web app builds on a `t4g.small` (the host prints the available memory before each build
 and the swap in use after the web app build; record them), the certificate for the sslip.io name, and the web app
