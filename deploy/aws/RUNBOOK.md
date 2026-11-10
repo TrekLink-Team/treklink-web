@@ -201,6 +201,22 @@ the backend and web app builds on a `t4g.small` (the host prints the available m
 and the swap in use after the web app build; record them), the certificate for the sslip.io name, and the web app
 calling the API across origins. Record the result here.
 
+**First runs in the team account, 2026-11-10.** Three `up.sh` runs, all stopped at the stack creation and
+rolled back; each empty stack was deleted, and no instance, Elastic IP, bucket, budget or parameter was left.
+
+1. 14:08: `FrontendDistribution` failed with "Your account must be verified before you can add new CloudFront
+   resources" (request ID 379b5ee3-cc54-47ef-90f7-b53b4e155ff5). The web app moved to the host
+   (`FRONTEND_HOSTING=host`).
+2. 14:44 and 15:00: `Host` failed with EC2 "This account is currently blocked and not recognized as a valid
+   account". An `ec2 run-instances --dry-run` at 15:00 answered "Request would have succeeded", so a dry run does
+   not show this block. The AWS settings page shows "Actions are currently unavailable. To protect your account,
+   some actions have been disabled."
+
+What worked: credentials and the `ap-southeast-2` region, the change set, the IAM role and instance profile
+(the inline SSM agent policy was accepted), the artifact bucket and its policy, the security group, and the
+budget. Support case 179429676400684 (Account Activation, Account Verification) was opened on 2026-11-10 at
+14:46. Run `up.sh` again after AWS answers; until then the Vercel staging stays the system.
+
 ---
 
 # The manual path (written before 2026-11-10)
