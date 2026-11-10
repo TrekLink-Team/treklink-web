@@ -104,6 +104,29 @@ export const useOrganizationLossCases = (organizationId: string) =>
     enabled: organizationId !== '',
   });
 
+// The states the server counts as open: a device with one cannot be reported again (devices
+// `hasOpenLossCase`, index `loss_cases_one_open_per_device`, MSG29).
+export const OPEN_LOSS_STATES: readonly LossCaseState[] = ['REPORTED', 'SEARCHING', 'CONFIRMED'];
+
+// devices api-design 18, one read per open state: the caller's open cases, so a contract's Devices tab
+// offers Report lost only on a unit with none (screen 4.4 Actions, treklink-web#469). An Org Manager
+// reads its own organization. Under `['loss-cases']`, so a report refetches it.
+export const useOpenLossCases = (enabled: boolean) =>
+  useQuery({
+    queryKey: [...lossCaseKeys.all, 'open'] as const,
+    queryFn: async () => {
+      const pages = await Promise.all(
+        OPEN_LOSS_STATES.map((state) =>
+          apiClient<Page<LossCase>>(
+            `/loss-cases${queryString({ state, pageNumber: 1, pageSize: LOSS_PICKER_PAGE_SIZE })}`,
+          ),
+        ),
+      );
+      return pages.flatMap((page) => page.items);
+    },
+    enabled,
+  });
+
 export const useLossCase = (id: string | undefined) =>
   useQuery({
     queryKey: lossCaseKeys.detail(id ?? ''),

@@ -4,6 +4,7 @@ import { Cpu, Flag, HandCoins, Tag, Undo2 } from 'lucide-react';
 import type { ContractDetail, ContractDevice } from '../../entities/contract/api';
 import { NEXT_STEP_LABELS, nextStepPath } from '../../entities/device/api';
 import { DeviceRef } from '../../entities/device/DeviceRef';
+import { useOpenLossCases } from '../../entities/loss-case/api';
 import { VariantCard } from '../../entities/variant/VariantCard';
 import { VariantSubtitle, VariantTile } from '../../entities/variant/VariantTile';
 import { formatDateTime } from '../../shared/lib/format';
@@ -55,6 +56,16 @@ export const DevicesTab: React.FC<Props> = ({
   const showKey = scope === 't' && contract.status === 'APPROVED';
   const closed = contract.status === 'CLOSED';
   const canReport = viewer === 'manager' && !closed;
+  // rentals api-design 03 names no loss case, so the open ones come from devices api-design 18: a unit
+  // with one shows it and cannot be reported again (screen 4.4, treklink-web#469).
+  const openLoss = useOpenLossCases(canReport && contract.devices.some(isOut));
+  const openCaseOf = (device: ContractDevice) =>
+    openLoss.data?.find((item) => item.device.id === device.deviceId);
+  const backOf = (device: ContractDevice) => {
+    if (device.lostAt) return 'Lost';
+    const open = isOut(device) ? openCaseOf(device) : undefined;
+    return open ? `Loss reported, ${open.code}` : null;
+  };
   const canCredit = viewer === 'staff';
   const creditable = (device: ContractDevice) =>
     canCredit &&
@@ -88,8 +99,19 @@ export const DevicesTab: React.FC<Props> = ({
     {
       key: 'back',
       label: 'Back',
-      render: (device) => (device.lostAt ? 'Lost' : when(device.checkedInAt)),
-      text: (device) => (device.lostAt ? 'Lost' : (device.checkedInAt ?? '')),
+      render: (device) => {
+        const back = backOf(device);
+        if (!back || device.lostAt) return back ?? when(device.checkedInAt);
+        return (
+          <Link
+            to={`/${scope}/loss-cases`}
+            className={`${LINK} inline-flex min-h-6 items-center text-body-sm`}
+          >
+            {back}
+          </Link>
+        );
+      },
+      text: (device) => backOf(device) ?? device.checkedInAt ?? '',
       compact: true,
     },
     ...(showKey
@@ -182,7 +204,11 @@ export const DevicesTab: React.FC<Props> = ({
       label: 'Report lost',
       icon: <Flag />,
       destructive: true,
-      allowed: (device) => canReport && isOut(device),
+      allowed: (device) => canReport && isOut(device) && !openCaseOf(device),
+      unavailableReason: (device) => {
+        const open = canReport && isOut(device) ? openCaseOf(device) : undefined;
+        return open ? `Already reported: loss case ${open.code} is open.` : undefined;
+      },
       onSelect: onReportLost,
     },
   ];
