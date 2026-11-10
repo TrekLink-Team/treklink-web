@@ -61,12 +61,19 @@ empty_bucket() {
   rm -f "$err"
   awsc s3 rm "s3://$bucket" --recursive --only-show-errors
   # The template leaves versioning off, but a bucket that had it on keeps old versions and delete markers,
-  # which are billed and block the bucket delete. Remove them in batches of up to 1000.
+  # which are billed and block the bucket delete. DeleteObjects takes at most 1000 objects, and
+  # --max-items limits versions and delete markers separately, so 500 of each keeps a batch at 1000.
+  # DeleteObjects reports a failed object in Errors with exit 0: any error stops the teardown.
+  local failed
   while :; do
-    batch="$(awsc s3api list-object-versions --bucket "$bucket" --max-items 1000 \
+    batch="$(awsc s3api list-object-versions --bucket "$bucket" --max-items 500 \
       --query '{Objects: [Versions, DeleteMarkers][][].{Key: Key, VersionId: VersionId}}' --output json)"
     printf '%s' "$batch" | grep -q '"Key"' || break
-    awsc s3api delete-objects --bucket "$bucket" --delete "$batch" --output text >/dev/null
+    failed="$(awsc s3api delete-objects --bucket "$bucket" --delete "$batch" \
+      --query 'Errors[].[Key, VersionId, Code]' --output text)"
+    if [ -n "$failed" ] && [ "$failed" != "None" ]; then
+      die "could not delete these object versions in $bucket (key, version, error): $(printf '%s' "$failed" | head -n 20 | tr '\t\n' ' ;')"
+    fi
     deleted=$((deleted + 1))
   done
   if [ "$deleted" -gt 0 ]; then
