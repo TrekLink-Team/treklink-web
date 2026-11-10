@@ -111,7 +111,8 @@ stack_output() {
   local value
   value="$(awsc cloudformation describe-stacks --stack-name "$(stack_name)" \
     --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue | [0]" --output text 2>/dev/null || true)"
-  if [ "$value" = "None" ]; then value=""; fi
+  # "none" is the template's value for an output that does not apply (no CloudFront in host mode).
+  if [ "$value" = "None" ] || [ "$value" = "none" ]; then value=""; fi
   printf '%s' "$value"
 }
 

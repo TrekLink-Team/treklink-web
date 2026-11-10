@@ -2,8 +2,9 @@
 # obtains and renews the Let's Encrypt certificate of MQTT_DOMAIN (HTTP-01 on port 80), which the broker
 # also uses for MQTT over TLS on 8883 (mosquitto/start.sh). On 443 it serves the backend's public API
 # (/api/*) and the live socket (/socket.io/*, WebSocket upgrade included, which reverse_proxy passes on by
-# itself), so the web app on CloudFront can call it (one-command deploy, 2026-11-10). The broker hooks
-# (/api/internal/*) stay on the compose network: 443 answers 404 for them, as for every other path.
+# itself), and every other path from the web app build in /srv/www/current, with index.html for the
+# client-side routes (one-command deploy, 2026-11-10; the web app is on the host until the account may use
+# CloudFront). The broker hooks (/api/internal/*) stay on the compose network: 443 answers 404 for them.
 {
 	email {$ACME_EMAIL}
 	# Let's Encrypt only, so the certificate stays under the folder mosquitto/start.sh reads.
@@ -25,7 +26,14 @@
 	handle /socket.io/* {
 		reverse_proxy backend:3000
 	}
+	# The web app: hashed files under /assets/ are cached for a year, everything else is revalidated.
 	handle {
-		respond "Not found" 404
+		root * /srv/www/current
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		@other not path /assets/*
+		header @other Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
 	}
 }

@@ -2,7 +2,8 @@
 # Runs ON the AWS host, as root, through SSM Run Command started by deploy/aws/up.sh. Never run it on a
 # laptop. It installs the uploaded release into /opt/treklink/app, writes deploy/aws/.env from SSM
 # Parameter Store, builds and starts compose (caddy, mosquitto, broker-hook-proxy, backend), builds the
-# web app in a Node container, publishes it to the frontend bucket and invalidates CloudFront.
+# web app in a Node container, and publishes it: to /opt/treklink/www for Caddy when the host serves it
+# (--frontend-bucket none), else to the frontend bucket with a CloudFront invalidation.
 #
 # Output stays short: step markers and results. The long build logs go to /opt/treklink/logs/<run>.log,
 # and the last lines of that log are printed when a step fails. No secret is printed or logged: the
@@ -47,6 +48,9 @@ APP="$BASE/app"
 NEW="$BASE/app.new"
 OLD="$BASE/app.old"
 LOG="$BASE/logs/$RUN_ID.log"
+WEB_ROOT="$BASE/www"
+HOST_SERVES_WEB=0
+if [ "$FRONTEND_BUCKET" = "none" ]; then HOST_SERVES_WEB=1; fi
 COMPOSE_DIR="$APP/deploy/aws"
 NODE_IMAGE="node:22-bookworm-slim"
 CURRENT_STEP="start"
@@ -160,6 +164,7 @@ rm -f "$PARAMS_JSON"
   echo "FIELD_STATION_BROKER_URL='mqtts://$HOST_NAME:8883'"
   echo "VITE_API_BASE_URL='https://$HOST_NAME/api'"
   echo "VITE_WS_URL='https://$HOST_NAME'"
+  if [ "$HOST_SERVES_WEB" -eq 1 ]; then echo "WEB_ROOT='$WEB_ROOT'"; fi
   echo "BACKEND_TAG='$(printf '%s' "$COMMIT" | cut -c1-12)'"
 } >> "$ENV_FILE"
 chmod 0600 "$ENV_FILE"
@@ -179,6 +184,7 @@ echo "  treklink-backend:$(printf '%s' "$COMMIT" | cut -c1-12) built"
 
 # ---------------------------------------------------------------------------------------------------
 step "start compose"
+if [ "$HOST_SERVES_WEB" -eq 1 ]; then mkdir -p "$WEB_ROOT/releases"; fi
 quiet compose up -d --remove-orphans
 if [ "${#recreate[@]}" -gt 0 ]; then
   echo "  mounted files changed, recreating: ${recreate[*]}"
@@ -222,23 +228,38 @@ echo "  swap in use after the build: $(free -m | awk '/^Swap:/ {print $3}') MiB"
 echo "  frontend/dist: $(find "$APP/frontend/dist" -type f | wc -l) files"
 
 # ---------------------------------------------------------------------------------------------------
-step "publish the web app to s3://$FRONTEND_BUCKET and invalidate CloudFront"
-DIST="$APP/frontend/dist"
-# Hashed files first, cached for a year; then everything else, index.html included, revalidated on every
-# request; then the old hashed files are removed.
-if [ -d "$DIST/assets" ]; then
-  quiet aws s3 sync "$DIST/assets" "s3://$FRONTEND_BUCKET/assets" --only-show-errors \
-    --cache-control "public,max-age=31536000,immutable"
+if [ "$HOST_SERVES_WEB" -eq 1 ]; then
+  step "publish the web app to $WEB_ROOT for Caddy"
+  # Each build goes to its own folder and the "current" link moves in one rename, so Caddy never serves a
+  # half-copied build. Caddy sees the link inside its mount, so the link target is relative.
+  release="releases/$RUN_ID"
+  cp -a "$APP/frontend/dist" "$WEB_ROOT/$release"
+  chmod -R a+rX "$WEB_ROOT/$release"
+  ln -sfn "$release" "$WEB_ROOT/current.new"
+  mv -T "$WEB_ROOT/current.new" "$WEB_ROOT/current"
+  # Keep the two newest builds.
+  find "$WEB_ROOT/releases" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -rn | tail -n +3 \
+    | cut -d' ' -f2- | xargs -r rm -rf
+  echo "  web app $release is live at https://$HOST_NAME/"
+else
+  step "publish the web app to s3://$FRONTEND_BUCKET and invalidate CloudFront"
+  DIST="$APP/frontend/dist"
+  # Hashed files first, cached for a year; then everything else, index.html included, revalidated on every
+  # request; then the old hashed files are removed.
+  if [ -d "$DIST/assets" ]; then
+    quiet aws s3 sync "$DIST/assets" "s3://$FRONTEND_BUCKET/assets" --only-show-errors \
+      --cache-control "public,max-age=31536000,immutable"
+  fi
+  quiet aws s3 sync "$DIST" "s3://$FRONTEND_BUCKET" --only-show-errors --delete --exclude "assets/*" \
+    --cache-control "no-cache"
+  if [ -d "$DIST/assets" ]; then
+    quiet aws s3 sync "$DIST/assets" "s3://$FRONTEND_BUCKET/assets" --only-show-errors --delete \
+      --cache-control "public,max-age=31536000,immutable"
+  fi
+  invalidation="$(aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths '/*' \
+    --query 'Invalidation.Id' --output text)"
+  echo "  invalidation $invalidation started (CloudFront applies it within a few minutes)"
 fi
-quiet aws s3 sync "$DIST" "s3://$FRONTEND_BUCKET" --only-show-errors --delete --exclude "assets/*" \
-  --cache-control "no-cache"
-if [ -d "$DIST/assets" ]; then
-  quiet aws s3 sync "$DIST/assets" "s3://$FRONTEND_BUCKET/assets" --only-show-errors --delete \
-    --cache-control "public,max-age=31536000,immutable"
-fi
-invalidation="$(aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths '/*' \
-  --query 'Invalidation.Id' --output text)"
-echo "  invalidation $invalidation started (CloudFront applies it within a few minutes)"
 
 # ---------------------------------------------------------------------------------------------------
 step "health check from the host"
