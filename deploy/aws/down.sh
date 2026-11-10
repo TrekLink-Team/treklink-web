@@ -61,12 +61,12 @@ empty_bucket() {
   rm -f "$err"
   awsc s3 rm "s3://$bucket" --recursive --only-show-errors
   # The template leaves versioning off, but a bucket that had it on keeps old versions and delete markers,
-  # which are billed and block the bucket delete. DeleteObjects takes at most 1000 objects, and
-  # --max-items limits versions and delete markers separately, so 500 of each keeps a batch at 1000.
+  # which are billed and block the bucket delete. DeleteObjects takes at most 1000 objects. One service
+  # page (--no-paginate) with --max-keys 1000 holds at most 1000 versions and delete markers together.
   # DeleteObjects reports a failed object in Errors with exit 0: any error stops the teardown.
   local failed
   while :; do
-    batch="$(awsc s3api list-object-versions --bucket "$bucket" --max-items 500 \
+    batch="$(awsc s3api list-object-versions --bucket "$bucket" --no-paginate --max-keys 1000 \
       --query '{Objects: [Versions, DeleteMarkers][][].{Key: Key, VersionId: VersionId}}' --output json)"
     printf '%s' "$batch" | grep -q '"Key"' || break
     failed="$(awsc s3api delete-objects --bucket "$bucket" --delete "$batch" \
