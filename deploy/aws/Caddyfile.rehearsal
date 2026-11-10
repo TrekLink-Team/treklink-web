@@ -1,6 +1,6 @@
 # Rehearsal only (compose.rehearsal.yml): Caddy's internal CA in place of Let's Encrypt, so the stack runs
-# where the host name has no public DNS. Everything else, the routes included,
-# is the production Caddyfile.
+# where the host name has no public DNS. The API, socket and hook routes match the production Caddyfile;
+# the rehearsal serves no web app, so other paths answer 404.
 {
 	local_certs
 	skip_install_trust

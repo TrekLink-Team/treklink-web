@@ -234,6 +234,18 @@ if [ "$HOST_SERVES_WEB" -eq 1 ]; then
   # half-copied build. Caddy sees the link inside its mount, so the link target is relative.
   release="releases/$RUN_ID"
   cp -a "$APP/frontend/dist" "$WEB_ROOT/$release"
+  mkdir -p "$WEB_ROOT/$release/assets"
+  # .own-assets lists this build's own hashed files. The previous build's own files are copied in as well,
+  # so a browser that loaded it can still fetch its chunks after the switch; only one build back, so the
+  # folder does not grow. Names are content hashes: no file of the new build is overwritten.
+  find "$WEB_ROOT/$release/assets" -maxdepth 1 -type f -printf '%f\n' > "$WEB_ROOT/$release/.own-assets"
+  if [ -f "$WEB_ROOT/current/.own-assets" ]; then
+    while IFS= read -r name; do
+      if [ -f "$WEB_ROOT/current/assets/$name" ] && [ ! -e "$WEB_ROOT/$release/assets/$name" ]; then
+        cp "$WEB_ROOT/current/assets/$name" "$WEB_ROOT/$release/assets/"
+      fi
+    done < "$WEB_ROOT/current/.own-assets"
+  fi
   chmod -R a+rX "$WEB_ROOT/$release"
   ln -sfn "$release" "$WEB_ROOT/current.new"
   mv -T "$WEB_ROOT/current.new" "$WEB_ROOT/current"
