@@ -309,10 +309,12 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: (decided?: Contrac
                 {...invalid('appointment', appointmentError)}
               />
             </Field>
+            {/* Stacked below 640 px, each button keeps its 44 px height: a `flex-1` in the column gave
+                it a zero basis and 22 px (treklink-web#467, screen 5.3 "Mobile"). */}
             <div className="flex flex-col gap-3 sm:flex-row">
               <button
                 type="button"
-                className={`${SECONDARY_BUTTON} flex-1`}
+                className={`${SECONDARY_BUTTON} sm:flex-1`}
                 disabled={pending}
                 onClick={() => setRejecting(true)}
               >
@@ -320,7 +322,7 @@ const RequestPanel: React.FC<{ contract: Contract; onDecided: (decided?: Contrac
               </button>
               <button
                 type="button"
-                className={`${PRIMARY_BUTTON} flex-1`}
+                className={`${PRIMARY_BUTTON} sm:flex-1`}
                 disabled={pending}
                 onClick={() => void approve()}
               >
@@ -458,8 +460,10 @@ export const ContractApprovalPage: React.FC = () => {
     {
       key: 'variant',
       label: 'Variant x qty',
+      // The value wraps: the details pane shows it in a 300 px column, where a no-wrap value made the
+      // pane scroll sideways (treklink-web#466, chapter 06 §11.1).
       render: (contract) => (
-        <span className="whitespace-nowrap">
+        <span>
           {variantName(contract.hardwareVariant)} x {contract.quantity}
         </span>
       ),

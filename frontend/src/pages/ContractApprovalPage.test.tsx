@@ -142,6 +142,22 @@ describe('ContractApprovalPage', () => {
     expect(within(panel).queryByText(/treklink-v3/)).toBeNull();
   });
 
+  it('wraps the variant value and keeps Approve and Reject 44 px high when stacked (#466, #467)', async () => {
+    renderPage();
+    // The no-wrap value made the 300 px pane scroll sideways; the queue and the pane share the render.
+    for (const value of await screen.findAllByText('TrekLink v3 x 5'))
+      expect(value.className).not.toContain('whitespace-nowrap');
+    fireEvent.click(screen.getByRole('button', { name: 'Show details of RC-2026-0004' }));
+    const panel = screen.getByRole('complementary', { name: 'RC-2026-0004' });
+    // In the stacked column below 640 px a bare flex-1 gave each button a zero basis and 22 px.
+    for (const name of ['Approve', 'Reject']) {
+      const classes = within(panel).getByRole('button', { name }).className.split(/\s+/);
+      expect(classes).toContain('h-11');
+      expect(classes).toContain('sm:flex-1');
+      expect(classes).not.toContain('flex-1');
+    }
+  });
+
   it('says a request sent since D-092 already holds its devices, which approval keeps', async () => {
     requested.holdExpiresAt = '2099-01-01T03:00:00.000Z';
     try {
