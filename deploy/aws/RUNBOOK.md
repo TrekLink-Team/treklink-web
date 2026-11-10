@@ -1,9 +1,10 @@
 # Runbook: the AWS host (D-098)
 
 What it is: one always-on host running the MQTT broker and one backend instance, both written for the field
-flow of D-098 (`specs/platform/design.md` §2.5, `specs/platform/tasks.md` Phase 7). Since 2026-11-10 the
-same host also serves the whole API, and the web app is published to S3 behind CloudFront, so the system
-can run on AWS alone. Neon stays the database (`treklink_prod` on the branch `vercel-prod`), shared with the
+flow of D-098 (`specs/platform/design.md` §2.5, `specs/platform/tasks.md` Phase 7). The one-command deploy
+of 2026-11-10 is built so that the same host also serves the whole API and the web app is published to S3
+behind CloudFront, so the system can run on AWS alone. It has not been deployed yet (see "What has not been
+tested" below). Neon stays the database (`treklink_prod` on the branch `vercel-prod`), shared with the
 Vercel staging, which stays the fallback until AWS passes the W10 checks (leader ruling, 2026-11-10).
 
 There are two ways to deploy it:
@@ -188,7 +189,8 @@ The scripts and the template were checked with shellcheck, cfn-lint, a dry run a
 AWS CLI, without AWS credentials. Nothing has been deployed to AWS yet, so the first real `up.sh` is also
 the first test of: the stack creation in the team account under its SCPs (IAM role creation, Budgets,
 CloudFront), the first-boot set-up on Amazon Linux 2023 (Compose v2.32.4 and Buildx v0.19.3 from GitHub),
-the backend and web app builds on a `t4g.small`, the certificate for the sslip.io name, and the web app
+the backend and web app builds on a `t4g.small` (the host prints the available memory before each build
+and the swap in use after the web app build; record them), the certificate for the sslip.io name, and the web app
 calling the API across origins. Record the result here.
 
 ---

@@ -158,6 +158,8 @@ rm -f "$PARAMS_JSON"
   echo "MQTT_DOMAIN='$HOST_NAME'"
   echo "CORS_ORIGINS='$CORS_ORIGINS'"
   echo "FIELD_STATION_BROKER_URL='mqtts://$HOST_NAME:8883'"
+  echo "VITE_API_BASE_URL='https://$HOST_NAME/api'"
+  echo "VITE_WS_URL='https://$HOST_NAME'"
   echo "BACKEND_TAG='$(printf '%s' "$COMMIT" | cut -c1-12)'"
 } >> "$ENV_FILE"
 chmod 0600 "$ENV_FILE"
@@ -170,6 +172,7 @@ echo "  MQTT_DOMAIN $HOST_NAME, CORS_ORIGINS $CORS_ORIGINS"
 # ---------------------------------------------------------------------------------------------------
 step "build the backend image (the longest step on a t4g.small)"
 quiet compose config --quiet
+echo "  memory before the build: $(free -m | awk '/^Mem:/ {print $7 " MiB available"}'), swap $(free -m | awk '/^Swap:/ {print $3 "/" $2 " MiB used"}')"
 quiet compose build backend
 echo "  treklink-backend:$(printf '%s' "$COMMIT" | cut -c1-12) built"
 
@@ -197,18 +200,23 @@ compose ps --format 'table {{.Service}}\t{{.State}}\t{{.Status}}'
 # ---------------------------------------------------------------------------------------------------
 step "build the web app (Node in a container)"
 quiet docker pull "$NODE_IMAGE"
+echo "  memory before the build: $(free -m | awk '/^Mem:/ {print $7 " MiB available"}'), swap $(free -m | awk '/^Swap:/ {print $3 "/" $2 " MiB used"}')"
+# The services keep running during this build. The container limit keeps an out-of-memory kill inside
+# the build instead of letting the kernel pick the backend or the broker; it may use swap up to 3 GiB.
 quiet docker run --rm \
+  --memory=1536m --memory-swap=3072m \
   -v "$APP:/src" \
   -v treklink-npm-cache:/root/.npm \
   -w /src \
   -e CI=true \
-  -e NODE_OPTIONS=--max-old-space-size=1536 \
-  -e "VITE_API_BASE_URL=https://$HOST_NAME/api" \
-  -e "VITE_WS_URL=https://$HOST_NAME" \
+  -e NODE_OPTIONS=--max-old-space-size=1280 \
+  -e "VITE_API_BASE_URL=$(sed -n "s/^VITE_API_BASE_URL='\(.*\)'$/\1/p" "$ENV_FILE")" \
+  -e "VITE_WS_URL=$(sed -n "s/^VITE_WS_URL='\(.*\)'$/\1/p" "$ENV_FILE")" \
   -e "VITE_APP_ENV=$(sed -n "s/^VITE_APP_ENV='\(.*\)'$/\1/p" "$ENV_FILE")" \
   "$NODE_IMAGE" \
   sh -c 'npm ci -w frontend --no-audit --no-fund && npm run build -w frontend'
 [ -f "$APP/frontend/dist/index.html" ] || { echo "  the build produced no frontend/dist/index.html" >&2; exit 1; }
+echo "  swap in use after the build: $(free -m | awk '/^Swap:/ {print $3}') MiB"
 echo "  frontend/dist: $(find "$APP/frontend/dist" -type f | wc -l) files"
 
 # ---------------------------------------------------------------------------------------------------

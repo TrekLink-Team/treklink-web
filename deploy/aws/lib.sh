@@ -86,14 +86,23 @@ require_credentials() {
   log "AWS account $account, profile $PROFILE, region $REGION"
 }
 
-# Prints the stack status, or NONE when the stack does not exist.
+# Prints the stack status, or NONE when CloudFormation answers that the stack does not exist. Any other
+# error (no access, throttling, network) stops the script: reading it as NONE could make down.sh skip
+# billable resources. Callers run it as status="$(stack_status)", so set -e stops them too.
 stack_status() {
-  local status
+  local status err
+  err="$(mktemp)"
   if status="$(awsc cloudformation describe-stacks --stack-name "$(stack_name)" \
-    --query 'Stacks[0].StackStatus' --output text 2>/dev/null)"; then
+    --query 'Stacks[0].StackStatus' --output text 2>"$err")"; then
+    rm -f "$err"
     printf '%s' "$status"
-  else
+  elif grep -q 'does not exist' "$err"; then
+    rm -f "$err"
     printf 'NONE'
+  else
+    printf '%s failed: cannot read stack %s: %s\n' "$SCRIPT_NAME" "$(stack_name)" "$(tr '\n' ' ' < "$err")" >&2
+    rm -f "$err"
+    exit 1
   fi
 }
 

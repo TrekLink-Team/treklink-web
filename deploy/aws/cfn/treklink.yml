@@ -17,7 +17,7 @@ Parameters:
     Type: String
     Default: t4g.small
     AllowedValues: [t4g.small, t4g.medium, t4g.large]
-    Description: Graviton (arm64) type. t4g.small (2 GB) is the free-plan eligible default.
+    Description: Graviton (arm64) type. t4g.small (2 GB) is the default; it was on this account's free-plan eligible list in ap-southeast-2 on 2026-11-10, eligibility depends on the account.
   RootVolumeGiB:
     Type: Number
     Default: 20
@@ -177,8 +177,9 @@ Resources:
           AllowedMethods: [GET, HEAD]
           CachedMethods: [GET, HEAD]
           Compress: true
-          # Managed policy CachingOptimized. It follows the Cache-Control the host sets on each object:
-          # no-cache for index.html, a year for the hashed files under assets/.
+          # Managed policy CachingOptimized. It follows the Cache-Control the host sets on each object (a
+          # year for the hashed files under assets/), but its minimum TTL is one second, so index.html with
+          # no-cache can still be served from the edge for up to a second; each deploy also invalidates /*.
           CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
         # The web app routes on the client: a path the bucket does not hold answers index.html with 200.
         # The bucket gives CloudFront no list right, so a missing object is a 403, not a 404.
@@ -211,13 +212,49 @@ Resources:
             Principal:
               Service: ec2.amazonaws.com
             Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
+      # No AmazonSSMManagedInstanceCore: it grants ssm:GetParameter and ssm:GetParameters on every
+      # parameter of the account. The statements below are that policy (version v2, read 2026-11-10)
+      # without the parameter reads, which ReadOwnParameters limits to this stage's path.
       Policies:
         - PolicyName: treklink-host
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
+              - Sid: SsmAgent
+                Effect: Allow
+                Action:
+                  - ssm:DescribeAssociation
+                  - ssm:GetDeployablePatchSnapshotForInstance
+                  - ssm:GetDocument
+                  - ssm:DescribeDocument
+                  - ssm:GetManifest
+                  - ssm:ListAssociations
+                  - ssm:ListInstanceAssociations
+                  - ssm:PutInventory
+                  - ssm:PutComplianceItems
+                  - ssm:PutConfigurePackageResult
+                  - ssm:UpdateAssociationStatus
+                  - ssm:UpdateInstanceAssociationStatus
+                  - ssm:UpdateInstanceInformation
+                Resource: "*"
+              - Sid: SessionManagerChannels
+                Effect: Allow
+                Action:
+                  - ssmmessages:CreateControlChannel
+                  - ssmmessages:CreateDataChannel
+                  - ssmmessages:OpenControlChannel
+                  - ssmmessages:OpenDataChannel
+                Resource: "*"
+              - Sid: RunCommandMessages
+                Effect: Allow
+                Action:
+                  - ec2messages:AcknowledgeMessage
+                  - ec2messages:DeleteMessage
+                  - ec2messages:FailMessage
+                  - ec2messages:GetEndpoint
+                  - ec2messages:GetMessages
+                  - ec2messages:SendReply
+                Resource: "*"
               # SecureString values use the AWS managed key aws/ssm, whose key policy allows decryption
               # through SSM for principals of this account, so no KMS statement is needed.
               - Sid: ReadOwnParameters
@@ -333,7 +370,8 @@ Resources:
           chmod 0755 "$plugins/docker-compose" "$plugins/docker-buildx"
           docker compose version
           docker buildx version
-          # 2 GB of swap: building the backend image needs more than 2 GB of memory at its peak.
+          # 2 GB of swap: building the backend image while the services run may pass the 2 GB of RAM
+          # (peak not measured on arm64).
           if [ ! -f /swapfile ]; then
             dd if=/dev/zero of=/swapfile bs=1M count=2048 status=none
             chmod 0600 /swapfile
