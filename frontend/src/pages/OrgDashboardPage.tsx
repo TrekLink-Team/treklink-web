@@ -12,6 +12,7 @@ import {
   type Contract,
   type ContractStatus,
 } from '../entities/contract/api';
+import { useOrganization } from '../entities/organization/api';
 import { formatDate, formatVnd } from '../shared/lib/format';
 import {
   Alert,
@@ -101,6 +102,8 @@ const nextDates = (contracts: Contract[]): NextDate[] =>
 export const OrgDashboardPage: React.FC = () => {
   const { user } = useAuth();
   const organization = user?.organization;
+  // The session holds the status of sign-in; the banner reads the current one from the API.
+  const organizationStatus = useOrganization(organization?.id).data?.status;
   const contracts = useContracts('o', { pageSize: MAX_PAGE_SIZE });
   const invoices = useInvoices('o', { pageSize: MAX_PAGE_SIZE });
   const overdue = useInvoices('o', { overdue: true, pageSize: MAX_PAGE_SIZE });
@@ -234,8 +237,8 @@ export const OrgDashboardPage: React.FC = () => {
       />
 
       <PageScrollBody label="Overview" className="flex flex-col gap-5">
-        {organization && organization.status !== 'ACTIVE' && (
-          <Alert tone="warning">This cannot be done while it is {organization.status}.</Alert>
+        {organizationStatus !== undefined && organizationStatus !== 'ACTIVE' && (
+          <Alert tone="warning">This cannot be done while it is {organizationStatus}.</Alert>
         )}
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
