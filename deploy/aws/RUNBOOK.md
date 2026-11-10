@@ -50,12 +50,20 @@ All in `ap-southeast-2` (Sydney), the only region where the organisation's SCP a
 | Security group | Inbound TCP 80, 443 and 8883 from anywhere, nothing else |
 | Elastic IP | Gives the host name: the IP with dashes on sslip.io, for example `3-104-1-2.sslip.io`. It is `MQTT_DOMAIN`, the API host and the broker address |
 | Host services | `compose.yml`: Caddy (Let's Encrypt certificate, HTTPS API and socket), Mosquitto (MQTT over TLS on 8883, same certificate), broker-hook-proxy, backend |
-| Web app | Built on the host in a Node container, published to a private S3 bucket, served by CloudFront (Origin Access Control, HTTPS, client routes answered with `index.html`, price class 200) |
+| Web app | Built on the host in a Node container. `FRONTEND_HOSTING=host` (the default): served by Caddy on the same sslip.io host from `/opt/treklink/www/current` (client routes answered with `index.html`, the two newest builds kept). `FRONTEND_HOSTING=cloudfront`: published to a private S3 bucket and served by CloudFront (Origin Access Control, HTTPS, price class 200) |
 | Secrets | SSM Parameter Store SecureString under `/treklink/<stage>/`, written from your `deploy/aws/.env.aws`; the host writes `deploy/aws/.env` from them on every deploy |
 | Artifacts | A private S3 bucket for the source archives and the SSM command output, emptied after 14 days |
 | Budget | Monthly AWS Budgets cost budget of 40 USD for the whole account, email alert at 80 % actual to `BUDGET_EMAIL` |
 
-The browser calls the API across origins, from the CloudFront domain to the sslip.io host. The host sets
+**CloudFront needs a verified account.** On 2026-11-10 the first `up.sh` failed at the distribution with
+"Your account must be verified before you can add new CloudFront resources" (request ID
+379b5ee3-cc54-47ef-90f7-b53b4e155ff5), and the stack rolled back. Until AWS Support verifies the account
+(a case under Account and billing), the host serves the web app. After the verification, set
+`FRONTEND_HOSTING=cloudfront` in `.env.aws` and run `up.sh`: the stack adds the bucket and the
+distribution, and the web app moves to the CloudFront domain.
+
+With the host serving the web app, the browser calls the API on the same origin. With CloudFront, it
+calls the API across origins, from the CloudFront domain to the sslip.io host. The host sets
 `CORS_ORIGINS` to the CloudFront origin (plus `CORS_EXTRA_ORIGINS`), and the web app is built with
 `VITE_API_BASE_URL=https://<host name>/api` and `VITE_WS_URL=https://<host name>`. Tokens travel in the
 request body and the `Authorization` header, not in cookies, so the two origins need nothing more.

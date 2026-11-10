@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
-  TrekLink web system on one EC2 host (Caddy, Mosquitto, broker-hook-proxy, backend) with the web app
-  on S3 and CloudFront. Deployed and updated by deploy/aws/up.sh; deleted by deploy/aws/down.sh.
+  TrekLink web system on one EC2 host (Caddy, Mosquitto, broker-hook-proxy, backend). The web app is
+  served by Caddy on the host, or from S3 behind CloudFront when FrontendHosting is cloudfront. Deployed and updated by deploy/aws/up.sh; deleted by deploy/aws/down.sh.
 
 # Region: ap-southeast-2 (Sydney). The organisation's SCP denies EC2 in ap-southeast-1. Neon stays the
 # database and is reached over the internet. Admin access goes through SSM Session Manager: no SSH port,
@@ -42,9 +42,18 @@ Parameters:
     Default: 40
     MinValue: 1
     Description: Monthly cost budget of the account, in USD.
+  FrontendHosting:
+    Type: String
+    Default: host
+    AllowedValues: [host, cloudfront]
+    Description: >-
+      Where the web app is served. host = Caddy on the EC2 host, same origin as the API. cloudfront = S3
+      behind CloudFront; a new account must first be verified by AWS Support (CloudFront answered
+      "Your account must be verified before you can add new CloudFront resources" on 2026-11-10).
 
 Conditions:
   UseLatestAmi: !Equals [!Ref ImageId, ""]
+  UseCloudFront: !Equals [!Ref FrontendHosting, cloudfront]
 
 Resources:
   # ---- Storage ----
@@ -96,6 +105,7 @@ Resources:
 
   FrontendBucket:
     Type: AWS::S3::Bucket
+    Condition: UseCloudFront
     Properties:
       OwnershipControls:
         Rules:
@@ -118,6 +128,7 @@ Resources:
   # Only this distribution may read the web app, through Origin Access Control.
   FrontendBucketPolicy:
     Type: AWS::S3::BucketPolicy
+    Condition: UseCloudFront
     Properties:
       Bucket: !Ref FrontendBucket
       PolicyDocument:
@@ -146,6 +157,7 @@ Resources:
   # ---- Web app: CloudFront in front of the private bucket ----
   FrontendOriginAccessControl:
     Type: AWS::CloudFront::OriginAccessControl
+    Condition: UseCloudFront
     Properties:
       OriginAccessControlConfig:
         Name: !Sub "${AWS::StackName}-frontend"
@@ -156,6 +168,7 @@ Resources:
 
   FrontendDistribution:
     Type: AWS::CloudFront::Distribution
+    Condition: UseCloudFront
     Properties:
       DistributionConfig:
         Comment: !Sub "TrekLink web app (${Stage})"
@@ -271,7 +284,7 @@ Resources:
                 Action: s3:ListBucket
                 Resource:
                   - !GetAtt ArtifactBucket.Arn
-                  - !GetAtt FrontendBucket.Arn
+                  - !If [UseCloudFront, !GetAtt FrontendBucket.Arn, !Ref AWS::NoValue]
               - Sid: ReadWriteObjects
                 Effect: Allow
                 Action:
@@ -280,13 +293,16 @@ Resources:
                   - s3:DeleteObject
                 Resource:
                   - !Sub "${ArtifactBucket.Arn}/*"
-                  - !Sub "${FrontendBucket.Arn}/*"
-              - Sid: InvalidateOwnDistribution
-                Effect: Allow
-                Action:
-                  - cloudfront:CreateInvalidation
-                  - cloudfront:GetInvalidation
-                Resource: !Sub "arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${FrontendDistribution}"
+                  - !If [UseCloudFront, !Sub "${FrontendBucket.Arn}/*", !Ref AWS::NoValue]
+              - !If
+                - UseCloudFront
+                - Sid: InvalidateOwnDistribution
+                  Effect: Allow
+                  Action:
+                    - cloudfront:CreateInvalidation
+                    - cloudfront:GetInvalidation
+                  Resource: !Sub "arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${FrontendDistribution}"
+                - !Ref AWS::NoValue
       Tags:
         - Key: Project
           Value: treklink
@@ -435,10 +451,20 @@ Outputs:
       - - !Join ["-", !Split [".", !GetAtt HostElasticIp.PublicIp]]
         - ".sslip.io"
   FrontendUrl:
-    Value: !Sub "https://${FrontendDistribution.DomainName}"
+    Description: The web app (the host itself when FrontendHosting is host)
+    Value: !If
+      - UseCloudFront
+      - !Sub "https://${FrontendDistribution.DomainName}"
+      - !Join
+        - ""
+        - - "https://"
+          - !Join ["-", !Split [".", !GetAtt HostElasticIp.PublicIp]]
+          - ".sslip.io"
+  FrontendHosting:
+    Value: !Ref FrontendHosting
   FrontendBucketName:
-    Value: !Ref FrontendBucket
+    Value: !If [UseCloudFront, !Ref FrontendBucket, none]
   ArtifactBucketName:
     Value: !Ref ArtifactBucket
   DistributionId:
-    Value: !Ref FrontendDistribution
+    Value: !If [UseCloudFront, !Ref FrontendDistribution, none]

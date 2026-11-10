@@ -27,6 +27,9 @@ services:
       ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in deploy/aws/.env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # The web app when the host serves it (FrontendHosting host): host/deploy.sh publishes each build
+      # under releases/ and points the "current" link at it. Elsewhere an empty ./www is mounted.
+      - ${WEB_ROOT:-./www}:/srv/www:ro
       - caddy_data:/data
       - caddy_config:/config
     logging: *logging

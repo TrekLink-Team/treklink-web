@@ -21,9 +21,9 @@ DRY_RUN=0
 SKIP_INFRA=0
 
 # Keys of .env.aws that up.sh reads and never sends to the host.
-LOCAL_ONLY_KEYS="BUDGET_EMAIL BUDGET_LIMIT_USD"
+LOCAL_ONLY_KEYS="BUDGET_EMAIL BUDGET_LIMIT_USD FRONTEND_HOSTING"
 # Keys up.sh or the host computes; refused in .env.aws so two sources never disagree.
-COMPUTED_KEYS="MQTT_DOMAIN CORS_ORIGINS FIELD_STATION_BROKER_URL BACKEND_TAG VITE_API_BASE_URL VITE_WS_URL"
+COMPUTED_KEYS="MQTT_DOMAIN CORS_ORIGINS FIELD_STATION_BROKER_URL BACKEND_TAG VITE_API_BASE_URL VITE_WS_URL WEB_ROOT"
 # Keys compose.yml fixes for the host; accepted but without effect, so up.sh warns.
 FIXED_KEYS="NODE_ENV PORT_BACKEND MQTT_BROKER_URL MQTT_INGESTION_ENABLED JOBS_TICK_ON_REQUEST FIELD_SIMULATOR_ENABLED DEMO_CONTROLS_ENABLED DEMO_TEST_ACCOUNTS_ENABLED DEMO_SIMULATION_ENABLED SWAGGER_ENABLED HANDOVER_NOTE_STORE"
 REQUIRED_KEYS="BUDGET_EMAIL ACME_EMAIL DATABASE_URL DATABASE_DIRECT_URL MQTT_AUTH_HOOK_SECRET MQTT_USERNAME MQTT_PASSWORD MQTT_NODE_PASSWORD JWT_ACCESS_SECRET MAIL_TRANSPORT MAIL_FROM COMPANY_LEGAL_NAME COMPANY_ADDRESS COMPANY_TAX_CODE COMPANY_HOTLINE HANDOVER_PLACE CHANNEL_KEY_MASTER VITE_APP_ENV"
@@ -218,6 +218,10 @@ check_env_values() {
     log "  BUDGET_EMAIL: not an email address"
     problems=$((problems + 1))
   fi
+  if value="$(env_get FRONTEND_HOSTING)" && [ "$value" != "host" ] && [ "$value" != "cloudfront" ]; then
+    log "  FRONTEND_HOSTING: must be host or cloudfront"
+    problems=$((problems + 1))
+  fi
   if value="$(env_get BUDGET_LIMIT_USD)" && ! printf '%s' "$value" | grep -Eq '^[1-9][0-9]*$'; then
     log "  BUDGET_LIMIT_USD: must be a whole number of USD"
     problems=$((problems + 1))
@@ -304,6 +308,8 @@ deploy_stack() {
   if [ -n "$INSTANCE_TYPE" ]; then overrides+=("InstanceType=$INSTANCE_TYPE"); fi
   local limit
   if limit="$(env_get BUDGET_LIMIT_USD)"; then overrides+=("BudgetLimitUsd=$limit"); fi
+  local hosting
+  if hosting="$(env_get FRONTEND_HOSTING)"; then overrides+=("FrontendHosting=$hosting"); fi
 
   if ! awsc cloudformation deploy \
     --stack-name "$(stack_name)" \
@@ -335,7 +341,8 @@ read_outputs() {
   ARTIFACT_BUCKET="$(stack_output ArtifactBucketName)"
   DISTRIBUTION_ID="$(stack_output DistributionId)"
   local name
-  for name in INSTANCE_ID HOST_NAME FRONTEND_URL FRONTEND_BUCKET ARTIFACT_BUCKET DISTRIBUTION_ID; do
+  # FRONTEND_BUCKET and DISTRIBUTION_ID stay empty when the host serves the web app (FrontendHosting host).
+  for name in INSTANCE_ID HOST_NAME FRONTEND_URL ARTIFACT_BUCKET; do
     [ -n "${!name}" ] || die "stack $(stack_name) has no output for $name; run up.sh without --skip-infra"
   done
   log "  host $HOST_NAME ($INSTANCE_ID), web app $FRONTEND_URL"
@@ -432,7 +439,7 @@ run_on_host() {
       "$ARTIFACT_BUCKET" "$RUN_PREFIX" "$script" "$REGION"
     printf '"exec bash %s --region %s --stage %s --run-id %s --commit %s --artifact-bucket %s --run-prefix %s --frontend-bucket %s --distribution-id %s --host-name %s --cors-origins %s"' \
       "$script" "$REGION" "$STAGE" "$RUN_ID" "$COMMIT" "$ARTIFACT_BUCKET" "$RUN_PREFIX" \
-      "$FRONTEND_BUCKET" "$DISTRIBUTION_ID" "$HOST_NAME" "$cors"
+      "${FRONTEND_BUCKET:-none}" "${DISTRIBUTION_ID:-none}" "$HOST_NAME" "$cors"
     printf '],"executionTimeout":["3600"]}'
   } > "$params"
 
