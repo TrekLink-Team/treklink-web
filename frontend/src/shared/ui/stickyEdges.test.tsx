@@ -99,7 +99,7 @@ describe('sticky edges follow their element (review of treklink-web#349, 2.4.11)
     delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView;
   });
 
-  it('publishes the contract row again when it is swapped across 600 px', () => {
+  it('publishes the contract row again when it is swapped across 768 px', () => {
     render(
       <MemoryRouter>
         <ContractActionBar
@@ -113,7 +113,8 @@ describe('sticky edges follow their element (review of treklink-web#349, 2.4.11)
       </MemoryRouter>,
     );
     expect(published('--tl-collection-bar-h')).toBe('54px');
-    resizeTo(360);
+    // 700 px is a phone layout now (chapter 06 §11.1, treklink-web#450).
+    resizeTo(700);
     expect(screen.queryByRole('region', { name: 'Contract sections and actions' })).toBeNull();
     expect(published('--tl-collection-bar-h')).toBe('46px');
     // The phone row's name differs from its tablist's (review of treklink-web#349).

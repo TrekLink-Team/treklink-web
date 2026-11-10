@@ -7,6 +7,8 @@ import {
   COMPACT_AFTER_PX,
   PageActionBar,
   PageChromeProvider,
+  PinnedTitle,
+  ScrollingTitle,
   StickyPageHeader,
 } from './PageChrome';
 import { PageHeader } from './PageHeader';
@@ -149,6 +151,32 @@ describe('StickyPageHeader (leader rule of 2026-10-30)', () => {
     expect(
       within(regionOf() as HTMLElement).getByRole('navigation', { name: 'Breadcrumb' }),
     ).toBeTruthy();
+    unmount();
+    expect(release).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ScrollingTitle (chapter 06 §11.1, treklink-web#450)', () => {
+  it("takes the shell's breadcrumb with the title, unpinned, and keeps an inner PinnedTitle unpinned", () => {
+    const release = vi.fn();
+    const claim = vi.fn(() => release);
+    const { container, unmount } = render(
+      <PageChromeProvider
+        value={{ breadcrumb: <nav aria-label="Breadcrumb">Business / Contracts</nav>, claim }}
+      >
+        <ScrollingTitle>
+          <PinnedTitle>
+            <h1>RC-2026-0011</h1>
+          </PinnedTitle>
+        </ScrollingTitle>
+      </PageChromeProvider>,
+    );
+    expect(claim).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'RC-2026-0011' })).toBeTruthy();
+    // No sticky region: the title scrolls with the record body.
+    expect(container.querySelector('.sticky')).toBeNull();
+    expect(container.querySelector('[data-compact]')).toBeNull();
     unmount();
     expect(release).toHaveBeenCalledTimes(1);
   });

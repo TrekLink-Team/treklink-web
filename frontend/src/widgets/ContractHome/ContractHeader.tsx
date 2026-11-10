@@ -7,7 +7,7 @@ import { formatDate, formatDateTime, viewerTimeZone } from '../../shared/lib/for
 import { useMediaQuery } from '../../shared/lib/useMediaQuery';
 import { Badge, StatusBadge } from '../../shared/ui/Badge';
 import { cn } from '../../shared/ui/cn';
-import { COMPACT_HIDDEN, PinnedTitle } from '../../shared/ui/PageChrome';
+import { COMPACT_HIDDEN, PinnedTitle, ScrollingTitle } from '../../shared/ui/PageChrome';
 import { CONTRACT_STATUS } from '../../shared/ui/status';
 import { deadlineOf, nextStepOf, type Viewer } from './policy';
 
@@ -16,17 +16,20 @@ const shortDate = (iso: string | null) => (iso ? formatDate(iso).replace(/ \d{4}
 /**
  * The compact header of a contract home (chapter 06 §10.4): title, status, the organization, plan
  * and units in one line, and the deadline that matters now. About 60 px on a laptop. The breadcrumb
- * is the shell's. It pins itself to the top of the content area, with the section row under it
- * (viewport rule, ui standard §7).
+ * is the shell's. From 768 px it pins itself to the top of the content area, with the section row
+ * under it (viewport rule, ui standard §7); below 768 px the page places it in the scroll region,
+ * `pinned={false}`, so it scrolls away with the breadcrumb (chapter 06 §11.1, treklink-web#450).
  */
 export const ContractHeader: React.FC<{
   contract: ContractDetail;
   scope: 'o' | 't';
   variantName: string;
-}> = ({ contract, scope, variantName }) => {
+  pinned?: boolean;
+}> = ({ contract, scope, variantName, pinned = true }) => {
   const deadline = deadlineOf(contract);
+  const Title = pinned ? PinnedTitle : ScrollingTitle;
   return (
-    <PinnedTitle>
+    <Title>
       <header className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1.5 pb-1">
         <div className="flex min-w-0 flex-[1_1_28rem] flex-wrap items-center gap-x-3 gap-y-1">
           <h1 id="contract-title" className="font-display text-title text-ink">
@@ -57,7 +60,7 @@ export const ContractHeader: React.FC<{
           </p>
         )}
       </header>
-    </PinnedTitle>
+    </Title>
   );
 };
 

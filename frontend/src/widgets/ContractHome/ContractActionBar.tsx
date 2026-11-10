@@ -36,9 +36,13 @@ interface Props {
  * contract's actions: one primary action, More actions with the rest (a reason as text on an
  * unavailable one, destructive ones last after a separator). The row sticks to the top and
  * publishes its height, so a CollectionView command bar sticks under it and focus is never hidden
- * behind it (2.4.11). Below 600 px the tabs stay at the top and the actions move to a bar pinned to
- * the bottom, primary widest, a disabled action's reason on its own line above (§10.5).
+ * behind it (2.4.11). Below 768 px the tabs stay at the top in one row that scrolls sideways (§10.6)
+ * and the actions move to a bar pinned to the bottom, primary widest, a disabled action's reason on
+ * its own line above (§10.5); these two bars are all that stays pinned there (§11.1, leader ruling
+ * of 2026-11-10 on treklink-web#450).
  */
+export const RECORD_WIDE = '(min-width: 768px)';
+
 export const ContractActionBar: React.FC<Props> = ({
   tabs,
   tab,
@@ -50,8 +54,8 @@ export const ContractActionBar: React.FC<Props> = ({
   primaryForm,
   primaryPending,
 }) => {
-  const phone = !useMediaQuery('(min-width: 600px)', true);
-  // The sticky row is a different element below and above 600 px: the hooks follow it.
+  const phone = !useMediaQuery(RECORD_WIDE, true);
+  // The sticky row is a different element below and above 768 px: the hooks follow it.
   const [rowNode, setRowNode] = useEdgeNode<HTMLDivElement>();
   const reasonId = useId();
   // The row pins under the pinned contract header, so it publishes as the command bar under it
@@ -129,9 +133,10 @@ export const ContractActionBar: React.FC<Props> = ({
       items={tabs}
       value={tab}
       onChange={onTab}
-      // The five sections wrap onto a second row rather than scroll: at 360 px History hid behind a
-      // scroll arrow, and the fading edge cut the words at either end (W20B item 6).
-      className={TABS_WRAP}
+      // From 768 px the five sections wrap onto a second row rather than scroll, so no fading edge
+      // cuts a label (W20B item 6). Below 768 px the bar keeps one row and scrolls sideways with the
+      // arrows of §10.6, so it takes one row of the screen (§10.5, §11.1, treklink-web#450).
+      className={phone ? undefined : TABS_WRAP}
     />
   );
 

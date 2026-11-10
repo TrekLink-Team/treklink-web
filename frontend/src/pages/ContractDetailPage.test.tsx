@@ -486,6 +486,34 @@ describe('ContractDetailPage', () => {
       expect(tablist.className).not.toContain('overflow-x-auto');
     });
 
+    it('below 768 px scrolls the header and the lifecycle with the record, pinning only the tabs and the actions (#450)', () => {
+      contract = { ...baseContract, status: 'APPROVED' };
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: !/min-width/.test(query),
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      }));
+      try {
+        renderPage();
+        const body = screen.getByRole('region', { name: 'Contract details' });
+        // The title, the status, the deadline box and the lifecycle card sit in the one scroll region.
+        expect(within(body).getByRole('heading', { level: 1, name: 'RC-2026-0004' })).toBeTruthy();
+        expect(within(body).getByRole('region', { name: 'Contract lifecycle' })).toBeTruthy();
+        // The pinned tab bar keeps one row and scrolls sideways (§10.5, §10.6).
+        const nav = screen.getByRole('region', { name: 'Contract navigation' });
+        expect(body.contains(nav)).toBe(false);
+        const tablist = within(nav).getByRole('tablist', { name: 'Contract sections' });
+        expect(tablist.className).toContain('overflow-x-auto');
+        expect(tablist.className).not.toContain('flex-wrap');
+        // The actions sit in the bar pinned to the bottom, outside the scroll region.
+        const actions = screen.getByRole('group', { name: 'Contract actions' });
+        expect(body.contains(actions)).toBe(false);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+
     it('leaves out Ending on a day plan and marks an exit as a branch marker on its step', () => {
       contract = { ...baseContract, planType: 'DAY', dayPlanDays: 5, status: 'CANCELLED' };
       history = [
