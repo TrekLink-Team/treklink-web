@@ -280,6 +280,41 @@ describe('CounterPage (screen 5.4)', () => {
     expect(within(bar).queryByRole('button', { name: 'Next' })).toBeNull();
   });
 
+  it('below 768 px scrolls the title with the checklist and pins a one-row step bar (#470)', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: !/min-width/.test(query),
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    try {
+      renderPage();
+      const title = await screen.findByRole('heading', { level: 1, name: /Counter handover/ });
+      const body = screen.getByRole('region', { name: 'Handover checklist' });
+      // No sticky header: the back link, the title and the summary are in the one scroll region.
+      expect(body.contains(title)).toBe(true);
+      expect(within(body).getByRole('link', { name: 'Back to the contract' })).toBeTruthy();
+      expect(document.querySelector('[data-compact]')).toBeNull();
+      // The step bar stays outside it, one row, the current label shown and the others for screen readers.
+      const steps = screen.getByRole('list', { name: 'Steps' });
+      expect(body.contains(steps)).toBe(false);
+      expect(steps.className).toContain('flex');
+      expect(steps.className).not.toContain('grid');
+      const items = within(steps).getAllByRole('listitem');
+      expect(items.map((item) => item.textContent)).toEqual([
+        '1. Devices',
+        '2. Payment',
+        '3. Preview note',
+        '4. Sign',
+      ]);
+      expect(items[0].getAttribute('aria-current')).toBe('step');
+      expect(within(items[1]).getByText('Payment').className).toContain('sr-only');
+      expect(within(items[0]).getByText('Devices').className).not.toContain('sr-only');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('runs the same four steps embedded in the contract home, without its own title or sticky header', async () => {
     const onDone = vi.fn();
     completeHandover.mockResolvedValueOnce({ code: 'RC-2026-0002', devicesHandedOver: 2 });
