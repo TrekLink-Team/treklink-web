@@ -55,6 +55,23 @@ export const PinnedTitle: React.FC<{ children: React.ReactNode }> = ({ children 
 };
 
 /**
+ * A record page's title block below 768 px (chapter 06 §11.1, leader ruling of 2026-11-10 on
+ * treklink-web#450): the breadcrumb and the title scroll with the record body, so only the tab bar
+ * and the action bar stay pinned. Place it inside the page's PageScrollBody. It takes the shell's
+ * breadcrumb as a StickyPageHeader does, so the trail is not pinned above the page either.
+ */
+export const ScrollingTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const slot = useContext(PageChromeContext);
+  useLayoutEffect(() => slot?.claim(), [slot]);
+  return (
+    <div className="flex flex-col">
+      {slot?.breadcrumb}
+      <InStickyHeaderContext.Provider value>{children}</InStickyHeaderContext.Provider>
+    </div>
+  );
+};
+
+/**
  * The page header region: pass the PageHeader or PageTitle, a back link and the stepper or view tabs
  * as children. It sticks to the top of the content area. A one-pixel sentinel at the top of the
  * scrolling content is watched with an IntersectionObserver (no scroll handler): once it has

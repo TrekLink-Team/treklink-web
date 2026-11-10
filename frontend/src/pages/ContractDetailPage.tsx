@@ -33,7 +33,11 @@ import { HolderDialog } from '../widgets/ContractActions/HolderDialog';
 import { EndNowDialog } from '../widgets/ContractActions/EndNowDialog';
 import { ReleaseUnitDialog } from '../widgets/ContractActions/ReleaseUnitDialog';
 import { NoticeDialog } from '../widgets/ContractActions/NoticeDialog';
-import { ContractActionBar, type HomeTab } from '../widgets/ContractHome/ContractActionBar';
+import {
+  ContractActionBar,
+  RECORD_WIDE,
+  type HomeTab,
+} from '../widgets/ContractHome/ContractActionBar';
 import { ContractHeader, LifecycleCard } from '../widgets/ContractHome/ContractHeader';
 import { DepositCard } from '../widgets/ContractHome/DepositCard';
 import { DevicesTab } from '../widgets/ContractHome/DevicesTab';
@@ -202,9 +206,10 @@ export const ContractDetailPage: React.FC<{
   const { id = '' } = useParams();
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
-  // On a phone the lifecycle card moves into the scrolling body, so the pinned rows leave the record
-  // room at 320 by 568 (ui standard §7).
-  const phone = !useMediaQuery('(min-width: 600px)', true);
+  // Below 768 px the header, its breadcrumb and the lifecycle card move into the scrolling body, so
+  // only the tab bar and the action bar stay pinned (chapter 06 §11.1, leader ruling of 2026-11-10
+  // on treklink-web#450: at 360 by 780 the pinned rows left the record 256 px).
+  const phone = !useMediaQuery(RECORD_WIDE, true);
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const roles = user?.roles ?? [];
@@ -426,7 +431,7 @@ export const ContractDetailPage: React.FC<{
       data-fit-page=""
       className="flex min-h-0 flex-1 flex-col gap-3"
     >
-      <ContractHeader contract={data} scope={scope} variantName={variant} />
+      {!phone && <ContractHeader contract={data} scope={scope} variantName={variant} />}
       {!phone && <LifecycleCard contract={data} history={history.data} viewer={viewer} />}
       <ContractActionBar
         tabs={tabs}
@@ -439,8 +444,12 @@ export const ContractDetailPage: React.FC<{
         primaryForm={mode === 'review' ? REVIEW_FORM_ID : undefined}
         primaryPending={mode === 'review' && approving}
       />
-      {/* The record body is the one scroll region; the header, the sections row and the actions stay (ui standard §7). */}
+      {/* The record body is the one scroll region. From 768 px the header, the sections row and the
+          actions stay (ui standard §7); below it only the sections row and the actions (§11.1). */}
       <PageScrollBody label="Contract details" className="flex flex-col gap-3">
+        {phone && (
+          <ContractHeader contract={data} scope={scope} variantName={variant} pinned={false} />
+        )}
         {phone && <LifecycleCard contract={data} history={history.data} viewer={viewer} />}
         {body}
       </PageScrollBody>
