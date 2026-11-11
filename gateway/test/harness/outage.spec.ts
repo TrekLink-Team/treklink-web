@@ -29,6 +29,8 @@ describe('outage harness', () => {
     expect(condition.verdict.nfrRel02).toBe(true);
     expect(condition.verdict.enoughTrials).toBe(false);
     expect(condition.shed).toEqual([0, 0, 0, 0]);
-    expect(lines.some((line) => line.startsWith('| 2.0 s | 1 (under 20, indicative)'))).toBe(true);
+    // The first column is the measured outage (outage.ts prints restoreAt minus cutAt), so a 2 s sleep
+    // that wakes late on a busy runner reads "2.1 s": match the shape, not the timing (treklink-web#476).
+    expect(lines.some((line) => /^\| 2\.\d s \| 1 \(under 20, indicative\)/.test(line))).toBe(true);
   }, 60_000);
 });
