@@ -374,6 +374,97 @@ describe('SePay sandbox (billing task 3.2)', () => {
     });
   });
 
+  describe('edge cases (TK-211 unit coverage)', () => {
+    const hook = {
+      id: 92705,
+      transferType: 'in',
+      transferAmount: 1_125_000,
+      content: 'CK TL7K2Q9M4D',
+    };
+
+    it('rejects a lineSeq that is not a line of the invoice', () => {
+      let thrown: unknown;
+      try {
+        amountToRequest(invoice(), 99, AT);
+      } catch (error) {
+        thrown = error;
+      }
+      expect(thrown).toMatchObject({ errorCode: ErrorCode.VALIDATION_FAILED });
+    });
+
+    it('shows no QR for a payment recorded by another method', async () => {
+      await expect(
+        service.vietQr(pending({ method: PaymentMethod.CASH }) as never),
+      ).resolves.toBeNull();
+    });
+
+    it('answers NOT_FOUND for a missing payment and for another organization, before expiring it', async () => {
+      payments.findById.mockResolvedValueOnce(null);
+      await expect(service.find('p-x', MANAGER, AT)).rejects.toMatchObject({
+        errorCode: ErrorCode.NOT_FOUND,
+      });
+      await expect(service.find('p-1', OTHER, AT)).rejects.toMatchObject({
+        errorCode: ErrorCode.NOT_FOUND,
+      });
+      expect(payments.expireIfDue).not.toHaveBeenCalled();
+    });
+
+    it('lets Staff read any payment and skips the reference lookup for a non-SePay payment', async () => {
+      payments.findById.mockResolvedValueOnce(pending({ method: PaymentMethod.CASH }));
+      const staff: Caller = { id: 's-1', roles: ['STAFF'], organizationId: null };
+      await expect(service.find('p-1', staff, AT)).resolves.toMatchObject({ receivedLater: [] });
+      expect(payments.receivedFor).not.toHaveBeenCalled();
+    });
+
+    it('reads the reference from the description when the content is empty', async () => {
+      await expect(
+        service.handleWebhook(
+          `Apikey ${KEY}`,
+          { ...hook, content: null, description: 'MBVCB TL7K2Q9M4D' },
+          AT,
+        ),
+      ).resolves.toBe('confirmed');
+      expect(payments.lockByReference).toHaveBeenCalledWith('TL7K2Q9M4D', TX);
+    });
+
+    it('applies only what the invoice still owes and keeps the excess on the payment', async () => {
+      invoices.lockWithLines.mockResolvedValueOnce(
+        invoice([
+          line(1, InvoiceLineType.HOLDING_FEE, 1_125_000n, 1_000_000n, '2026-11-02T02:00:00.000Z'),
+        ]),
+      );
+      await expect(service.handleWebhook(`Apikey ${KEY}`, hook, AT)).resolves.toBe('confirmed');
+      expect(invoices.applyPayment).toHaveBeenCalledWith(expect.anything(), 125_000n, TX);
+      expect(emitAfterCommit).toHaveBeenCalledWith(
+        PAYMENT_CONFIRMED,
+        expect.objectContaining({ amountVnd: 1_125_000n }),
+      );
+    });
+
+    it('confirms the money without applying it when the invoice is settled or gone', async () => {
+      invoices.lockWithLines.mockResolvedValueOnce(
+        invoice([
+          line(1, InvoiceLineType.HOLDING_FEE, 1_125_000n, 1_125_000n, '2026-11-02T02:00:00.000Z'),
+        ]),
+      );
+      await expect(service.handleWebhook(`Apikey ${KEY}`, hook, AT)).resolves.toBe('confirmed');
+      invoices.lockWithLines.mockResolvedValueOnce(null);
+      await expect(
+        service.handleWebhook(`Apikey ${KEY}`, { ...hook, id: 92706 }, AT),
+      ).resolves.toBe('confirmed');
+      expect(invoices.applyPayment).not.toHaveBeenCalled();
+      expect(payments.confirmSepay).toHaveBeenCalledTimes(2);
+    });
+
+    it('rethrows a failure other than the unique index so the webhook is retried', async () => {
+      payments.confirmSepay.mockRejectedValueOnce(new Error('connection reset'));
+      await expect(service.handleWebhook(`Apikey ${KEY}`, hook, AT)).rejects.toThrow(
+        'connection reset',
+      );
+      expect(emitAfterCommit).not.toHaveBeenCalled();
+    });
+  });
+
   it('expires PENDING requests past their expiry (MSG25)', async () => {
     await expect(service.expirePayments(AT)).resolves.toBe(2);
     expect(payments.expireDue).toHaveBeenCalledWith(AT);
