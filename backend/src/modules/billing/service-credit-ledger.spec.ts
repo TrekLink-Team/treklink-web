@@ -101,6 +101,60 @@ describe('ServiceCreditLedger.land (design §9.3, REQ-EVT-14)', () => {
     );
   });
 
+  it('returns the invoice unchanged and reads no asset tag when no credit waits', async () => {
+    const { ledger, invoices, events } = build([]);
+    const given = invoice(45_000n);
+    await expect(ledger.land('c-1', given, TX, AT)).resolves.toBe(given);
+    expect(invoices.appendLines).not.toHaveBeenCalled();
+    expect(events.emitAfterCommit).not.toHaveBeenCalled();
+  });
+
+  it('skips a credit with nothing left to land and lands the next one', async () => {
+    const { ledger, credits, invoices } = build([
+      approved({ id: 'sc-done', decidedVnd: 20_000n, appliedVnd: 20_000n }),
+      approved({ id: 'sc-undecided', decidedVnd: null }),
+      approved({ id: 'sc-next', decidedVnd: 10_000n }),
+    ]);
+    await ledger.land('c-1', invoice(45_000n), TX, AT);
+    expect(invoices.appendLines).toHaveBeenCalledTimes(1);
+    expect(invoices.appendLines).toHaveBeenCalledWith(
+      expect.anything(),
+      [expect.objectContaining({ amountVnd: -10_000n, serviceCreditId: 'sc-next' })],
+      TX,
+    );
+    expect(credits.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('names the device by id when it has no asset tag, for service and release credits', async () => {
+    const { ledger, invoices } = build([
+      approved({ id: 'sc-1', deviceId: 'dev-9', decidedVnd: 5_000n }),
+      approved({ id: 'sc-2', deviceId: 'dev-9', decidedVnd: 5_000n, kind: 'RELEASE' }),
+    ]);
+    await ledger.land('c-1', invoice(45_000n), TX, AT);
+    expect(invoices.appendLines).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      [
+        expect.objectContaining({
+          type: InvoiceLineType.SERVICE_CREDIT,
+          description: 'Service credit for dev-9: BATTERY_FAULT',
+        }),
+      ],
+      TX,
+    );
+    expect(invoices.appendLines).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      [
+        expect.objectContaining({
+          type: InvoiceLineType.EARLY_END_CREDIT,
+          description: 'Release credit for dev-9',
+        }),
+      ],
+      TX,
+    );
+  });
+
   it('lands a remainder later, and nothing on an invoice already paid', async () => {
     const { ledger, credits, invoices } = build([
       approved({ id: 'sc-1', decidedVnd: 100_000n, appliedVnd: 60_000n }),
