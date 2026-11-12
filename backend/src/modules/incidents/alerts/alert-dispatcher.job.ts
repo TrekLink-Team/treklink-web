@@ -53,30 +53,37 @@ interface PassResult {
 // Runs one delivery lane at most once at a time in this process. A request while a run is in
 // progress starts nothing; it schedules exactly one more pass when the current one ends, so a wake
 // that arrives mid-claim is never lost.
-class SerialRunner {
-  private running: Promise<number> | null = null;
+// Issue #471: `active` is cleared in the same synchronous step as the last `again` check. Clearing
+// it in a `.finally` reaction left microtasks in between where a request saw a finished run as
+// still running, set `again` that nothing read, and its alerts waited for the 2 s cron.
+export class SerialRunner {
+  private running: Promise<number> = Promise.resolve(0);
+  private active = false;
   private again = false;
 
   constructor(private readonly pass: () => Promise<number>) {}
 
   run(): Promise<number> {
-    if (this.running) {
+    if (this.active) {
       this.again = true;
       return this.running;
     }
-    this.running = this.loop().finally(() => {
-      this.running = null;
-    });
+    this.active = true;
+    this.running = this.loop();
     return this.running;
   }
 
   private async loop(): Promise<number> {
     let total = 0;
-    do {
-      this.again = false;
-      total += await this.pass();
-    } while (this.again);
-    return total;
+    try {
+      do {
+        this.again = false;
+        total += await this.pass();
+      } while (this.again);
+      return total;
+    } finally {
+      this.active = false;
+    }
   }
 }
 
