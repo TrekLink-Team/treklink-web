@@ -301,6 +301,38 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
     expect(page.items[0].device.group).toEqual(child);
   });
 
+  it('rejects a group filter from a caller without an organization before reading any group', async () => {
+    await expect(service.list({ groupId: 'parent' }, STAFF, readAll)).rejects.toMatchObject({
+      errorCode: ErrorCode.FORBIDDEN,
+    });
+    expect(groups.subgroupIds).not.toHaveBeenCalled();
+    expect(contracts.visibleDevices).not.toHaveBeenCalled();
+    expect(repository.page).not.toHaveBeenCalled();
+  });
+
+  it('keeps a device filter inside the group, so a device outside the group matches nothing', async () => {
+    const child = { id: 'child', name: 'South trail', parentId: 'parent' };
+    contracts.visibleDevices.mockResolvedValue([
+      { organizationId: 'org-a', deviceId: 'dev-1', group: child },
+      { organizationId: 'org-a', deviceId: 'dev-2', group: child },
+      { organizationId: 'org-a', deviceId: 'outside', group: null },
+    ]);
+    await service.list({ groupId: 'parent', deviceId: 'dev-2' }, MEMBER, readOwn(MEMBER));
+    expect(repository.page).toHaveBeenLastCalledWith(
+      { organizationId: 'org-a', deviceId: { in: ['dev-2'] } },
+      0,
+      20,
+      undefined,
+    );
+    await service.list({ groupId: 'parent', deviceId: 'outside' }, MEMBER, readOwn(MEMBER));
+    expect(repository.page).toHaveBeenLastCalledWith(
+      { organizationId: 'org-a', deviceId: { in: [] } },
+      0,
+      20,
+      undefined,
+    );
+  });
+
   it('does not attach the current group when the device is held by another organization', async () => {
     contracts.visibleDevices.mockResolvedValue([
       {

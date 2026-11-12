@@ -236,6 +236,15 @@ describe('W43 targeted demo escalation', () => {
       expect(f.incidents.compareAndSet).not.toHaveBeenCalled();
     },
   );
+  it('rejects a deadline write that lost a race and does not apply the tier timeout', async () => {
+    const f = build();
+    f.incidents.compareAndSet.mockResolvedValueOnce(null);
+    await expect(f.job.advanceDemo('i', 2, actor, now)).rejects.toMatchObject({
+      errorCode: 'STALE_VERSION',
+    });
+    expect(f.lifecycle.apply).not.toHaveBeenCalled();
+    expect(f.events.emitAfterCommit).not.toHaveBeenCalled();
+  });
   it('rejects stale and unknown incidents before writes', async () => {
     const f = build();
     await expect(f.job.advanceDemo('i', 1, actor)).rejects.toMatchObject({
