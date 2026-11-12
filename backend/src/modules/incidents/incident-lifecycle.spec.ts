@@ -444,6 +444,21 @@ describe('IncidentLifecycle task 1.2', () => {
     },
   );
 
+  it.each([
+    ['UNROUTED', 'REPORTED', 'AUTHORITY_REPORTED'],
+    ['REPORTED', 'CLOSED', 'CASE_CLOSED'],
+    ['UNROUTED', 'FALSE_ALARM', 'FALSE_ALARM'],
+  ] as [IncidentState, IncidentState, Code][])(
+    'accepts an Admin without the Staff role for %s -> %s',
+    async (from, to, code) => {
+      current = row(from, { organizationId: null });
+      const admin: IncidentActor = { kind: 'STAFF', id: 'admin', roles: ['ADMIN'] };
+      await expect(apply(to, code, admin, { note: 'Reason' })).resolves.toMatchObject({
+        state: to,
+      });
+    },
+  );
+
   it('does not permit a packet to resolve, declare false alarm or route an existing incident', async () => {
     const actor: IncidentActor = { kind: 'DEVICE' };
     current = row('ACKNOWLEDGED', { ownerId: 'owner' });
