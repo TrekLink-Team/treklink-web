@@ -26,7 +26,7 @@ Every key has the same fixed, read-only permissions: read the organization's liv
 
 ## Revoke a key
 
-An Org Manager revokes a key from the same page. The next request with it answers `401 UNAUTHENTICATED`, and a stream that is open with it is closed. Revoking cannot be undone.
+An Org Manager revokes a key from the same page. The next request with it answers `401 UNAUTHENTICATED`. Revoking cannot be undone.
 
 ## Errors
 

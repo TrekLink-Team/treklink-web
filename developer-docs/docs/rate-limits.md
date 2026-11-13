@@ -10,7 +10,7 @@ Each key may send a fixed number of requests per minute. The limit is per key, n
 | --- | --- |
 | Default | 120 requests per minute per key |
 | Window | One minute, starting at the first counted request of the key |
-| Configured by | The platform parameter `monitoring.apiRateLimitPerMinute`, between 10 and 6000. It belongs to the platform, not to an organization. |
+| Configured by | A platform setting, between 10 and 6000. It belongs to the platform, not to an organization. |
 | Answer when spent | `429`, `result.errorCode` is `RATE_LIMITED` |
 
 A request counts once it has passed authentication and validation. The 429 answer carries no `Retry-After` header: wait until the next minute.
