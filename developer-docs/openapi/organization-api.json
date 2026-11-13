@@ -1,0 +1,845 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/telemetry/devices": {
+      "get": {
+        "description": "Every unit of the organization's open contracts, from handover until check-in or a confirmed loss, reporting or not, with its state, last position, battery, holder label and open incident. `state` is LIVE (heard since the handover and within the stale limit), OFFLINE (heard since the handover, silent longer) or NOT_HEARD (nothing heard since the handover). `position`, `batteryPct` and `lastSeenAt` lie inside your custody interval or are null, so a NOT_HEARD unit has all three null and nothing from before the handover is sent. `cursor` is the stream position at the time of the read: pass it as `after` to GET /telemetry/stream.",
+        "operationId": "listTelemetryDevices",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The devices and the cursor to stream from.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result",
+                    "isSuccess",
+                    "statusCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "result": {
+                      "type": "object",
+                      "required": [
+                        "cursor",
+                        "devices"
+                      ],
+                      "properties": {
+                        "cursor": {
+                          "type": "integer",
+                          "description": "Newest stream position at the time of the read. Stream from here."
+                        },
+                        "devices": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "assetTag",
+                              "hardwareVariant",
+                              "holder",
+                              "position",
+                              "group",
+                              "batteryPct",
+                              "lastSeenAt",
+                              "stale",
+                              "openIncident",
+                              "contractCode",
+                              "simulated",
+                              "state"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "assetTag": {
+                                "type": "string",
+                                "example": "TL-0042"
+                              },
+                              "hardwareVariant": {
+                                "type": "string",
+                                "example": "treklink-v3"
+                              },
+                              "holder": {
+                                "type": "object",
+                                "description": "The holder label set at handover, or null when none is set.",
+                                "required": [
+                                  "name"
+                                ],
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                },
+                                "nullable": true
+                              },
+                              "position": {
+                                "type": "object",
+                                "required": [
+                                  "lat",
+                                  "lon",
+                                  "at"
+                                ],
+                                "properties": {
+                                  "lat": {
+                                    "type": "number",
+                                    "format": "double",
+                                    "example": 11.5601
+                                  },
+                                  "lon": {
+                                    "type": "number",
+                                    "format": "double",
+                                    "example": 108.5402
+                                  },
+                                  "at": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "description": "Time of the reading that carried the position."
+                                  }
+                                },
+                                "description": "Last position inside your custody interval, or null.",
+                                "nullable": true
+                              },
+                              "group": {
+                                "type": "object",
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "parentId"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "parentId": {
+                                    "type": "string",
+                                    "nullable": true
+                                  }
+                                },
+                                "nullable": true
+                              },
+                              "batteryPct": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 100,
+                                "nullable": true
+                              },
+                              "lastSeenAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "nullable": true
+                              },
+                              "stale": {
+                                "type": "boolean",
+                                "description": "True for the OFFLINE state only."
+                              },
+                              "openIncident": {
+                                "type": "object",
+                                "description": "Shown only when the incident is routed to your organization.",
+                                "required": [
+                                  "id",
+                                  "code",
+                                  "state"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "code": {
+                                    "type": "string"
+                                  },
+                                  "state": {
+                                    "type": "string"
+                                  }
+                                },
+                                "nullable": true
+                              },
+                              "contractCode": {
+                                "type": "string",
+                                "example": "RC-2026-0042"
+                              },
+                              "simulated": {
+                                "type": "boolean",
+                                "description": "The latest field event inside your custody interval is simulated."
+                              },
+                              "state": {
+                                "type": "string",
+                                "enum": [
+                                  "LIVE",
+                                  "OFFLINE",
+                                  "NOT_HEARD"
+                                ],
+                                "description": "LIVE: heard since the handover and within the stale limit. OFFLINE: heard since the handover, silent longer. NOT_HEARD: nothing heard since the handover."
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "isSuccess": {
+                      "type": "boolean"
+                    },
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "result": {
+                      "cursor": 88213,
+                      "devices": [
+                        {
+                          "id": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
+                          "assetTag": "TL-0042",
+                          "hardwareVariant": "treklink-v3",
+                          "holder": {
+                            "name": "Le Thi E"
+                          },
+                          "position": {
+                            "lat": 11.5601,
+                            "lon": 108.5402,
+                            "at": "2026-10-20T03:15:00.000Z"
+                          },
+                          "group": {
+                            "id": "g-2",
+                            "name": "Team A",
+                            "parentId": "g-1"
+                          },
+                          "batteryPct": 81,
+                          "lastSeenAt": "2026-10-20T03:15:00.000Z",
+                          "stale": false,
+                          "openIncident": null,
+                          "contractCode": "RC-2026-0042",
+                          "simulated": false,
+                          "state": "LIVE"
+                        },
+                        {
+                          "id": "6a0e4c1f-2b8d-4e37-9a51-7c3f0d2e8b14",
+                          "assetTag": "TL-0043",
+                          "hardwareVariant": "treklink-v3",
+                          "holder": null,
+                          "position": null,
+                          "group": {
+                            "id": "g-2",
+                            "name": "Team A",
+                            "parentId": "g-1"
+                          },
+                          "batteryPct": null,
+                          "lastSeenAt": null,
+                          "stale": false,
+                          "openIncident": null,
+                          "contractCode": "RC-2026-0042",
+                          "simulated": false,
+                          "state": "NOT_HEARD"
+                        }
+                      ]
+                    },
+                    "isSuccess": true,
+                    "statusCode": 200,
+                    "message": "OK"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result",
+                    "isSuccess",
+                    "statusCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "result": {
+                      "type": "object",
+                      "required": [
+                        "errorCode"
+                      ],
+                      "properties": {
+                        "errorCode": {
+                          "type": "string",
+                          "enum": [
+                            "UNAUTHENTICATED"
+                          ]
+                        }
+                      }
+                    },
+                    "isSuccess": {
+                      "type": "boolean"
+                    },
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "result": {
+                      "errorCode": "UNAUTHENTICATED"
+                    },
+                    "isSuccess": false,
+                    "statusCode": 401,
+                    "message": "Authentication required."
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "An access token was sent instead of an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result",
+                    "isSuccess",
+                    "statusCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "result": {
+                      "type": "object",
+                      "required": [
+                        "errorCode"
+                      ],
+                      "properties": {
+                        "errorCode": {
+                          "type": "string",
+                          "enum": [
+                            "FORBIDDEN"
+                          ]
+                        }
+                      }
+                    },
+                    "isSuccess": {
+                      "type": "boolean"
+                    },
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "result": {
+                      "errorCode": "FORBIDDEN"
+                    },
+                    "isSuccess": false,
+                    "statusCode": 403,
+                    "message": "You do not have access to this."
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "More requests than the key's limit in the current minute.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result",
+                    "isSuccess",
+                    "statusCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "result": {
+                      "type": "object",
+                      "required": [
+                        "errorCode"
+                      ],
+                      "properties": {
+                        "errorCode": {
+                          "type": "string",
+                          "enum": [
+                            "RATE_LIMITED"
+                          ]
+                        }
+                      }
+                    },
+                    "isSuccess": {
+                      "type": "boolean"
+                    },
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "result": {
+                      "errorCode": "RATE_LIMITED"
+                    },
+                    "isSuccess": false,
+                    "statusCode": 429,
+                    "message": "Too many requests. Try again in a minute."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List devices and their last state",
+        "tags": [
+          "Organization API"
+        ]
+      }
+    },
+    "/telemetry/stream": {
+      "get": {
+        "description": "Returns the organization's stream entries after a cursor (positions, telemetry, staleness and incident changes), oldest first, at most `limit`. Poll with the last `nextCursor`. Start from the `cursor` of GET /telemetry/devices. A cursor older than the retention window answers 410 and the client reads the devices again. No entry of a unit from before the organization's custody is returned.",
+        "operationId": "readTelemetryStream",
+        "parameters": [
+          {
+            "name": "after",
+            "required": true,
+            "in": "query",
+            "description": "Last cursor seen. Entries with a greater seq are returned.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "example": 88213
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Most entries to return.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 500,
+              "example": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of entries, oldest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result",
+                    "isSuccess",
+                    "statusCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "result": {
+                      "type": "object",
+                      "required": [
+                        "entries",
+                        "nextCursor",
+                        "hasMore"
+                      ],
+                      "properties": {
+                        "entries": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "seq",
+                              "type",
+                              "deviceId",
+                              "payload",
+                              "createdAt"
+                            ],
+                            "properties": {
+                              "seq": {
+                                "type": "integer",
+                                "description": "Position of the entry in the stream. Use it as the cursor."
+                              },
+                              "type": {
+                                "type": "string",
+                                "description": "Kind of entry, for example device.position, device.telemetry, incident.changed, device.label, device.groupChanged, device.handedOver, device.released, device.stale or station.stale.",
+                                "example": "device.position"
+                              },
+                              "deviceId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "nullable": true
+                              },
+                              "payload": {
+                                "type": "object",
+                                "additionalProperties": true,
+                                "description": "Fields depend on type."
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            }
+                          }
+                        },
+                        "nextCursor": {
+                          "type": "integer",
+                          "description": "Cursor for the next request: the seq of the last entry, or after when empty."
+                        },
+                        "hasMore": {
+                          "type": "boolean",
+                          "description": "True when more entries wait after nextCursor."
+                        }
+                      }
+                    },
+                    "isSuccess": {
+                      "type": "boolean"
+                    },
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "result": {
+                      "entries": [
+                        {
+                          "seq": 88214,
+                          "type": "device.position",
+                          "deviceId": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
+                          "payload": {
+                            "lat": 11.5603,
+                            "lon": 108.5405,
+                            "at": "2026-10-20T03:15:00.000Z"
+                          },
+                          "createdAt": "2026-10-20T03:15:00.000Z"
+                        },
+                        {
+                          "seq": 88215,
+                          "type": "incident.changed",
+                          "deviceId": "0d3f6a2b-7e11-4c55-8f0a-2b1c9e7d4a10",
+                          "payload": {
+                            "incidentId": "7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d",
+                            "state": "NOTIFY_PRIMARY"
+                          },
+                          "createdAt": "2026-10-20T03:15:00.000Z"
+                        }
+                      ],
+                      "nextCursor": 88215,
+                      "hasMore": false
+                    },
+                    "isSuccess": true,
+                    "statusCode": 200,
+                    "message": "OK"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The query fails validation: after is missing or not a whole number, or limit is outside 1 to 500.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result",
+                    "isSuccess",
+                    "statusCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "result": {
+                      "type": "object",
+                      "required": [
+                        "errorCode"
+                      ],
+                      "properties": {
+                        "errorCode": {
+                          "type": "string",
+                          "enum": [
+                            "VALIDATION_FAILED"
+                          ]
+                        }
+                      }
+                    },
+                    "isSuccess": {
+                      "type": "boolean"
+                    },
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "result": {
+                      "errorCode": "VALIDATION_FAILED"
+                    },
+                    "isSuccess": false,
+                    "statusCode": 400,
+                    "message": "after must be an integer number"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, malformed, unknown or revoked API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result",
+                    "isSuccess",
+                    "statusCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "result": {
+                      "type": "object",
+                      "required": [
+                        "errorCode"
+                      ],
+                      "properties": {
+                        "errorCode": {
+                          "type": "string",
+                          "enum": [
+                            "UNAUTHENTICATED"
+                          ]
+                        }
+                      }
+                    },
+                    "isSuccess": {
+                      "type": "boolean"
+                    },
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "result": {
+                      "errorCode": "UNAUTHENTICATED"
+                    },
+                    "isSuccess": false,
+                    "statusCode": 401,
+                    "message": "Authentication required."
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "An access token was sent instead of an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result",
+                    "isSuccess",
+                    "statusCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "result": {
+                      "type": "object",
+                      "required": [
+                        "errorCode"
+                      ],
+                      "properties": {
+                        "errorCode": {
+                          "type": "string",
+                          "enum": [
+                            "FORBIDDEN"
+                          ]
+                        }
+                      }
+                    },
+                    "isSuccess": {
+                      "type": "boolean"
+                    },
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "result": {
+                      "errorCode": "FORBIDDEN"
+                    },
+                    "isSuccess": false,
+                    "statusCode": 403,
+                    "message": "You do not have access to this."
+                  }
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The cursor is older than the stream retention window.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result",
+                    "isSuccess",
+                    "statusCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "result": {
+                      "type": "object",
+                      "required": [
+                        "errorCode"
+                      ],
+                      "properties": {
+                        "errorCode": {
+                          "type": "string",
+                          "enum": [
+                            "CURSOR_EXPIRED"
+                          ]
+                        }
+                      }
+                    },
+                    "isSuccess": {
+                      "type": "boolean"
+                    },
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "result": {
+                      "errorCode": "CURSOR_EXPIRED"
+                    },
+                    "isSuccess": false,
+                    "statusCode": 410,
+                    "message": "The cursor is too old. Read the devices again and stream from the new cursor."
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "More requests than the key's limit in the current minute.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "result",
+                    "isSuccess",
+                    "statusCode",
+                    "message"
+                  ],
+                  "properties": {
+                    "result": {
+                      "type": "object",
+                      "required": [
+                        "errorCode"
+                      ],
+                      "properties": {
+                        "errorCode": {
+                          "type": "string",
+                          "enum": [
+                            "RATE_LIMITED"
+                          ]
+                        }
+                      }
+                    },
+                    "isSuccess": {
+                      "type": "boolean"
+                    },
+                    "statusCode": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "result": {
+                      "errorCode": "RATE_LIMITED"
+                    },
+                    "isSuccess": false,
+                    "statusCode": 429,
+                    "message": "Too many requests. Try again in a minute."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Read the stream after a cursor",
+        "tags": [
+          "Organization API"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "TrekLink Organization API",
+    "description": "Read-only access to the devices an organization holds and to the stream of events about them. Every request carries an organization API key in the X-Api-Key header. An access token is refused.",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Organization API",
+      "description": "Read-only endpoints for an organization API key."
+    }
+  ],
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Key",
+        "description": "An organization API key. An Org Manager creates it on the API keys page; it is shown once."
+      }
+    },
+    "schemas": {}
+  }
+}
