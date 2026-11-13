@@ -4,7 +4,7 @@
   "private": true,
   "description": "TrekLink developer documentation for the organization API, served at /developers/",
   "scripts": {
-    "gen": "docusaurus clean-api-docs all && docusaurus gen-api-docs all",
+    "gen": "node scripts/prepare-spec.mjs && docusaurus clean-api-docs all && docusaurus gen-api-docs all",
     "start": "npm run gen && docusaurus start",
     "build": "npm run gen && docusaurus build",
     "serve": "docusaurus serve --no-open",
