@@ -1,0 +1,27 @@
+/* TrekLink colours from the web app tokens (frontend/src/app/styles/tokens.css): Canopy green in the
+   light theme, Volt green in the dark one. System fonts only, no web font is requested. */
+:root {
+  --ifm-color-primary: #027258;
+  --ifm-color-primary-dark: #026850;
+  --ifm-color-primary-darker: #026249;
+  --ifm-color-primary-darkest: #025139;
+  --ifm-color-primary-light: #027c60;
+  --ifm-color-primary-lighter: #028268;
+  --ifm-color-primary-lightest: #029377;
+  --ifm-code-font-size: 95%;
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #7ecd06;
+  --ifm-color-primary-dark: #72b905;
+  --ifm-color-primary-darker: #6cae05;
+  --ifm-color-primary-darkest: #8fe308;
+  --ifm-color-primary-light: #8bd719;
+  --ifm-color-primary-lighter: #91d927;
+  --ifm-color-primary-lightest: #a0e13c;
+}
+
+.navbar__logo img {
+  height: 2rem;
+  width: auto;
+}
