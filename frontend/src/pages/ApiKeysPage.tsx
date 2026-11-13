@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Ban, Copy, KeyRound } from 'lucide-react';
+import { Ban, BookOpen, Copy, KeyRound } from 'lucide-react';
 import { useAuth } from '../app/providers/useAuth';
 import { apiKeyKeys, isActiveKey, useApiKeys, type ApiKey } from '../entities/api-key/api';
 import {
@@ -25,6 +25,7 @@ import {
   useToast,
   type CollectionField,
 } from '../shared/ui';
+import { buttonClasses } from '../shared/ui/buttonStyles';
 import { invalid, messageOf } from '../shared/ui/errors';
 import { ErrorState } from '../shared/ui/bits';
 
@@ -252,6 +253,14 @@ export const ApiKeysPage: React.FC = () => {
         title="API keys"
         meta={countLine}
         description="Read-only keys your own systems use to read your devices' telemetry. A key is shown once, when it is created."
+        actions={
+          // The developer docs are a separate site served by the host at /developers/, so this is a plain
+          // link for a full page load, not a router Link.
+          <a href="/developers/" className={buttonClasses('secondary')}>
+            <BookOpen aria-hidden="true" className="h-4 w-4" />
+            API documentation
+          </a>
+        }
         primaryAction={createButton}
       />
 

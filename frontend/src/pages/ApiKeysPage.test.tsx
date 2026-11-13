@@ -84,6 +84,16 @@ describe('ApiKeysPage (screen 3.4)', () => {
     expect(api).toHaveBeenCalledWith(LIST);
   });
 
+  it('links to the developer documentation with a plain anchor, next to Create', async () => {
+    serve(() => ({ items: [key()], limit: 5 }));
+    renderPage();
+    const link = await screen.findByRole('link', { name: 'API documentation' });
+    // A full page load: the docs are a separate site, so the link is an <a href>, not a router link.
+    expect(link.tagName).toBe('A');
+    expect(link.getAttribute('href')).toBe('/developers/');
+    expect(link.getAttribute('target')).toBeNull();
+  });
+
   it('shows the empty state when the organization has no key', async () => {
     serve(() => ({ items: [], limit: 5 }));
     renderPage();
