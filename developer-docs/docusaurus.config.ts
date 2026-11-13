@@ -65,7 +65,8 @@ const config: Config = {
         docsPluginId: 'classic',
         config: {
           organization: {
-            specPath: 'openapi/organization-api.json',
+            // Written by scripts/prepare-spec.mjs (`npm run gen`): the committed file with the host's origin.
+            specPath: 'openapi/organization-api.site.json',
             outputDir: 'docs/reference',
             sidebarOptions: { groupPathsBy: 'tag', categoryLinkSource: 'tag' },
           } satisfies OpenApiPlugin.Options,

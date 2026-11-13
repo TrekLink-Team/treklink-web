@@ -35,11 +35,12 @@ npm run build
 npm run serve
 ```
 
-`npm run build` runs `npm run gen` first, which regenerates `docs/reference/` from the OpenAPI file, then
-`docusaurus build` into `build/`. `npm run serve` serves it at `http://localhost:3000/developers/`.
-`npm start` runs the dev server with hot reload. The "try it" panel of the reference calls `/api/...` on the
-same host, so it works on the deployed site and not on a local preview unless a backend answers on that
-origin.
+`npm run build` runs `npm run gen` first, which writes `openapi/organization-api.site.json` (the OpenAPI file with
+the server set to `$DOCS_SITE_URL/api` when that variable is set, so the code samples carry the full URL), regenerates
+`docs/reference/` from it, then `docusaurus build` into `build/`. `npm run serve` serves it at
+`http://localhost:3000/developers/`. `npm start` runs the dev server with hot reload. The "try it" panel and the
+samples use that server: `$DOCS_SITE_URL/api` on the deployed site, and `/api` on a local preview without the
+variable, where only a backend on the same origin answers.
 
 The site makes no request to another host: no analytics, no web fonts, no CDN, and the search index is
 built at build time and searched in the browser. Set `NO_UPDATE_NOTIFIER=1` to silence the npm update check.
