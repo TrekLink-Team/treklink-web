@@ -56,6 +56,7 @@ const ROUTES: Record<SeededRole | 'anonymous', RouteCase[]> = {
     { pattern: '/' },
     { pattern: '/plans' },
     { pattern: '/sign-in' },
+    { pattern: '/demo' },
     { pattern: '/forgot' },
     { pattern: '/reset' },
     { pattern: '/welcome' },
