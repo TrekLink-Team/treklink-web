@@ -279,9 +279,28 @@ else
 fi
 
 # ---------------------------------------------------------------------------------------------------
+step "health check from the host"
+api_code=000
+waited=0
+# The first deploy waits for Caddy's certificate from Let's Encrypt.
+while [ "$waited" -le 240 ]; do
+  api_code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$HOST_NAME/api/health" || true)"
+  [ "$api_code" = "200" ] && break
+  sleep 10
+  waited=$((waited + 10))
+done
+echo "HEALTH https://$HOST_NAME/api/health -> $api_code"
+if [ "$api_code" != "200" ]; then
+  echo "  the API is not reachable over HTTPS; Caddy's last log lines:" >&2
+  compose logs --no-color --tail 30 caddy >&2 || true
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------------------------------
 step "build the developer docs (Node in a container)"
-# developer-docs/ is its own npm project (not a root workspace), built after the web app has been
-# published, so a docs failure never holds back the app. Same limits as the web app build; its API
+# developer-docs/ is its own npm project (not a root workspace), built after the web app is published
+# and the API health check has passed, so a docs failure (an out-of-memory build on a small host) never
+# holds back the app or hides its health; it still stops the run before the clean-up, and up.sh reports it. Same limits as the web app build; its API
 # reference pages are generated from developer-docs/openapi/organization-api.json by `npm run build`.
 echo "  memory before the build: $(free -m | awk '/^Mem:/ {print $7 " MiB available"}'), swap $(free -m | awk '/^Swap:/ {print $3 "/" $2 " MiB used"}')"
 quiet docker run --rm \
@@ -290,6 +309,7 @@ quiet docker run --rm \
   -v treklink-npm-cache:/root/.npm \
   -w /src/developer-docs \
   -e CI=true \
+  -e DOCS_SITE_URL="https://$HOST_NAME" \
   -e NODE_OPTIONS=--max-old-space-size=1280 \
   -e NO_UPDATE_NOTIFIER=1 \
   -e DO_NOT_TRACK=1 \
@@ -324,24 +344,6 @@ mv -T "$WEB_ROOT/developers.new" "$WEB_ROOT/developers"
 find "$WEB_ROOT/developers-releases" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -rn | tail -n +3 \
   | cut -d' ' -f2- | xargs -r rm -rf
 echo "  developer docs $RUN_ID are live at https://$HOST_NAME/developers/"
-
-# ---------------------------------------------------------------------------------------------------
-step "health check from the host"
-api_code=000
-waited=0
-# The first deploy waits for Caddy's certificate from Let's Encrypt.
-while [ "$waited" -le 240 ]; do
-  api_code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$HOST_NAME/api/health" || true)"
-  [ "$api_code" = "200" ] && break
-  sleep 10
-  waited=$((waited + 10))
-done
-echo "HEALTH https://$HOST_NAME/api/health -> $api_code"
-if [ "$api_code" != "200" ]; then
-  echo "  the API is not reachable over HTTPS; Caddy's last log lines:" >&2
-  compose logs --no-color --tail 30 caddy >&2 || true
-  exit 1
-fi
 docs_code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$HOST_NAME/developers/" || true)"
 echo "HEALTH https://$HOST_NAME/developers/ -> $docs_code"
 if [ "$docs_code" != "200" ]; then

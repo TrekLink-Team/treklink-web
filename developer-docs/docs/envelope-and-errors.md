@@ -41,7 +41,7 @@ Branch on the HTTP status and `result.errorCode`. The `message` can change wordi
 
 | Status | `result.errorCode` | When | What to do |
 | --- | --- | --- | --- |
-| 400 | `VALIDATION_FAILED` | `after` is missing or not a whole number, or `limit` is outside 1 to 500. The message names the field. | Fix the query. |
+| 400 | `VALIDATION_FAILED` | `after` is missing or not a whole number, `limit` is outside 1 to 500, or the query carries a parameter the route does not know. The message names the field. | Fix the query. |
 | 401 | `UNAUTHENTICATED` | The key is missing, malformed, unknown or revoked. | Check the header. Create a new key if it was revoked. |
 | 403 | `FORBIDDEN` | An access token was sent instead of a key. | Send `X-Api-Key`. |
 | 410 | `CURSOR_EXPIRED` | The `after` cursor is older than the stream retention window. | Read the devices again and stream from the new cursor. See [Reading the stream](./reading-the-stream.md). |

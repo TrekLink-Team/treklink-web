@@ -15,7 +15,7 @@ sidebar_position: 5
 4. Store `result.nextCursor` as the new position, after the entries are applied.
 5. If `result.hasMore` is `true`, call again at once with the new position. If it is `false`, wait a few seconds, then call again.
 
-`nextCursor` is the `seq` of the last entry returned. When no entry is returned it equals `after`, so you can always send it back unchanged.
+`nextCursor` is the `seq` of the last entry returned. When no entry is returned it equals `after`, and you send it back unchanged on the next poll.
 
 ```bash
 curl -H "X-Api-Key: <key>" \
@@ -90,7 +90,7 @@ while True:
 
 ## When the cursor expires
 
-Entries are kept for a limited time (72 hours by default, the platform parameter `monitoring.streamRetentionHours`). A cursor older than that answers `410` with `result.errorCode` `CURSOR_EXPIRED`, because the entries between it and now are gone. Read `GET /api/telemetry/devices` again, replace your state with it and stream from the new `cursor`.
+Entries are kept for a limited time (72 hours by default, a platform setting). A cursor older than that answers `410` with `result.errorCode` `CURSOR_EXPIRED`, because the entries between it and now are gone. Positions are shared by every organization, so a quiet fleet that keeps polling with an unchanged cursor can also get `410` once that time has passed: handle `410` on every poll. Read `GET /api/telemetry/devices` again, replace your state with it and stream from the new `cursor`.
 
 ## Entry types
 

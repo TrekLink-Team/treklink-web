@@ -125,8 +125,8 @@ What it does, each step named in its output and in its error message when it fai
 5. `git archive` of the ref and the host script into the artifact bucket.
 6. SSM Run Command on the host: installs the release in `/opt/treklink/app`, writes `deploy/aws/.env`
    (mode 0600), builds the backend image, starts compose, waits for the backend to be healthy, builds the
-   web app, syncs it to the frontend bucket, invalidates CloudFront, builds and publishes the developer
-   docs, and checks `https://<host name>/api/health` and `https://<host name>/developers/` from the host.
+   web app, syncs it to the frontend bucket, invalidates CloudFront, checks `https://<host name>/api/health`
+   from the host, then builds and publishes the developer docs and checks `https://<host name>/developers/`.
    The build logs stay on the host in `/opt/treklink/logs/`; the last lines are printed when a host step
    fails.
 7. Prints the URLs and the health results.
@@ -150,10 +150,10 @@ not a root workspace; `developer-docs/README.md` has the commands). Its referenc
 
 | Step | What `host/deploy.sh` does |
 |---|---|
-| Build | After the web app is published, runs `npm ci --ignore-scripts` and `npm run build` in `developer-docs/` inside `node:22-bookworm-slim` with the same limits as the web app build (1536 MiB RAM, 3072 MiB RAM plus swap, `--max-old-space-size=1280`). It prints the available memory before the build and the swap in use after it. A failed build fails the deploy, after the web app is already live |
+| Build | After the web app is published and the API health check has passed, runs `npm ci --ignore-scripts` and `npm run build` in `developer-docs/` inside `node:22-bookworm-slim` with the same limits as the web app build (1536 MiB RAM, 3072 MiB RAM plus swap, `--max-old-space-size=1280`). It prints the available memory before the build and the swap in use after it. A failed build fails the deploy after the web app is live and healthy, and skips the clean-up step |
 | Publish | Copies the build to `/opt/treklink/www/developers-releases/<run id>`, carries over the previous build's hashed files under `assets/` (so an open tab still finds its chunks), and moves the `developers` link in one rename. The two newest builds stay |
 | Serve | Caddy answers `/developers/*` from `/srv/www/developers` (the same `WEB_ROOT` mount as the web app). Hashed files under `/developers/assets/` get `Cache-Control: public, max-age=31536000, immutable`; everything else gets `no-cache`. `/developers` redirects to `/developers/`. A path with no file answers 404 with the docs' own `404.html`, never the web app's `index.html` |
-| Check | `GET https://<host name>/developers/` must answer 200, printed as a `HEALTH` line |
+| Check | Right after the publish, `GET https://<host name>/developers/` must answer 200, printed as a `HEALTH` line |
 
 `WEB_ROOT` is now written to `deploy/aws/.env` in both hosting modes, because Caddy needs the mount for the
 docs even when CloudFront serves the web app. Changing it recreates the `caddy` container on the next deploy.
