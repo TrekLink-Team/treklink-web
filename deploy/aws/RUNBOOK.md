@@ -26,7 +26,7 @@ Files in this folder:
 | `cfn/treklink.yml` | The CloudFormation stack: EC2 host, security group, Elastic IP, buckets, CloudFront, budget |
 | `.env.aws.example` | Every value `up.sh` needs. Copy it to `.env.aws` on your laptop; git-ignored |
 | `compose.yml` | The four services: `caddy`, `mosquitto`, `broker-hook-proxy`, `backend` |
-| `Caddyfile` | Let's Encrypt certificate for `MQTT_DOMAIN`; HTTPS for `/api/*` and `/socket.io/*`, 404 for the broker hooks and every other path |
+| `Caddyfile` | Let's Encrypt certificate for `MQTT_DOMAIN`; HTTPS for `/api/*` and `/socket.io/*`, the developer docs under `/developers/*`, the web app for every other path, 404 for the broker hooks |
 | `mosquitto/mosquitto.conf` | Broker: TLS on 8883 (public), plain 1883 on the compose network only, go-auth hooks |
 | `mosquitto/start.sh` | Copies Caddy's certificate for the broker and reloads the broker when Caddy renews it |
 | `.env.example` | Manual path: every variable the host needs. Copy it to `.env` on the host and never commit that file |
@@ -51,6 +51,7 @@ All in `ap-southeast-2` (Sydney), the only region where the organisation's SCP a
 | Elastic IP | Gives the host name: the IP with dashes on sslip.io, for example `3-104-1-2.sslip.io`. It is `MQTT_DOMAIN`, the API host and the broker address |
 | Host services | `compose.yml`: Caddy (Let's Encrypt certificate, HTTPS API and socket), Mosquitto (MQTT over TLS on 8883, same certificate), broker-hook-proxy, backend |
 | Web app | Built on the host in a Node container. `FRONTEND_HOSTING=host` (the default): served by Caddy on the same sslip.io host from `/opt/treklink/www/current` (client routes answered with `index.html`, the two newest builds kept). `FRONTEND_HOSTING=cloudfront`: published to a private S3 bucket and served by CloudFront (Origin Access Control, HTTPS, price class 200) |
+| Developer docs | `developer-docs/` (Docusaurus, the organization API reference), built on the host in a Node container after the web app and served by Caddy at `https://<host name>/developers/` from `/opt/treklink/www/developers`, in both hosting modes. See "Developer docs" below |
 | Secrets | SSM Parameter Store SecureString under `/treklink/<stage>/`, written from your `deploy/aws/.env.aws`; the host writes `deploy/aws/.env` from them on every deploy |
 | Artifacts | A private S3 bucket for the source archives and the SSM command output, emptied after 14 days |
 | Budget | Monthly AWS Budgets cost budget of 40 USD for the whole account, email alert at 80 % actual to `BUDGET_EMAIL` |
@@ -124,18 +125,53 @@ What it does, each step named in its output and in its error message when it fai
 5. `git archive` of the ref and the host script into the artifact bucket.
 6. SSM Run Command on the host: installs the release in `/opt/treklink/app`, writes `deploy/aws/.env`
    (mode 0600), builds the backend image, starts compose, waits for the backend to be healthy, builds the
-   web app, syncs it to the frontend bucket, invalidates CloudFront and checks
-   `https://<host name>/api/health` from the host. The build logs stay on the host in
-   `/opt/treklink/logs/`; the last lines are printed when a host step fails.
+   web app, syncs it to the frontend bucket, invalidates CloudFront, builds and publishes the developer
+   docs, and checks `https://<host name>/api/health` and `https://<host name>/developers/` from the host.
+   The build logs stay on the host in `/opt/treklink/logs/`; the last lines are printed when a host step
+   fails.
 7. Prints the URLs and the health results.
 
 The first run creates everything, including Caddy's first certificate from Let's Encrypt. sslip.io names
 share Let's Encrypt's rate limits with every other sslip.io user, so issuance can fail on a busy week
 (manual path §1). The certificate lives on the host's disk and survives redeploys; `down.sh` deletes it.
 
-Run `up.sh` again to redeploy. A redeploy rebuilds the backend image and the web app, restarts the backend
-(the restart window of manual path §10 applies), and restarts Caddy, Mosquitto or the proxy only when their
-mounted files changed.
+Run `up.sh` again to redeploy. A redeploy rebuilds the backend image, the web app and the developer docs,
+restarts the backend (the restart window of manual path §10 applies), and restarts Caddy, Mosquitto or the
+proxy only when their mounted files changed.
+
+### Developer docs (2026-11-13)
+
+A public site for the organization API (`GET /api/telemetry/devices` and `GET /api/telemetry/stream`, the
+two routes an organization API key may call): the leader chose it on 2026-11-13 because an organization
+holding keys could not see which endpoints they open. The source is `developer-docs/` (its own npm project,
+not a root workspace; `developer-docs/README.md` has the commands). Its reference pages are generated from
+`developer-docs/openapi/organization-api.json`, which the backend writes with
+`npm --prefix backend run openapi:export`; CI fails when the committed file is stale.
+
+| Step | What `host/deploy.sh` does |
+|---|---|
+| Build | After the web app is published, runs `npm ci --ignore-scripts` and `npm run build` in `developer-docs/` inside `node:22-bookworm-slim` with the same limits as the web app build (1536 MiB RAM, 3072 MiB RAM plus swap, `--max-old-space-size=1280`). It prints the available memory before the build and the swap in use after it. A failed build fails the deploy, after the web app is already live |
+| Publish | Copies the build to `/opt/treklink/www/developers-releases/<run id>`, carries over the previous build's hashed files under `assets/` (so an open tab still finds its chunks), and moves the `developers` link in one rename. The two newest builds stay |
+| Serve | Caddy answers `/developers/*` from `/srv/www/developers` (the same `WEB_ROOT` mount as the web app). Hashed files under `/developers/assets/` get `Cache-Control: public, max-age=31536000, immutable`; everything else gets `no-cache`. `/developers` redirects to `/developers/`. A path with no file answers 404 with the docs' own `404.html`, never the web app's `index.html` |
+| Check | `GET https://<host name>/developers/` must answer 200, printed as a `HEALTH` line |
+
+`WEB_ROOT` is now written to `deploy/aws/.env` in both hosting modes, because Caddy needs the mount for the
+docs even when CloudFront serves the web app. Changing it recreates the `caddy` container on the next deploy.
+
+**With `FRONTEND_HOSTING=cloudfront` the docs are served by the host only.** The docs build, the publish and
+the Caddy route do not change, so the docs stay at `https://<host name>/developers/` on the sslip.io name.
+The CloudFront distribution does not route `/developers/*` to the host, so `https://<CloudFront domain>/developers/`
+answers the web app's fallback page, and the "API documentation" link on the API keys page (a relative
+`/developers/`) leads there. To make the link work from the CloudFront domain, add a cache behaviour for
+`/developers/*` with the host as a second origin to `cfn/treklink.yml`; it is not done.
+
+Rollback: point the link at the previous build. Caddy follows the link on every request, so no restart is
+needed.
+
+```bash
+cd /opt/treklink/www && ls developers-releases
+ln -sfn developers-releases/<previous run id> developers.new && mv -T developers.new developers
+```
 
 ### Status
 
@@ -199,6 +235,11 @@ CloudFront), the first-boot set-up on Amazon Linux 2023 (Compose v2.32.4 and Bui
 the backend and web app builds on a `t4g.small` (the host prints the available memory before each build
 and the swap in use after the web app build; record them), the certificate for the sslip.io name, and the web app
 calling the API across origins. Record the result here.
+
+The developer docs step (2026-11-13) has not run on the host yet. Its peak memory on a `t4g.small` is not
+measured (the host prints the available memory before the build and the swap in use after it; record both
+here after the first deploy). The Caddy routes and the publish step were run on a laptop against the
+`caddy:2.10-alpine` image and a copy of the build.
 
 **First runs in the team account, 2026-11-10.** Three `up.sh` runs, all stopped at the stack creation and
 rolled back; each empty stack was deleted, and no instance, Elastic IP, bucket, budget or parameter was left.
