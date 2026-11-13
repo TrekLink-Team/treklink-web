@@ -82,7 +82,8 @@ services:
       JOBS_TICK_ON_REQUEST: "false"
       FIELD_SIMULATOR_ENABLED: "false"
       DEMO_CONTROLS_ENABLED: "false"
-      DEMO_TEST_ACCOUNTS_ENABLED: "false"
+      # The /demo quick sign-in (leader, 2026-11-13): off unless .env sets it.
+      DEMO_TEST_ACCOUNTS_ENABLED: ${DEMO_TEST_ACCOUNTS_ENABLED:-false}
       DEMO_SIMULATION_ENABLED: "false"
       SWAGGER_ENABLED: "false"
       HANDOVER_NOTE_STORE: database
