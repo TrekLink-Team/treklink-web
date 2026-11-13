@@ -49,6 +49,7 @@ import { OrgDashboardPage } from '../pages/OrgDashboardPage';
 import { OrganizationDetailPage } from '../pages/OrganizationDetailPage';
 import { OrganizationReviewPage } from '../pages/OrganizationReviewPage';
 import { PlansPage } from '../pages/PlansPage';
+import { DemoSignInPage } from '../pages/DemoSignInPage';
 import { RegisterPage } from '../pages/RegisterPage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { SignInPage } from '../pages/SignInPage';
@@ -114,6 +115,7 @@ export const AppRoutes: React.FC = () => (
     <Route path="/plans" element={<PlansPage />} />
     <Route element={<SignedOutOnly />}>
       <Route path="/sign-in" element={<SignInPage />} />
+      <Route path="/demo" element={<DemoSignInPage />} />
       <Route path="/forgot" element={<ForgotPasswordPage />} />
       <Route path="/reset" element={<ResetPasswordPage />} />
       <Route path="/welcome" element={<WelcomePage />} />

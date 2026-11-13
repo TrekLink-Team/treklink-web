@@ -1,14 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { PageScrollBody } from '../shared/ui/PageChrome';
 import { ApiError } from '../shared/api/apiClient';
-import { useDemoAccounts, type DemoTestAccount } from '../entities/demo/api';
 import { landingRoute, useSession } from '../entities/session/model';
 import { signIn } from '../features/sign-in/api';
 import { CARD, LINK, PRIMARY } from '../features/password/form';
 import { Alert } from '../shared/ui/Alert';
 import { FOCUS } from '../shared/ui/styles';
-import { TestAccountsBox } from '../widgets/TestAccountsBox/TestAccountsBox';
 
 // MSG09 for wrong credentials; any other failure shows the server message (screen 2.1).
 const GENERIC_FAILURE = 'Sign-in failed. Please try again.';
@@ -22,41 +20,12 @@ export const SignInPage: React.FC = () => {
   const [pending, setPending] = useState(false);
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  // The banner a page leaves after sending the user here, such as "Password changed" after a reset, and
-  // the test account chosen on `/` (screen 7.5 box): its email only, never its password.
-  const state = useLocation().state as { notice?: string; demoEmail?: string } | null;
+  // The banner a page leaves after sending the user here, such as "Password changed" after a reset. The
+  // sandbox test accounts live on /demo since 2026-11-13, so this page stays clean.
+  const state = useLocation().state as { notice?: string } | null;
   const notice = state?.notice;
   const storeSession = useSession((session) => session.signIn);
   const submitRef = useRef<HTMLButtonElement>(null);
-  const accounts = useDemoAccounts();
-  const [preselected, setPreselected] = useState(false);
-
-  const focusSubmit = useRef(false);
-
-  const applyAccount = (account: DemoTestAccount) => {
-    setEmail(account.email);
-    setPassword(account.password);
-    setError(null);
-    focusSubmit.current = true;
-  };
-
-  // After Use, focus moves to Sign in once the filled fields have enabled it.
-  useEffect(() => {
-    if (!focusSubmit.current) return;
-    focusSubmit.current = false;
-    submitRef.current?.focus();
-  });
-
-  // The account chosen on `/` is filled once, from this page's own copy of the list, while rendering
-  // (React's pattern for state derived from a prop), so the first paint after the list loads shows it.
-  if (!preselected && state?.demoEmail && accounts.data) {
-    setPreselected(true);
-    const account = accounts.data.find((candidate) => candidate.email === state.demoEmail);
-    if (account) {
-      setEmail(account.email);
-      setPassword(account.password);
-    }
-  }
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -74,8 +43,7 @@ export const SignInPage: React.FC = () => {
   };
 
   return (
-    // A fit page: only the body scrolls, and only when the form and the test accounts do not fit
-    // (ui standard §7).
+    // A fit page: only the body scrolls, and only when the form does not fit (ui standard §7).
     <div data-fit-page="" className="flex min-h-0 flex-1 flex-col">
       <PageScrollBody
         label="Sign-in form"
@@ -160,7 +128,6 @@ export const SignInPage: React.FC = () => {
             Register your organization
           </Link>
         </form>
-        <TestAccountsBox onUse={applyAccount} className="w-full max-w-xl lg:w-auto lg:flex-1" />
       </PageScrollBody>
     </div>
   );
