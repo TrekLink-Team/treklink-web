@@ -24,7 +24,8 @@ const EMPTY: UplinkSettings = {
   brokerAddress: '',
   brokerUsername: '',
   brokerPassword: '',
-  tls: false,
+  // On by default (D-106): the AWS broker listens only on 8883 with TLS.
+  tls: true,
 };
 
 const bytes = (value: string) => new TextEncoder().encode(value).length;
@@ -164,7 +165,7 @@ export const ConfigureUplinkDialog: React.FC<Props> = ({ device, confirmAssetTag
         <Switch
           id="uplink-tls"
           label="TLS"
-          description="Off for the broker on the local network. A unit built without TLS refuses it."
+          description="On for the AWS broker on port 8883. Turn it off only for a broker on the local network. A unit built without TLS refuses it."
           checked={form.tls}
           onChange={(tls) => setForm((current) => ({ ...current, tls }))}
         />

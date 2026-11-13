@@ -47,7 +47,7 @@ afterEach(() => {
 });
 
 describe('ConfigureUplinkDialog (devices design 8.8, screen 4.2)', () => {
-  it('sends the typed settings with TLS off by default and reports the broker', async () => {
+  it('sends the typed settings with TLS on by default and reports the broker', async () => {
     docking.configureUplink.mockResolvedValue({ ok: true });
     const onDone = open();
     expect(screen.getByText('The unit restarts once to apply the settings.')).toBeTruthy();
@@ -67,7 +67,7 @@ describe('ConfigureUplinkDialog (devices design 8.8, screen 4.2)', () => {
         brokerAddress: '192.168.1.20:1883',
         brokerUsername: '',
         brokerPassword: 'broker-secret',
-        tls: false,
+        tls: true,
       },
     );
   });
