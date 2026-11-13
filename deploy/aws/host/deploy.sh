@@ -3,7 +3,9 @@
 # laptop. It installs the uploaded release into /opt/treklink/app, writes deploy/aws/.env from SSM
 # Parameter Store, builds and starts compose (caddy, mosquitto, broker-hook-proxy, backend), builds the
 # web app in a Node container, and publishes it: to /opt/treklink/www for Caddy when the host serves it
-# (--frontend-bucket none), else to the frontend bucket with a CloudFront invalidation.
+# (--frontend-bucket none), else to the frontend bucket with a CloudFront invalidation. The developer
+# documentation (developer-docs/) is then built the same way and published to /opt/treklink/www/developers
+# for Caddy, whichever way the web app is hosted: it is served by the host at https://<host>/developers/.
 #
 # Output stays short: step markers and results. The long build logs go to /opt/treklink/logs/<run>.log,
 # and the last lines of that log are printed when a step fails. No secret is printed or logged: the
@@ -164,7 +166,9 @@ rm -f "$PARAMS_JSON"
   echo "FIELD_STATION_BROKER_URL='mqtts://$HOST_NAME:8883'"
   echo "VITE_API_BASE_URL='https://$HOST_NAME/api'"
   echo "VITE_WS_URL='https://$HOST_NAME'"
-  if [ "$HOST_SERVES_WEB" -eq 1 ]; then echo "WEB_ROOT='$WEB_ROOT'"; fi
+  # Caddy mounts it for the developer documentation under /developers/, and for the web app when the host
+  # serves it.
+  echo "WEB_ROOT='$WEB_ROOT'"
   echo "BACKEND_TAG='$(printf '%s' "$COMMIT" | cut -c1-12)'"
 } >> "$ENV_FILE"
 chmod 0600 "$ENV_FILE"
@@ -184,6 +188,7 @@ echo "  treklink-backend:$(printf '%s' "$COMMIT" | cut -c1-12) built"
 
 # ---------------------------------------------------------------------------------------------------
 step "start compose"
+mkdir -p "$WEB_ROOT/developers-releases"
 if [ "$HOST_SERVES_WEB" -eq 1 ]; then mkdir -p "$WEB_ROOT/releases"; fi
 quiet compose up -d --remove-orphans
 if [ "${#recreate[@]}" -gt 0 ]; then
@@ -274,6 +279,53 @@ else
 fi
 
 # ---------------------------------------------------------------------------------------------------
+step "build the developer docs (Node in a container)"
+# developer-docs/ is its own npm project (not a root workspace), built after the web app has been
+# published, so a docs failure never holds back the app. Same limits as the web app build; its API
+# reference pages are generated from developer-docs/openapi/organization-api.json by `npm run build`.
+echo "  memory before the build: $(free -m | awk '/^Mem:/ {print $7 " MiB available"}'), swap $(free -m | awk '/^Swap:/ {print $3 "/" $2 " MiB used"}')"
+quiet docker run --rm \
+  --memory=1536m --memory-swap=3072m \
+  -v "$APP:/src" \
+  -v treklink-npm-cache:/root/.npm \
+  -w /src/developer-docs \
+  -e CI=true \
+  -e NODE_OPTIONS=--max-old-space-size=1280 \
+  -e NO_UPDATE_NOTIFIER=1 \
+  -e DO_NOT_TRACK=1 \
+  "$NODE_IMAGE" \
+  sh -c 'npm ci --ignore-scripts --no-audit --no-fund && npm run build'
+[ -f "$APP/developer-docs/build/index.html" ] || { echo "  the build produced no developer-docs/build/index.html" >&2; exit 1; }
+[ -f "$APP/developer-docs/build/404.html" ] || { echo "  the build produced no developer-docs/build/404.html" >&2; exit 1; }
+echo "  swap in use after the build: $(free -m | awk '/^Swap:/ {print $3}') MiB"
+echo "  developer-docs/build: $(find "$APP/developer-docs/build" -type f | wc -l) files"
+
+# ---------------------------------------------------------------------------------------------------
+step "publish the developer docs to $WEB_ROOT/developers for Caddy"
+# Served by Caddy from the host in both hosting modes (the CloudFront distribution does not route
+# /developers/). Same scheme as the web app: each build in its own folder, one rename moves the
+# "developers" link, so Caddy never serves a half-copied build. The previous build's own hashed files
+# under assets/ are copied in, so a tab that loaded it can still fetch its chunks; one build back only.
+docs_release="developers-releases/$RUN_ID"
+cp -a "$APP/developer-docs/build" "$WEB_ROOT/$docs_release"
+(cd "$WEB_ROOT/$docs_release" && find assets -type f | sort) > "$WEB_ROOT/$docs_release/.own-assets"
+if [ -f "$WEB_ROOT/developers/.own-assets" ]; then
+  while IFS= read -r file; do
+    if [ -f "$WEB_ROOT/developers/$file" ] && [ ! -e "$WEB_ROOT/$docs_release/$file" ]; then
+      mkdir -p "$WEB_ROOT/$docs_release/$(dirname "$file")"
+      cp "$WEB_ROOT/developers/$file" "$WEB_ROOT/$docs_release/$file"
+    fi
+  done < "$WEB_ROOT/developers/.own-assets"
+fi
+chmod -R a+rX "$WEB_ROOT/$docs_release"
+ln -sfn "$docs_release" "$WEB_ROOT/developers.new"
+mv -T "$WEB_ROOT/developers.new" "$WEB_ROOT/developers"
+# Keep the two newest builds.
+find "$WEB_ROOT/developers-releases" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -rn | tail -n +3 \
+  | cut -d' ' -f2- | xargs -r rm -rf
+echo "  developer docs $RUN_ID are live at https://$HOST_NAME/developers/"
+
+# ---------------------------------------------------------------------------------------------------
 step "health check from the host"
 api_code=000
 waited=0
@@ -287,6 +339,13 @@ done
 echo "HEALTH https://$HOST_NAME/api/health -> $api_code"
 if [ "$api_code" != "200" ]; then
   echo "  the API is not reachable over HTTPS; Caddy's last log lines:" >&2
+  compose logs --no-color --tail 30 caddy >&2 || true
+  exit 1
+fi
+docs_code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$HOST_NAME/developers/" || true)"
+echo "HEALTH https://$HOST_NAME/developers/ -> $docs_code"
+if [ "$docs_code" != "200" ]; then
+  echo "  the developer docs are not served; Caddy's last log lines:" >&2
   compose logs --no-color --tail 30 caddy >&2 || true
   exit 1
 fi
