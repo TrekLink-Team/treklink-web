@@ -11,6 +11,7 @@ import { TestAccountsBox } from '../widgets/TestAccountsBox/TestAccountsBox';
 
 const GENERIC_FAILURE = 'Sign-in failed. Please try again.';
 const OFF = 'Demo sign-in is off on this deployment.';
+const LOAD_FAILED = 'The demo accounts could not be loaded. Try again.';
 
 // /demo: one-click sign-in as any seeded demo account (leader, 2026-11-13). The list comes from the
 // sandbox test accounts read (demo api-design 05), so it exists only while DEMO_TEST_ACCOUNTS_ENABLED
@@ -35,7 +36,11 @@ export const DemoSignInPage: React.FC = () => {
     }
   };
 
-  const off = accounts.isError || (accounts.data !== undefined && accounts.data.length === 0);
+  // A 404 or an empty list means the read is switched off; any other failure is worth a retry.
+  const off =
+    (accounts.error instanceof ApiError && accounts.error.statusCode === 404) ||
+    (accounts.data !== undefined && accounts.data.length === 0);
+  const failed = accounts.isError && !off;
 
   return (
     <div data-fit-page="" className="flex min-h-0 flex-1 flex-col">
@@ -45,15 +50,25 @@ export const DemoSignInPage: React.FC = () => {
       >
         <div className="flex w-full max-w-xl flex-col gap-2">
           <h1 className="text-2xl font-bold text-ink">Demo sign-in</h1>
-          <p className="text-body text-ink-muted">
-            Pick an account to sign in at once. Each one is a seeded demo account with fictitious data.
-          </p>
+          {!off && (
+            <p className="text-body text-ink-muted">
+              Pick an account to sign in at once. Each one is a seeded demo account with fictitious data.
+            </p>
+          )}
           {error && <Alert tone="error">{error}</Alert>}
         </div>
         {accounts.isPending && (
           <p role="status" className="text-body text-ink-muted">
             Loading demo accounts…
           </p>
+        )}
+        {failed && (
+          <div className={CARD}>
+            <Alert tone="error">{LOAD_FAILED}</Alert>
+            <button type="button" onClick={() => void accounts.refetch()} className={LINK}>
+              Try again
+            </button>
+          </div>
         )}
         {off && (
           <div className={CARD}>

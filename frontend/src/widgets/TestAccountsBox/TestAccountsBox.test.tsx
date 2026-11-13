@@ -56,6 +56,7 @@ afterEach(() => {
   cleanup();
   api.mockReset();
   useToast.getState().dismiss();
+  useSession.getState().signOut();
 });
 
 describe('TestAccountsBox (screen 7.5 box, demo api-design 05)', () => {
@@ -155,6 +156,13 @@ describe('the /demo page and the clean sign-in page (leader, 2026-11-13)', () =>
     fireEvent.click(await screen.findByRole('button', { name: 'Sign in as Org Operator' }));
     expect(await screen.findByText('Email or password is incorrect.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Sign in as Org Operator' })).toHaveProperty('disabled', false);
+  });
+
+  it('offers a retry, not "off", when the read fails for another reason', async () => {
+    serve(new ApiError(500, 'INTERNAL', 'Internal server error'));
+    wrap(<DemoSignInPage />, ['/demo']);
+    expect(await screen.findByText('The demo accounts could not be loaded. Try again.')).toBeTruthy();
+    expect(screen.queryByText('Demo sign-in is off on this deployment.')).toBeNull();
   });
 
   it('says demo sign-in is off when the route is a 404', async () => {

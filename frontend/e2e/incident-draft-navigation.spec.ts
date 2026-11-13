@@ -55,7 +55,6 @@ test('Staff incident drafts survive canceled browser and in-app navigation at 36
     const fixtures: Record<string, unknown> = {
       '/auth/login': { user, ...tokens },
       '/auth/me': user,
-      '/demo/accounts': { enabled: false, accounts: [] },
       '/incidents': { items: [incident], pageNumber: 1, pageSize: 20, totalCount: 1, totalPages: 1 },
       ['/incidents/' + id]: incident,
       ['/incidents/' + id + '/events']: [
