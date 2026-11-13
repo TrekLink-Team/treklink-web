@@ -2,7 +2,8 @@ name: CI
 
 # TrekLink CI: lint, typecheck, unit test, and build the three workspace
 # packages (backend, gateway, frontend), plus the backend HTTP e2e suite, on
-# every PR and push to dev/main.
+# every PR and push to dev/main. The developer docs site (developer-docs/) has
+# its own job, and the backend job checks that its OpenAPI file is current.
 # See treklink-docs/_docs/01-conventions/07-github-workflow-git-conventions.md for the
 # branch model this gates, and treklink-docs/_docs/00-project-context/01-project-charter.md §5
 # for the NFR this satisfies ("Deployability: Docker Compose + GitHub Actions
@@ -73,6 +74,39 @@ jobs:
       - name: Backend e2e (database stubbed)
         run: npm --prefix backend run test:e2e -- --ci
       - run: npm --prefix backend run build
+      # The public OpenAPI file of the organization API is generated from the controller annotations and
+      # committed (developer-docs/README.md). It needs no database. A stale file fails here.
+      - name: Developer docs OpenAPI file is current
+        run: |
+          npm --prefix backend run openapi:export
+          git diff --exit-code -- developer-docs/openapi/organization-api.json || {
+            echo "::error::developer-docs/openapi/organization-api.json is stale. Run 'npm --prefix backend run openapi:export' and commit the result."
+            exit 1
+          }
+
+  # The developer docs site (developer-docs/, its own npm project, not a root workspace): the reference
+  # pages are generated from the committed OpenAPI file, then the site is built. Broken links fail it.
+  developer-docs:
+    name: Developer docs (Docusaurus)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: developer-docs
+    env:
+      NO_UPDATE_NOTIFIER: '1'
+      DO_NOT_TRACK: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: developer-docs/package-lock.json
+      - run: npm ci --ignore-scripts
+      - name: Generate the API reference pages
+        run: npm run gen
+      - run: npm run typecheck
+      - run: npm run build
 
   gateway:
     name: Gateway Bridge
