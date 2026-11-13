@@ -2,12 +2,14 @@
 import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, apiClient } from '../../shared/api/apiClient';
 import { useToast } from '../../shared/ui';
 import { PlansPage } from '../../pages/PlansPage';
 import { SignInPage } from '../../pages/SignInPage';
+import { DemoSignInPage } from '../../pages/DemoSignInPage';
+import { useSession } from '../../entities/session/model';
 import { TestAccountsBox } from './TestAccountsBox';
 
 vi.mock('../../shared/api/apiClient', async (importOriginal) => ({
@@ -108,49 +110,68 @@ describe('TestAccountsBox (screen 7.5 box, demo api-design 05)', () => {
   });
 });
 
-describe('the box on /sign-in and /', () => {
-  it('fills the sign-in form when Use is pressed', async () => {
-    serve(ACCOUNTS);
-    wrap(<SignInPage />, ['/sign-in']);
-    fireEvent.click(await screen.findByRole('button', { name: 'Use Org Operator' }));
-    expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe('operator@treklink.local');
-    expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('Operator-Pass-4');
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Sign in' }));
+describe('the /demo page and the clean sign-in page (leader, 2026-11-13)', () => {
+  it('signs in at once as the chosen account and lands on its home', async () => {
+    const user = {
+      id: 'u-staff',
+      email: 'staff@treklink.local',
+      fullName: 'Demo Staff',
+      accountType: 'TREKLINK',
+      roles: ['STAFF'],
+      organization: null,
+    };
+    api.mockImplementation((path: string, init?: RequestInit) => {
+      if (path === '/demo/accounts') return Promise.resolve({ accounts: ACCOUNTS });
+      if (path === '/auth/login') {
+        expect(JSON.parse(String(init?.body))).toEqual({
+          email: 'staff@treklink.local',
+          password: 'Staff-Pass-2',
+        });
+        return Promise.resolve({ accessToken: 'a', refreshToken: 'r', user });
+      }
+      return new Promise(() => undefined);
+    });
+    wrap(
+      <Routes>
+        <Route path="/demo" element={<DemoSignInPage />} />
+        <Route path="/t/map" element={<p>Staff home</p>} />
+      </Routes>,
+      ['/demo'],
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign in as TrekLink Staff' }));
+    expect(await screen.findByText('Staff home')).toBeTruthy();
+    expect(useSession.getState().user?.email).toBe('staff@treklink.local');
   });
 
-  it('shows the sign-in form alone when the route is a 404', async () => {
+  it('shows the server message when the quick sign-in is refused', async () => {
+    api.mockImplementation((path: string) =>
+      path === '/demo/accounts'
+        ? Promise.resolve({ accounts: ACCOUNTS })
+        : path === '/auth/login'
+          ? Promise.reject(new ApiError(401, 'INVALID_CREDENTIALS', 'Email or password is incorrect.'))
+          : new Promise(() => undefined),
+    );
+    wrap(<DemoSignInPage />, ['/demo']);
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign in as Org Operator' }));
+    expect(await screen.findByText('Email or password is incorrect.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sign in as Org Operator' })).toHaveProperty('disabled', false);
+  });
+
+  it('says demo sign-in is off when the route is a 404', async () => {
     serve(new ApiError(404, 'NOT_FOUND', 'Cannot GET /api/demo/accounts'));
-    wrap(<SignInPage />, ['/sign-in']);
-    await waitFor(() => expect(api).toHaveBeenCalledWith('/demo/accounts'));
-    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeTruthy();
+    wrap(<DemoSignInPage />, ['/demo']);
+    expect(await screen.findByText('Demo sign-in is off on this deployment.')).toBeTruthy();
     expect(screen.queryByText('Sandbox test accounts')).toBeNull();
   });
 
-  it('carries the email, never the password, from / to /sign-in and fills the form there', async () => {
+  it('keeps the sign-in page and / free of the test accounts even when they are listed', async () => {
     serve(ACCOUNTS);
-    let seen: { pathname: string; search: string; state: unknown } | null = null;
-    const Spy: React.FC = () => {
-      const location = useLocation();
-      seen = { pathname: location.pathname, search: location.search, state: location.state };
-      return <SignInPage />;
-    };
-    wrap(
-      <Routes>
-        <Route path="/" element={<PlansPage />} />
-        <Route path="/sign-in" element={<Spy />} />
-      </Routes>,
-    );
-    fireEvent.click(await screen.findByRole('button', { name: 'Use Org Manager' }));
-    await screen.findByRole('heading', { name: 'Sign in' });
-    expect(seen).toEqual({
-      pathname: '/sign-in',
-      search: '',
-      state: { demoEmail: 'manager@treklink.local' },
-    });
-    expect(JSON.stringify(seen)).not.toContain('Manager-Pass-3');
-    await waitFor(() =>
-      expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('Manager-Pass-3'),
-    );
-    expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe('manager@treklink.local');
+    wrap(<SignInPage />, ['/sign-in']);
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeTruthy();
+    cleanup();
+    wrap(<PlansPage />, ['/']);
+    await waitFor(() => expect(api).toHaveBeenCalled());
+    expect(screen.queryByText('Sandbox test accounts')).toBeNull();
+    expect(api).not.toHaveBeenCalledWith('/demo/accounts');
   });
 });

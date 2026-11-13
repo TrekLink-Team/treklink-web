@@ -23,12 +23,6 @@ vi.mock('../features/password/api', async (importOriginal) => ({
 }));
 vi.mock('./LiveMapPage', () => ({ LiveMapPage: () => <p>landing page</p> }));
 
-// The sign-in page asks for the sandbox test accounts (demo api-design 05); here demo mode is off.
-vi.mock('../entities/demo/api', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../entities/demo/api')>()),
-  useDemoAccounts: () => ({ data: undefined }),
-}));
-
 const STAFF: SessionUser = {
   id: 'staff-1',
   email: 'staff@treklink.vn',

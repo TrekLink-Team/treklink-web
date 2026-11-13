@@ -34,11 +34,14 @@ const CopyableValue: React.FC<{ label: string; value: string }> = ({ label, valu
 
 // The sandbox test accounts box (screen 7.5 §"Sandbox test accounts box", specs/demo api-design 05,
 // D-088 amendment of 2026-11-01, D-089). Renders nothing while loading, on any error and on a 404, so a
-// deployment without DEMO_TEST_ACCOUNTS_ENABLED shows nothing. `onUse` receives the chosen account.
+// deployment without DEMO_TEST_ACCOUNTS_ENABLED shows nothing. `onUse` receives the chosen account; on
+// /demo the action reads "Sign in" and `busyEmail` marks the row whose sign-in is running.
 export const TestAccountsBox: React.FC<{
   onUse: (account: DemoTestAccount) => void;
+  actionLabel?: string;
+  busyEmail?: string | null;
   className?: string;
-}> = ({ onUse, className }) => {
+}> = ({ onUse, actionLabel = 'Use', busyEmail = null, className }) => {
   const accounts = useDemoAccounts();
   if (!accounts.data || accounts.data.length === 0) return null;
   return (
@@ -54,8 +57,15 @@ export const TestAccountsBox: React.FC<{
                   {account.fullName}, {account.organization ?? 'TrekLink'}
                 </p>
               </div>
-              <Button size="sm" onClick={() => onUse(account)} aria-label={`Use ${account.roleLabel}`}>
-                Use
+              <Button
+                size="sm"
+                onClick={() => onUse(account)}
+                disabled={busyEmail !== null}
+                aria-label={
+                  actionLabel === 'Use' ? `Use ${account.roleLabel}` : `${actionLabel} as ${account.roleLabel}`
+                }
+              >
+                {busyEmail === account.email ? 'Signing in…' : actionLabel}
               </Button>
             </div>
             <div className="grid gap-1 sm:grid-cols-2">
