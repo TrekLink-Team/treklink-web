@@ -427,7 +427,7 @@ describe('SePay sandbox (billing task 3.2)', () => {
       expect(payments.lockByReference).toHaveBeenCalledWith('TL7K2Q9M4D', TX);
     });
 
-    it('applies only what the invoice still owes and keeps the excess on the payment', async () => {
+    it('applies only what the invoice still owes and reports the full received amount as confirmed', async () => {
       invoices.lockWithLines.mockResolvedValueOnce(
         invoice([
           line(1, InvoiceLineType.HOLDING_FEE, 1_125_000n, 1_000_000n, '2026-11-02T02:00:00.000Z'),
