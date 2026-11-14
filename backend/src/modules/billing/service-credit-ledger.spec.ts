@@ -101,7 +101,7 @@ describe('ServiceCreditLedger.land (design §9.3, REQ-EVT-14)', () => {
     );
   });
 
-  it('returns the invoice unchanged and reads no asset tag when no credit waits', async () => {
+  it('returns the invoice unchanged with no line and no audit when no credit waits', async () => {
     const { ledger, invoices, events } = build([]);
     const given = invoice(45_000n);
     await expect(ledger.land('c-1', given, TX, AT)).resolves.toBe(given);
