@@ -99,6 +99,25 @@ describe('contract home actions (screen 5.2, rentals design §2)', () => {
     expect(request(0).idle).toBe('TrekLink Staff review the request');
   });
 
+  it('offers the Org Manager Pay invoice on an approved contract with something due now (#488)', () => {
+    const approved = (dueNowVnd: number) =>
+      homeActions({
+        contract: { status: 'APPROVED', planType: 'DAY', devices: [] },
+        viewer: 'manager',
+        mode: null,
+        openInvoiceId: 'inv-14',
+        dueNowVnd,
+      });
+    expect(approved(202_500).primary).toEqual({ key: 'pay', label: 'Pay invoice' });
+    expect(approved(202_500).idle).toBeNull();
+    expect(approved(202_500).more.map((action) => action.label)).toEqual(['Cancel contract']);
+    // Nothing due now: no Pay, the counter is the next step.
+    expect(approved(0).primary).toBeNull();
+    expect(approved(0).idle).toBe('Collect the units at the TrekLink counter');
+    // No open invoice: nothing to pay.
+    expect(actionsOf('APPROVED', 'manager').primary).toBeNull();
+  });
+
   // D-097, rentals design §12: End contract now is in More actions, destructive and last, for Staff and
   // the Org Manager on ACTIVE and ENDING only, and never the primary action.
   it.each<[ContractStatus, Viewer]>([

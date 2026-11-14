@@ -162,10 +162,12 @@ export const homeActions = (input: PolicyInput): HomeActions => {
           idle: payable ? null : 'TrekLink Staff review the request',
           more: [{ key: 'cancel', label: 'Cancel request', destructive: true }],
         };
+      // Screen 5.2, "Later states: Pay invoice while something is due now": an approved contract whose
+      // deposit fell due before the handover offers Pay invoice (treklink-web#488).
       case 'APPROVED':
         return {
-          primary: null,
-          idle: 'Collect the units at the TrekLink counter',
+          primary: payable ? pay : null,
+          idle: payable ? null : 'Collect the units at the TrekLink counter',
           more: [{ key: 'cancel', label: 'Cancel contract', destructive: true }],
         };
       case 'ACTIVE': {
