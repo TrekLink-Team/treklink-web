@@ -5,7 +5,7 @@ import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import type { ValidatedEnvironment } from '../platform/config/environment-variables';
-import { TransactionalEvents } from '../platform/events/emit-after-commit';
+import { SLOW_LINK_TRANSACTION, TransactionalEvents } from '../platform/events/emit-after-commit';
 import { BalanceService, creditDueOf } from './balance.service';
 import { InvoiceRow, InvoicesRepository } from './invoices.repository';
 import { PaymentRow, PaymentsRepository } from './payments.repository';
@@ -108,7 +108,7 @@ export class PaymentsService {
         after: { status: refunded.status, refundedVnd: amountVnd.toString(), note: note.trim() },
       } satisfies AuditRecordEvent);
       return refunded;
-    });
+    }, SLOW_LINK_TRANSACTION);
   }
 
   // The payments of a contract confirmed so far, oldest first, with the invoice each one paid: the
@@ -203,7 +203,7 @@ export class PaymentsService {
           },
         } satisfies AuditRecordEvent);
         return payment;
-      });
+      }, SLOW_LINK_TRANSACTION);
     } catch (error) {
       // The same reference recorded at once on another invoice loses on the unique index.
       if (isUniqueViolation(error)) throw duplicate(input.reference);

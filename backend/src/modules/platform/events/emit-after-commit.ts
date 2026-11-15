@@ -15,6 +15,13 @@ interface TransactionScope {
 
 export type TransactionOptions = Parameters<PrismaService['$transaction']>[1];
 
+// The AWS staging host runs in Sydney, the only region the AWS organisation allows, and Neon in Singapore,
+// so a long interactive transaction can pass Prisma's default 5 s limit and be closed under it
+// (treklink-web#487). The business operations that write a contract or the closing invoice in one transaction
+// pass this longer limit (handover, return, damage decision, payments, SePay). It stays per call, because a
+// client-wide limit let slow transactions starve the pool.
+export const SLOW_LINK_TRANSACTION = { timeout: 20_000 } as const;
+
 // Domain events are emitted after commit, never inside a transaction that may still roll back
 // (specs/platform/design.md §2.3). The module that starts a business operation opens it with
 // `transaction()`; any `emitAfterCommit()` inside, from any callee, is queued and emitted once the

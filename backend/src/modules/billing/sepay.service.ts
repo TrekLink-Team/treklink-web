@@ -6,7 +6,7 @@ import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
-import { TransactionalEvents } from '../platform/events/emit-after-commit';
+import { SLOW_LINK_TRANSACTION, TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { ScheduledJob } from '../platform/scheduler/scheduled-job.decorator';
 import { BalanceService } from './balance.service';
@@ -166,7 +166,7 @@ export class SepayService {
             },
             tx,
           );
-        });
+        }, SLOW_LINK_TRANSACTION);
       } catch (error) {
         const collision =
           error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
@@ -302,7 +302,7 @@ export class SepayService {
           after: { reference: confirmed.reference, amountVnd: received.toString(), gatewayTxnId },
         } satisfies AuditRecordEvent);
         return exact ? 'confirmed' : 'recorded';
-      });
+      }, SLOW_LINK_TRANSACTION);
     } catch (error) {
       // A second delivery of the same transfer at the same moment loses on the unique index.
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
