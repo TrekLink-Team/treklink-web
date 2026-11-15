@@ -36,6 +36,13 @@ import {
   renderHandoverNote,
 } from './handover-note.renderer';
 
+// Complete handover writes every unit, its key and the contract in one interactive transaction. From the
+// AWS staging host in Sydney (the only region the AWS organisation allows) to Neon in Singapore those round
+// trips passed Prisma's default 5 s limit and the transaction was closed under it (treklink-web#487). The
+// longer limit is for this transaction alone: raising it for the whole client let slow transactions hold
+// their pooled connections and starve the pool.
+const COMPLETE_TRANSACTION = { timeout: 20_000 } as const;
+
 export const DEVICE_HANDED_OVER = 'device.handedOver';
 
 export interface DeviceHandedOverEvent {
@@ -641,7 +648,7 @@ export class HandoverService {
         keyExposed: channelKeyExposedAt !== null && unit.keyVersion === keyVersion,
       }));
       return { ...active, handedOverAt: at, unitKeys };
-    });
+    }, COMPLETE_TRANSACTION);
     return handed;
   }
 
