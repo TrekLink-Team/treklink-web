@@ -43,7 +43,7 @@ Prices change. Check every amount in this runbook on the AWS pricing pages befor
 All in `ap-southeast-2` (Sydney), the only region where the organisation's SCP allows EC2 (verified
 2026-11-10 on the first account, and again on 2026-11-15 on account 566332862593, whose SCP also denies EC2 in
 `ap-southeast-1`). Neon stays in Singapore, so every query crosses the Sydney to Singapore link: the backend
-gives Complete handover, its longest transaction, a 20 s limit instead of Prisma's 5 s
+gives the Complete handover transaction a 20 s limit instead of Prisma's 5 s
 (`backend/src/modules/rentals/handover.service.ts`, treklink-web#487). Stack `treklink-<stage>`, stage `staging` by default:
 
 | Piece | Detail |
