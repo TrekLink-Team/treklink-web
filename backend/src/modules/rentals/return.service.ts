@@ -4,7 +4,7 @@ import { Caller } from '../../common/decorators/access.decorator';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { BalanceService, ChargesService, ServiceCreditService } from '../billing';
 import { DevicesService } from '../devices';
-import { TransactionalEvents } from '../platform/events/emit-after-commit';
+import { SLOW_LINK_TRANSACTION, TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ContractLifecycleService } from './contract-lifecycle.service';
 import { ContractsRepository } from './contracts.repository';
 import { CustodyService } from './custody.service';
@@ -206,7 +206,7 @@ export class ReturnService {
         contractStatus: status,
         lateFeeVnd: Number(lateFeeVnd > 0n ? lateFeeVnd : 0n),
       };
-    });
+    }, SLOW_LINK_TRANSACTION);
   }
 
   // api-design 16: the inspection of a checked-in device after its reset, and for DAMAGED the damage
@@ -273,7 +273,7 @@ export class ReturnService {
             }
           : null,
       };
-    });
+    }, SLOW_LINK_TRANSACTION);
   }
 
   // api-design 20 (REQ-EVT-18, D-092 rule 3): whether the contract can close now and every blocker
@@ -448,6 +448,6 @@ export class ReturnService {
         actor,
         tx,
       );
-    });
+    }, SLOW_LINK_TRANSACTION);
   }
 }

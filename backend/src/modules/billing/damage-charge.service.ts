@@ -13,7 +13,7 @@ import { DomainException, ErrorCode } from '../../common/errors';
 import { DevicesService } from '../devices';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
-import { TransactionalEvents } from '../platform/events/emit-after-commit';
+import { SLOW_LINK_TRANSACTION, TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ACCOUNT_DIRECTORY, AccountDirectory } from '../platform/ports/account-directory.port';
 import { ActorRef, resolveActors } from '../platform/ports/actor-names';
 import { ChargesService } from './charges.service';
@@ -157,7 +157,7 @@ export class DamageChargeService {
         after: { status: decided.status, finalVnd: finalVnd.toString(), note: input.note },
       } satisfies AuditRecordEvent);
       return decided;
-    });
+    }, SLOW_LINK_TRANSACTION);
   }
 
   private finalAmount(amountVnd: bigint, input: DamageDecisionInput): bigint {
