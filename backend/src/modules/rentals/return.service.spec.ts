@@ -156,6 +156,28 @@ describe('ReturnService (rentals tasks 4.1, 4.2, 4.4; MF-05)', () => {
       );
     });
 
+    it('matches a scanned tag case-insensitively and records the stored tag (#496)', async () => {
+      devices.assetTags.mockResolvedValue(
+        new Map([
+          ['d-1', 'Treklink A274'],
+          ['d-2', 'TL-0002'],
+        ]),
+      );
+      await expect(
+        service.checkIn('c-1', ['treklink a274', 'TREKLINK A274', 'tl-0002'], STAFF, AT),
+      ).resolves.toMatchObject({ checkedIn: ['Treklink A274', 'TL-0002'] });
+      expect(contracts.closeCustody).toHaveBeenCalledWith(
+        'org-1',
+        [
+          { id: 'cd-1', deviceId: 'd-1', assetTag: 'Treklink A274' },
+          { id: 'cd-2', deviceId: 'd-2', assetTag: 'TL-0002' },
+        ],
+        { reason: 'CHECKED_IN', actorId: 'u-staff' },
+        AT,
+        TX,
+      );
+    });
+
     it('keeps a due contract open while devices are still out', async () => {
       contracts.returnCounts.mockResolvedValue({ total: 2, returned: 1 });
       await expect(service.checkIn('c-1', ['TL-0001'], STAFF, AT)).resolves.toMatchObject({

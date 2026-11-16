@@ -342,6 +342,24 @@ describe('ReturnCounter (screen 5.5)', () => {
     expect(screen.getByText(/Late fee: 200,000/)).toBeTruthy();
   });
 
+  it('matches a scanned tag case-insensitively and sends the stored tag (#496)', async () => {
+    checkInDevices.mockResolvedValue({
+      checkedIn: ['Treklink A274'],
+      returned: 1,
+      total: 1,
+      contractStatus: 'RETURN_DUE',
+      lateFeeVnd: 0,
+    });
+    renderCounter(contract({ devices: [device('Treklink A274')] }));
+    fireEvent.change(screen.getByLabelText(/Scan or type an asset tag/), {
+      target: { value: 'treklink a274' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    expect(screen.queryByText(/does not belong to contract/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Check in 1 device$/ }));
+    await waitFor(() => expect(checkInDevices).toHaveBeenCalledWith('c-1', ['Treklink A274']));
+  });
+
   it('keeps check-in closed on a running monthly contract (REQ-STA-01)', () => {
     renderCounter(contract({ status: 'ACTIVE' }));
     expect(
