@@ -36,7 +36,7 @@ Checks returned devices in at the counter by asset tag. Each moves to `RETURNED`
 
 | Field | Description | Data Type | Required | Examples |
 | --- | --- | --- | --- | --- |
-| assetTags | Scanned tags | string[] | yes | `["TL-0042"]` |
+| assetTags | Scanned tags, matched to the contract case-insensitively; the response and the audit row carry the stored tag | string[] | yes | `["TL-0042"]` |
 
 ## Response sample
 

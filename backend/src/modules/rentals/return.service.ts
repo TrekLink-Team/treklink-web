@@ -134,11 +134,21 @@ export class ReturnService {
         out.map((row) => row.deviceId),
         tx,
       );
-      const byTag = new Map(out.map((row) => [tagOf.get(row.deviceId) ?? row.deviceId, row]));
-      const rows = tags.map((tag) => {
-        const row = byTag.get(tag);
-        if (!row) throw notOnContract(tag, contract.code);
-        return { ...row, assetTag: tag };
+      // Tags are matched case-insensitively (a scanner or a keyboard may change case, and registered
+      // tags can be mixed-case); the stored tag is what the check-in records and returns (#496).
+      const byTag = new Map(
+        out.map((row) => {
+          const stored = tagOf.get(row.deviceId) ?? row.deviceId;
+          return [stored.toLowerCase(), { row, stored }] as const;
+        }),
+      );
+      const seen = new Set<string>();
+      const rows = tags.flatMap((tag) => {
+        const match = byTag.get(tag.toLowerCase());
+        if (!match) throw notOnContract(tag, contract.code);
+        if (seen.has(match.row.deviceId)) return [];
+        seen.add(match.row.deviceId);
+        return [{ ...match.row, assetTag: match.stored }];
       });
 
       // A delayed daily batch must not waive lateness. Running day plans and monthly contracts

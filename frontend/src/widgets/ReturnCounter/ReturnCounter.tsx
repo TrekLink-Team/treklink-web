@@ -372,11 +372,15 @@ export const ReturnCounter: React.FC<{ contract: ContractDetail; header?: React.
 
   const addTag = (event: React.FormEvent) => {
     event.preventDefault();
-    const tag = scan.trim().toUpperCase();
+    const typed = scan.trim();
     setScan('');
-    if (tag === '') return;
-    if (!out.some((device) => device.assetTag === tag)) {
-      setScanError(`${tag} does not belong to contract ${contract.code}.`);
+    if (typed === '') return;
+    // Match case-insensitively and keep the stored tag: registered tags can be mixed-case (#496).
+    const tag = out.find(
+      (device) => device.assetTag?.toLowerCase() === typed.toLowerCase(),
+    )?.assetTag;
+    if (!tag) {
+      setScanError(`${typed.toUpperCase()} does not belong to contract ${contract.code}.`);
       return;
     }
     setScanError(null);
