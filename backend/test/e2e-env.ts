@@ -8,7 +8,7 @@ const E2E_DEFAULTS: Record<string, string> = {
   DATABASE_DIRECT_URL: 'postgresql://e2e:e2e@localhost:5432/treklink_e2e',
   MQTT_BROKER_URL: 'mqtt://localhost:1883',
   MQTT_INGESTION_ENABLED: 'false',
-  JWT_ACCESS_SECRET: 'e2e-access-secret',
+  JWT_ACCESS_SECRET: 'e2e-access-secret-0123456789-abcdefghijklm',
   JWT_REFRESH_SECRET: 'e2e-refresh-secret',
   CHANNEL_KEY_MASTER: 'e2e-channel-key-master-not-a-secret-0001',
 };
