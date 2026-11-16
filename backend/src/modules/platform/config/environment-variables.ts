@@ -364,7 +364,9 @@ export function validate(raw: Record<string, unknown>): ValidatedEnvironment {
     if (env.COMPANY_HOTLINE === '1900 0000') {
       problems.push('COMPANY_HOTLINE: set the real hotline in production');
     }
-    if (/change[_-]?(me|in[_-]?production)|development[_-]?key/i.test(env.JWT_ACCESS_SECRET ?? '')) {
+    if (
+      /change[_-]?(me|in[_-]?production)|development[_-]?key/i.test(env.JWT_ACCESS_SECRET ?? '')
+    ) {
       problems.push('JWT_ACCESS_SECRET: replace the development placeholder in production');
     }
   }
