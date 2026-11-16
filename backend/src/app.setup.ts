@@ -5,6 +5,7 @@ import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { RequestIdLogger } from './common/logging/request-id.logger';
 import { requestIdMiddleware } from './common/middleware/request-id.middleware';
+import { securityHeadersMiddleware } from './common/middleware/security-headers.middleware';
 import { appValidationPipe } from './common/pipes/app-validation.pipe';
 import { ValidatedEnvironment } from './modules/platform/config/environment-variables';
 
@@ -31,6 +32,7 @@ export function configureApp(app: NestExpressApplication): void {
 
   // Request id before the body parser, so a 413 carries X-Request-Id too (REQ-UBI-08).
   app.use(requestIdMiddleware);
+  app.use(securityHeadersMiddleware);
   const bodyLimit = config.get('HTTP_BODY_LIMIT', { infer: true });
   // Parse the signature endpoint first; the general parser skips an already-consumed body. Body
   // parsing runs before the JWT guard, so an unauthenticated caller can still send up to this limit

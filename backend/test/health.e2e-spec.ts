@@ -67,6 +67,15 @@ describe('GET /api/health (e2e)', () => {
     expect(up.body).toMatchObject({ isSuccess: true, result: { status: 'ok' } });
   });
 
+  it('sends the security headers on every response, the 404 included (M1)', async () => {
+    for (const path of ['/api/health', '/api/does-not-exist']) {
+      const response = await request(app.getHttpServer()).get(path);
+      expect(response.headers['x-content-type-options']).toBe('nosniff');
+      expect(response.headers['content-security-policy']).toContain("default-src 'none'");
+      expect(response.headers['x-powered-by']).toBeUndefined();
+    }
+  });
+
   it('answers an unknown route with the 404 NOT_FOUND envelope', async () => {
     const response = await request(app.getHttpServer()).get('/api/does-not-exist').expect(404);
 
