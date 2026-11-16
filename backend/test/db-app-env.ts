@@ -10,7 +10,7 @@ const DB_APP_DEFAULTS: Record<string, string> = {
   NODE_ENV: 'test',
   MQTT_BROKER_URL: 'mqtt://localhost:1883',
   MQTT_INGESTION_ENABLED: 'false',
-  JWT_ACCESS_SECRET: 'db-access-secret',
+  JWT_ACCESS_SECRET: 'db-access-secret-0123456789-abcdefghijklm',
   CHANNEL_KEY_MASTER: 'db-channel-key-master-not-a-secret-0001',
   JWT_REFRESH_SECRET: 'db-refresh-secret',
   MAIL_TRANSPORT: 'console',

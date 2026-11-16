@@ -29,7 +29,7 @@ describe('whole AppModule boot with VITE_APP_ENV unset (W43b)', () => {
       JOBS_TICK_ON_REQUEST: 'true',
       MQTT_BROKER_URL: 'mqtt://localhost:1883',
       MQTT_INGESTION_ENABLED: 'false',
-      JWT_ACCESS_SECRET: 'boot-access-secret',
+      JWT_ACCESS_SECRET: 'boot-access-secret-0123456789-abcdefghijk',
       JWT_REFRESH_SECRET: 'boot-refresh-secret',
       CHANNEL_KEY_MASTER: 'boot-channel-key-master-not-a-secret-0001',
       MAIL_TRANSPORT: 'smtp',

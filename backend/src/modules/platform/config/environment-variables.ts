@@ -185,8 +185,10 @@ export class EnvironmentVariables {
   FIELD_STATION_BROKER_URL?: string;
 
   // JWT_* are owned by `auth` and validated here (platform requirements §4).
+  // HS256 needs a key of at least 32 bytes; a shorter secret is brute-forceable offline from any
+  // issued token. Production also refuses the published development placeholder (validate()).
   @IsString()
-  @IsNotEmpty()
+  @MinLength(32, { message: 'JWT_ACCESS_SECRET must be at least 32 characters' })
   JWT_ACCESS_SECRET!: string;
 
   // Reserved and unused: the refresh token is opaque and stored as SHA-256 (D-060 rule 6).
@@ -361,6 +363,11 @@ export function validate(raw: Record<string, unknown>): ValidatedEnvironment {
     }
     if (env.COMPANY_HOTLINE === '1900 0000') {
       problems.push('COMPANY_HOTLINE: set the real hotline in production');
+    }
+    if (
+      /change[_-]?(me|in[_-]?production)|development[_-]?key/i.test(env.JWT_ACCESS_SECRET ?? '')
+    ) {
+      problems.push('JWT_ACCESS_SECRET: replace the development placeholder in production');
     }
   }
   if (problems.length > 0) {

@@ -5,7 +5,7 @@ const REQUIRED = {
   DATABASE_DIRECT_URL:
     'postgresql://postgres:postgrespassword@localhost:5432/treklink?schema=public',
   MQTT_BROKER_URL: 'mqtt://localhost:1883',
-  JWT_ACCESS_SECRET: 'access-secret',
+  JWT_ACCESS_SECRET: 'test-access-secret-0123456789-abcdefghij',
   CHANNEL_KEY_MASTER: 'channel-key-master-not-a-secret-0001',
 };
 
@@ -54,6 +54,33 @@ describe('validate (environment)', () => {
     const problems = problemsOf({ ...REQUIRED, NODE_ENV: 'production' });
     expect(problems).toContainEqual(expect.stringMatching(/^COMPANY_TAX_CODE: set the registered/));
     expect(problems).toContainEqual(expect.stringMatching(/^COMPANY_HOTLINE: set the real/));
+  });
+
+  it('refuses a missing, empty or short JWT_ACCESS_SECRET', () => {
+    const { JWT_ACCESS_SECRET: _omitted, ...withoutSecret } = REQUIRED;
+    for (const raw of [
+      withoutSecret,
+      { ...REQUIRED, JWT_ACCESS_SECRET: '' },
+      { ...REQUIRED, JWT_ACCESS_SECRET: 'x'.repeat(31) },
+    ]) {
+      expect(problemsOf(raw)).toContainEqual(expect.stringMatching(/^JWT_ACCESS_SECRET:/));
+    }
+    expect(() => validate({ ...REQUIRED, JWT_ACCESS_SECRET: 'x'.repeat(32) })).not.toThrow();
+  });
+
+  it('refuses the published development JWT_ACCESS_SECRET placeholder in production only', () => {
+    const placeholder = 'treklink_access_token_secret_development_key_change_in_production';
+    const production = {
+      ...REQUIRED,
+      JWT_ACCESS_SECRET: placeholder,
+      NODE_ENV: 'production',
+      COMPANY_TAX_CODE: '0312345678-001',
+      COMPANY_HOTLINE: '1900 1234',
+    };
+    expect(problemsOf(production)).toEqual([
+      'JWT_ACCESS_SECRET: replace the development placeholder in production',
+    ]);
+    expect(() => validate({ ...REQUIRED, JWT_ACCESS_SECRET: placeholder })).not.toThrow();
   });
 
   it('reads the handover note issuer and rejects a malformed tax code or hotline', () => {
