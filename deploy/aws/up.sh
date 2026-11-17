@@ -183,6 +183,10 @@ check_env_values() {
     log "  MQTT_NODE_PASSWORD: must be at least 16 characters"
     problems=$((problems + 1))
   fi
+  if value="$(env_get MQTT_NODE_PASSWORD)" && [ "${#value}" -gt 31 ]; then
+    log "  MQTT_NODE_PASSWORD: must be at most 31 characters, the node firmware field holds 31 (openssl rand -hex 15)"
+    problems=$((problems + 1))
+  fi
   if value="$(env_get CHANNEL_KEY_MASTER)" && [ "${#value}" -lt 32 ]; then
     log "  CHANNEL_KEY_MASTER: must be at least 32 characters"
     problems=$((problems + 1))

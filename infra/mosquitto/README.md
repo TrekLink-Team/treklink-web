@@ -38,9 +38,12 @@ the same file and listed in the
    MQTT_AUTH_HOOK_SECRET="<the hex value>"
    MQTT_USERNAME="treklink-backend"
    MQTT_PASSWORD="<another long random value>"
-   # optional, for Stage A and B fleet nodes:
-   MQTT_NODE_PASSWORD="<a third long random value>"
+   # optional, for Stage A and B fleet nodes, 16 to 31 characters (openssl rand -hex 15):
+   MQTT_NODE_PASSWORD="<a third random value>"
    ```
+
+   `MQTT_NODE_PASSWORD` must stay at 31 characters or fewer: the node firmware stores it in
+   `char password[32]` and silently drops an MQTT config with a longer one.
 
    Then start the backend on the host's port 3000 (`npm run dev:backend`).
 

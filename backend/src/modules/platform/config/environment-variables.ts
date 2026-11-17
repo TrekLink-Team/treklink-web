@@ -8,6 +8,7 @@ import {
   IsString,
   Matches,
   Max,
+  MaxLength,
   Min,
   MinLength,
   validateSync,
@@ -155,10 +156,16 @@ export class EnvironmentVariables {
 
   // The password every Stage A and B fleet node (`node-<nodeId>`) presents to the broker with
   // credentials (gateway-sync design §4); unset, fleet nodes are refused there. Never logged.
+  // At most 31 characters: the Meshtastic firmware stores it in `char password[32]`, and a node
+  // silently drops an AdminMessage whose MQTT password is longer, so the config never saves.
   @Transform(blankToUndefined)
   @IsOptional()
   @IsString()
   @MinLength(16, { message: 'MQTT_NODE_PASSWORD must be at least 16 characters when set' })
+  @MaxLength(31, {
+    message:
+      'MQTT_NODE_PASSWORD must be at most 31 characters: the node firmware field holds 31 characters',
+  })
   MQTT_NODE_PASSWORD?: string;
 
   // The shared secret the mosquitto-go-auth hooks present (gateway-sync design §4, api-design 01 and
