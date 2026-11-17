@@ -18,6 +18,7 @@ import {
   InvoiceRow,
   InvoiceSortField,
   InvoicesRepository,
+  InvoiceTotals,
 } from './invoices.repository';
 import { PaymentRow, PaymentsRepository } from './payments.repository';
 import {
@@ -31,7 +32,13 @@ export interface InvoiceQuery extends PagedQueryDto, SortQuery<InvoiceSortField>
   contractId?: string;
   status?: InvoiceStatus;
   overdue?: boolean;
+  hardwareVariantId?: string;
+  from?: Date;
+  to?: Date;
 }
+
+// Invoiced, paid and outstanding over every invoice the list filters match (#501).
+export type InvoicePage = PagedResult<Labelled<InvoiceRow>> & { totals: InvoiceTotals };
 
 export interface PaymentQuery extends PagedQueryDto {
   contractId?: string;
@@ -90,21 +97,35 @@ export class BillingReadsService {
     query: InvoiceQuery,
     caller: Caller,
     at: Date = new Date(),
-  ): Promise<PagedResult<Labelled<InvoiceRow>>> {
+  ): Promise<InvoicePage> {
+    if (
+      (query.from === undefined) !== (query.to === undefined) ||
+      (query.from && query.to && query.from >= query.to)
+    ) {
+      throw new DomainException(
+        HttpStatus.BAD_REQUEST,
+        ErrorCode.VALIDATION_FAILED,
+        'from and to go together, and from must be before to.',
+      );
+    }
     const page = this.page(query);
-    const [rows, total] = await this.invoices.page(
-      {
-        organizationId: ownOrganization(caller),
-        contractId: query.contractId,
-        status: query.status,
-        overdueAt: query.overdue ? at : undefined,
-      },
-      page.skip,
-      page.take,
-      undefined,
-      resolveSort(query),
-    );
-    return toPagedResult(await this.label(rows), total, page);
+    const filter = {
+      organizationId: ownOrganization(caller),
+      contractId: query.contractId,
+      status: query.status,
+      overdueAt: query.overdue ? at : undefined,
+      // A variant with no directory provider matches nothing, as every code is null without one.
+      contractIds: query.hardwareVariantId
+        ? await (this.directory?.contractsOfVariant(query.hardwareVariantId) ?? Promise.resolve([]))
+        : undefined,
+      dueFrom: query.from,
+      dueTo: query.to,
+    };
+    const [[rows, total], totals] = await Promise.all([
+      this.invoices.page(filter, page.skip, page.take, undefined, resolveSort(query)),
+      this.invoices.totals(filter),
+    ]);
+    return { ...toPagedResult(await this.label(rows), total, page), totals };
   }
 
   async invoice(id: string, caller: Caller): Promise<InvoiceDetail> {

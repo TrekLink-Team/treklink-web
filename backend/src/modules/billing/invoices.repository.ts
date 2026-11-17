@@ -79,6 +79,18 @@ export interface InvoiceFilter {
   status?: InvoiceStatus;
   // Only invoices with an unpaid line due before this instant.
   overdueAt?: Date;
+  // Only invoices of these contracts: the contracts of one hardware variant (#501).
+  contractIds?: readonly string[];
+  // Only invoices with a line due in [dueFrom, dueTo), the report's rule (#501); the totals then
+  // count those lines alone.
+  dueFrom?: Date;
+  dueTo?: Date;
+}
+
+export interface InvoiceTotals {
+  invoicedVnd: bigint;
+  paidVnd: bigint;
+  outstandingVnd: bigint;
 }
 
 export interface NewInvoice {
@@ -337,16 +349,13 @@ export class InvoicesRepository {
     });
   }
 
-  // A page of invoices, newest first unless `sort` names an allowed column (api-design 08, W26).
-  // `overdue` keeps invoices with a line past its due time and not fully paid.
-  async page(
-    filter: InvoiceFilter,
-    skip: number,
-    take: number,
-    client: Client = this.prisma,
-    sort?: ListSort<InvoiceSortField>,
-  ): Promise<[InvoiceRow[], number]> {
-    const where: Prisma.InvoiceWhereInput = {
+  private whereOf(filter: InvoiceFilter): Prisma.InvoiceWhereInput {
+    const and: Prisma.InvoiceWhereInput[] = [];
+    if (filter.contractIds) and.push({ contractId: { in: [...filter.contractIds] } });
+    if (filter.dueFrom && filter.dueTo) {
+      and.push({ lines: { some: { dueAt: { gte: filter.dueFrom, lt: filter.dueTo } } } });
+    }
+    return {
       ...(filter.organizationId ? { organizationId: filter.organizationId } : {}),
       ...(filter.contractId ? { contractId: filter.contractId } : {}),
       ...(filter.status ? { status: filter.status } : {}),
@@ -360,7 +369,38 @@ export class InvoicesRepository {
             },
           }
         : {}),
+      ...(and.length > 0 ? { AND: and } : {}),
     };
+  }
+
+  // Invoiced, paid and outstanding over every invoice the filter matches, not one page (#501). With a
+  // period it sums the lines due in [dueFrom, dueTo) only, so it equals the revenue report's row for
+  // the same variant and period (`BalanceService.revenue`); outstanding never goes below zero, as there.
+  async totals(filter: InvoiceFilter, client: Client = this.prisma): Promise<InvoiceTotals> {
+    const period = filter.dueFrom && filter.dueTo;
+    const sums = await client.invoiceLine.aggregate({
+      where: {
+        invoice: this.whereOf(filter),
+        ...(period ? { dueAt: { gte: filter.dueFrom, lt: filter.dueTo } } : {}),
+      },
+      _sum: { amountVnd: true, paidVnd: true },
+    });
+    const invoicedVnd = sums._sum.amountVnd ?? 0n;
+    const paidVnd = sums._sum.paidVnd ?? 0n;
+    const owed = invoicedVnd - paidVnd;
+    return { invoicedVnd, paidVnd, outstandingVnd: owed > 0n ? owed : 0n };
+  }
+
+  // A page of invoices, newest first unless `sort` names an allowed column (api-design 08, W26).
+  // `overdue` keeps invoices with a line past its due time and not fully paid.
+  async page(
+    filter: InvoiceFilter,
+    skip: number,
+    take: number,
+    client: Client = this.prisma,
+    sort?: ListSort<InvoiceSortField>,
+  ): Promise<[InvoiceRow[], number]> {
+    const where = this.whereOf(filter);
     return Promise.all([
       client.invoice.findMany({
         where,

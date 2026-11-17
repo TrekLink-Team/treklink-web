@@ -52,6 +52,8 @@ export interface UtilizationRow {
 
 export interface RevenueRow {
   variant: string | null;
+  // The variant's id, so the report row can open the invoice list for it (#501); not in the CSV.
+  hardwareVariantId: string | null;
   invoicedVnd: number;
   paidVnd: number;
   outstandingVnd: number;
@@ -224,6 +226,7 @@ export class ReportsService {
   private async revenue(range: { from: Date; to: Date }): Promise<RevenueRow[]> {
     return (await this.balance.revenue(range)).map((row) => ({
       variant: row.variantCode,
+      hardwareVariantId: row.hardwareVariantId,
       invoicedVnd: Number(row.invoicedVnd),
       paidVnd: Number(row.paidVnd),
       outstandingVnd: Number(row.outstandingVnd),

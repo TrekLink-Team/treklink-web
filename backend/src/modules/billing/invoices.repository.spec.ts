@@ -91,6 +91,66 @@ describe('InvoicesRepository (billing task 1.1)', () => {
     return { sql: sql.join('?'), key };
   };
 
+  // #501: the list filters, and the totals that must equal the revenue report row.
+  describe('page filters and totals', () => {
+    const FROM = new Date('2026-11-01T00:00:00.000Z');
+    const TO = new Date('2026-12-01T00:00:00.000Z');
+    const PERIOD = { dueFrom: FROM, dueTo: TO };
+
+    it('narrows the page to the variant contracts and to lines due in [from, to)', async () => {
+      tx.invoice.count = jest.fn().mockResolvedValue(0);
+      await repository.page({ ...PERIOD, contractIds: ['c-1', 'c-2'] }, 0, 20, client());
+      const { where } = (tx.invoice.findMany.mock.calls as unknown[][])[0][0] as {
+        where: Prisma.InvoiceWhereInput;
+      };
+      expect(where.AND).toEqual([
+        { contractId: { in: ['c-1', 'c-2'] } },
+        { lines: { some: { dueAt: { gte: FROM, lt: TO } } } },
+      ]);
+    });
+
+    it('sums only the lines due in the period, so `to` itself is excluded', async () => {
+      tx.invoiceLine.aggregate.mockResolvedValue({
+        _sum: { amountVnd: 7_000_000n, paidVnd: 2_000_000n },
+      });
+      await expect(
+        repository.totals({ ...PERIOD, contractIds: ['c-1'], organizationId: 'org-1' }, client()),
+      ).resolves.toEqual({
+        invoicedVnd: 7_000_000n,
+        paidVnd: 2_000_000n,
+        outstandingVnd: 5_000_000n,
+      });
+      const query = (tx.invoiceLine.aggregate.mock.calls as unknown[][])[0][0] as {
+        where: { dueAt: unknown; invoice: Prisma.InvoiceWhereInput };
+      };
+      expect(query.where.dueAt).toEqual({ gte: FROM, lt: TO });
+      expect(query.where.invoice).toMatchObject({ organizationId: 'org-1' });
+    });
+
+    it('sums every line of the matching invoices without a period, and has no page limit', async () => {
+      tx.invoiceLine.aggregate.mockResolvedValue({ _sum: { amountVnd: null, paidVnd: null } });
+      await expect(repository.totals({ status: InvoiceStatus.ISSUED }, client())).resolves.toEqual({
+        invoicedVnd: 0n,
+        paidVnd: 0n,
+        outstandingVnd: 0n,
+      });
+      const query = (tx.invoiceLine.aggregate.mock.calls as unknown[][])[0][0] as Record<
+        string,
+        unknown
+      >;
+      expect(query).not.toHaveProperty('where.dueAt');
+      expect(query).not.toHaveProperty('skip');
+      expect(query).not.toHaveProperty('take');
+    });
+
+    it('never reports a negative outstanding amount, as the revenue report does', async () => {
+      tx.invoiceLine.aggregate.mockResolvedValue({
+        _sum: { amountVnd: 1_000_000n, paidVnd: 1_500_000n },
+      });
+      await expect(repository.totals({}, client())).resolves.toMatchObject({ outstandingVnd: 0n });
+    });
+  });
+
   describe('insert', () => {
     const invoice = {
       organizationId: 'org-1',

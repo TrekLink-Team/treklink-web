@@ -334,7 +334,12 @@ describe('BalanceService (billing task 2.4, REQ-STA-02, FR-CON-13)', () => {
       paidVnd,
       invoice: { contractId },
     });
-    let directory: { describe: jest.Mock; variantsOf: jest.Mock; buyerOf: jest.Mock };
+    let directory: {
+      describe: jest.Mock;
+      variantsOf: jest.Mock;
+      contractsOfVariant: jest.Mock;
+      buyerOf: jest.Mock;
+    };
     let devices: { variants: jest.Mock };
     const withPorts = () =>
       new BalanceService(
@@ -347,6 +352,7 @@ describe('BalanceService (billing task 2.4, REQ-STA-02, FR-CON-13)', () => {
     beforeEach(() => {
       directory = {
         buyerOf: jest.fn(),
+        contractsOfVariant: jest.fn(),
         describe: jest.fn(),
         variantsOf: jest.fn().mockResolvedValue(
           new Map([

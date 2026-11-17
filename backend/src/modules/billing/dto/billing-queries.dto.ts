@@ -1,7 +1,8 @@
 import { InvoiceStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsDate,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -32,6 +33,23 @@ export class InvoiceQueryDto extends PagedQueryDto {
   )
   @IsBoolean()
   overdue?: boolean;
+
+  // #501: only invoices of this hardware variant's contracts.
+  @IsOptional()
+  @IsUUID()
+  hardwareVariantId?: string;
+
+  // #501: lines due from `from` (inclusive) to `to` (exclusive), the revenue report's rule; given
+  // together, `from` before `to`.
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  from?: Date;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  to?: Date;
 
   // W26: one column of the allowlist; an unknown field answers 400 VALIDATION_FAILED.
   @IsOptional()

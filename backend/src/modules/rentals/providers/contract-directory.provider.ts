@@ -36,6 +36,10 @@ export class RentalsContractDirectory implements ContractDirectory {
     return new Map(rows.map((row) => [row.id, row.hardwareVariantId]));
   }
 
+  async contractsOfVariant(hardwareVariantId: string) {
+    return (await this.contracts.idsOfVariant(hardwareVariantId)).map((row) => row.id);
+  }
+
   async buyerOf(organizationId: string): Promise<InvoiceBuyer | null> {
     const party = await this.organizations.handoverParty(organizationId);
     return party

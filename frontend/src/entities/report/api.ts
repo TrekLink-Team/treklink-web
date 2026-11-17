@@ -22,6 +22,8 @@ export interface UtilizationRow {
 
 export interface RevenueRow {
   variant: string | null;
+  // The variant's id, which the report row links to the invoice list with (#501).
+  hardwareVariantId?: string | null;
   invoicedVnd: number;
   paidVnd: number;
   outstandingVnd: number;

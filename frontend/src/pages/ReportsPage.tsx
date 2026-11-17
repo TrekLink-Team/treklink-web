@@ -51,6 +51,7 @@ import { ErrorState } from '../shared/ui/bits';
 import { invalid, messageOf } from '../shared/ui/errors';
 import { LINK } from '../shared/ui/styles';
 import { BarChart } from '../widgets/BarChart/BarChart';
+import { TOTALS_LEGEND_PERIOD } from '../widgets/InvoiceDetail/invoice-list';
 
 const DOWNLOADED_MS = 3000;
 
@@ -144,12 +145,29 @@ const UtilizationPanel: React.FC<{ rows: UtilizationRow[] }> = ({ rows }) => {
 
 type RevenueLine = RevenueRow & { total?: boolean };
 
-const RevenuePanel: React.FC<{ rows: RevenueRow[] }> = ({ rows }) => {
+const RevenuePanel: React.FC<{ rows: RevenueRow[]; period: Period }> = ({ rows, period }) => {
   const lines: RevenueLine[] =
     rows.length > 0 ? [...rows, { variant: 'Total', ...revenueTotals(rows), total: true }] : [];
   const bold = (row: RevenueLine, text: string) => (row.total ? <strong>{text}</strong> : text);
+  // The variant opens the invoice list for that variant and the same period, whose totals equal this
+  // row (#501). The Total row and a row without a variant have no such list.
+  const variantCell = (row: RevenueLine) =>
+    row.total || !row.hardwareVariantId ? (
+      bold(row, variantOf(row.variant))
+    ) : (
+      <Link
+        to={`/t/billing?${new URLSearchParams({
+          hardwareVariantId: row.hardwareVariantId,
+          from: period.from,
+          to: period.to,
+        }).toString()}`}
+        className={LINK}
+      >
+        {variantOf(row.variant)}
+      </Link>
+    );
   const columns: Column<RevenueLine>[] = [
-    { key: 'variant', header: 'Variant', cell: (row) => bold(row, variantOf(row.variant)) },
+    { key: 'variant', header: 'Variant', cell: (row) => variantCell(row) },
     {
       key: 'invoiced',
       header: 'Invoiced',
@@ -203,6 +221,7 @@ const RevenuePanel: React.FC<{ rows: RevenueRow[] }> = ({ rows }) => {
           />
         )}
       />
+      <p className="text-body-sm text-ink-muted">{TOTALS_LEGEND_PERIOD}</p>
     </div>
   );
 };
@@ -439,12 +458,16 @@ function ReportTable<Row>({
   );
 }
 
-const Panel: React.FC<{ kind: ReportKind; rows: unknown[] }> = ({ kind, rows }) => {
+const Panel: React.FC<{ kind: ReportKind; rows: unknown[]; period: Period }> = ({
+  kind,
+  rows,
+  period,
+}) => {
   switch (kind) {
     case 'utilization':
       return <UtilizationPanel rows={rows as UtilizationRow[]} />;
     case 'revenue':
-      return <RevenuePanel rows={rows as RevenueRow[]} />;
+      return <RevenuePanel rows={rows as RevenueRow[]} period={period} />;
     case 'overdue':
       return <OverduePanel rows={rows as OverdueRow[]} />;
     case 'lost':
@@ -685,7 +708,7 @@ export const ReportsPage: React.FC = () => {
 
           {report.data && (
             <>
-              <Panel kind={kind} rows={rows} />
+              <Panel kind={kind} rows={rows} period={period} />
               <p className="text-body-sm text-ink-muted">
                 {rows.length} {rows.length === 1 ? 'row' : 'rows'}, generated{' '}
                 {formatTime(report.dataUpdatedAt)}

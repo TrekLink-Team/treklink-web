@@ -26,6 +26,9 @@ export interface ContractDirectory {
   // The hardware variant of each contract, for revenue per variant (billing task 2.4, monitoring
   // api-design 08). Kept apart from the display labels, which the invoice reads answer as they are.
   variantsOf(contractIds: readonly string[]): Promise<Map<string, string>>;
+  // The contracts of one hardware variant, for the invoice list's variant filter (#501), the inverse of
+  // `variantsOf`.
+  contractsOfVariant(hardwareVariantId: string): Promise<string[]>;
   // The buyer of an invoice of this organization; null for an unknown id.
   buyerOf(organizationId: string): Promise<InvoiceBuyer | null>;
 }
