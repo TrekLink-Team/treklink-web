@@ -205,11 +205,18 @@ describe('ReportsService (monitoring api-design 08)', () => {
       expect(rows).toEqual([
         {
           variant: 'treklink-v3',
+          hardwareVariantId: 'v-3',
           invoicedVnd: 18_000_000,
           paidVnd: 13_500_000,
           outstandingVnd: 4_500_000,
         },
-        { variant: null, invoicedVnd: 100, paidVnd: 0, outstandingVnd: 100 },
+        {
+          variant: null,
+          hardwareVariantId: null,
+          invoicedVnd: 100,
+          paidVnd: 0,
+          outstandingVnd: 100,
+        },
       ]);
     });
   });

@@ -19,13 +19,15 @@ import { TAB } from '../shared/ui/styles';
 import { matchesText } from '../shared/lib/filter';
 import { InvoiceDetailView } from '../widgets/InvoiceDetail/InvoiceDetailView';
 import { InvoiceTable } from '../widgets/InvoiceDetail/InvoiceTable';
+import { InvoiceTotals } from '../widgets/InvoiceDetail/InvoiceTotals';
+import { invoiceFiltersFromParams } from '../widgets/InvoiceDetail/invoice-list';
 import { InvoiceFilterBar } from './InvoicesPage';
 
 const PAYMENT_STATUSES = ['PENDING', 'CONFIRMED', 'FAILED', 'EXPIRED'] as const;
 const METHOD_LABELS = { CASH: 'Cash', BANK_TRANSFER: 'Bank transfer', SEPAY: 'SePay' } as const;
 
-const InvoicesTab: React.FC<{ contractId?: string }> = ({ contractId }) => {
-  const [filters, setFilters] = useState<InvoiceFilters>({ pageNumber: 1, contractId });
+const InvoicesTab: React.FC<{ initial: InvoiceFilters }> = ({ initial }) => {
+  const [filters, setFilters] = useState<InvoiceFilters>(initial);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { data, isLoading, error, refetch } = useInvoices('t', filters);
 
@@ -45,6 +47,7 @@ const InvoicesTab: React.FC<{ contractId?: string }> = ({ contractId }) => {
     >
       <div data-fit-page="" className="flex min-w-0 flex-col xl:min-h-0">
         <InvoiceFilterBar filters={filters} onChange={setFilters} />
+        <InvoiceTotals totals={data?.totals} filters={filters} />
         <InvoiceTable
           invoices={data?.items}
           showOrganization
@@ -216,7 +219,7 @@ export const BillingPage: React.FC = () => {
         ))}
       </div>
       {tab === 'invoices' ? (
-        <InvoicesTab contractId={params.get('contractId') ?? undefined} />
+        <InvoicesTab initial={invoiceFiltersFromParams(params)} />
       ) : (
         <PaymentsTab />
       )}

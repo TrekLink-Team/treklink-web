@@ -792,6 +792,14 @@ export class ContractsRepository {
     });
   }
 
+  // The contracts of one hardware variant (billing's invoice list filter, #501).
+  idsOfVariant(hardwareVariantId: string, client: Client = this.prisma) {
+    return client.rentalContract.findMany({
+      where: { hardwareVariantId },
+      select: { id: true },
+    });
+  }
+
   // What a service credit is computed from (billing's CREDIT_BASIS, billing design §9): the price
   // snapshot, the terms with whether each is invoiced, and the unit's custody times on this contract.
   async creditBasis(contractId: string, contractDeviceId: string, client: Client = this.prisma) {

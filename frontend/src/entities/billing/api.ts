@@ -188,9 +188,23 @@ export interface InvoiceFilters extends SortParams<InvoiceSortField> {
   contractId?: string;
   status?: InvoiceStatus;
   overdue?: boolean;
+  // #501: the contracts of one hardware variant, and the lines due from `from` (inclusive) to `to`
+  // (exclusive), both `YYYY-MM-DD` as the revenue report takes them.
+  hardwareVariantId?: string;
+  from?: string;
+  to?: string;
   pageNumber?: number;
   pageSize?: number;
 }
+
+// Over every invoice the filters match, not one page (billing api-design 08).
+export interface InvoiceListTotals {
+  invoicedVnd: number;
+  paidVnd: number;
+  outstandingVnd: number;
+}
+
+export type InvoicePage = Page<Invoice> & { totals?: InvoiceListTotals };
 
 export interface PaymentFilters {
   contractId?: string;
@@ -293,7 +307,7 @@ export const useVariantName = () => {
 export const useInvoices = (scope: 'o' | 't', filters: InvoiceFilters, enabled = true) =>
   useQuery({
     queryKey: billingKeys.invoices(scope, filters),
-    queryFn: () => apiClient<Page<Invoice>>(`/invoices${queryString({ ...filters })}`),
+    queryFn: () => apiClient<InvoicePage>(`/invoices${queryString({ ...filters })}`),
     enabled,
   });
 

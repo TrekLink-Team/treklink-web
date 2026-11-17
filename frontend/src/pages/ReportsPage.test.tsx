@@ -33,11 +33,18 @@ const ROWS: Record<string, unknown[]> = {
   revenue: [
     {
       variant: 'treklink-v3',
+      hardwareVariantId: 'v-3',
       invoicedVnd: 18_000_000,
       paidVnd: 13_500_000,
       outstandingVnd: 4_500_000,
     },
-    { variant: 'treklink-v2', invoicedVnd: 2_000_000, paidVnd: 2_000_000, outstandingVnd: 0 },
+    {
+      variant: 'treklink-v2',
+      hardwareVariantId: 'v-2',
+      invoicedVnd: 2_000_000,
+      paidVnd: 2_000_000,
+      outstandingVnd: 0,
+    },
   ],
   overdue: [
     {
@@ -234,6 +241,22 @@ describe('ReportsPage (screen 9.4)', () => {
     expect(
       screen.getByRole('img', { name: /treklink-v3 invoiced 18,000,000 VND, paid 13,500,000 VND/ }),
     ).toBeTruthy();
+  });
+
+  // #501: a report figure is traceable. The variant opens the invoice list for that variant and the same
+  // period, and a line under the table says what the three columns mean.
+  it('links each revenue variant to the invoice list for the same variant and period', async () => {
+    serve();
+    renderPage('?kind=revenue&from=2026-11-01&to=2026-12-01');
+    await screen.findByRole('table', { name: 'Revenue by variant' });
+    const link = table('Revenue by variant').getByRole('link', { name: /v3/i });
+    expect(link.getAttribute('href')).toBe(
+      '/t/billing?hardwareVariantId=v-3&from=2026-11-01&to=2026-12-01',
+    );
+    // The Total row has no list of its own.
+    const rows = table('Revenue by variant').getAllByRole('row');
+    expect(within(rows[rows.length - 1]).queryByRole('link')).toBeNull();
+    expect(screen.getByText(/Invoiced = invoice lines due in the period/)).toBeTruthy();
   });
 
   it('labels the revenue bars as amounts in VND, as the table does', async () => {

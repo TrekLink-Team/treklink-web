@@ -47,7 +47,12 @@ describe('BillingReadsService (billing task 4.1, api-design 08, 09, 10, 14)', ()
   let invoices: Record<string, jest.Mock>;
   let payments: Record<string, jest.Mock>;
   let balances: Record<string, jest.Mock>;
-  let directory: { describe: jest.Mock; variantsOf: jest.Mock; buyerOf: jest.Mock };
+  let directory: {
+    describe: jest.Mock;
+    variantsOf: jest.Mock;
+    contractsOfVariant: jest.Mock;
+    buyerOf: jest.Mock;
+  };
 
   const service = (withDirectory = true) =>
     new BillingReadsService(
@@ -61,6 +66,9 @@ describe('BillingReadsService (billing task 4.1, api-design 08, 09, 10, 14)', ()
   beforeEach(() => {
     invoices = {
       page: jest.fn().mockResolvedValue([[invoice()], 1]),
+      totals: jest
+        .fn()
+        .mockResolvedValue({ invoicedVnd: 300n, paidVnd: 100n, outstandingVnd: 200n }),
       detail: jest.fn().mockResolvedValue({ ...invoice(), lines: [] }),
       organizationOfContract: jest.fn().mockResolvedValue('org-1'),
     };
@@ -83,6 +91,7 @@ describe('BillingReadsService (billing task 4.1, api-design 08, 09, 10, 14)', ()
         termSeqs: new Map([['t-1', 1]]),
       }),
       variantsOf: jest.fn().mockResolvedValue(new Map()),
+      contractsOfVariant: jest.fn().mockResolvedValue(['c-1', 'c-2']),
       buyerOf: jest.fn().mockResolvedValue(BUYER),
     };
   });
@@ -115,6 +124,63 @@ describe('BillingReadsService (billing task 4.1, api-design 08, 09, 10, 14)', ()
       undefined,
       undefined,
     );
+  });
+
+  // #501: the totals cover every invoice the filters match, with the same filter as the page.
+  it('returns the totals of the whole filter beside the page, with the same filter', async () => {
+    const page = await service().invoicePage({ status: 'ISSUED', pageNumber: 3 }, STAFF, NOW);
+    expect(page.totals).toEqual({ invoicedVnd: 300n, paidVnd: 100n, outstandingVnd: 200n });
+    const pageFilter = (invoices.page.mock.calls as unknown[][]).at(-1)?.[0];
+    expect(invoices.totals).toHaveBeenLastCalledWith(pageFilter);
+    // The totals take no skip or take: page 3 of the list does not narrow them.
+    expect(invoices.totals).toHaveBeenLastCalledWith(expect.not.objectContaining({ skip: 40 }));
+  });
+
+  it('scopes the totals to the member organization, and TrekLink to none (#501)', async () => {
+    await service().invoicePage({}, MANAGER, NOW);
+    expect(invoices.totals).toHaveBeenLastCalledWith(
+      expect.objectContaining({ organizationId: 'org-1' }),
+    );
+    await service().invoicePage({}, STAFF, NOW);
+    expect(invoices.totals).toHaveBeenLastCalledWith(
+      expect.objectContaining({ organizationId: undefined }),
+    );
+  });
+
+  it('turns a variant into its contracts and passes the period unchanged (#501)', async () => {
+    const from = new Date('2026-11-01T00:00:00.000Z');
+    const to = new Date('2026-12-01T00:00:00.000Z');
+    await service().invoicePage({ hardwareVariantId: 'v-3', from, to }, STAFF, NOW);
+    expect(directory.contractsOfVariant).toHaveBeenCalledWith('v-3');
+    for (const mock of [invoices.page, invoices.totals]) {
+      expect((mock.mock.calls as unknown[][]).at(-1)?.[0]).toMatchObject({
+        contractIds: ['c-1', 'c-2'],
+        dueFrom: from,
+        dueTo: to,
+      });
+    }
+  });
+
+  it('matches nothing for a variant without a directory provider (#501)', async () => {
+    await service(false).invoicePage({ hardwareVariantId: 'v-3' }, STAFF, NOW);
+    expect((invoices.page.mock.calls as unknown[][]).at(-1)?.[0]).toMatchObject({
+      contractIds: [],
+    });
+  });
+
+  it('refuses a half period or a period that does not run forward (#501)', async () => {
+    const day = new Date('2026-11-01T00:00:00.000Z');
+    const next = new Date('2026-12-01T00:00:00.000Z');
+    for (const query of [
+      { from: day },
+      { to: next },
+      { from: next, to: day },
+      { from: day, to: day },
+    ]) {
+      await expect(service().invoicePage(query, STAFF, NOW)).rejects.toMatchObject({
+        errorCode: ErrorCode.VALIDATION_FAILED,
+      });
+    }
   });
 
   // W26: the invoice lists sort on the server by one allowed column (api-design 08).

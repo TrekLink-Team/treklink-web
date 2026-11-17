@@ -101,9 +101,22 @@ export class InvoicesController {
   async list(
     @Query() query: InvoiceQueryDto,
     @CurrentCaller() caller: Caller,
-  ): Promise<PagedResult<ReturnType<typeof toInvoiceView>>> {
+  ): Promise<
+    PagedResult<ReturnType<typeof toInvoiceView>> & {
+      totals: { invoicedVnd: number; paidVnd: number; outstandingVnd: number };
+    }
+  > {
     const page = await this.reads.invoicePage(query, caller);
-    return { ...page, items: page.items.map(toInvoiceView) };
+    const { totals } = page;
+    return {
+      ...page,
+      items: page.items.map(toInvoiceView),
+      totals: {
+        invoicedVnd: Number(totals.invoicedVnd),
+        paidVnd: Number(totals.paidVnd),
+        outstandingVnd: Number(totals.outstandingVnd),
+      },
+    };
   }
 
   @Get('invoices/:id')
