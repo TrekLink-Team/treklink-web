@@ -99,7 +99,9 @@ request body and the `Authorization` header, not in cookies, so the two origins 
 cp deploy/aws/.env.aws.example deploy/aws/.env.aws && chmod 600 deploy/aws/.env.aws
 ```
 
-Fill in every uncommented key. Generate each secret with `openssl rand -hex 32`. Copy the mail values, the
+Fill in every uncommented key. Generate each secret with `openssl rand -hex 32`, except `MQTT_NODE_PASSWORD`:
+generate it with `openssl rand -hex 15` (30 characters), because the node firmware stores it in a 31-character
+field and drops the whole MQTT config when it is longer. Keep it between 16 and 31 characters. Copy the mail values, the
 `COMPANY_*` values, `HANDOVER_PLACE` and `CHANNEL_KEY_MASTER` from the Vercel project's Production
 environment. `up.sh` checks the file before it calls AWS, names each problem without printing a value,
 and refuses the keys it computes itself (`MQTT_DOMAIN`, `CORS_ORIGINS`, `FIELD_STATION_BROKER_URL`,
@@ -402,8 +404,10 @@ Fill in the environment:
 cd treklink-web/deploy/aws && cp .env.example .env && chmod 600 .env && nano .env
 ```
 
-- Generate each secret with `openssl rand -hex 32`. That covers `MQTT_AUTH_HOOK_SECRET`, `MQTT_PASSWORD`,
-  `MQTT_NODE_PASSWORD` and `JWT_ACCESS_SECRET`.
+- Generate each secret with `openssl rand -hex 32`. That covers `MQTT_AUTH_HOOK_SECRET`, `MQTT_PASSWORD` and
+  `JWT_ACCESS_SECRET`.
+- Generate `MQTT_NODE_PASSWORD` with `openssl rand -hex 15` (30 characters). It must stay at 31 characters or
+  fewer: the node firmware stores it in `char password[32]` and silently drops a longer MQTT config.
 - Give the host its own Neon role, one that can read and write rows but cannot change the schema. Run this in the
   Neon SQL editor on `treklink_prod` (branch `vercel-prod`) as the owner role, with your own password in
   place of the placeholder. Create the role with SQL, not on the console's Roles page: roles created there

@@ -68,6 +68,19 @@ describe('validate (environment)', () => {
     expect(() => validate({ ...REQUIRED, JWT_ACCESS_SECRET: 'x'.repeat(32) })).not.toThrow();
   });
 
+  it('accepts an MQTT_NODE_PASSWORD of 16 to 31 characters and refuses one outside that range', () => {
+    expect(() => validate({ ...REQUIRED, MQTT_NODE_PASSWORD: 'x'.repeat(16) })).not.toThrow();
+    expect(validate({ ...REQUIRED, MQTT_NODE_PASSWORD: 'x'.repeat(31) }).MQTT_NODE_PASSWORD).toBe(
+      'x'.repeat(31),
+    );
+    expect(problemsOf({ ...REQUIRED, MQTT_NODE_PASSWORD: 'x'.repeat(32) })).toContainEqual(
+      'MQTT_NODE_PASSWORD: MQTT_NODE_PASSWORD must be at most 31 characters: the node firmware field holds 31 characters',
+    );
+    expect(problemsOf({ ...REQUIRED, MQTT_NODE_PASSWORD: 'x'.repeat(15) })).toContainEqual(
+      expect.stringMatching(/^MQTT_NODE_PASSWORD: .*at least 16 characters/),
+    );
+  });
+
   it('refuses the published development JWT_ACCESS_SECRET placeholder in production only', () => {
     const placeholder = 'treklink_access_token_secret_development_key_change_in_production';
     const production = {
