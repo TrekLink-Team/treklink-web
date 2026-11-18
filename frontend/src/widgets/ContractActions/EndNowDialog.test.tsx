@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ContractDetail, EndPreview } from '../../entities/contract/api';
+import { contractKeys, type ContractDetail, type EndPreview } from '../../entities/contract/api';
 import { ApiError } from '../../shared/api/apiClient';
 import { useToast } from '../../shared/ui/toastStore';
 import { EndNowDialog } from './EndNowDialog';
@@ -41,9 +41,9 @@ const PREVIEW: EndPreview = {
 };
 
 const close = vi.fn();
-const open = (viewer: 'staff' | 'manager' = 'staff') =>
+const open = (viewer: 'staff' | 'manager' = 'staff', client = new QueryClient()) =>
   render(
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider client={client}>
       <EndNowDialog contract={contract} viewer={viewer} onClose={close} />
     </QueryClientProvider>,
   );
@@ -77,17 +77,84 @@ describe('End contract now dialog', () => {
   it('keeps End contract now disabled until the preview answers, and names a failed preview', async () => {
     api.mockImplementation(() =>
       Promise.reject(
-        new ApiError(
-          409,
-          'INVALID_STATE_TRANSITION',
-          'This cannot be done while it is RETURN_DUE.',
-        ),
+        new ApiError(503, 'SERVICE_UNAVAILABLE', 'The ending preview is unavailable.'),
       ),
     );
     open();
     expect((endButton() as HTMLButtonElement).disabled).toBe(true);
-    expect(await screen.findByText('This cannot be done while it is RETURN_DUE.')).toBeTruthy();
+    expect(await screen.findByText('The ending preview is unavailable.')).toBeTruthy();
     expect((endButton() as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('closes after a successful end without waiting for preview invalidation, and refreshes the contract', async () => {
+    let previewCalls = 0;
+    api.mockImplementation((endpoint: string) => {
+      if (endpoint.endsWith('/end-preview')) {
+        previewCalls += 1;
+        return previewCalls === 1 ? Promise.resolve(PREVIEW) : new Promise(() => undefined);
+      }
+      return Promise.resolve({});
+    });
+    const client = new QueryClient();
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    open('staff', client);
+    await screen.findByText(/24 unused days/);
+    typeReason('Trek finished early');
+    fireEvent.click(endButton());
+
+    await waitFor(() => expect(close).toHaveBeenCalledTimes(1));
+    expect(invalidate).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: contractKeys.detail('c-2') }),
+    );
+  });
+
+  it('sends one end request when the form is submitted twice before pending renders', async () => {
+    let finishEnd!: () => void;
+    const endRequest = new Promise<Record<string, never>>((resolve) => {
+      finishEnd = () => resolve({});
+    });
+    api.mockImplementation((endpoint: string) =>
+      endpoint.endsWith('/end-preview') ? Promise.resolve(PREVIEW) : endRequest,
+    );
+    open();
+    await screen.findByText(/24 unused days/);
+    typeReason('Trek finished early');
+    const form = document.getElementById('end-now-form') as HTMLFormElement;
+
+    act(() => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+
+    expect(api.mock.calls.filter(([endpoint]) => endpoint === '/contracts/c-2/end')).toHaveLength(1);
+    finishEnd();
+    await waitFor(() => expect(close).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not show a RETURN_DUE preview refusal after a successful end', async () => {
+    let previewCalls = 0;
+    api.mockImplementation((endpoint: string) => {
+      if (endpoint.endsWith('/end-preview')) {
+        previewCalls += 1;
+        return previewCalls === 1
+          ? Promise.resolve(PREVIEW)
+          : Promise.reject(
+              new ApiError(
+                409,
+                'INVALID_STATE_TRANSITION',
+                'This cannot be done while it is RETURN_DUE.',
+              ),
+            );
+      }
+      return Promise.resolve({});
+    });
+    open();
+    await screen.findByText(/24 unused days/);
+    typeReason('Trek finished early');
+    fireEvent.click(endButton());
+
+    await waitFor(() => expect(close).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText('This cannot be done while it is RETURN_DUE.')).toBeNull();
   });
 
   it('asks for a reason, then ends the contract with the trimmed reason and the version', async () => {
