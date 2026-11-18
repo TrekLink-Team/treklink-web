@@ -2,6 +2,9 @@ import { PriorityTier } from '../config';
 import { kindOf, StationState } from './station-state';
 
 const T0 = Date.UTC(2026, 10, 1, 5, 0, 0);
+const RECEIVER = '!0aa3a278';
+const PEER_A = 178496148;
+const PEER_B = 178496104;
 
 const frame = (
   n: number,
@@ -9,6 +12,7 @@ const frame = (
   type: string,
   payload: Record<string, unknown>,
   heardAt = T0,
+  from?: unknown,
 ) => ({
   eventId: `${sender}:${n}`,
   priority:
@@ -17,7 +21,7 @@ const frame = (
       : type === 'text'
         ? PriorityTier.P0_SOS
         : PriorityTier.P2_GPS,
-  payload: { id: n, sender, type, payload },
+  payload: { id: n, ...(from === undefined ? {} : { from }), sender, type, payload },
   heardAt,
 });
 
@@ -68,6 +72,91 @@ describe('Field Station local state (gateway-sync task 5.2)', () => {
       lastSosAt: null,
       stale: false,
     });
+  });
+
+  it('keys remote rows and events by from with separate position and SOS state', () => {
+    const state = make();
+    state.record(
+      frame(
+        1,
+        RECEIVER,
+        'position',
+        { latitude_i: 115544000, longitude_i: 1085381000 },
+        T0,
+        PEER_A,
+      ),
+    );
+    state.record(
+      frame(
+        2,
+        RECEIVER,
+        'text',
+        { text: 'SOS - FALL DETECTED [11.5], [108.5]' },
+        T0 + 1000,
+        PEER_B,
+      ),
+    );
+
+    const nodes = state.nodes(T0 + 2000);
+    expect(nodes.map((node) => node.nodeId)).toEqual(['!0aa3a268', '!0aa3a294']);
+    expect(nodes[0]).toMatchObject({ sosActive: true, sosKind: 'FALL_SOS', position: null });
+    expect(nodes[1]).toMatchObject({
+      sosActive: false,
+      position: { latitude: 11.5544, longitude: 108.5381 },
+    });
+    expect(state.events().map((event) => event.nodeId)).toEqual(['!0aa3a294', '!0aa3a268']);
+  });
+
+  it('keeps the receiver own frame under the receiver and a peer under the peer', () => {
+    const state = make();
+    state.record(
+      frame(
+        1,
+        RECEIVER,
+        'telemetry',
+        { battery_level: 79 },
+        T0,
+        Number.parseInt(RECEIVER.slice(1), 16),
+      ),
+    );
+    state.record(
+      frame(
+        2,
+        RECEIVER,
+        'position',
+        { latitude_i: 115545000, longitude_i: 1085382000 },
+        T0 + 1000,
+        PEER_A,
+      ),
+    );
+
+    const nodes = state.nodes(T0 + 2000);
+    expect(nodes.map((node) => node.nodeId)).toEqual([RECEIVER, '!0aa3a294']);
+    expect(nodes[0]).toMatchObject({ battery: { level: 79 }, position: null });
+    expect(nodes[1]).toMatchObject({ battery: null, position: { latitude: 11.5545 } });
+  });
+
+  it('falls back to sender when from is missing or outside the node number range', () => {
+    const state = make();
+    state.record(frame(1, RECEIVER, 'telemetry', { battery_level: 60 }));
+    state.record(
+      frame(
+        2,
+        RECEIVER,
+        'position',
+        { latitude_i: 115544000, longitude_i: 1085381000 },
+        T0 + 1000,
+        PEER_A,
+      ),
+    );
+    state.record(frame(3, '!legacy', 'telemetry', { battery_level: 50 }, T0 + 2000, 2 ** 32));
+
+    expect(state.nodes(T0 + 3000).map((node) => node.nodeId)).toEqual([
+      RECEIVER,
+      '!0aa3a294',
+      '!legacy',
+    ]);
+    expect(state.events().map((event) => event.nodeId)).toEqual([RECEIVER, '!0aa3a294', '!legacy']);
   });
 
   it('keeps the battery when a telemetry packet carries none', () => {
