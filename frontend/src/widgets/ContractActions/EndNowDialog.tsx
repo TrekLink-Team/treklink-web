@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   contractKeys,
@@ -19,6 +19,8 @@ import { creditText, owedText } from './endNowText';
 const REASON_MAX = 500;
 const FORM_ID = 'end-now-form';
 const REASON_ID = 'end-now-reason';
+const isStateRefusal = (error: unknown): error is ApiError =>
+  error instanceof ApiError && error.errorCode === 'INVALID_STATE_TRANSITION';
 
 /**
  * End contract now (screen 5.2, rentals api-design 30 and 31, D-097): Staff or the Org Manager end an
@@ -34,10 +36,34 @@ export const EndNowDialog: React.FC<{
   const queryClient = useQueryClient();
   const showToast = useToast((state) => state.show);
   const keep = useRef<HTMLButtonElement>(null);
+  const submitting = useRef(false);
   const [reason, setReason] = useState('');
   const [missing, setMissing] = useState(false);
   const [failure, setFailure] = useState<{ message: string; stale: boolean } | null>(null);
   const [pending, setPending] = useState(false);
+  const refresh = useCallback(
+    () =>
+      Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: contractKeys.detail(contract.id),
+          exact: true,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: contractKeys.closeCheck(contract.id),
+          exact: true,
+        }),
+        queryClient.invalidateQueries({ queryKey: contractKeys.balance(contract.id) }),
+        queryClient.invalidateQueries({ queryKey: contractKeys.all }),
+        queryClient.invalidateQueries({ queryKey: contractKeys.transitions(contract.id) }),
+        queryClient.invalidateQueries({ queryKey: ['invoices'] }),
+      ]),
+    [contract.id, queryClient],
+  );
+  const closeForChangedState = useCallback(() => {
+    showToast('Contract status changed. The latest actions are now shown.', { tone: 'info' });
+    onClose();
+    void refresh();
+  }, [onClose, refresh, showToast]);
   const preview = useQuery({
     queryKey: contractKeys.endPreview(contract.id),
     queryFn: () => fetchEndPreview(contract.id),
@@ -47,38 +73,37 @@ export const EndNowDialog: React.FC<{
     refetchOnWindowFocus: false,
   });
 
-  const refresh = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: contractKeys.detail(contract.id) }),
-      queryClient.invalidateQueries({ queryKey: contractKeys.balance(contract.id) }),
-      queryClient.invalidateQueries({ queryKey: contractKeys.all }),
-      queryClient.invalidateQueries({ queryKey: contractKeys.transitions(contract.id) }),
-      queryClient.invalidateQueries({ queryKey: ['invoices'] }),
-    ]);
+  useEffect(() => {
+    if (isStateRefusal(preview.error)) closeForChangedState();
+  }, [closeForChangedState, preview.error]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (pending || !preview.data) return;
+    if (submitting.current || !preview.data) return;
     const trimmed = reason.trim();
     if (!trimmed) {
       setMissing(true);
       return;
     }
+    submitting.current = true;
     setPending(true);
     setFailure(null);
     try {
       await endContract(contract.id, trimmed, contract.version);
     } catch (error) {
+      submitting.current = false;
       setPending(false);
+      if (isStateRefusal(error)) {
+        closeForChangedState();
+        return;
+      }
       const stale = error instanceof ApiError && error.errorCode === 'STALE_VERSION';
       setFailure({ message: messageOf(error), stale });
-      if (error instanceof ApiError && error.errorCode === 'INVALID_STATE_TRANSITION')
-        void refresh();
       return;
     }
-    await refresh();
     showToast('Contract ended. Check the units in at the counter.');
     onClose();
+    void refresh();
   };
 
   const ready = preview.data;
@@ -94,7 +119,13 @@ export const EndNowDialog: React.FC<{
           <Button ref={keep} variant="ghost" onClick={onClose} disabled={pending}>
             Keep the contract running
           </Button>
-          <Button variant="danger" type="submit" form={FORM_ID} loading={pending} disabled={!ready}>
+          <Button
+            variant="danger"
+            type="submit"
+            form={FORM_ID}
+            loading={pending}
+            disabled={!ready || pending}
+          >
             End contract now
           </Button>
         </>
@@ -109,7 +140,7 @@ export const EndNowDialog: React.FC<{
         {preview.isLoading && (
           <p className="text-body-sm text-ink-muted">Reading what ending now does…</p>
         )}
-        {preview.error && (
+        {preview.error && !isStateRefusal(preview.error) && (
           <p role="alert" className={ALERT}>
             {messageOf(preview.error)}
           </p>
