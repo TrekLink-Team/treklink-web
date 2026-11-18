@@ -2,9 +2,9 @@
   "version": 1,
   "candidates": [
     {
-      "name": "vercel-staging",
-      "url": "https://treklink-web.vercel.app/",
-      "health": "https://treklink-web.vercel.app/api/health",
+      "name": "aws-staging",
+      "url": "https://54-153-147-237.sslip.io/",
+      "health": "https://54-153-147-237.sslip.io/api/health",
       "timeoutMs": 8000
     },
     {
