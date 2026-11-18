@@ -59,12 +59,21 @@ interface NodeRecord {
 
 interface StockLike {
   type?: unknown;
+  from?: unknown;
   sender?: unknown;
   payload?: Record<string, unknown>;
 }
 
 const num = (value: unknown): number | null =>
   typeof value === 'number' && Number.isFinite(value) ? value : null;
+
+const localNodeIdOf = (packet: StockLike): string => {
+  const from = packet.from;
+  if (typeof from === 'number' && Number.isInteger(from) && from >= 0 && from <= 0xffffffff) {
+    return `!${from.toString(16).padStart(8, '0')}`;
+  }
+  return typeof packet.sender === 'string' && packet.sender !== '' ? packet.sender : 'unknown';
+};
 
 /** The kind of a stock packet: the same rule the backend uses for text, the packet type otherwise. */
 export const kindOf = (packet: StockLike): LocalEventKind => {
@@ -96,11 +105,10 @@ export class StationState {
 
   constructor(private readonly options: { staleSeconds: number; eventLogSize: number }) {}
 
-  /** Records one frame the reader handed to the queue. A frame without a sender is logged as unknown. */
+  /** Records one frame, attributed to its transmitting node with a legacy sender fallback. */
   public record(frame: HeardFrame): void {
     const packet = frame.payload as StockLike;
-    const nodeId =
-      typeof packet.sender === 'string' && packet.sender !== '' ? packet.sender : 'unknown';
+    const nodeId = localNodeIdOf(packet);
     const kind = kindOf(packet);
     const payload = packet.payload ?? {};
     const node = this.nodeRecords.get(nodeId) ?? {
