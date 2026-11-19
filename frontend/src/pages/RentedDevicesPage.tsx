@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { MoreHorizontal } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useContracts } from '../entities/contract/api';
@@ -19,6 +20,7 @@ import {
   Badge,
   Button,
   DataTable,
+  Menu,
   Field,
   Pagination,
   Select,
@@ -57,7 +59,7 @@ const columns: Column<RentedDevice>[] = [
     cell: (row) => (
       <span className="flex flex-wrap items-center gap-1">
         <span className="whitespace-nowrap">{row.assetTag}</span>
-        <span className="basis-full text-xs text-ink-muted [@media(min-width:1440px)]:hidden">
+        <span className="basis-full text-xs text-ink-muted [@media(min-width:1680px)]:hidden">
           {row.variantCode}
         </span>
         {row.openFaultReportId && <Badge tone="waiting">Fault reported</Badge>}
@@ -86,7 +88,7 @@ const columns: Column<RentedDevice>[] = [
     cell: (row) => (
       <>
         {STATES[row.state]}
-        <span className="block text-xs text-ink-muted [@media(min-width:1440px)]:hidden">
+        <span className="block text-xs text-ink-muted [@media(min-width:1680px)]:hidden">
           {row.batteryPct === null ? 'Battery unknown' : `${row.batteryPct}% battery`}
         </span>
       </>
@@ -113,7 +115,11 @@ type ConsoleDialog =
   | { kind: 'fault' | 'history' | 'loss' | 'holder' | 'notice'; device: RentedDevice };
 
 export const RentedDevicesPage: React.FC = () => {
-  const wideTable = useMediaQuery('(min-width: 1440px)', true);
+  // Variant and Battery get their own columns only where the table, beside the 17.5 rem group tree, has
+  // room for ten columns; at 1440 px they made the cells wrap to three lines (#513). Narrower, the variant
+  // sits under the tag and the battery under the state.
+  const wideTable = useMediaQuery('(min-width: 1680px)', true);
+  const tablet = useMediaQuery('(min-width: 768px)', true);
   const queryClient = useQueryClient();
   const toast = useToast((state) => state.show);
   const [filters, setFilters] = useState<RentedDeviceFilters>({ pageNumber: 1 });
@@ -225,6 +231,36 @@ export const RentedDevicesPage: React.FC = () => {
       onSelect: () => setDialog({ kind: 'notice', device: row }),
     },
   ];
+  const phoneCard = (row: RentedDevice) => (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-start justify-between gap-2">
+        <span className="flex flex-wrap items-center gap-1">
+          <span className="font-semibold">{row.assetTag}</span>
+          <span className="text-body-sm text-ink-muted">{row.variantCode}</span>
+          {row.openFaultReportId && <Badge tone="waiting">Fault reported</Badge>}
+          {row.openLossCase && <Badge tone="critical">{row.openLossCase.code}</Badge>}
+        </span>
+        <Menu
+          label={`Actions for ${row.assetTag}`}
+          title="More actions"
+          trigger={<MoreHorizontal aria-hidden="true" className="h-5 w-5" />}
+          items={actions(row)}
+        />
+      </div>
+      <Link className={`${LINK} self-start`} to={`/o/contracts/${row.contract.id}`}>
+        {row.contract.code}
+      </Link>
+      <p className="text-body-sm">
+        {STATES[row.state]}, {row.batteryPct === null ? 'battery unknown' : `${row.batteryPct}% battery`}
+      </p>
+      <p className="text-body-sm text-ink-muted">
+        {row.lastSeenAt ? formatDateTime(row.lastSeenAt) : 'No reading'}
+      </p>
+      <p className="text-body-sm text-ink-muted">
+        {row.group?.name ?? 'No group'}, {row.holder?.name ?? 'No holder label'}
+      </p>
+    </div>
+  );
   return (
     <section
       data-fit-page=""
@@ -318,6 +354,8 @@ export const RentedDevicesPage: React.FC = () => {
             rowId={(row) => row.deviceId}
             rowLabel={(row) => row.assetTag}
             rowActions={actions}
+            // Below 768 px the table is a card list, so no cell is cut at the edge of a phone (#513).
+            renderCard={tablet ? undefined : phoneCard}
             onRowActivate={(device) => setDialog({ kind: 'history', device })}
             selectedIds={selected}
             onSelectionChange={setSelected}
