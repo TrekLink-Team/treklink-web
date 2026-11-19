@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { MaintenanceStatus, MaintenanceWorkBy, Prisma } from '@prisma/client';
+import { DeviceStatus, MaintenanceStatus, MaintenanceWorkBy, Prisma } from '@prisma/client';
 import { ListSort, orderByOf, SortColumns } from '../../common/dto/sorting';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
@@ -70,6 +70,15 @@ export interface NewRecord {
   openedAt: Date;
 }
 
+export interface DueServiceDevice {
+  id: string;
+  assetTag: string;
+  status: DeviceStatus;
+  serviceDueAt: Date | null;
+  firmwareVersion: string;
+  firmwareBaseline: string;
+}
+
 // The sortable columns of the record list (devices api-design 15, W26): the expected completion date,
 // the device's asset tag and the status in lifecycle order. Reason, work and cost are text or mixed
 // amounts with no single order.
@@ -98,6 +107,37 @@ export interface RecordFilter {
 @Injectable()
 export class MaintenanceRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  // Prisma cannot compare a device column with its variant column. Read the three eligible states
+  // in one query, then apply the firmware comparison without crossing the module boundary.
+  async dueDevices(dueBefore: Date, client: Client = this.prisma): Promise<DueServiceDevice[]> {
+    const rows = await client.device.findMany({
+      where: {
+        status: {
+          in: [DeviceStatus.AVAILABLE, DeviceStatus.RESERVED, DeviceStatus.RENTED],
+        },
+      },
+      select: {
+        id: true,
+        assetTag: true,
+        status: true,
+        serviceDueAt: true,
+        firmwareVersion: true,
+        hardwareVariant: { select: { firmwareBaseline: true } },
+      },
+      orderBy: { assetTag: 'asc' },
+    });
+    return rows
+      .filter(
+        (row) =>
+          (row.serviceDueAt !== null && row.serviceDueAt < dueBefore) ||
+          row.firmwareVersion !== row.hardwareVariant.firmwareBaseline,
+      )
+      .map(({ hardwareVariant, ...row }) => ({
+        ...row,
+        firmwareBaseline: hardwareVariant.firmwareBaseline,
+      }));
+  }
 
   create(data: NewRecord, tx: Prisma.TransactionClient): Promise<RecordRow> {
     return tx.maintenanceRecord.create({ data, select: RECORD_SELECT });

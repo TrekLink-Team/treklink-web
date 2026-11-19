@@ -168,6 +168,79 @@ describe('MaintenanceService (devices task 2.8, api-design 11 to 15)', () => {
     );
   });
 
+  describe('openScheduled (REQ-EVT-19)', () => {
+    const dueBefore = new Date('2026-11-15T00:00:00.000Z');
+
+    it('moves a due AVAILABLE device with one SCHEDULED record and SYSTEM transition', async () => {
+      devices.findDetail.mockResolvedValue(
+        device({ serviceDueAt: new Date('2026-11-14T00:00:00.000Z') }),
+      );
+
+      await expect(service.openScheduled('d-9', dueBefore, AT, TX)).resolves.toEqual({
+        id: 'm-new',
+        reason: 'SCHEDULED',
+        expectedAt: new Date('2026-11-14T00:00:00.000Z'),
+      });
+      expect(records.create).toHaveBeenCalledWith(
+        expect.objectContaining({ reason: 'SCHEDULED', openedById: null }),
+        TX,
+      );
+      expect(devices.insertTransition).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorId: null,
+          fromStatus: DeviceStatus.AVAILABLE,
+          toStatus: DeviceStatus.MAINTENANCE,
+          refId: 'm-new',
+        }),
+        TX,
+      );
+    });
+
+    it('uses FIRMWARE_UPDATE and the run date when only firmware differs', async () => {
+      devices.findDetail.mockResolvedValue(
+        device({
+          firmwareVersion: 'old',
+          serviceDueAt: new Date('2026-12-30T00:00:00.000Z'),
+        }),
+      );
+
+      await expect(service.openScheduled('d-9', dueBefore, AT, TX)).resolves.toEqual({
+        id: 'm-new',
+        reason: 'FIRMWARE_UPDATE',
+        expectedAt: new Date('2026-11-02T00:00:00.000Z'),
+      });
+      expect(records.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reason: 'FIRMWARE_UPDATE',
+          expectedAt: new Date('2026-11-02T00:00:00.000Z'),
+        }),
+        TX,
+      );
+    });
+
+    it('skips an open record, a contract device, an outside device, and a lost race', async () => {
+      records.findOpen.mockResolvedValueOnce(record());
+      await expect(service.openScheduled('d-9', dueBefore, AT, TX)).resolves.toBeNull();
+
+      devices.findDetail.mockResolvedValueOnce(
+        device({ status: DeviceStatus.RESERVED, serviceDueAt: new Date('2026-11-14T00:00:00Z') }),
+      );
+      await expect(service.openScheduled('d-9', dueBefore, AT, TX)).resolves.toBeNull();
+
+      devices.findDetail.mockResolvedValueOnce(
+        device({ serviceDueAt: new Date('2026-11-15T00:00:00Z') }),
+      );
+      await expect(service.openScheduled('d-9', dueBefore, AT, TX)).resolves.toBeNull();
+
+      devices.findDetail.mockResolvedValueOnce(
+        device({ serviceDueAt: new Date('2026-11-14T00:00:00Z') }),
+      );
+      devices.moveIfCurrent.mockResolvedValueOnce(false);
+      await expect(service.openScheduled('d-9', dueBefore, AT, TX)).resolves.toBeNull();
+      expect(records.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe('open (api-design 11)', () => {
     const dto = {
       reason: 'STAFF_REPORTED' as const,

@@ -72,9 +72,8 @@ export interface ServiceFacts {
   firmwareBaseline: string;
 }
 
-// Maintenance records and their cost approval (task 2.8, design §2.2, D-047). The weekly scan
-// (`devices.serviceScan`) is not built yet; a passed inspection of a due unit and a failed intake or
-// inspection open records through `openForSystem`.
+// Maintenance records and their cost approval (task 2.8, design §2.2, D-047). Rule-driven records
+// from the weekly scan, a passed inspection, or a failed intake or inspection use `openForSystem`.
 @Injectable()
 export class MaintenanceService {
   constructor(
@@ -123,6 +122,66 @@ export class MaintenanceService {
       },
       tx,
     );
+  }
+
+  // The `devices.serviceScan` transaction for one AVAILABLE unit (REQ-EVT-19). A concurrent
+  // reservation, maintenance opening, or correction makes this a no-op through the version check.
+  async openScheduled(
+    deviceId: string,
+    dueBefore: Date,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<{ id: string; reason: 'SCHEDULED' | 'FIRMWARE_UPDATE'; expectedAt: Date } | null> {
+    const device = await this.devices.findDetail(deviceId, tx);
+    if (!device || device.status !== DeviceStatus.AVAILABLE) return null;
+    if (await this.records.findOpen(deviceId, tx)) return null;
+
+    const scheduled = device.serviceDueAt !== null && device.serviceDueAt < dueBefore;
+    const firmwareDiffers = device.firmwareVersion !== device.hardwareVariant.firmwareBaseline;
+    if (!scheduled && !firmwareDiffers) return null;
+
+    const reason = scheduled ? 'SCHEDULED' : 'FIRMWARE_UPDATE';
+    const expectedAt = scheduled ? device.serviceDueAt! : businessDay(at);
+    if (
+      !(await this.devices.moveIfCurrent(
+        deviceId,
+        device.version,
+        [DeviceStatus.AVAILABLE],
+        DeviceStatus.MAINTENANCE,
+        at,
+        tx,
+      ))
+    ) {
+      return null;
+    }
+    const record = await this.openForSystem(
+      {
+        deviceId,
+        reason,
+        description:
+          reason === 'SCHEDULED'
+            ? 'Periodic service is due.'
+            : 'Firmware differs from the variant baseline.',
+        expectedAt,
+      },
+      null,
+      at,
+      tx,
+    );
+    await this.devices.insertTransition(
+      {
+        deviceId,
+        fromStatus: DeviceStatus.AVAILABLE,
+        toStatus: DeviceStatus.MAINTENANCE,
+        actorId: null,
+        reason: 'MAINTENANCE_OPENED',
+        refType: 'MAINTENANCE',
+        refId: record.id,
+        createdAt: at,
+      },
+      tx,
+    );
+    return { id: record.id, reason, expectedAt };
   }
 
   // devices api-design 11: an AVAILABLE unit goes to MAINTENANCE with a record; an estimate above
