@@ -70,7 +70,10 @@ beforeEach(() => {
     throw new Error(`Unexpected request: ${path}`);
   });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe('RentedDevicesPage', () => {
   it.each([
@@ -201,6 +204,54 @@ describe('RentedDevicesPage', () => {
     await waitFor(() =>
       expect(document.activeElement).toBe(screen.getByRole('button', { name: 'New group' })),
     );
+  });
+
+  // #513, screen widths from the AWS smoke walk: matchMedia answers for one window width.
+  const atWidth = (width: number) =>
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: Number(/min-width:\s*(\d+)px/.exec(query)?.[1] ?? 0) <= width,
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+  const listDevices = (row: RentedDevice) =>
+    api.mockImplementation(async (path: string) => {
+      if (path === '/groups') return { groups: [group], maxDepth: 3 };
+      if (path.startsWith('/rented-devices?')) return page([row]);
+      if (path.startsWith('/contracts?')) return page([row.contract]);
+      throw new Error(`Unexpected request: ${path}`);
+    });
+
+  it('shows a card list at 360 px, whole, with the state, the contract and the actions', async () => {
+    atWidth(360);
+    listDevices({ ...device, state: 'NOT_HEARD', batteryPct: null });
+    show();
+    const cards = within(await screen.findByRole('list', { name: 'Rented devices' }));
+    expect(cards.getByText('TL-0001')).toBeTruthy();
+    expect(cards.getByText(/Not heard since handover, battery unknown/)).toBeTruthy();
+    expect(cards.getByRole('link', { name: 'CT-0001' }).getAttribute('href')).toBe('/o/contracts/contract-1');
+    expect(cards.getByText(/No group, Hiker One/)).toBeTruthy();
+    fireEvent.click(cards.getByRole('button', { name: 'Actions for TL-0001' }));
+    expect(screen.getByRole('menuitem', { name: 'Report fault' })).toBeTruthy();
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps Variant and Battery out of the table until 1680 px, so a 1440 px row stays short', async () => {
+    atWidth(1440);
+    listDevices(device);
+    show();
+    await screen.findByRole('table', { name: 'Rented devices' });
+    const headers = screen.getAllByRole('columnheader').map((cell) => cell.textContent?.trim());
+    expect(headers).not.toContain('Variant');
+    expect(headers).not.toContain('Battery');
+    cleanup();
+    atWidth(1680);
+    show();
+    await screen.findByRole('table', { name: 'Rented devices' });
+    const wide = screen.getAllByRole('columnheader').map((cell) => cell.textContent?.trim());
+    expect(wide).toContain('Variant');
+    expect(wide).toContain('Battery');
+    vi.unstubAllGlobals();
   });
 
   it('sends the selected group and state as server filters', async () => {
