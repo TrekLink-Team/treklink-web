@@ -12,7 +12,7 @@ const price = (id: string, state: 'CURRENT' | 'UPCOMING' | 'PAST', hardwareVaria
   monthlyPriceVnd: 350_000,
   effectiveFrom: '2026-11-01T00:00:00Z',
   state,
-  createdBy: 'Demo Admin',
+  createdBy: 'Tran Quoc Bao',
   createdAt: '2026-10-01T00:00:00Z',
 });
 

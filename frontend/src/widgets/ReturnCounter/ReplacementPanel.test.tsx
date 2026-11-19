@@ -43,7 +43,7 @@ const contract = {
   code: 'RC-2026-0001',
   status: 'ACTIVE',
   planType: 'MONTHLY',
-  organization: { id: 'org-1', code: 'ORG-0001', legalName: 'TrekLink Demo Tours' },
+  organization: { id: 'org-1', code: 'ORG-0001', legalName: 'Suong Ngan Trekking' },
   hardwareVariant: { id: 'v-3', code: 'treklink-v3' },
   devices: [device('TL-0009'), device('TL-0010')],
 } as unknown as ContractDetail;

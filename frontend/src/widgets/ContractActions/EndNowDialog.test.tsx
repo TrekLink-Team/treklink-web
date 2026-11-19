@@ -19,7 +19,7 @@ vi.mock('../../shared/api/apiClient', async (original) => ({
 const contract = {
   id: 'c-2',
   code: 'RC-2026-0002',
-  organization: { id: 'org-1', code: 'ORG-0001', legalName: 'TrekLink Demo Tours Co., Ltd.' },
+  organization: { id: 'org-1', code: 'ORG-0001', legalName: 'Suong Ngan Trekking Co., Ltd.' },
   planType: 'MONTHLY',
   status: 'ACTIVE',
   version: 4,

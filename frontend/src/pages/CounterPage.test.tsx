@@ -68,7 +68,7 @@ vi.mock('../entities/organization/api', async (importOriginal) => ({
       {
         id: 'm-1',
         userId: 'u-mgr',
-        fullName: 'Demo Manager',
+        fullName: 'Pham Duc Huy',
         role: 'MANAGER',
         invitationPending: false,
         deactivatedAt: null,
@@ -76,7 +76,7 @@ vi.mock('../entities/organization/api', async (importOriginal) => ({
       {
         id: 'm-2',
         userId: 'u-op',
-        fullName: 'Demo Operator',
+        fullName: 'Nguyen Thanh Tung',
         role: 'OPERATOR',
         invitationPending: false,
         deactivatedAt: null,
@@ -354,7 +354,7 @@ describe('CounterPage (screen 5.4)', () => {
     const options = Array.from(screen.getByLabelText('Signing Manager').querySelectorAll('option'));
     expect(options.map((option) => option.textContent)).toEqual([
       'Choose a Manager',
-      'Demo Manager',
+      'Pham Duc Huy',
     ]);
     fireEvent.click(screen.getByRole('button', { name: 'Complete handover' }));
     expect(screen.getByText('Choose the signing Manager.')).toBeTruthy();

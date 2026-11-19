@@ -8,10 +8,10 @@ import { expect, type APIRequestContext, type Locator, type Page } from '@playwr
 // The four accounts of the demo seed (backend/prisma/seed-demo.ts, demo script §1.4). Their passwords
 // are read from the SEED_*_PASSWORD variables at run time; no password is written in this repository.
 export const ACCOUNTS = {
-  admin: { email: 'admin@treklink.local', passwordVar: 'SEED_ADMIN_PASSWORD' },
-  staff: { email: 'staff@treklink.local', passwordVar: 'SEED_STAFF_PASSWORD' },
-  manager: { email: 'manager@treklink.local', passwordVar: 'SEED_MANAGER_PASSWORD' },
-  operator: { email: 'operator@treklink.local', passwordVar: 'SEED_OPERATOR_PASSWORD' },
+  admin: { email: 'treklink.dev+admin@gmail.com', passwordVar: 'SEED_ADMIN_PASSWORD' },
+  staff: { email: 'treklink.dev+staff@gmail.com', passwordVar: 'SEED_STAFF_PASSWORD' },
+  manager: { email: 'treklink.dev+manager@gmail.com', passwordVar: 'SEED_MANAGER_PASSWORD' },
+  operator: { email: 'treklink.dev+operator@gmail.com', passwordVar: 'SEED_OPERATOR_PASSWORD' },
 } as const;
 
 export type SeededRole = keyof typeof ACCOUNTS;

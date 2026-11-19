@@ -189,7 +189,7 @@ test('MF-01 steps 5 to 12: Staff approve and hand over at the counter', async ({
   // Step 11: the organization's Manager signs.
   await actions.getByRole('button', { name: 'Next' }).click();
   const signer = page.getByLabel('Signing Manager');
-  const demoManager = signer.locator('option', { hasText: 'Demo Manager' });
+  const demoManager = signer.locator('option', { hasText: 'Pham Duc Huy' });
   await signer.selectOption((await demoManager.getAttribute('value')) ?? '');
   await page.getByLabel('Identity document checked').fill('CCCD ending 1234');
   await drawSignature(page);

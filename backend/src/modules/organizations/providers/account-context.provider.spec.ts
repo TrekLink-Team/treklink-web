@@ -9,7 +9,12 @@ import { OrganizationAccountContextProvider } from './account-context.provider';
 
 const memberRow = {
   role: 'MANAGER',
-  organization: { id: 'org-1', code: 'ORG-0001', legalName: 'Demo Tours', status: 'ACTIVE' },
+  organization: {
+    id: 'org-1',
+    code: 'ORG-0001',
+    legalName: 'Suong Ngan Trekking',
+    status: 'ACTIVE',
+  },
 };
 
 describe('OrganizationAccountContextProvider', () => {
@@ -33,7 +38,7 @@ describe('OrganizationAccountContextProvider', () => {
     await expect(provider.forUser('user-1')).resolves.toEqual({
       organizationId: 'org-1',
       organizationCode: 'ORG-0001',
-      legalName: 'Demo Tours',
+      legalName: 'Suong Ngan Trekking',
       memberRole: 'MANAGER',
       organizationStatus: 'ACTIVE',
     });
@@ -50,11 +55,11 @@ describe('OrganizationAccountContextProvider', () => {
 
   it('names the organization of each member for the authentication log, deactivated or not', async () => {
     findMany.mockResolvedValue([
-      { userId: 'user-1', organization: { id: 'org-1', legalName: 'Demo Tours' } },
+      { userId: 'user-1', organization: { id: 'org-1', legalName: 'Suong Ngan Trekking' } },
     ]);
 
     await expect(provider.organizationsOf(['user-1', 'staff-1'])).resolves.toEqual(
-      new Map([['user-1', { id: 'org-1', name: 'Demo Tours' }]]),
+      new Map([['user-1', { id: 'org-1', name: 'Suong Ngan Trekking' }]]),
     );
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { userId: { in: ['user-1', 'staff-1'] } } }),

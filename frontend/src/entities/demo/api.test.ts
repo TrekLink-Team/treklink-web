@@ -33,8 +33,8 @@ describe('demo api (specs/demo api-design 01 to 05)', () => {
   });
 
   it('reads the test accounts list from its public route', async () => {
-    api.mockResolvedValueOnce({ accounts: [{ email: 'admin@treklink.local' }] });
-    await expect(fetchDemoAccounts()).resolves.toEqual([{ email: 'admin@treklink.local' }]);
+    api.mockResolvedValueOnce({ accounts: [{ email: 'treklink.dev+admin@gmail.com' }] });
+    await expect(fetchDemoAccounts()).resolves.toEqual([{ email: 'treklink.dev+admin@gmail.com' }]);
     expect(api).toHaveBeenCalledWith('/demo/accounts');
   });
 

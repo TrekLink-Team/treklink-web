@@ -63,7 +63,9 @@ describe('W43 additive scenarios on Postgres', () => {
       .compile();
     quick = module.get(DemoQuickService, { strict: false });
     actor = {
-      id: (await prisma.user.findUniqueOrThrow({ where: { email: 'admin@treklink.local' } })).id,
+      id: (
+        await prisma.user.findUniqueOrThrow({ where: { email: 'treklink.dev+admin@gmail.com' } })
+      ).id,
       roles: ['ADMIN'],
       organizationId: null,
     };
@@ -212,7 +214,7 @@ describe('W43 additive scenarios on Postgres', () => {
     await expect(
       module
         .get(DemoSessionService)
-        .switchTo('staff@treklink.local', { ip: null, userAgent: null }),
+        .switchTo('treklink.dev+staff@gmail.com', { ip: null, userAgent: null }),
     ).rejects.toMatchObject({ errorCode: 'DEMO_DISABLED' });
     await expect(
       quick.run('organization', {}, { ...actor, roles: ['STAFF'] }),

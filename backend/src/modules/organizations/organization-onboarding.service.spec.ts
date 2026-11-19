@@ -22,11 +22,11 @@ const STAFF = { id: 'u-staff', roles: ['STAFF'], organizationId: null };
 const ADMIN = { id: 'u-admin', roles: ['ADMIN'], organizationId: null };
 
 const REGISTRATION = {
-  legalName: 'TrekLink Demo Tours Co., Ltd.',
+  legalName: 'Suong Ngan Trekking Co., Ltd.',
   taxCode: '0312345678',
   address: '1 Le Loi, District 1, Ho Chi Minh City',
   contactPhone: '0901234567',
-  managerFullName: 'Demo Manager',
+  managerFullName: 'Pham Duc Huy',
   managerEmail: 'manager@example.com',
   managerPhone: '0907654321',
 };

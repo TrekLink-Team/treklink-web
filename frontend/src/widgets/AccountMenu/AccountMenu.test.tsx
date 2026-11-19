@@ -285,7 +285,7 @@ describe('AccountMenu demo role switch (D-088, screen 7.5)', () => {
   const ADMIN_SESSION = {
     ...TOKENS,
     accessToken: 'admin-token',
-    user: { ...STAFF, id: 'admin-1', email: 'admin@treklink.local', roles: ['ADMIN'] },
+    user: { ...STAFF, id: 'admin-1', email: 'treklink.dev+admin@gmail.com', roles: ['ADMIN'] },
   };
 
   it('offers no role switch while demo mode is off (the status route is a 404)', async () => {
@@ -308,7 +308,7 @@ describe('AccountMenu demo role switch (D-088, screen 7.5)', () => {
     const admin = await screen.findByRole('menuitem', { name: 'Switch to Admin' });
     expect(screen.getByRole('menuitem', { name: 'Switch to Manager' }).getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(admin);
-    await waitFor(() => expect(useSession.getState().user?.email).toBe('admin@treklink.local'));
+    await waitFor(() => expect(useSession.getState().user?.email).toBe('treklink.dev+admin@gmail.com'));
     expect(api).toHaveBeenCalledWith('/demo/switch-role', {
       method: 'POST',
       body: JSON.stringify({ role: 'ADMIN' }),

@@ -4,17 +4,17 @@ import { DemoScenariosService, sosUplink } from './demo-scenarios.service';
 const NOW = new Date('2026-11-01T03:30:20.000Z'); // 10:30:20 in UTC+7
 const user = (id: string, roles: string[], organizationId: string | null = null) => ({
   id,
-  email: `${id}@treklink.local`,
+  email: `treklink.dev+${id}@gmail.com`,
   fullName: id,
   accountType: organizationId ? 'ORGANIZATION' : 'TREKLINK',
   roles,
   organization: organizationId ? { id: organizationId, memberRole: 'MANAGER' } : null,
 });
 const ACCOUNTS: Record<string, ReturnType<typeof user>> = {
-  'admin@treklink.local': user('admin', ['ADMIN']),
-  'staff@treklink.local': user('staff', ['STAFF']),
-  'manager@treklink.local': user('manager', ['ORG_MANAGER'], 'org-1'),
-  'operator@treklink.local': user('operator', ['ORG_OPERATOR'], 'org-1'),
+  'treklink.dev+admin@gmail.com': user('admin', ['ADMIN']),
+  'treklink.dev+staff@gmail.com': user('staff', ['STAFF']),
+  'treklink.dev+manager@gmail.com': user('manager', ['ORG_MANAGER'], 'org-1'),
+  'treklink.dev+operator@gmail.com': user('operator', ['ORG_OPERATOR'], 'org-1'),
 };
 const CLIENT = { ip: '127.0.0.1', userAgent: 'jest' };
 
@@ -39,7 +39,7 @@ const build = () => {
         order.push('passwords');
         return { admin: 'a', staff: 's', manager: 'm', operator: 'o' };
       }),
-      run: jest.fn(track('seed', ['user admin@treklink.local'])),
+      run: jest.fn(track('seed', ['user treklink.dev+admin@gmail.com'])),
     },
     sessions: {
       accountOf: jest.fn((email: string) => Promise.resolve(ACCOUNTS[email])),
@@ -129,7 +129,7 @@ describe('DemoScenariosService', () => {
     const result = await service.stage('clean', CLIENT, NOW);
     expect(order).toEqual(['passwords', 'reset', 'seed', 'session']);
     expect(deps.seed.run.mock.calls[0][1]).toEqual(new Date(NOW.getTime() - 360_000));
-    expect(deps.sessions.switchTo).toHaveBeenCalledWith('admin@treklink.local', CLIENT);
+    expect(deps.sessions.switchTo).toHaveBeenCalledWith('treklink.dev+admin@gmail.com', CLIENT);
     expect(result.records.map((r) => r.path)).toEqual([
       '/t/contracts/id-RC-2026-0001',
       '/t/contracts/id-RC-2026-0002',
@@ -293,7 +293,7 @@ describe('DemoScenariosService', () => {
     const { service, deps } = build();
     await service.switchRole('ORG_OPERATOR', CLIENT);
     expect(deps.guard.run).toHaveBeenCalled();
-    expect(deps.sessions.switchTo).toHaveBeenCalledWith('operator@treklink.local', CLIENT);
+    expect(deps.sessions.switchTo).toHaveBeenCalledWith('treklink.dev+operator@gmail.com', CLIENT);
   });
 
   it('builds the SOS uplink from the fixture', () => {

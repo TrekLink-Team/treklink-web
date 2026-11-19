@@ -22,10 +22,10 @@ vi.mock('../../app/providers/useAuth', () => ({ useAuth: () => ({ user: null }) 
 const api = vi.mocked(apiClient);
 
 const ACCOUNTS = [
-  ['ADMIN', 'TrekLink Admin', 'admin@treklink.local', 'Admin-Pass-1', 'Demo Admin', null],
-  ['STAFF', 'TrekLink Staff', 'staff@treklink.local', 'Staff-Pass-2', 'Demo Staff', null],
-  ['ORG_MANAGER', 'Org Manager', 'manager@treklink.local', 'Manager-Pass-3', 'Demo Manager', 'ORG-0001'],
-  ['ORG_OPERATOR', 'Org Operator', 'operator@treklink.local', 'Operator-Pass-4', 'Demo Operator', 'ORG-0001'],
+  ['ADMIN', 'TrekLink Admin', 'treklink.dev+admin@gmail.com', 'Admin-Pass-1', 'Tran Quoc Bao', null],
+  ['STAFF', 'TrekLink Staff', 'treklink.dev+staff@gmail.com', 'Staff-Pass-2', 'Le Thi Thu Ha', null],
+  ['ORG_MANAGER', 'Org Manager', 'treklink.dev+manager@gmail.com', 'Manager-Pass-3', 'Pham Duc Huy', 'ORG-0001'],
+  ['ORG_OPERATOR', 'Org Operator', 'treklink.dev+operator@gmail.com', 'Operator-Pass-4', 'Nguyen Thanh Tung', 'ORG-0001'],
 ].map(([role, roleLabel, email, password, fullName, organization]) => ({
   role,
   roleLabel,
@@ -86,9 +86,9 @@ describe('TestAccountsBox (screen 7.5 box, demo api-design 05)', () => {
     const rows = within(card).getAllByRole('listitem');
     expect(rows).toHaveLength(4);
     expect(within(rows[0]).getByText('TrekLink Admin')).toBeTruthy();
-    expect(within(rows[0]).getByText('Demo Admin, TrekLink')).toBeTruthy();
-    expect(within(rows[2]).getByText('Demo Manager, ORG-0001')).toBeTruthy();
-    expect(within(rows[3]).getByText('operator@treklink.local')).toBeTruthy();
+    expect(within(rows[0]).getByText('Tran Quoc Bao, TrekLink')).toBeTruthy();
+    expect(within(rows[2]).getByText('Pham Duc Huy, ORG-0001')).toBeTruthy();
+    expect(within(rows[3]).getByText('treklink.dev+operator@gmail.com')).toBeTruthy();
     expect(within(rows[3]).getByText('Operator-Pass-4')).toBeTruthy();
   });
 
@@ -115,8 +115,8 @@ describe('the /demo page and the clean sign-in page (leader, 2026-11-13)', () =>
   it('signs in at once as the chosen account and lands on its home', async () => {
     const user = {
       id: 'u-staff',
-      email: 'staff@treklink.local',
-      fullName: 'Demo Staff',
+      email: 'treklink.dev+staff@gmail.com',
+      fullName: 'Le Thi Thu Ha',
       accountType: 'TREKLINK',
       roles: ['STAFF'],
       organization: null,
@@ -125,7 +125,7 @@ describe('the /demo page and the clean sign-in page (leader, 2026-11-13)', () =>
       if (path === '/demo/accounts') return Promise.resolve({ accounts: ACCOUNTS });
       if (path === '/auth/login') {
         expect(JSON.parse(String(init?.body))).toEqual({
-          email: 'staff@treklink.local',
+          email: 'treklink.dev+staff@gmail.com',
           password: 'Staff-Pass-2',
         });
         return Promise.resolve({ accessToken: 'a', refreshToken: 'r', user });
@@ -141,7 +141,7 @@ describe('the /demo page and the clean sign-in page (leader, 2026-11-13)', () =>
     );
     fireEvent.click(await screen.findByRole('button', { name: 'Sign in as TrekLink Staff' }));
     expect(await screen.findByText('Staff home')).toBeTruthy();
-    expect(useSession.getState().user?.email).toBe('staff@treklink.local');
+    expect(useSession.getState().user?.email).toBe('treklink.dev+staff@gmail.com');
   });
 
   it('shows the server message when the quick sign-in is refused', async () => {

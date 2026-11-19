@@ -77,7 +77,9 @@ describe('field simulation on Postgres (demo design §9)', () => {
       { admin: password, staff: password, manager: password, operator: password },
       { now: new Date(base - 2 * 3600 * 1000), bcryptCost: 4 },
     );
-    const admin = await prisma.user.findUniqueOrThrow({ where: { email: 'admin@treklink.local' } });
+    const admin = await prisma.user.findUniqueOrThrow({
+      where: { email: 'treklink.dev+admin@gmail.com' },
+    });
     actor = { id: admin.id, roles: ['ADMIN'] };
     deviceId = (await prisma.device.findUniqueOrThrow({ where: { assetTag: 'TL-0010' } })).id;
   }, 180_000);

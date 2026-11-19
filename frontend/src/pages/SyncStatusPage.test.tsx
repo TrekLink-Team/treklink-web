@@ -19,7 +19,7 @@ const status = (overrides: Record<string, unknown> = {}) => ({
       id: 'fs-1',
       name: 'Ta Nang basecamp laptop',
       mqttUsername: 'fs-org-0001-1',
-      organization: { id: 'org-1', code: 'ORG-0001', name: 'TrekLink Demo Tours Co., Ltd.' },
+      organization: { id: 'org-1', code: 'ORG-0001', name: 'Suong Ngan Trekking Co., Ltd.' },
       connection: 'CONNECTED',
       lastSyncAt: '2026-11-01T03:15:00.000Z',
       lastFlushAt: '2026-11-01T03:14:55.000Z',

@@ -19,7 +19,7 @@ vi.mock('../app/providers/useAuth', () => ({
   useAuth: () => ({
     user: {
       id: 'user-1',
-      organization: { id: 'org-1', code: 'ORG-0001', legalName: 'TrekLink Demo Tours', status: 'ACTIVE', memberRole },
+      organization: { id: 'org-1', code: 'ORG-0001', legalName: 'Suong Ngan Trekking', status: 'ACTIVE', memberRole },
     },
   }),
 }));

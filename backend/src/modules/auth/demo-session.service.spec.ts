@@ -8,8 +8,8 @@ import { TokenService } from './token.service';
 
 const SESSION_USER = {
   id: 'u-manager',
-  email: 'manager@treklink.local',
-  fullName: 'Demo Manager',
+  email: 'treklink.dev+manager@gmail.com',
+  fullName: 'Pham Duc Huy',
   accountType: 'ORGANIZATION',
   roles: ['ORG_MANAGER'],
   organization: { id: 'org-1', memberRole: 'MANAGER' },
@@ -47,13 +47,18 @@ const build = (
 describe('DemoSessionService', () => {
   it('issues a normal pair for the seeded account and records DEMO_SWITCH in the same transaction', async () => {
     const { service, accounts, tokens, tx } = build();
-    await expect(service.switchTo('manager@treklink.local', CLIENT)).resolves.toEqual({
+    await expect(service.switchTo('treklink.dev+manager@gmail.com', CLIENT)).resolves.toEqual({
       ...PAIR,
       user: SESSION_USER,
     });
-    expect(accounts.findByEmail).toHaveBeenCalledWith('manager@treklink.local');
+    expect(accounts.findByEmail).toHaveBeenCalledWith('treklink.dev+manager@gmail.com');
     expect(accounts.insertAuthEvent).toHaveBeenCalledWith(
-      { userId: 'u-manager', email: 'manager@treklink.local', type: 'DEMO_SWITCH', ...CLIENT },
+      {
+        userId: 'u-manager',
+        email: 'treklink.dev+manager@gmail.com',
+        type: 'DEMO_SWITCH',
+        ...CLIENT,
+      },
       tx,
     );
     expect(tokens.issue).toHaveBeenCalledWith(SESSION_USER, CLIENT, tx);
@@ -63,7 +68,7 @@ describe('DemoSessionService', () => {
     const { service, sessions, tokens } = build();
     sessions.eligible.mockResolvedValueOnce(null);
     const error = (await service
-      .switchTo('manager@treklink.local', CLIENT)
+      .switchTo('treklink.dev+manager@gmail.com', CLIENT)
       .catch((e: unknown) => e)) as DomainException;
     expect(error.getStatus()).toBe(404);
     expect(error.message).toBe('No seeded account for this role. Stage a scenario first.');
@@ -76,8 +81,8 @@ describe('DemoSessionService', () => {
   ])('refuses with 403 DEMO_DISABLED outside demo mode (%j)', async (env) => {
     const { service, accounts } = build(env);
     for (const call of [
-      () => service.switchTo('admin@treklink.local', CLIENT),
-      () => service.accountOf('admin@treklink.local'),
+      () => service.switchTo('treklink.dev+admin@gmail.com', CLIENT),
+      () => service.accountOf('treklink.dev+admin@gmail.com'),
     ]) {
       const error = (await call().catch((e: unknown) => e)) as DomainException;
       expect(error.getStatus()).toBe(403);
@@ -88,7 +93,9 @@ describe('DemoSessionService', () => {
 
   it('reads an account without issuing anything', async () => {
     const { service, tokens, accounts } = build();
-    await expect(service.accountOf('manager@treklink.local')).resolves.toEqual(SESSION_USER);
+    await expect(service.accountOf('treklink.dev+manager@gmail.com')).resolves.toEqual(
+      SESSION_USER,
+    );
     expect(tokens.issue).not.toHaveBeenCalled();
     expect(accounts.insertAuthEvent).not.toHaveBeenCalled();
   });

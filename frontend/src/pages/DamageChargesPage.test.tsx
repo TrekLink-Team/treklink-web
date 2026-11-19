@@ -40,7 +40,7 @@ const charge = (id: string, inspectorId: string, overrides: object = {}) => ({
   deviceId: `d-${id}`,
   assetTag: id === 'dc-1' ? 'TL-0001' : 'TL-0002',
   inspectionId: `i-${id}`,
-  inspector: { id: inspectorId, fullName: inspectorId === 'admin-1' ? 'Demo Admin' : 'Demo Staff' },
+  inspector: { id: inspectorId, fullName: inspectorId === 'admin-1' ? 'Tran Quoc Bao' : 'Le Thi Thu Ha' },
   damageCodes: ['CASING_CRACKED'],
   amountVnd: 700_000,
   finalVnd: null,

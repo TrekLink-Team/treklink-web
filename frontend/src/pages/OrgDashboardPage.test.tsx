@@ -26,7 +26,7 @@ vi.mock('../app/providers/useAuth', () => ({
       organization: {
         id: 'org-1',
         code: 'ORG-0001',
-        legalName: 'TrekLink Demo Tours',
+        legalName: 'Suong Ngan Trekking',
         status: 'PENDING',
         memberRole: 'MANAGER',
       },

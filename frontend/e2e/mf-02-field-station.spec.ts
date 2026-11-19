@@ -44,7 +44,7 @@ test('MF-02 steps 4 and 5: Staff read the Field data sync page', async ({ page }
 
   // The seeded station reports through the simulated gateway.
   const station = page.getByRole('row').filter({ hasText: 'Ta Nang basecamp laptop' });
-  await expect(station).toContainText('TrekLink Demo Tours Co., Ltd.');
+  await expect(station).toContainText('Suong Ngan Trekking Co., Ltd.');
   await expect(station).toContainText('Connected');
   // The queue depth per tier: a report sent mid-flush can read two queued events, so only the shape counts.
   await expect(station).toContainText(/\d+, \d+, \d+, \d+/);

@@ -56,7 +56,7 @@ const NOTE: HandoverNoteInput = {
   issuer: { legalName: 'TrekLink', address: 'HCMC', taxCode: '0312345678', hotline: '1900 1234' },
   partyA: { name: 'Staff One', role: 'TrekLink Staff' },
   partyB: {
-    legalName: 'TrekLink Demo Tours',
+    legalName: 'Suong Ngan Trekking',
     code: 'ORG-0001',
     taxCode: null,
     address: null,
@@ -124,7 +124,7 @@ describe('ReplacementService (rentals task 4.3, api-design 15)', () => {
       labelsOf: jest
         .fn()
         .mockResolvedValue(
-          new Map([['org-1', { code: 'ORG-0001', legalName: 'TrekLink Demo Tours' }]]),
+          new Map([['org-1', { code: 'ORG-0001', legalName: 'Suong Ngan Trekking' }]]),
         ),
     };
     storeNote = jest.fn().mockImplementation((name: string) => Promise.resolve(name));
