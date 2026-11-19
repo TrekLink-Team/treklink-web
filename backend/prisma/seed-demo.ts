@@ -381,7 +381,7 @@ export async function seedDemo(
             code: ORGANIZATION_CODE,
             legalName: 'Suong Ngan Trekking Co., Ltd.',
             taxCode: '0000000001',
-            address: '1 Demo Street, Da Lat, Lam Dong',
+            address: '42 Le Hong Phong, Da Lat, Lam Dong',
             contactEmail: 'treklink.dev@gmail.com',
             contactPhone: '0900000000',
             status: OrganizationStatus.ACTIVE,
