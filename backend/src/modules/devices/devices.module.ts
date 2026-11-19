@@ -12,6 +12,7 @@ import { HubActionService } from './dock/hub-action.service';
 import { DockSweepJob } from './jobs/dock-sweep.job';
 import { IntakeService } from './intake.service';
 import { LossSearchJob } from './jobs/loss-search.job';
+import { ServiceScanJob } from './jobs/service-scan.job';
 import { LossCaseNotificationsListener } from './loss-case-notifications.listener';
 import { LossCaseNotifier } from './loss-case-notifier';
 import { LossCasesController } from './loss-cases.controller';
@@ -73,6 +74,7 @@ import { VariantsService } from './variants.service';
     LossCasesRepository,
     LossCaseService,
     LossSearchJob,
+    ServiceScanJob,
     LossCaseNotificationsListener,
     // task 2.7: a suspected theft in renter custody opens or links a compliance case (design §3);
     // markKeyExposed is a direct ChannelKeyService call. The provider below gives organizations the loss
