@@ -34,8 +34,8 @@ export const SCENARIOS: readonly Scenario[] = [
     unavailableReason: null,
     firstSteps: [
       'Window E, not signed in: Plans page, Register your organization; it becomes ORG-0002.',
-      'Window A, Manager (manager@treklink.local): Overview, Request a contract, Monthly, TrekLink v3, quantity 5, start today; it becomes RC-2026-0004.',
-      'Window C, Operator (operator@treklink.local): Live map shows TL-0009 and TL-0010 once the gateway runs.',
+      'Window A, Manager (treklink.dev+manager@gmail.com): Overview, Request a contract, Monthly, TrekLink v3, quantity 5, start today; it becomes RC-2026-0004.',
+      'Window C, Operator (treklink.dev+operator@gmail.com): Live map shows TL-0009 and TL-0010 once the gateway runs.',
     ],
   },
   {
@@ -47,9 +47,9 @@ export const SCENARIOS: readonly Scenario[] = [
     available: true,
     unavailableReason: null,
     firstSteps: [
-      'Window B, Staff (staff@treklink.local): Organizations, tab Pending, row ORG-0002.',
+      'Window B, Staff (treklink.dev+staff@gmail.com): Organizations, tab Pending, row ORG-0002.',
       'Counter verification: In person, tick Business registration and Manager ID card, contract MC-2026-0002, tick both terms, Record verification.',
-      'Window D, Admin (admin@treklink.local): Organizations, tab Pending, ORG-0002, Approve.',
+      'Window D, Admin (treklink.dev+admin@gmail.com): Organizations, tab Pending, ORG-0002, Approve.',
     ],
   },
   {
@@ -61,9 +61,9 @@ export const SCENARIOS: readonly Scenario[] = [
     available: true,
     unavailableReason: null,
     firstSteps: [
-      'Window B, Staff (staff@treklink.local): open the RC-2026-0004 counter link above, or Contracts, RC-2026-0004, Open the contract, Open the counter.',
+      'Window B, Staff (treklink.dev+staff@gmail.com): open the RC-2026-0004 counter link above, or Contracts, RC-2026-0004, Open the contract, Open the counter.',
       'Step 1 Devices: Select all units, Battery 90, GPS fix, Set readings for selected, then Record provisioning for selected, Next.',
-      'Step 2 Payment reads the first payment recorded; Next to Preview note, then Sign as Demo Manager and Complete handover.',
+      'Step 2 Payment reads the first payment recorded; Next to Preview note, then Sign as Pham Duc Huy and Complete handover.',
     ],
   },
   {
@@ -75,7 +75,7 @@ export const SCENARIOS: readonly Scenario[] = [
     available: true,
     unavailableReason: null,
     firstSteps: [
-      'Window C, Operator (operator@treklink.local): the red banner "SOS: TL-0010 (Pham Van F)", Acknowledge.',
+      'Window C, Operator (treklink.dev+operator@gmail.com): the red banner "SOS: TL-0010 (Pham Van F)", Acknowledge.',
       'Incidents, the open incident: Response under way, then Add status.',
       'Report outcome, Resolve incident.',
     ],
@@ -89,7 +89,7 @@ export const SCENARIOS: readonly Scenario[] = [
     available: true,
     unavailableReason: null,
     firstSteps: [
-      'Window B, Staff (staff@treklink.local): open the RC-2026-0002 counter link above, or Contracts, tab All, RC-2026-0002, Open the counter.',
+      'Window B, Staff (treklink.dev+staff@gmail.com): open the RC-2026-0002 counter link above, or Contracts, tab All, RC-2026-0002, Open the counter.',
       'Check-in: type TL-0017, Add, type TL-0018, Add, Check in 2 devices.',
       'Reset and inspection: Record reset on each row; Inspect TL-0017 Passed, TL-0018 Damaged (Casing cracked).',
     ],
@@ -102,7 +102,7 @@ export const SCENARIOS: readonly Scenario[] = [
     available: true,
     unavailableReason: null,
     firstSteps: [
-      'Window B, Staff (staff@treklink.local): Devices, chip Maintenance, TL-0007 with its open record.',
+      'Window B, Staff (treklink.dev+staff@gmail.com): Devices, chip Maintenance, TL-0007 with its open record.',
       'Maintenance, row TL-0007, Complete: Status Completed, a resolution, Save; then Record intake check on TL-0007.',
       'Devices, TL-0002: Service due tomorrow.',
     ],
@@ -133,10 +133,10 @@ export const DEMO_REGISTRATION = {
 };
 
 export const SEEDED_EMAILS = {
-  ADMIN: 'admin@treklink.local',
-  STAFF: 'staff@treklink.local',
-  ORG_MANAGER: 'manager@treklink.local',
-  ORG_OPERATOR: 'operator@treklink.local',
+  ADMIN: 'treklink.dev+admin@gmail.com',
+  STAFF: 'treklink.dev+staff@gmail.com',
+  ORG_MANAGER: 'treklink.dev+manager@gmail.com',
+  ORG_OPERATOR: 'treklink.dev+operator@gmail.com',
 } as const;
 
 export type SeededRole = keyof typeof SEEDED_EMAILS;
