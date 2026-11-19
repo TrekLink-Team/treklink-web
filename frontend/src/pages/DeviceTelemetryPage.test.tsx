@@ -43,6 +43,7 @@ const point = (minute: number, overrides: Partial<HistoryPoint> = {}): HistoryPo
 
 const history = (overrides: Partial<History> = {}): History => ({
   deviceId: 'd-1',
+  assetTag: 'TL-0042',
   clippedTo: [{ from: '2026-10-20T02:00:00.000Z', to: '2026-10-21T00:00:00.000Z' }],
   points: [point(0), point(1, { kind: 'TELEMETRY', lat: null, lon: null }), point(2)],
   truncated: false,
@@ -52,11 +53,15 @@ const history = (overrides: Partial<History> = {}): History => ({
 
 const Probe: React.FC = () => <p data-testid="search">{useLocation().search}</p>;
 
-const renderPage = (scope: 'o' | 't' = 'o', search = '') =>
+const renderPage = (scope: 'o' | 't' = 'o', search = '', linked = true) =>
   render(
     <MemoryRouter
       initialEntries={[
-        { pathname: `/${scope}/devices/d-1/telemetry`, search, state: { assetTag: 'TL-0042' } },
+        {
+          pathname: `/${scope}/devices/d-1/telemetry`,
+          search,
+          state: linked ? { assetTag: 'TL-0042' } : undefined,
+        },
       ]}
     >
       <Routes>
@@ -109,6 +114,27 @@ describe('DeviceTelemetryPage on a phone (review of treklink-web#355)', () => {
     expect(within(rows[0]).getByText('81 %')).toBeTruthy();
     // The telemetry point has no fix and says so.
     expect(within(rows[1]).getByText('No position')).toBeTruthy();
+  });
+});
+
+// #515: opened from a reload or a pasted link, the page has no link state; it showed the first
+// characters of the internal id as "Device 41bfb727".
+describe('DeviceTelemetryPage without a link (#515)', () => {
+  it('names the unit by the asset tag the history answers, never by the id', () => {
+    renderPage('o', '', false);
+    expect(screen.getByText('Device TL-0042')).toBeTruthy();
+    expect(screen.queryByText(/d-1/)).toBeNull();
+  });
+
+  it('shows no id while the history loads or when an older server sends no tag', () => {
+    state = { data: undefined, isPending: true, error: null };
+    renderPage('t', '', false);
+    expect(screen.getByText('Device')).toBeTruthy();
+    cleanup();
+    state = { data: history({ assetTag: null }), isPending: false, error: null };
+    renderPage('t', '', false);
+    expect(screen.getByText('Device')).toBeTruthy();
+    expect(screen.queryByText(/d-1/)).toBeNull();
   });
 });
 

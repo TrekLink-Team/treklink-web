@@ -47,6 +47,8 @@ export interface HistoryPointDto {
 // is true when the range holds more than HISTORY_MAX_POINTS points and only the oldest are answered.
 export interface HistoryDto {
   deviceId: string;
+  // The device's asset tag, so the page names the unit when it is opened without a link (#515).
+  assetTag: string | null;
   clippedTo: { from: string; to: string | null }[];
   points: HistoryPointDto[];
   truncated: boolean;
@@ -86,8 +88,9 @@ export class HistoryService {
     const maxRangeDays = await this.checkRange(query);
 
     let clippedTo: HistoryDto['clippedTo'] = [];
+    const assetTag = (await this.devices.assetTags([deviceId])).get(deviceId) ?? null;
     if (organizationId === null) {
-      if (!(await this.devices.assetTags([deviceId])).has(deviceId)) throw notFound();
+      if (assetTag === null) throw notFound();
     } else {
       const periods = await this.contracts.rentalPeriods(deviceId, organizationId);
       if (periods.length === 0) throw notFound();
@@ -106,7 +109,7 @@ export class HistoryService {
       to: query.to,
       kinds: query.kind?.length ? query.kind : HISTORY_KINDS,
     });
-    return { deviceId, clippedTo, points: points.map(toDto), truncated, maxRangeDays };
+    return { deviceId, assetTag, clippedTo, points: points.map(toDto), truncated, maxRangeDays };
   }
 
   // `format=csv`: the points as CSV text, which the envelope carries in `result` (api-design 08 does the

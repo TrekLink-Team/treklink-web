@@ -132,7 +132,6 @@ export const DeviceTelemetryPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =
   const [params, setParams] = useSearchParams();
   const [fallback] = useState(() => lastDays(1));
   const applied = rangeOf(params) ?? fallback;
-  const tag = (location.state as { assetTag?: string } | null)?.assetTag ?? id.slice(0, 8);
 
   const [fromInput, setFromInput] = useState(() => toLocalInput(applied.from));
   const [toInput, setToInput] = useState(() => toLocalInput(applied.to));
@@ -147,6 +146,9 @@ export const DeviceTelemetryPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =
   // Below 640 px Download CSV moves into a More menu (screen 9.2, 360 px layout).
   const wide = useMediaQuery('(min-width: 640px)', true);
   const history = useHistory(id, applied);
+  // The tag from the link, else the one the history answers; the id is never shown (#515).
+  const tag =
+    (location.state as { assetTag?: string } | null)?.assetTag ?? history.data?.assetTag ?? 'device';
   // The server's range limit from the last answer; kept while a later range is refused or loading.
   const [maxRangeDays, setMaxRangeDays] = useState<number | null>(null);
   const answered = history.data?.maxRangeDays;
@@ -285,7 +287,7 @@ export const DeviceTelemetryPage: React.FC<{ scope: 'o' | 't' }> = ({ scope }) =
       <PageHeader
         id="telemetry-title"
         title="Telemetry history"
-        description={`Device ${tag}`}
+        description={tag === 'device' ? 'Device' : `Device ${tag}`}
         actions={
           <>
             <Button variant="ghost" onClick={back}>
