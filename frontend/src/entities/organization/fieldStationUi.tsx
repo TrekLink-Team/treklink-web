@@ -9,6 +9,7 @@ export const VersionCell: React.FC<{ station: FieldStation }> = ({ station }) =>
   <span className="flex flex-wrap items-center gap-2">
     <span className="font-mono">{station.version ?? 'Not reported'}</span>
     {!station.revokedAt &&
+      station.version !== null &&
       (station.outdated ? <Badge tone="attention">Outdated</Badge> : <Badge tone="done">Current</Badge>)}
   </span>
 );
