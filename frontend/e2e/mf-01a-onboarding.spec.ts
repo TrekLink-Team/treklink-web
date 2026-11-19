@@ -19,7 +19,7 @@ const org = {
   address: '12 Nguyen Van Troi, Da Lat, Lam Dong',
   phone: '0263 3822 111',
   managerName: 'Tran Van Binh',
-  managerEmail: `binh.manager.${stamp}@example.com`,
+  managerEmail: `treklink.dev+register-${stamp}@gmail.com`,
   managerPhone: '0903 111 222',
 };
 let orgCode = '';

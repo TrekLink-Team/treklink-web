@@ -170,7 +170,10 @@ describe('DemoScenariosService', () => {
     const { service, deps } = build();
     const result = await service.stage('org-pending-approval', CLIENT, NOW);
     expect(deps.onboarding.register).toHaveBeenCalledWith(
-      expect.objectContaining({ taxCode: '0312345678', managerEmail: 'binh.manager@example.com' }),
+      expect.objectContaining({
+        taxCode: '0312345678',
+        managerEmail: 'treklink.dev+register@gmail.com',
+      }),
     );
     expect(result.records).toEqual([
       { label: 'Organization, pending', code: 'ORG-0002', path: '/t/organizations' },
