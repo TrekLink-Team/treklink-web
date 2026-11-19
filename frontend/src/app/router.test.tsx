@@ -121,6 +121,17 @@ describe('route guards (AC-01)', () => {
     expect(screen.getByRole('link', { name: 'Go to the start page' }).getAttribute('href')).toBe('/');
   });
 
+  // #516: an unknown address is "Page not found", for a signed-in user too, not MSG26.
+  it('answers an unknown path with Page not found, signed in or not', () => {
+    visit('/no-such-page', account(['ORG_OPERATOR'], 'ORGANIZATION'));
+    expect(screen.getByRole('heading', { name: 'Page not found' })).toBeTruthy();
+    expect(screen.queryByText('You do not have access to this.')).toBeNull();
+    expect(screen.getByRole('link', { name: 'Go to the start page' }).getAttribute('href')).toBe('/o/map');
+    cleanup();
+    visit('/o/no-such-page', null);
+    expect(screen.queryByText('You do not have access to this.')).toBeNull();
+  });
+
   it('lets an Org Manager reach the map and the contracts', () => {
     visit('/o/map', account(['ORG_MANAGER'], 'ORGANIZATION'));
     expect(screen.getByText('live map o')).toBeTruthy();
@@ -291,7 +302,7 @@ describe('route guards (AC-01)', () => {
           </MemoryRouter>
         </QueryClientProvider>,
       );
-      expect(screen.getByText('You do not have access to this.')).toBeTruthy();
+      expect(screen.getByRole('heading', { name: 'Page not found' })).toBeTruthy();
     } finally {
       vi.unstubAllEnvs();
     }

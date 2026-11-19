@@ -45,6 +45,7 @@ import { VariantsPage } from '../pages/VariantsPage';
 import { DamageChargesPage } from '../pages/DamageChargesPage';
 import { ServiceCreditsPage } from '../pages/ServiceCreditsPage';
 import { NoAccessPage } from '../pages/NoAccessPage';
+import { NotFoundPage } from '../pages/NotFoundPage';
 import { OrgDashboardPage } from '../pages/OrgDashboardPage';
 import { OrganizationDetailPage } from '../pages/OrganizationDetailPage';
 import { OrganizationReviewPage } from '../pages/OrganizationReviewPage';
@@ -199,6 +200,6 @@ export const AppRoutes: React.FC = () => (
         }
       />
     )}
-    <Route path="*" element={<NoAccessPage />} />
+    <Route path="*" element={<NotFoundPage />} />
   </Routes>
 );
