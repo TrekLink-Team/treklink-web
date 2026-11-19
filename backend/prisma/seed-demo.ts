@@ -1,7 +1,7 @@
 // Demo seed (specs/platform tasks.md 1.12, US-X02). Loads the data api-design/00-api-testing-guide.md §2
 // assumes, on top of the migration seed (roles, permissions, business parameters):
 //
-//   - one account per role: admin@, staff@, manager@ and operator@treklink.local
+//   - one account per role: treklink.dev+admin@, +staff@, +manager@ and +operator@gmail.com
 //   - one ACTIVE organization, ORG-0001, with the Manager and the Operator as members, and one
 //     roster shift with the Operator as primary and the Manager as backup (MF-03 routing)
 //   - hardware variants treklink-v2 to treklink-v4, a price schedule each, two damage rates
@@ -16,7 +16,7 @@
 //   - one UNROUTED incident on TL-0001, a device in no custody, so TrekLink Staff can walk the
 //     authority report of UC-35 (report, then case closed) from /t/incidents (D-078, 2026-11-01 demo)
 //   - one Field Station of ORG-0001, `fs-org-0001-1`, for the MF-02 sync status page
-//   - one finished stock-take by Demo Staff, so the past list of screen 4.5 has a row (W20A)
+//   - one finished stock-take by Le Thi Thu Ha, so the past list of screen 4.5 has a row (W20A)
 //   - one DEFAULTED monthly contract, RC-2026-0003, on one RENTED device, TL-0019, so the contract
 //     authority report of incidents api-design 10 can be walked from /t/incidents (D-078); it carries
 //     its first-term TERM invoice, holding fee paid and term balance unpaid, so the contract page
@@ -115,18 +115,18 @@ const HOLDER_LABELS_2: readonly (readonly [string, string, string])[] = [
 ];
 
 const ACCOUNTS = [
-  { key: 'admin', email: 'admin@treklink.local', fullName: 'Demo Admin', role: 'ADMIN' },
-  { key: 'staff', email: 'staff@treklink.local', fullName: 'Demo Staff', role: 'STAFF' },
+  { key: 'admin', email: 'treklink.dev+admin@gmail.com', fullName: 'Tran Quoc Bao', role: 'ADMIN' },
+  { key: 'staff', email: 'treklink.dev+staff@gmail.com', fullName: 'Le Thi Thu Ha', role: 'STAFF' },
   {
     key: 'manager',
-    email: 'manager@treklink.local',
-    fullName: 'Demo Manager',
+    email: 'treklink.dev+manager@gmail.com',
+    fullName: 'Pham Duc Huy',
     role: 'ORG_MANAGER',
   },
   {
     key: 'operator',
-    email: 'operator@treklink.local',
-    fullName: 'Demo Operator',
+    email: 'treklink.dev+operator@gmail.com',
+    fullName: 'Nguyen Thanh Tung',
     role: 'ORG_OPERATOR',
   },
 ] as const;
@@ -379,10 +379,10 @@ export async function seedDemo(
         organization = await tx.organization.create({
           data: {
             code: ORGANIZATION_CODE,
-            legalName: 'TrekLink Demo Tours Co., Ltd.',
+            legalName: 'Suong Ngan Trekking Co., Ltd.',
             taxCode: '0000000001',
             address: '1 Demo Street, Da Lat, Lam Dong',
-            contactEmail: 'manager@treklink.local',
+            contactEmail: 'treklink.dev@gmail.com',
             contactPhone: '0900000000',
             status: OrganizationStatus.ACTIVE,
             statusChangedAt: now,
@@ -1264,7 +1264,7 @@ export async function seedDemo(
       // --- end MF-02 sync status chain ----------------------------------------------------------------
 
       // --- Finished stock-take (W20A, devices design section 11, screen 4.5) --------------------------
-      // One past count by Demo Staff a day ago, so the past list of /t/stock-take has a row: every
+      // One past count by Le Thi Thu Ha a day ago, so the past list of /t/stock-take has a row: every
       // AVAILABLE unit scanned except TL-0020, plus the unregistered tag TL-9001. Classified with the
       // service's own rule against the units as they stand. Written only while no stock-take exists.
       if ((await tx.stockTake.count()) === 0) {

@@ -40,7 +40,7 @@ export const AppHeader: React.FC<{ user: SessionUser; home: string }> = ({ user,
       </Link>
       <span aria-hidden="true" className="mx-1 hidden h-6 w-px bg-line md:block" />
       {/* From 1280 px the workspace keeps its width and the page search gives way, so an organization
-          reads in full ("TrekLink Demo Tours Co., Ltd.", not "TrekLink ..."); narrower, only its code
+          reads in full ("Suong Ngan Trekking Co., Ltd.", not "Suong Ngan ..."); narrower, only its code
           shows, on one line, and the title keeps the name (W15 panel walk). Below 640 px neither shows,
           so the header fits 320 px without cutting the account menu (W22 walk, 1.4.10). */}
       <p className="hidden items-baseline gap-1.5 px-1 text-body-sm sm:flex xl:shrink-0" title={workspace.name}>
