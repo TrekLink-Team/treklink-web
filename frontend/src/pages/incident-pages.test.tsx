@@ -471,6 +471,17 @@ describe('IncidentDetailPage (/o/incidents/:id, screen 8.1)', () => {
     expect(screen.getByRole('button', { name: 'Declare false alarm' })).toBeTruthy();
   });
 
+  // #510: the count in the facts is the SOS signals (`eventCount`); the evidence panel lists every
+  // linked event, so the two labels must not both say "events", and one reopen reads "once".
+  it('labels the count as SOS signals and says reopened once for a single reopen', async () => {
+    detail({ eventCount: 2, reopenCount: 1 });
+    renderAt('/o/incidents/inc-1');
+    expect(await screen.findByRole('heading', { name: 'INC-2026-000001' })).toBeTruthy();
+    expect(screen.getByText('SOS signals')).toBeTruthy();
+    expect(screen.queryByText('Events')).toBeNull();
+    expect(screen.getByText('2, reopened once')).toBeTruthy();
+  });
+
   // W15 panel walk: axe flagged definition-list and dlitem (serious) once an incident had an outcome,
   // because the Outcome fact sat in an extra div inside the <dl> (e2e/a11y.spec.ts allowlist).
   it('keeps the Outcome fact a direct dt and dd group of the facts list', async () => {

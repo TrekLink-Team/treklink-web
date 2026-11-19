@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { deadlineOf, SOURCE_LABEL, useIncident } from '../../entities/incident/api';
+import { deadlineOf, reopenedText, SOURCE_LABEL, useIncident } from '../../entities/incident/api';
 import { isReportable } from '../../entities/incident/authorityReports';
 import { StateBadges } from '../../entities/incident/ui';
 import { useSession } from '../../entities/session/model';
@@ -137,9 +137,9 @@ export const StaffIncidentDetail: React.FC<{
           <Fact label="Owner">{incident.owner?.fullName ?? 'TrekLink Staff queue'}</Fact>
           <Fact label="Deadline">{deadlineOf(incident)}</Fact>
           <Fact label="Source">{SOURCE_LABEL[incident.source]}</Fact>
-          <Fact label="Events">
+          <Fact label="SOS signals">
             {incident.eventCount}
-            {incident.reopenCount > 0 ? `, reopened ${incident.reopenCount} times` : ''}
+            {incident.reopenCount > 0 ? `, ${reopenedText(incident.reopenCount)}` : ''}
           </Fact>
           <Fact label="In this state since">{formatDateTime(incident.stateChangedAt)}</Fact>
           <Fact label="Latest episode event">{formatDateTime(incident.lastEventAt)}</Fact>

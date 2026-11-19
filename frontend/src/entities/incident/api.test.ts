@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { IncidentState } from '../../shared/ui/status';
-import { actionsFor, deadlineOf, type Incident } from './api';
+import { actionsFor, deadlineOf, reopenedText, type Incident } from './api';
 
 const incident = (state: IncidentState, ownerId: string | null = null): Incident =>
   ({
@@ -53,6 +53,14 @@ describe('actionsFor', () => {
       expect(actionsFor(incident(state), 'me')).toEqual([]);
     },
   );
+});
+
+// #510: "reopened 1 times" read wrong.
+describe('reopenedText', () => {
+  it('says once for one reopen and a count for more', () => {
+    expect(reopenedText(1)).toBe('reopened once');
+    expect(reopenedText(2)).toBe('reopened 2 times');
+  });
 });
 
 describe('deadlineOf', () => {
