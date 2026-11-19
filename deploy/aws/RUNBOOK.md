@@ -479,7 +479,7 @@ mosquitto_pub -h mqtt.<domain> -p 8883 --capath /etc/ssl/certs -V 5 -q 1 -d -u '
 ```
 
 `PUBACK (Mid: 1, RC:0)` means accepted. The event then appears in the Field data sync audit on the Vercel
-staging, signed in as `admin@treklink.local`. On macOS use `--cafile` with the system bundle instead of
+staging, signed in as `treklink.dev+admin@gmail.com`. On macOS use `--cafile` with the system bundle instead of
 `--capath`.
 
 ## 8. Point the field clients at it (manual path)
