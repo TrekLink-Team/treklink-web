@@ -25,7 +25,9 @@
 // Idempotent: every row is found by its natural key and created only when absent, and the history rows of
 // a parent (transitions, intake checks, provisioning) are written only when the parent is created. A second
 // run writes nothing; `--expect-unchanged` makes that run exit 1 if it would create anything. Nothing is
-// updated, so a changed SEED_*_PASSWORD applies only to a fresh database.
+// updated, so a changed SEED_*_PASSWORD applies only to a fresh database. The one exception is the move of
+// the pre-TK-242 demo values (LEGACY_ACCOUNTS, LEGACY_ORGANIZATION below): a database seeded before them
+// gets its four accounts and ORG-0001 renamed in place, same ids, once.
 //
 // Out of scope: RC-2026-0001 still carries no invoice, payment or signed handover note. Billing exists
 // now (RC-2026-0002 below is seeded with a paid invoice); backfilling RC-2026-0001 is left open and
@@ -130,6 +132,33 @@ const ACCOUNTS = [
     role: 'ORG_OPERATOR',
   },
 ] as const;
+
+// --- Pre-TK-242 demo values (D-110 rule 7) -------------------------------------------------------
+// The accounts and ORG-0001 carried placeholder names and undeliverable @treklink.local emails until
+// TK-242. A database seeded before it is moved to the values above in place, by key: the old account
+// keeps its id, so its memberships, roster rows, sessions and history stay attached. Each field moves
+// only while it still holds its old value, and only when no account has the new email yet, so a second
+// run, or an account edited since, is left alone.
+const LEGACY_ACCOUNTS: Record<
+  (typeof ACCOUNTS)[number]['key'],
+  { email: string; fullName: string }
+> = {
+  admin: { email: 'admin@treklink.local', fullName: 'Demo Admin' },
+  staff: { email: 'staff@treklink.local', fullName: 'Demo Staff' },
+  manager: { email: 'manager@treklink.local', fullName: 'Demo Manager' },
+  operator: { email: 'operator@treklink.local', fullName: 'Demo Operator' },
+};
+const ORGANIZATION_VALUES = {
+  legalName: 'Suong Ngan Trekking Co., Ltd.',
+  address: '42 Le Hong Phong, Da Lat, Lam Dong',
+  contactEmail: 'treklink.dev@gmail.com',
+};
+const LEGACY_ORGANIZATION: typeof ORGANIZATION_VALUES = {
+  legalName: 'TrekLink Demo Tours Co., Ltd.',
+  address: '1 Demo Street, Da Lat, Lam Dong',
+  contactEmail: 'manager@treklink.local',
+};
+// --- end of the pre-TK-242 demo values ---------------------------------------------------------
 
 const REMAINING_VALUE = [
   { fromMonths: 0, valueVnd: 2500000 },
@@ -355,6 +384,21 @@ export async function seedDemo(
         if (!role)
           throw new Error(`role ${account.role} is missing; run prisma migrate deploy first`);
         let user = await tx.user.findUnique({ where: { email: account.email } });
+        // Pre-TK-242 move: rename the old account in place when the new email is not taken yet.
+        if (!user) {
+          const legacy = LEGACY_ACCOUNTS[account.key];
+          const old = await tx.user.findUnique({ where: { email: legacy.email } });
+          if (old) {
+            user = await tx.user.update({
+              where: { id: old.id },
+              data: {
+                email: account.email,
+                ...(old.fullName === legacy.fullName ? { fullName: account.fullName } : {}),
+              },
+            });
+            created.push(`renamed user ${legacy.email} to ${account.email}`);
+          }
+        }
         if (!user) {
           user = await tx.user.create({
             data: {
@@ -375,14 +419,29 @@ export async function seedDemo(
       const operator = users.get('operator')!.id;
 
       let organization = await tx.organization.findUnique({ where: { code: ORGANIZATION_CODE } });
+      // Pre-TK-242 move: each organization field still holding its old value takes the new one.
+      if (organization) {
+        const current = organization;
+        const moved = (
+          Object.keys(ORGANIZATION_VALUES) as (keyof typeof ORGANIZATION_VALUES)[]
+        ).filter((field) => current[field] === LEGACY_ORGANIZATION[field]);
+        if (moved.length > 0) {
+          organization = await tx.organization.update({
+            where: { id: current.id },
+            data: {
+              ...Object.fromEntries(moved.map((field) => [field, ORGANIZATION_VALUES[field]])),
+              version: { increment: 1 },
+            },
+          });
+          created.push(`renamed organization ${ORGANIZATION_CODE} (${moved.join(', ')})`);
+        }
+      }
       if (!organization) {
         organization = await tx.organization.create({
           data: {
             code: ORGANIZATION_CODE,
-            legalName: 'Suong Ngan Trekking Co., Ltd.',
+            ...ORGANIZATION_VALUES,
             taxCode: '0000000001',
-            address: '42 Le Hong Phong, Da Lat, Lam Dong',
-            contactEmail: 'treklink.dev@gmail.com',
             contactPhone: '0900000000',
             status: OrganizationStatus.ACTIVE,
             statusChangedAt: now,
