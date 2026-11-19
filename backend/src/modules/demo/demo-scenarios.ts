@@ -128,7 +128,7 @@ export const DEMO_REGISTRATION = {
   address: '12 Nguyen Hue, District 1, Ho Chi Minh City',
   contactPhone: '028 3822 0000',
   managerFullName: 'Tran Van Binh',
-  managerEmail: 'binh.manager@example.com',
+  managerEmail: 'treklink.dev+register@gmail.com',
   managerPhone: '0903 000 002',
 };
 
