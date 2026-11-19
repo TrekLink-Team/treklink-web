@@ -219,6 +219,10 @@ export const resolve = (id: string, expectedVersion: number, outcomeNote: string
 export const declareFalseAlarm = (id: string, expectedVersion: number, reason: string) =>
   post<Incident>(`/incidents/${id}/false-alarm`, { expectedVersion, reason });
 
+// How often an episode was reopened, in words: "reopened once", "reopened 3 times".
+export const reopenedText = (count: number): string =>
+  count === 1 ? 'reopened once' : `reopened ${count} times`;
+
 // The pending deadline of an incident, as text; expiry refetches, never moves state locally.
 export const deadlineOf = (incident: Incident): string =>
   incident.tierDeadlineAt

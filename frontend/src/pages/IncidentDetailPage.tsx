@@ -11,6 +11,7 @@ import {
   markResponding,
   resolve,
   deadlineOf,
+  reopenedText,
   SAR_DISCLAIMER,
   SOURCE_LABEL,
   useIncident,
@@ -337,9 +338,9 @@ const IncidentDetailRecord: React.FC<{ id: string }> = ({ id }) => {
                 <Fact label="Owner">{incident.owner?.fullName ?? 'Unclaimed'}</Fact>
                 <Fact label="Deadline">{deadlineOf(incident)}</Fact>
                 <Fact label="Source">{SOURCE_LABEL[incident.source]}</Fact>
-                <Fact label="Events">
+                <Fact label="SOS signals">
                   {incident.eventCount}
-                  {incident.reopenCount > 0 ? `, reopened ${incident.reopenCount} times` : ''}
+                  {incident.reopenCount > 0 ? `, ${reopenedText(incident.reopenCount)}` : ''}
                 </Fact>
                 <Fact label="First event">{formatDateTime(incident.firstEventAt)}</Fact>
                 <Fact label="Latest episode event">{formatDateTime(incident.lastEventAt)}</Fact>
