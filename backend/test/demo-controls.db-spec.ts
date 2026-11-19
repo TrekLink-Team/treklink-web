@@ -80,7 +80,7 @@ describe('demo control panel stages on Postgres', () => {
       'RC-2026-0002',
       'RC-2026-0003',
     ]);
-    expect(result.session.user.email).toBe('admin@treklink.local');
+    expect(result.session.user.email).toBe('treklink.dev+admin@gmail.com');
     expect(result.session.accessToken).toEqual(expect.any(String));
     expect(await statusOf('RC-2026-0001')).toBe('ACTIVE');
     expect(await statusOf('RC-2026-0003')).toBe('DEFAULTED');
@@ -113,7 +113,9 @@ describe('demo control panel stages on Postgres', () => {
       path: `/t/counter/${contract.id}`,
     });
     // One generic audit event for the stage, emitted after the reset by the new Admin.
-    const admin = await prisma.user.findUniqueOrThrow({ where: { email: 'admin@treklink.local' } });
+    const admin = await prisma.user.findUniqueOrThrow({
+      where: { email: 'treklink.dev+admin@gmail.com' },
+    });
     expect(audits.filter((a) => a.subjectId === 'contract-ready-for-handover')).toEqual([
       expect.objectContaining({
         action: 'demo.stage',

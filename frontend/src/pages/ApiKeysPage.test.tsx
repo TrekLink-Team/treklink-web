@@ -17,7 +17,7 @@ vi.mock('../shared/api/apiClient', async (importOriginal) => ({
 vi.mock('../app/providers/useAuth', () => ({
   useAuth: () => ({
     user: {
-      organization: { id: 'org-1', code: 'ORG-0001', legalName: 'TrekLink Demo Tours', status: 'ACTIVE', memberRole: 'MANAGER' },
+      organization: { id: 'org-1', code: 'ORG-0001', legalName: 'Suong Ngan Trekking', status: 'ACTIVE', memberRole: 'MANAGER' },
     },
   }),
 }));

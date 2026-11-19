@@ -51,7 +51,9 @@ const build = (row: DamageChargeRow | null = charge()) => {
   const config = {
     get: jest.fn((key: string) => (key === 'MAX_PAGE_SIZE' ? 100 : 20)),
   };
-  const directory = { namesOf: jest.fn().mockResolvedValue(new Map([['staff-1', 'Demo Staff']])) };
+  const directory = {
+    namesOf: jest.fn().mockResolvedValue(new Map([['staff-1', 'Le Thi Thu Ha']])),
+  };
   const service = new DamageChargeService(
     damageCharges as unknown as DamageChargesRepository,
     invoices as unknown as InvoicesRepository,
@@ -226,7 +228,7 @@ describe('DamageChargeService.list (api-design 16)', () => {
     expect(page.items[0]).toMatchObject({
       id: 'dc-1',
       assetTag: 'TL-0001',
-      inspector: { id: 'staff-1', fullName: 'Demo Staff' },
+      inspector: { id: 'staff-1', fullName: 'Le Thi Thu Ha' },
     });
     expect(page.totalCount).toBe(1);
   });

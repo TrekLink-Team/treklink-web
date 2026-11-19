@@ -56,7 +56,7 @@ test('MF-03 steps 1 to 6: the Operator handles the SOS from TL-0010', async ({ p
   // Step 4
   await main.getByRole('button', { name: 'Acknowledge', exact: true }).click();
   await expectToast(page, 'Saved.');
-  await expect(main.getByText('Demo Operator').first()).toBeVisible();
+  await expect(main.getByText('Nguyen Thanh Tung').first()).toBeVisible();
   await expect(statusBadge(main, 'Acknowledged')).toBeVisible();
   await expect(banner).toHaveCount(0);
 
@@ -85,8 +85,8 @@ test('MF-03 steps 1 to 6: the Operator handles the SOS from TL-0010', async ({ p
   await main.getByRole('button', { name: 'Resolve incident' }).click();
   await expect(statusBadge(main, 'Resolved')).toBeVisible();
   await expect(main.getByText('Hiker found, minor ankle injury, walked out').first()).toBeVisible();
-  await expect(main.getByText(/Response under way, by Demo Operator/)).toBeVisible();
-  await expect(main.getByText(/Resolved, by Demo Operator/)).toBeVisible();
+  await expect(main.getByText(/Response under way, by Nguyen Thanh Tung/)).toBeVisible();
+  await expect(main.getByText(/Resolved, by Nguyen Thanh Tung/)).toBeVisible();
   // Correct is offered only while the incident is open to its owner.
   await expect(main.getByRole('button', { name: /^Correct the update of / })).toHaveCount(0);
 });
@@ -154,7 +154,7 @@ test('MF-03 steps 11 to 13: Staff report the DEFAULTED contract RC-2026-0003', a
   await dialog.getByLabel('Subject kind').selectOption('contract');
   await expect(dialog.getByText('Only defaulted contracts can be reported.')).toBeVisible();
   const eligible = dialog.getByRole('list', { name: 'Eligible records' }).getByRole('button', {
-    name: /RC-2026-0003, TrekLink Demo Tours Co\., Ltd\./,
+    name: /RC-2026-0003, Suong Ngan Trekking Co\., Ltd\./,
   });
   await expect(eligible).toContainText('Defaulted');
 

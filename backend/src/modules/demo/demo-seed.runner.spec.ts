@@ -4,7 +4,7 @@ import { DemoSeedModule, DemoSeedRunner, loadSeedModule } from './demo-seed.runn
 
 describe('DemoSeedRunner', () => {
   const prisma = {} as PrismaService;
-  const seedDemo = jest.fn().mockResolvedValue(['user admin@treklink.local']);
+  const seedDemo = jest.fn().mockResolvedValue(['user treklink.dev+admin@gmail.com']);
   const readPasswords = jest.fn();
   const module: DemoSeedModule = { seedDemo, readPasswords, SEEDED_ACCOUNTS: [] };
 
@@ -39,10 +39,10 @@ describe('DemoSeedRunner', () => {
   it('exports the seeded accounts in creation order, with no password', () => {
     const accounts = loadSeedModule().SEEDED_ACCOUNTS;
     expect(accounts.map((a) => [a.role, a.email, a.organization])).toEqual([
-      ['ADMIN', 'admin@treklink.local', null],
-      ['STAFF', 'staff@treklink.local', null],
-      ['ORG_MANAGER', 'manager@treklink.local', 'ORG-0001'],
-      ['ORG_OPERATOR', 'operator@treklink.local', 'ORG-0001'],
+      ['ADMIN', 'treklink.dev+admin@gmail.com', null],
+      ['STAFF', 'treklink.dev+staff@gmail.com', null],
+      ['ORG_MANAGER', 'treklink.dev+manager@gmail.com', 'ORG-0001'],
+      ['ORG_OPERATOR', 'treklink.dev+operator@gmail.com', 'ORG-0001'],
     ]);
     for (const account of accounts) expect(Object.keys(account)).not.toContain('password');
   });

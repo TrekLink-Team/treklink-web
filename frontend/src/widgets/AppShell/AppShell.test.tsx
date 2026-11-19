@@ -204,8 +204,8 @@ describe('AppShell (specs/frontend/design.md §2)', () => {
 describe('AppShell header, the More menu below 640 px (and below 1024 px for TrekLink accounts)', () => {
   const STAFF: SessionUser = {
     id: 's',
-    email: 'staff@treklink.local',
-    fullName: 'Demo Staff',
+    email: 'treklink.dev+staff@gmail.com',
+    fullName: 'Le Thi Thu Ha',
     accountType: 'TREKLINK',
     roles: ['STAFF'],
     organization: null,
@@ -282,8 +282,8 @@ describe('AppShell header, the More menu below 640 px (and below 1024 px for Tre
 describe('AppShell, Demo control entry', () => {
   const ADMIN: SessionUser = {
     id: 'a',
-    email: 'admin@treklink.local',
-    fullName: 'Demo Admin',
+    email: 'treklink.dev+admin@gmail.com',
+    fullName: 'Tran Quoc Bao',
     accountType: 'TREKLINK',
     roles: ['ADMIN'],
     organization: null,

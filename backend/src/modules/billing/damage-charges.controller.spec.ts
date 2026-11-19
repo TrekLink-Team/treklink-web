@@ -35,7 +35,11 @@ describe('DamageChargesController', () => {
     const service = {
       list: jest.fn().mockResolvedValue({
         items: [
-          { ...CHARGE, assetTag: 'TL-0001', inspector: { id: 'u-staff', fullName: 'Demo Staff' } },
+          {
+            ...CHARGE,
+            assetTag: 'TL-0001',
+            inspector: { id: 'u-staff', fullName: 'Le Thi Thu Ha' },
+          },
         ],
         pageNumber: 1,
         pageSize: 20,
@@ -55,7 +59,7 @@ describe('DamageChargesController', () => {
       damageCodes: ['CASING_CRACKED'],
       amountVnd: 700_000,
       finalVnd: null,
-      inspector: { id: 'u-staff', fullName: 'Demo Staff' },
+      inspector: { id: 'u-staff', fullName: 'Le Thi Thu Ha' },
     });
   });
 

@@ -52,7 +52,7 @@ describe('ContractReadsService', () => {
         },
       ]),
     };
-    directory = { namesOf: jest.fn().mockResolvedValue(new Map([['u-mgr', 'Demo Manager']])) };
+    directory = { namesOf: jest.fn().mockResolvedValue(new Map([['u-mgr', 'Pham Duc Huy']])) };
     idsMatching = jest.fn().mockResolvedValue(['org-1', 'org-3']);
     service = new ContractReadsService(
       contracts as unknown as ContractsRepository,
@@ -248,7 +248,7 @@ describe('ContractReadsService', () => {
 
   it('names the actor of each transition', async () => {
     await expect(service.transitions('c-1', MANAGER)).resolves.toEqual([
-      expect.objectContaining({ toStatus: ContractStatus.REQUESTED, actor: 'Demo Manager' }),
+      expect.objectContaining({ toStatus: ContractStatus.REQUESTED, actor: 'Pham Duc Huy' }),
     ]);
   });
 });

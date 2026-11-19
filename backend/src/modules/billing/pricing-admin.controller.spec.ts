@@ -37,7 +37,7 @@ describe('PricingAdminController', () => {
             monthlyPriceVnd: 450_000n,
             effectiveFrom: new Date('2026-10-01T00:00:00.000Z'),
             createdAt: new Date('2026-10-01T00:00:00.000Z'),
-            createdBy: { id: 'u-admin', fullName: 'Demo Admin' },
+            createdBy: { id: 'u-admin', fullName: 'Tran Quoc Bao' },
           },
         ],
         pageNumber: 1,
@@ -63,7 +63,7 @@ describe('PricingAdminController', () => {
   it('answers the price history with VND numbers and the setter name', async () => {
     const page = await controller.history({ hardwareVariantId: 'v-3' });
     expect(pricing.history).toHaveBeenCalledWith('v-3', { hardwareVariantId: 'v-3' });
-    expect(page.items[0]).toMatchObject({ monthlyPriceVnd: 450_000, createdBy: 'Demo Admin' });
+    expect(page.items[0]).toMatchObject({ monthlyPriceVnd: 450_000, createdBy: 'Tran Quoc Bao' });
   });
 
   it('schedules a price as a bigint at the given instant', async () => {

@@ -20,7 +20,7 @@ vi.mock('../../entities/demo/simulation', async (importOriginal) => ({
   raiseSimulatedEvent: (...args: unknown[]) => raiseSimulatedEvent(...args),
 }));
 
-const ORG = { id: 'org-1', code: 'ORG-0001', name: 'TrekLink Demo Tours Co., Ltd.' };
+const ORG = { id: 'org-1', code: 'ORG-0001', name: 'Suong Ngan Trekking Co., Ltd.' };
 const NODE: SimulatedNode = {
   id: 'node-1',
   deviceId: 'dev-10',

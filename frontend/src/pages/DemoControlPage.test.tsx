@@ -59,8 +59,8 @@ const SCENARIOS: DemoScenario[] = [
 
 const ADMIN = {
   id: 'admin-old',
-  email: 'admin@treklink.local',
-  fullName: 'Demo Admin',
+  email: 'treklink.dev+admin@gmail.com',
+  fullName: 'Tran Quoc Bao',
   accountType: 'TREKLINK' as const,
   roles: ['ADMIN'],
   organization: null,

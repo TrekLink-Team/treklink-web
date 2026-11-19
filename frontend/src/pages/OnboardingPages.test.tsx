@@ -95,7 +95,7 @@ describe('RegisterPage (screen 3.1)', () => {
       'Tax code': '0312345678',
       'Registered address': '1 Le Loi, Da Lat',
       'Company phone': '0901234567',
-      'Manager full name': 'Demo Manager',
+      'Manager full name': 'Pham Duc Huy',
       'Manager email': ' manager@example.com ',
       'Manager phone': '0907654321',
     };
@@ -126,7 +126,7 @@ describe('RegisterPage duplicates (screen 3.1, MSG10)', () => {
       'Tax code': '0312345678',
       'Registered address': '1 Le Loi, Da Lat',
       'Company phone': '0901234567',
-      'Manager full name': 'Demo Manager',
+      'Manager full name': 'Pham Duc Huy',
       'Manager email': 'manager@example.com',
       'Manager phone': '0907654321',
     };
@@ -321,7 +321,7 @@ describe('OrganizationReviewPage status actions (screen 3.2, organizations api-d
       {
         fromStatus: 'PENDING',
         toStatus: 'ACTIVE',
-        actor: 'Demo Admin',
+        actor: 'Tran Quoc Bao',
         reason: null,
         createdAt: '2026-10-28T05:00:00Z',
       },

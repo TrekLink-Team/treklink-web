@@ -44,7 +44,7 @@ describe('DeviceHistoryService (monitoring api-design 07)', () => {
       labelsOf: jest.fn().mockResolvedValue(new Map([['org-1', { code: 'ORG-0001' }]])),
     };
     const accounts = {
-      contactCard: jest.fn().mockResolvedValue([{ id: 'staff-1', fullName: 'Demo Staff' }]),
+      contactCard: jest.fn().mockResolvedValue([{ id: 'staff-1', fullName: 'Le Thi Thu Ha' }]),
     };
     const service = new DeviceHistoryService(
       devices as never,
@@ -170,7 +170,7 @@ describe('DeviceHistoryService (monitoring api-design 07)', () => {
         { contractsOfDevice: jest.fn().mockResolvedValue([]) } as never,
         { labelsOf: jest.fn().mockResolvedValue(new Map()) } as never,
         {
-          contactCard: jest.fn().mockResolvedValue([{ id: 'u-1', fullName: 'Demo Operator' }]),
+          contactCard: jest.fn().mockResolvedValue([{ id: 'u-1', fullName: 'Nguyen Thanh Tung' }]),
         } as never,
         { incidentsOfDevice: jest.fn().mockResolvedValue(incidents) } as never,
       );
@@ -201,7 +201,7 @@ describe('DeviceHistoryService (monitoring api-design 07)', () => {
           at: at('2026-10-29T03:16:00Z'),
           kind: 'INCIDENT',
           summary: 'Incident INC-2026-000001: Notifying primary to Acknowledged',
-          actor: 'Demo Operator',
+          actor: 'Nguyen Thanh Tung',
           refType: 'INCIDENT',
           refId: 'inc-1',
         },

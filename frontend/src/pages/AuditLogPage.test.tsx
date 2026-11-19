@@ -29,7 +29,7 @@ vi.mock('../entities/account/api', async (importOriginal) => ({
   useAccounts: (filters: { q?: string }) => ({
     data:
       filters.q === 'Staff'
-        ? { items: [{ id: ACTOR, fullName: 'Staff A', email: 'staff@treklink.local' }] }
+        ? { items: [{ id: ACTOR, fullName: 'Staff A', email: 'treklink.dev+staff@gmail.com' }] }
         : undefined,
   }),
 }));
