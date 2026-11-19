@@ -23,6 +23,7 @@ import {
 import { DemoQuickGuard } from './demo-quick.guard';
 import { DemoQuickRepository } from './demo-quick.repository';
 import { DemoQuickProfileService } from './demo-quick-profile.service';
+import { quickOrganizationNames } from './demo-quick-names';
 import { DEMO_REGISTRATION } from './demo-scenarios';
 import { quickSosUplink } from './demo-sos-packet';
 import { StagedRecord } from './demo-scenarios.service';
@@ -170,10 +171,8 @@ export class DemoQuickService {
         case 'organization': {
           const organization = await this.onboarding.register({
             ...DEMO_REGISTRATION,
-            legalName: `TrekLink Demo ${run.id} Tours`,
+            ...quickOrganizationNames(run.id),
             taxCode: `9${String(run.id).padStart(9, '0')}`,
-            managerEmail: `demo.${run.id}@example.com`,
-            managerFullName: `Demo Manager ${run.id}`,
           });
           await remember([
             {

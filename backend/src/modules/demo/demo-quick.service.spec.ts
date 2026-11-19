@@ -156,7 +156,7 @@ const input: QuickInput = {
 };
 
 describe('DemoQuickService scenarios', () => {
-  it('creates fresh Demo names, tax codes and emails without resetting and audits the actual actor', async () => {
+  it('creates fresh realistic names, tax codes and emails without resetting and audits the actual actor', async () => {
     const f = fixture();
     const a = await f.service.run('organization', {}, actor);
     const b = await f.service.run('organization', {}, actor);
@@ -165,9 +165,10 @@ describe('DemoQuickService scenarios', () => {
     expect(f.onboarding.register).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
-        legalName: 'TrekLink Demo 1 Tours',
+        legalName: 'May Ngan Trekking Co., Ltd.',
         taxCode: '9000000001',
-        managerEmail: 'demo.1@example.com',
+        managerEmail: 'treklink.dev+quick-1@gmail.com',
+        managerFullName: 'Nguyen Van An',
       }),
     );
     expect(f.onboarding.register).toHaveBeenNthCalledWith(
