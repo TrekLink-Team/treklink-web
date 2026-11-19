@@ -68,6 +68,7 @@ describe('HistoryService (monitoring 3.3, api-design 03)', () => {
         service.history(DEVICE, { from: FROM, to: TO }, memberCaller, member),
       ).resolves.toEqual({
         deviceId: DEVICE,
+        assetTag: 'TL-0042',
         clippedTo: [{ from: '2026-10-20T02:00:00.000Z', to: '2026-10-21T06:00:00.000Z' }],
         points: [
           {
@@ -117,6 +118,7 @@ describe('HistoryService (monitoring 3.3, api-design 03)', () => {
       const result = await service.history(DEVICE, { from: FROM, to: TO }, memberCaller, member);
       expect(result).toEqual({
         deviceId: DEVICE,
+        assetTag: 'TL-0042',
         clippedTo: [],
         points: [],
         truncated: false,
@@ -140,6 +142,7 @@ describe('HistoryService (monitoring 3.3, api-design 03)', () => {
     it('reads the whole history, not clipped, and needs only that the device exists', async () => {
       const result = await service.history(DEVICE, { from: FROM, to: TO }, staffCaller, staff);
       expect(result.clippedTo).toEqual([]);
+      expect(result.assetTag).toBe('TL-0042');
       expect(contracts.rentalPeriods).not.toHaveBeenCalled();
       expect(events.historyPoints).toHaveBeenCalledWith(
         expect.objectContaining({ deviceId: DEVICE, organizationId: null }),
@@ -232,6 +235,7 @@ describe('HistoryService (monitoring 3.3, api-design 03)', () => {
     it('writes a header and one row per point, empty for a value not sent', () => {
       const csv = service.csv({
         deviceId: DEVICE,
+        assetTag: 'TL-0042',
         clippedTo: [],
         truncated: false,
         maxRangeDays: 7,
@@ -266,6 +270,7 @@ describe('HistoryService (monitoring 3.3, api-design 03)', () => {
     it('ends a truncated range with a # truncated comment row', () => {
       const csv = service.csv({
         deviceId: DEVICE,
+        assetTag: 'TL-0042',
         clippedTo: [],
         truncated: true,
         maxRangeDays: 7,
@@ -293,6 +298,7 @@ describe('HistoryService (monitoring 3.3, api-design 03)', () => {
       expect(
         service.csv({
           deviceId: DEVICE,
+          assetTag: 'TL-0042',
           clippedTo: [],
           points: [],
           truncated: false,

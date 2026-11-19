@@ -16,6 +16,8 @@ export interface HistoryPoint {
 
 export interface History {
   deviceId: string;
+  // The asset tag, so a page opened without a link still names the unit (#515); null from an older server.
+  assetTag?: string | null;
   // The organization's rental periods that overlap the range; empty for TrekLink Staff and Admin.
   clippedTo: { from: string; to: string | null }[];
   points: HistoryPoint[];
