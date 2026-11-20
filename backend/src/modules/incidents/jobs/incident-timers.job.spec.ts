@@ -166,6 +166,39 @@ describe('IncidentTimersJob (incidents 3.1)', () => {
     expect(error).toHaveBeenNthCalledWith(2, 'TIER_TIMEOUT on incident i-2 failed: not an error');
     error.mockRestore();
   });
+  describe('response and close timer races', () => {
+    it.each([
+      ['staleResponses', 'ACKNOWLEDGED', 'ESCALATED', 'STALE_LIMIT', TIERS],
+      ['closeAfterReopenWindow', 'RESOLVED', 'CLOSED', 'REOPEN_WINDOW_ENDED', NOBODY],
+    ] as const)(
+      '%s skips a raced row and processes the next one in its own transaction',
+      async (method, state, target, code, recipients) => {
+        const logged = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+        try {
+          incidents.dueTimers.mockResolvedValue([
+            { id: 'raced', state, organizationId: 'org-a' },
+            { id: 'next', state, organizationId: 'org-a' },
+          ]);
+          lifecycle.apply.mockRejectedValueOnce(
+            new DomainException(HttpStatus.CONFLICT, ErrorCode.STALE_VERSION, 'raced'),
+          );
+          await expect(job[method]()).resolves.toBe(1);
+          expect(lifecycle.apply).toHaveBeenCalledTimes(2);
+          expect(lifecycle.apply).toHaveBeenLastCalledWith(
+            'next',
+            state,
+            target,
+            { kind: 'SYSTEM' },
+            expect.objectContaining({ code, recipients }),
+            tx,
+          );
+          expect(logged).not.toHaveBeenCalled();
+        } finally {
+          logged.mockRestore();
+        }
+      },
+    );
+  });
 });
 
 describe('W43 targeted demo escalation', () => {

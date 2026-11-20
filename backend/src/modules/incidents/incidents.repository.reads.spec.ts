@@ -171,6 +171,67 @@ describe('IncidentsRepository reads (incidents 5.1)', () => {
       select: { id: true, state: true, organizationId: true },
     });
   });
+  describe('explicit incident ordering and demo options', () => {
+    it.each(['code', 'state', 'lastEventAt'] as const)(
+      'sorts by %s with an id tiebreaker in the same direction',
+      async (field) => {
+        for (const order of ['asc', 'desc'] as const) {
+          await repository.page({ organizationId: 'org-a' }, 10, 5, { field, order });
+          expect(prisma.incident.findMany).toHaveBeenLastCalledWith({
+            where: { organizationId: 'org-a' },
+            orderBy: [{ [field]: order }, { id: order }],
+            skip: 10,
+            take: 5,
+          });
+        }
+      },
+    );
+
+    it.each([true, false])(
+      'sets stale=%s without changing state, version or deadlines',
+      async (stale) => {
+        const updated = { id: 'inc-1', stale };
+        const update = jest.fn().mockResolvedValue(updated);
+        const client = { incident: { update } } as unknown as Prisma.TransactionClient;
+        await expect(repository.setStale('inc-1', stale, client)).resolves.toBe(updated);
+        expect(update).toHaveBeenCalledWith({ where: { id: 'inc-1' }, data: { stale } });
+      },
+    );
+
+    it('reads device history oldest first with each transition in sequence', async () => {
+      const rows = [{ id: 'inc-1', transitions: [] }];
+      prisma.incident.findMany.mockResolvedValue(rows);
+      await expect(repository.incidentsOfDevice('device-1')).resolves.toBe(rows);
+      expect(prisma.incident.findMany).toHaveBeenCalledWith({
+        where: { deviceId: 'device-1' },
+        orderBy: { firstEventAt: 'asc' },
+        select: {
+          id: true,
+          code: true,
+          firstEventAt: true,
+          transitions: {
+            orderBy: { seq: 'asc' },
+            select: { fromState: true, toState: true, actorId: true, createdAt: true },
+          },
+        },
+      });
+    });
+
+    it('offers only simulated incidents awaiting an escalation tier, with the current version', async () => {
+      const options = [{ id: 'demo', code: 'INC-demo', state: 'NOTIFY_BACKUP', version: 3 }];
+      prisma.incident.findMany.mockResolvedValue(options);
+      await expect(repository.demoOptions()).resolves.toBe(options);
+      expect(prisma.incident.findMany).toHaveBeenCalledWith({
+        where: {
+          simulated: true,
+          state: { in: ['NOTIFY_PRIMARY', 'NOTIFY_BACKUP', 'NOTIFY_MANAGER'] },
+        },
+        select: { id: true, code: true, state: true, version: true },
+        orderBy: { firstEventAt: 'desc' },
+        take: 100,
+      });
+    });
+  });
 });
 
 describe('IncidentsRepository.dueTimers (task 3.1)', () => {

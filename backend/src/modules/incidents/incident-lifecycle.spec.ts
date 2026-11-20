@@ -654,4 +654,26 @@ describe('IncidentLifecycle task 1.2', () => {
     await expect(apply('NOTIFY_PRIMARY', 'ROUTED')).rejects.toBe(error);
     expect(events.emitAfterCommit).not.toHaveBeenCalled();
   });
+  describe('reason-specific lifecycle table', () => {
+    it.each([
+      ['NOTIFY_PRIMARY', 'NOTIFY_BACKUP', 'ROUTED'],
+      ['NOTIFY_PRIMARY', 'NOTIFY_MANAGER', 'TIER_TIMEOUT'],
+      ['ACKNOWLEDGED', 'ESCALATED', 'TIER_TIMEOUT'],
+      ['RESOLVED', 'CLOSED', 'CASE_CLOSED'],
+      ['REPORTED', 'CLOSED', 'REOPEN_WINDOW_ENDED'],
+    ] as [IncidentState, IncidentState, Code][])(
+      'rejects %s -> %s for the wrong reason %s before any write',
+      async (from, to, code) => {
+        current = row(from, { ownerId: 'owner', reopenWindowEndsAt: BEFORE });
+        const actor = code === 'CASE_CLOSED' ? STAFF : SYSTEM;
+        await expect(apply(to, code, actor)).rejects.toMatchObject({
+          errorCode: ErrorCode.INVALID_STATE_TRANSITION,
+        });
+        expect(repository.compareAndSet).not.toHaveBeenCalled();
+        expect(repository.insertTransition).not.toHaveBeenCalled();
+        expect(alerts.enqueue).not.toHaveBeenCalled();
+        expect(events.emitAfterCommit).not.toHaveBeenCalled();
+      },
+    );
+  });
 });
