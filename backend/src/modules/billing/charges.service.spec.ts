@@ -155,3 +155,68 @@ describe('ChargesService.settleCancellation (billing task 2.3, REQ-EVT-11, E01-7
     expect(made.dueAt.getTime()).toBeGreaterThanOrEqual(before);
   });
 });
+
+describe('First invoice release preview coverage', () => {
+  const contract = {
+    ...CONTRACT,
+    planType: 'MONTHLY' as const,
+    quantity: 2,
+    monthlyUnitPriceVnd: 100n,
+    holdingFeeRatio: new Prisma.Decimal('0.5'),
+    dayPremium: null,
+    dayPlanDays: null,
+  };
+  const firstChargeableInvoice = jest.fn();
+  const service = new ChargesService(
+    { firstChargeableInvoice } as unknown as InvoicesRepository,
+    {} as never,
+    {} as never,
+    {} as never,
+  );
+  beforeEach(() => jest.resetAllMocks());
+  it('returns no preview before the first invoice exists', async () => {
+    firstChargeableInvoice.mockResolvedValue(null);
+    await expect(service.previewLowerFirstInvoice(contract, TX)).resolves.toBeNull();
+    expect(firstChargeableInvoice).toHaveBeenCalledWith('c-1', TX);
+  });
+  it.each([0n, 150n])(
+    'recomputes monthly fees without changing other charges, paid %s',
+    async (paidVnd) => {
+      firstChargeableInvoice.mockResolvedValue({
+        totalVnd: 220n,
+        paidVnd,
+        lines: [{ type: 'HOLDING_FEE' }, { type: 'TERM_BALANCE' }, { type: 'LATE_FEE' }],
+      });
+      await expect(service.previewLowerFirstInvoice(contract, TX)).resolves.toEqual({
+        totalVnd: 220n,
+        paidVnd,
+        newTotalVnd: 120n,
+        owedToOrganizationVnd: paidVnd === 0n ? 0n : 30n,
+      });
+    },
+  );
+  it('uses day-plan pricing and preserves already appended adjustments', async () => {
+    firstChargeableInvoice.mockResolvedValue({
+      totalVnd: 120n,
+      paidVnd: 120n,
+      lines: [{ type: 'DAY_PLAN_FEE' }, { type: 'ADJUSTMENT' }],
+    });
+    await expect(
+      service.previewLowerFirstInvoice(
+        {
+          ...contract,
+          planType: 'DAY',
+          monthlyUnitPriceVnd: 300n,
+          dayPremium: new Prisma.Decimal('1.5'),
+          dayPlanDays: 4,
+        },
+        TX,
+      ),
+    ).resolves.toEqual({
+      totalVnd: 120n,
+      paidVnd: 120n,
+      newTotalVnd: 60n,
+      owedToOrganizationVnd: 60n,
+    });
+  });
+});

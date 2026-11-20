@@ -158,3 +158,43 @@ describe('PricingAdminController contract details', () => {
     expect(created.label).toBe('');
   });
 });
+
+describe('Pricing controller patch and rate list coverage', () => {
+  it('lists variant rates and preserves explicit false and trimmed labels in patches', async () => {
+    const rate = {
+      id: 'dr-1',
+      code: 'STRAP_TORN',
+      label: 'Strap torn',
+      hardwareVariantId: 'v-1',
+      amountVnd: 100n,
+      isActive: false,
+    };
+    const pricing = {
+      damageRates: jest.fn().mockResolvedValue([rate]),
+      updateDamageRate: jest.fn().mockResolvedValue(rate),
+      createDamageRate: jest.fn().mockResolvedValue(rate),
+    };
+    const controller = new PricingAdminController(pricing as unknown as PricingService);
+    const caller: Caller = { id: 'a-1', roles: ['ADMIN'], organizationId: null };
+    expect(await controller.damageRates({ hardwareVariantId: 'v-1' })).toEqual([
+      { ...rate, amountVnd: 100 },
+    ]);
+    expect(pricing.damageRates).toHaveBeenCalledWith('v-1');
+    await controller.updateDamageRate('dr-1', { label: ' Strap torn ', isActive: false }, caller);
+    expect(pricing.updateDamageRate).toHaveBeenCalledWith(
+      'dr-1',
+      { label: 'Strap torn', isActive: false },
+      caller,
+    );
+    await controller.updateDamageRate('dr-1', { isActive: true }, caller);
+    expect(pricing.updateDamageRate).toHaveBeenLastCalledWith('dr-1', { isActive: true }, caller);
+    await controller.createDamageRate(
+      { code: 'STRAP_TORN', label: 'Strap torn', hardwareVariantId: 'v-1', amountVnd: 100 },
+      caller,
+    );
+    expect(pricing.createDamageRate).toHaveBeenCalledWith(
+      { code: 'STRAP_TORN', label: 'Strap torn', hardwareVariantId: 'v-1', amountVnd: 100n },
+      caller,
+    );
+  });
+});
