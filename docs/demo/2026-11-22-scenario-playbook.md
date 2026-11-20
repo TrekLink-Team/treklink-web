@@ -20,8 +20,8 @@ Passwords, the MQTT node password, Field Station secrets and API keys are never 
 
 | Item | Value |
 |---|---|
-| Environment | AWS staging, `https://54-153-147-237.sslip.io` (API `https://54-153-147-237.sslip.io/api`, demo sign-in `/demo`). Source: `deploy/system-endpoints.json` on `main` (D-104) and `Documents/guides/docs/developer-guide.md` in `capstone` |
-| MQTT broker | `mqtts://54-153-147-237.sslip.io:8883` (same guide; `deploy/aws/RUNBOOK.md` §7) |
+| Environment | AWS staging: the web address is the `aws-staging` entry of `deploy/system-endpoints.json` on `main` (D-104). The API is that address plus `/api`, demo sign-in is `/demo` |
+| MQTT broker | The Broker URL shown with the Field Station credential (MF-01c step 9); `deploy/aws/RUNBOOK.md` §7 |
 | What the host runs | `NODE_ENV=production`, the simulator off, Demo control off (`DEMO_CONTROLS_ENABLED=false`, `deploy/aws/.env.aws.example:14-16`). So `/t/admin/demo` and its quick scenarios are absent. Every step below uses the real screens. Mail is SMTP (`MAIL_TRANSPORT=smtp`, `.env.aws.example:73`): every `treklink.dev+...@gmail.com` address lands in the team inbox `treklink.dev@gmail.com` |
 | Database state | Wiped and reseeded on Sat 2026-11-21, and again before each later rehearsal (section 11). Before each flow: the fresh seed (section 2) plus what the earlier flows of the same rehearsal left (section 3) |
 | Browser | One browser profile per window (a private window shares nothing with a normal one). The session is held in memory: a reload or a typed URL signs the window out (`frontend/src/entities/session/model.ts`, 2026-11-01 script §1.4). Move with the sidebar and the links |
@@ -134,7 +134,7 @@ MF-01a; 10 v3 units Available.
 |---|---|---|---|---|---|
 | 1 | A, `/o` | **Request a contract** | | `/o/contracts/new`, steps Plan and devices, Start date, Review and send | Sidebar **Contracts**, **Request a contract** |
 | 2 | A | Plan **Monthly**; variant card **TrekLink v3 (GPS, SOS button)**; Quantity; **Next** | 5 | "10 available now" under Quantity **(check by hand: the count)**; Quote "Term fee (one month) 2,250,000 VND", "First payment, holding fee (50 %) 1,125,000 VND" | If the count is under 5, a hold is left from an earlier run: section 11 |
-| 3 | A | Start date: today, **Next** | today's date | Today is the earliest date offered | |
+| 3 | A | Start date: today, **Next** | today's date | Today is the earliest date offered |  Today not offered: check the laptop clock and time zone (Asia/Ho_Chi_Minh), sign in again as A and start again at step 1; nothing is saved before step 4 |
 | 4 | A | **Send request** | | "Request RC-2026-0004 sent", five devices held for 24 hours, "Deposit due before then: 1,125,000 VND" with **Open the contract** and **Pay the deposit** | If the toast shows a server error, open **Contracts**: the request may exist; do not send twice |
 | 5 | B, `/t/contracts` | **Show** menu **Requested**; row RC-2026-0004, **Show details** | | Details pane with plan, devices, prices and the hold line | Search "RC-2026-0004" |
 | 6 | B | Handover appointment: a time later today; **Approve** | the next full hour | Toast "RC-2026-0004 approved. 5 devices reserved." (`ContractApprovalPage.tsx:197`) and the reserved tags | A past time is refused: "The handover appointment is in the past...": pick a later time |
@@ -146,7 +146,7 @@ MF-01a; 10 v3 units Available.
 | U1 | E (Tran Van Binh), `/o` | **Request a contract**, Monthly, TrekLink v3, Quantity, **Next** | 6 | "Only 5 TrekLink v3 (GPS, SOS button) devices are available. Lower the quantity or choose another variant." and the page stays on step 1 **(check by hand: wording after the request hold)** | Go on with U2 |
 | U2 | E | Quantity 5, **Next**, start today, **Next**, **Send request** | 5 | "Request RC-2026-0005 sent", the last five v3 units held | If fewer than 5 are available, MF-01b step 4 ran twice: cancel the extra request |
 | U3 | B, `/t/contracts` | Row RC-2026-0005, **Show details**, **Reject**; Reason; **Reject** | The master contract of ORG-0002 is not countersigned yet | Dialog "Reject RC-2026-0005?"; after it the request is Rejected and its 5 units are Available again | An empty reason shows "Reason is required." |
-| U4 | E, `/o/contracts` | Open RC-2026-0005 | | Status Rejected with the reason **(check by hand)** | |
+| U4 | E, `/o/contracts` | Open RC-2026-0005 | | Status Rejected with the reason **(check by hand)** |  Status still Requested: sign in again as E and open **Contracts** again; or show the Rejected row as B in `/t/contracts`, **Show** menu All |
 
 ---
 
@@ -176,7 +176,7 @@ Run between steps 3 and 7.
 
 | Step | Page | Action | Value typed | Expected screen | Fallback |
 |---|---|---|---|---|---|
-| U1 | B, Devices | On one row set Battery % | 35 | Accepted on the row | |
+| U1 | B, Devices | On one row set Battery % | 35 | Accepted on the row |  Value refused ("Enter the battery as a whole number from 0 to 100."): type 35 again |
 | U2 | B, Sign | **Complete handover** | | Refused: "Battery below 50 % on TL-00xx. Charge before use, or acknowledge." (`handover.service.ts:582`, `devices.handoverMinBatteryPct`) **(check by hand: where the screen shows it and the acknowledge control)** | Go back to Devices, set the row to 90, continue at step 7 |
 
 ### Unhappy case: duplicate payment webhook (optional)
@@ -215,7 +215,7 @@ during MF-02; the default 12 sends one every twelfth tick), `GATEWAY_SIM_INTERVA
 | Step | Page | Action | Value typed | Expected screen | Fallback |
 |---|---|---|---|---|---|
 | 1 | T | `npm run dev:gateway` from the repository root | the variables above | Gateway lines: connected to the broker, the serial port open, packets from the physical units as they report **(check by hand: log wording)** | Wrong secret: the broker refuses; recheck the copy. Units silent or port not found: the simulated fallback above, then section 11 step 3 |
-| 2 | Talk | Path: node, LoRa, laptop over USB, SQLite queue (SOS first), MQTT QoS 1, backend ingest with `eventId` dedup | | | |
+| 2 | Talk | Path: node, LoRa, laptop over USB, SQLite queue (SOS first), MQTT QoS 1, backend ingest with `eventId` dedup | | |  None, observe only |
 | 3 | C, `/o/map` | **Live map** | | The physical units (fallback: TL-0009 and TL-0010) with battery and a recent last-seen time | Wait for the next report; then check step 4 |
 | 4 | B, `/t/admin/sync` | Sidebar **Field data sync** | | MQTT subscriber up; Field Stations table: "Bidoup ranger post", Connected, a Last sync; Recent field events for the physical units (fallback: TL-0009 and TL-0010), Attribution "Attributed" | If the station reads "Never reported", the health report waits up to 60 s (`GATEWAY_HEALTH_INTERVAL_MS`); refresh |
 
@@ -224,7 +224,7 @@ during MF-02; the default 12 sends one every twelfth tick), `GATEWAY_SIM_INTERVA
 | Step | Page | Action | Value typed | Expected screen | Fallback |
 |---|---|---|---|---|---|
 | U1 | T | Publish the recorded position fixture twice with the same id: `npm --prefix backend run replay:mqtt -- position --times 2` with `MQTT_BROKER_URL`, `MQTT_USERNAME=node-!de000009`, `MQTT_PASSWORD` from the team's private channel **(check by hand: the fixture's node and the broker's per-node topic rule)** | | | If the broker refuses the login, skip U1 and say so |
-| U2 | B, `/t/admin/sync` | Refresh | | **Duplicates rejected** grows by one; the audit lists "Duplicate rejected" (`SyncStatusPage.tsx:46, 254`) **(check by hand: the fixture time is old, use the audit list)** | |
+| U2 | B, `/t/admin/sync` | Refresh | | **Duplicates rejected** grows by one; the audit lists "Duplicate rejected" (`SyncStatusPage.tsx:46, 254`) **(check by hand: the fixture time is old, use the audit list)** |  Count unchanged: show the newest row of the Sync audit list, **Show** menu Every outcome; if no duplicate row, say so and repeat U1 once |
 
 ---
 
@@ -242,11 +242,11 @@ and holder.
 |---|---|---|---|---|---|
 | 1 | Physical unit | Press the unit's SOS control once (on a v3, hold the user button 3 s, `seed-demo.ts:203`) **(check by hand: the variant of the leader's unit)** | | The gateway log shows the SOS queued first | Disclosed as simulated: `npm --prefix backend run replay:mqtt -- sos --now --new-ids` with `MQTT_USERNAME=node-!de00000a` (TL-0010) |
 | 2 | C, any page | | | Red banner "SOS: TL-0010 (Dang Quoc Viet), hh:mm. Acknowledge now." with **Acknowledge** (`AlertBanner.tsx`) | No banner in 10 s: `/o/incidents`; if the incident is Unrouted, the SOS was inside the margin: go to the unhappy case and say so |
-| 3 | C, `/o/incidents` | Open the new incident (INC-2026-000002) | | Device TL-0010, state Notifying primary, last coordinates | |
-| 4 | C | **Acknowledge** | | Toast "Saved."; Owner Nguyen Thanh Tung, Acknowledged; banner gone | |
-| 5 | C | **Response under way**, What is being done, **Save response** | Ranger team dispatched from the Ta Nang post | State Responding | |
-| 6 | C | **Add status**, a line, save | Team at km 6, voice contact with the hiker | The update with author and time | |
-| 7 | C | **Report outcome**, Outcome, **Resolve incident** | Hiker found, minor ankle injury, walked out | State Resolved; History lists each step | |
+| 3 | C, `/o/incidents` | Open the new incident (INC-2026-000002) | | Device TL-0010, state Notifying primary, last coordinates |  Not in the list: open **Incidents** again from the sidebar; still absent, sign in again as C |
+| 4 | C | **Acknowledge** | | Toast "Saved."; Owner Nguyen Thanh Tung, Acknowledged; banner gone |  "Someone else changed this. Reload to see the latest.": sign in again as C, open the incident, **Acknowledge** again |
+| 5 | C | **Response under way**, What is being done, **Save response** | Ranger team dispatched from the Ta Nang post | State Responding |  Save refused: retype the prepared value; a stale-version message: sign in again as C and repeat the step |
+| 6 | C | **Add status**, a line, save | Team at km 6, voice contact with the hiker | The update with author and time |  Save refused: retype the prepared value; a stale-version message: sign in again as C and repeat the step |
+| 7 | C | **Report outcome**, Outcome, **Resolve incident** | Hiker found, minor ankle injury, walked out | State Resolved; History lists each step |  Save refused: retype the prepared value; a stale-version message: sign in again as C and repeat the step |
 
 ### Unhappy case: SOS without attribution (Unrouted)
 
@@ -258,7 +258,7 @@ custody) stands in: it is the same Unrouted path an early SOS takes until TK-245
 |---|---|---|---|---|---|
 | U1 | B, `/t/incidents` | **Show** menu **Unrouted**; row TL-0001, **Show details** | | Owner "TrekLink Staff queue", state Unrouted | Search "INC-2026-000001" |
 | U2 | B | **Report to authorities**; Agency; Authority reference; Reported at as prefilled; **Record report** | Lam Dong Provincial Police; LD-2026-1121 | Toast "Saved."; "Reported to authority" | A future time is refused: keep the prefilled time |
-| U3 | B | Tab **Authority reports**, **Record case closed** on the row, confirm | | Toast "Saved."; the case reads closed | |
+| U3 | B | Tab **Authority reports**, **Record case closed** on the row, confirm | | Toast "Saved."; the case reads closed |  A Closed at before the report time is refused: keep the prefilled time; row not shown: **Show** menu All reports |
 
 ---
 
@@ -268,12 +268,12 @@ Accounts: C Operator, B Staff, A Manager, T for `curl`. Data before: after MF-03
 
 | Step | Page | Action | Value typed | Expected screen | Fallback |
 |---|---|---|---|---|---|
-| 1 | C, `/o/map` | **Live map** | | Header with device and SOS counts; TL-0009, TL-0010, TL-0017, TL-0018, TL-0019 and the five RC-2026-0004 units ("not heard since handover") | |
+| 1 | C, `/o/map` | **Live map** | | Header with device and SOS counts; TL-0009, TL-0010, TL-0017, TL-0018, TL-0019 and the five RC-2026-0004 units ("not heard since handover") |  Units missing: show the same units on the Staff **Fleet map** (step 4); then sign in again as C |
 | 2 | C | **Search asset tag, holder or contract** | TL-0010 | One row, battery, holder, last seen | Clear the search |
 | 3 | C | Zoom out to 6 or 7, drag left | | "Quần đảo Hoàng Sa (Việt Nam)" and "Quần đảo Trường Sa (Việt Nam)" on their masks (D-031) | Tiles slow: wait; the masks draw without tiles |
-| 4 | B, `/t/map` | **Fleet map**, organization filter ORG-0001 | | Every organization's units, then ORG-0001 only | |
+| 4 | B, `/t/map` | **Fleet map**, organization filter ORG-0001 | | Every organization's units, then ORG-0001 only |  Filter empty: choose All organizations, then ORG-0001 again; or show the Operator's Live map of step 1 |
 | 5 | A, `/o/api-keys` | **Create API key**, Name, create | Bidoup ranger dashboard | The key once with **Copy** and "Copy it now; it will not be shown again."; copy it to T privately | Lost key: revoke it, create another |
-| 6 | T | `curl -s -H "X-Api-Key: <key>" https://54-153-147-237.sslip.io/api/telemetry/devices` | | 200, `{ result, isSuccess, statusCode, message }`, `result.devices` with ORG-0001's units (`org-api.controller.ts:96`) | Show the Live map instead and say the API answered in rehearsal |
+| 6 | T | `curl -s -H "X-Api-Key: <key>" <staging address>/api/telemetry/devices` | | 200, `{ result, isSuccess, statusCode, message }`, `result.devices` with ORG-0001's units (`org-api.controller.ts:96`) | Show the Live map instead and say the API answered in rehearsal |
 
 ### Unhappy case: revoked API key
 
@@ -281,8 +281,8 @@ API keys carry no expiry on `dev` (`ApiKeysPage.tsx` shows Active or Revoked onl
 
 | Step | Page | Action | Value typed | Expected screen | Fallback |
 |---|---|---|---|---|---|
-| U1 | A, `/o/api-keys` | Row "Bidoup ranger dashboard", **Revoke**, confirm | | Toast "API key revoked"; status Revoked | |
-| U2 | T | The `curl` of step 6 again | same key | 401, `isSuccess` false, "Authentication required." (`backend/src/modules/auth/guards/api-key.guard.ts:40-45`) | |
+| U1 | A, `/o/api-keys` | Row "Bidoup ranger dashboard", **Revoke**, confirm | | Toast "API key revoked"; status Revoked |  Row still Active: sign in again as A and **Revoke** it again from **API keys** |
+| U2 | T | The `curl` of step 6 again | same key | 401, `isSuccess` false, "Authentication required." (`backend/src/modules/auth/guards/api-key.guard.ts:40-45`) |  200 returned: check the key is the one copied in step 5 and its row reads Revoked, then repeat the call |
 
 ---
 
@@ -300,10 +300,10 @@ real Staff and Manager action (leader ruling 2026-11-20).
 | 2 | A | **More actions**, **End contract now**; Reason; confirm | The trek season of Suong Ngan Trekking ended early | Dialog "End RC-2026-0002 now?" with Credit and After it; toast "Contract ended. Check the units in at the counter." Status Return due **(check by hand)** | Staff can run the same action from the contract home |
 | 3 | B, `/t/contracts` | **Show** menu All; RC-2026-0002, **Open the contract**, **Record return** | | Counter "Counter: RC-2026-0002", tabs Check-in, Reset and inspection, Close | **More actions**, **Open the counter** |
 | 4 | B, Check-in | **Scan or type an asset tag**, add, check in | TL-0017, then TL-0018 | "Check-in complete. 2 of 2 devices returned." **(check by hand: wording for two)** | Add the tags one at a time |
-| 5 | B, Reset and inspection | **Record reset** on both, tick the steps | | Rows "Reset logged" | |
-| 6 | B | TL-0017: **Inspect**, Passed, **Record inspection** | | TL-0017 Available | |
-| 7 | B | TL-0018: **Inspect**, **Damaged**, tick Casing cracked (CASING_CRACKED), **Record inspection** | | "Damaged, maintenance", "Damage 400,000 VND, on the closing invoice" | |
-| 8 | B, Close | Tab **Close** | | Blocker "... unpaid on the contract's invoices." with **Open the invoices**; no Close action yet | |
+| 5 | B, Reset and inspection | **Record reset** on both, tick the steps | | Rows "Reset logged" |  Reset not recorded: tick every step and **Record reset** again; a sign-in again keeps a recorded reset (it is stored on the contract) |
+| 6 | B | TL-0017: **Inspect**, Passed, **Record inspection** | | TL-0017 Available |  **Inspect** not offered: record the reset of step 5 first, then inspect |
+| 7 | B | TL-0018: **Inspect**, **Damaged**, tick Casing cracked (CASING_CRACKED), **Record inspection** | | "Damaged, maintenance", "Damage 400,000 VND, on the closing invoice" |  Casing cracked not listed: sign in again as B, open the counter with **More actions**, **Open the counter**, inspect again |
+| 8 | B, Close | Tab **Close** | | Blocker "... unpaid on the contract's invoices." with **Open the invoices**; no Close action yet |  No blocker shown: switch to another tab and back (the close check reloads on focus); if **Close contract** is offered, go to step 10 and say nothing was due |
 | 9 | B | **Open the invoices**, the Closing invoice, **Record counter payment**, Method Cash, receipt, **Record** | the prefilled amount; receipt CT-2026-0419 | Toast "Payment of <amount> VND received." (amount = 400,000 VND less any end-now credit) **(check by hand)** | `/t/billing`, filter the contract |
 | 10 | B | Counter tab Close, **Close contract**, confirm | | Toast "RC-2026-0002 closed."; badge Closed | If a blocker remains, read it and resolve it; the close check reloads on focus |
 
