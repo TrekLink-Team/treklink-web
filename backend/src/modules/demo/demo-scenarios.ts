@@ -71,11 +71,11 @@ export const SCENARIOS: readonly Scenario[] = [
     title: 'SOS open on TL-0010',
     flow: 'MF-03',
     summary:
-      'An SOS from TL-0010 (Pham Van F) on RC-2026-0001, ingested as the replay sends it; the incident is routed to the Operator.',
+      'An SOS from TL-0010 (Dang Quoc Viet) on RC-2026-0001, ingested as the replay sends it; the incident is routed to the Operator.',
     available: true,
     unavailableReason: null,
     firstSteps: [
-      'Window C, Operator (treklink.dev+operator@gmail.com): the red banner "SOS: TL-0010 (Pham Van F)", Acknowledge.',
+      'Window C, Operator (treklink.dev+operator@gmail.com): the red banner "SOS: TL-0010 (Dang Quoc Viet)", Acknowledge.',
       'Incidents, the open incident: Response under way, then Add status.',
       'Report outcome, Resolve incident.',
     ],

@@ -92,8 +92,8 @@ const FIELD_STATION_USERNAME = 'fs-org-0001-1';
 const CONTRACT_CODE = 'RC-2026-0001';
 // Chain 4 (D-078): holder label of each rented unit on RC-2026-0001, written when absent.
 const HOLDER_LABELS: readonly (readonly [string, string, string])[] = [
-  ['TL-0009', 'Le Thi E', '0912000009'],
-  ['TL-0010', 'Pham Van F', '0912000010'],
+  ['TL-0009', 'Vo Thi Mai Anh', '0912000009'],
+  ['TL-0010', 'Dang Quoc Viet', '0912000010'],
 ];
 const CONTRACT_VARIANT = 'treklink-v3';
 
