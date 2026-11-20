@@ -1,5 +1,7 @@
 # Demo script, supervisor meeting 2026-11-01 (MF-01 to MF-05)
 
+> Superseded for rehearsals from 2026-11-21 by `docs/demo/2026-11-22-scenario-playbook.md` (D-109).
+
 Prepared 2026-10-30 by KhoaDD under D-078, from `dev` at `cdaecf1`; refreshed on `dev` at `ca7711c`
 (#128 plans page, #135 organization lifecycle, #147 sync status page, #149 DEFAULTED contract seed,
 #150 incidents figures), with every changed step cited again; checked again on `dev` at `c5cd3a2`
