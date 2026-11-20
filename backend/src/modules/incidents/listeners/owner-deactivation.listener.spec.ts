@@ -1,4 +1,4 @@
-import { HttpStatus } from '@nestjs/common';
+import { HttpStatus, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DomainException, ErrorCode } from '../../../common/errors';
 import { TransactionalEvents } from '../../platform/events/emit-after-commit';
@@ -99,5 +99,54 @@ describe('OwnerDeactivationListener (incidents 4.2, REQ-EVT-11)', () => {
 
     await expect(listener.onMemberDeactivated({ userId: 'u-1' })).resolves.toBe(0);
     expect(error).toHaveBeenCalledWith(expect.stringContaining('u-1'));
+  });
+  describe('deactivation failure isolation', () => {
+    afterEach(() => jest.restoreAllMocks());
+
+    it('logs an Error from the initial read without starting a transaction', async () => {
+      const logged = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      incidents.ownedActive.mockRejectedValueOnce(new Error('read unavailable'));
+      await expect(listener.onMemberDeactivated({ userId: 'u-1' })).resolves.toBe(0);
+      expect(logged).toHaveBeenCalledWith(
+        'Owned incidents of u-1 could not be read: read unavailable',
+      );
+      expect(lifecycle.apply).not.toHaveBeenCalled();
+      expect(routing.recipientsOf).not.toHaveBeenCalled();
+    });
+
+    it('logs a non-Error rejection and still reroutes the next incident', async () => {
+      const logged = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      incidents.ownedActive.mockResolvedValue([
+        { id: 'first', state: 'ACKNOWLEDGED', organizationId: 'org-a' },
+        { id: 'second', state: 'RESPONDING', organizationId: 'org-b' },
+      ]);
+      lifecycle.apply.mockRejectedValueOnce('roster unavailable');
+      await expect(listener.onMemberDeactivated({ userId: 'u-1' })).resolves.toBe(1);
+      expect(logged).toHaveBeenCalledWith(
+        'OWNER_DEACTIVATED on incident first failed: roster unavailable',
+      );
+      expect(lifecycle.apply).toHaveBeenLastCalledWith(
+        'second',
+        'RESPONDING',
+        'NOTIFY_BACKUP',
+        { kind: 'SYSTEM' },
+        expect.objectContaining({ code: 'OWNER_DEACTIVATED', recipients: RECIPIENTS }),
+        tx,
+      );
+    });
+
+    it('silently skips a stale version while continuing the batch', async () => {
+      const logged = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      incidents.ownedActive.mockResolvedValue([
+        { id: 'first', state: 'ACKNOWLEDGED', organizationId: 'org-a' },
+        { id: 'second', state: 'RESPONDING', organizationId: 'org-a' },
+      ]);
+      lifecycle.apply.mockRejectedValueOnce(
+        new DomainException(HttpStatus.CONFLICT, ErrorCode.STALE_VERSION, 'raced'),
+      );
+      await expect(listener.onMemberDeactivated({ userId: 'u-1' })).resolves.toBe(1);
+      expect(logged).not.toHaveBeenCalled();
+      expect(lifecycle.apply).toHaveBeenCalledTimes(2);
+    });
   });
 });

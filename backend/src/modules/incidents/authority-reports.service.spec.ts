@@ -409,4 +409,38 @@ describe('AuthorityReportsService (incidents task 4.3, api-design 08, 09 and 11)
       expect(reports.page).not.toHaveBeenCalled();
     });
   });
+  describe('authority report persistence failures', () => {
+    it('does not publish a report audit when its insert fails', async () => {
+      const failure = new Error('report insert failed');
+      reports.insert.mockRejectedValueOnce(failure);
+      await expect(
+        service.reportIncident(
+          'inc-1',
+          {
+            agency: 'Rescue authority',
+            reference: 'ref-1',
+            reportedAt: REPORTED_AT,
+            expectedVersion: 5,
+          },
+          STAFF,
+        ),
+      ).rejects.toBe(failure);
+      expect(reports.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ incidentId: 'inc-1' }),
+        tx,
+      );
+      expect(events.emitAfterCommit).not.toHaveBeenCalled();
+    });
+
+    it('does not close the incident or audit when the report closure fails', async () => {
+      incidents.lockById.mockResolvedValue(incident('REPORTED'));
+      const failure = new Error('report close failed');
+      reports.closeCase.mockRejectedValueOnce(failure);
+      await expect(service.closeCase('ar-1', { closedAt: CLOSED_AT }, STAFF)).rejects.toBe(failure);
+      expect(incidents.lockById).not.toHaveBeenCalled();
+      expect(reports.countOpenOnIncident).not.toHaveBeenCalled();
+      expect(lifecycle.apply).not.toHaveBeenCalled();
+      expect(events.emitAfterCommit).not.toHaveBeenCalled();
+    });
+  });
 });

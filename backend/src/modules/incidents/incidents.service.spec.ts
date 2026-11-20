@@ -541,6 +541,28 @@ describe('IncidentsService task 4.1', () => {
       expect(repository.findStatusUpdateForCorrection).not.toHaveBeenCalled();
     });
   });
+  describe('status update persistence failures', () => {
+    it('does not reset the deadline or publish when the status insert fails', async () => {
+      current = row('RESPONDING');
+      const failure = new Error('status insert failed');
+      repository.insertStatusUpdate.mockRejectedValueOnce(failure);
+      await expect(
+        service.addStatus('incident', { note: 'Reached the ridge' }, OPERATOR),
+      ).rejects.toBe(failure);
+      expect(repository.resetStatusDue).not.toHaveBeenCalled();
+      expect(events.emitAfterCommit).not.toHaveBeenCalled();
+    });
+
+    it('does not publish success when the stale deadline cannot be reset', async () => {
+      current = row('ACKNOWLEDGED');
+      const failure = new Error('deadline write failed');
+      repository.resetStatusDue.mockRejectedValueOnce(failure);
+      await expect(
+        service.addStatus('incident', { note: 'Team dispatched' }, OPERATOR),
+      ).rejects.toBe(failure);
+      expect(events.emitAfterCommit).not.toHaveBeenCalled();
+    });
+  });
 });
 
 describe('IncidentsService.markDeviceStale (task 4.4, REQ-EVT-12)', () => {

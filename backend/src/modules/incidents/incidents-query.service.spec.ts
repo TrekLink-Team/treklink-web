@@ -7,7 +7,7 @@ import { DevicesService } from '../devices';
 import { OrganizationsService } from '../organizations';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { ContractsService } from '../rentals';
-import { IncidentsQueryService } from './incidents-query.service';
+import { IncidentsQueryService } from './index';
 import { IncidentsRepository } from './incidents.repository';
 
 const MEMBER: Caller = { id: 'u-1', roles: ['ORG_OPERATOR'], organizationId: 'org-a' };
@@ -587,4 +587,38 @@ describe('IncidentsQueryService (incidents 5.1, api-design 01 and 02)', () => {
       expect(repository.findById).not.toHaveBeenCalled();
     },
   );
+  describe('missing directory labels', () => {
+    it('retains a status author id when the account name is unavailable', async () => {
+      organizations.memberNames.mockResolvedValue(new Map());
+      const detail = await service.detail('inc-1', MEMBER, readOwn(MEMBER));
+      expect(detail.statusUpdates[0].author).toEqual({ id: 'u-1', fullName: null });
+      expect(detail.owner).toEqual({ id: 'u-1', fullName: null });
+    });
+
+    it('keeps a device with an unknown tag and an owner absent from the directory', async () => {
+      organizations.memberNames.mockResolvedValue(new Map());
+      contracts.holderLabels.mockResolvedValue(new Map());
+      const [view] = await service.views([{ ...ROW, deviceId: 'unlabelled' }]);
+      expect(view.device).toEqual({ id: 'unlabelled', assetTag: null, holder: null, group: null });
+      expect(view.owner).toEqual({ id: 'u-1', fullName: null });
+    });
+  });
+
+  describe('demo escalation choices', () => {
+    it('returns the repository versions unchanged for optimistic concurrency', async () => {
+      const choices = [{ id: 'i-demo', code: 'INC-demo', state: 'NOTIFY_MANAGER', version: 8 }];
+      const demoOptions = jest.fn().mockResolvedValue(choices);
+      const query = new IncidentsQueryService(
+        { demoOptions } as unknown as IncidentsRepository,
+        {} as DevicesService,
+        {} as ContractsService,
+        {} as OrganizationsService,
+        {} as ConfigService<ValidatedEnvironment, true>,
+        episodeEvents,
+        groups as never,
+      );
+      await expect(query.demoOptions()).resolves.toBe(choices);
+      expect(demoOptions).toHaveBeenCalledTimes(1);
+    });
+  });
 });

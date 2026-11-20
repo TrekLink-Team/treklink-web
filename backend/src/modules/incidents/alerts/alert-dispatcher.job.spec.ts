@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AlertChannel, AlertKind, Prisma } from '@prisma/client';
 import { AccountsService } from '../../auth';
@@ -587,6 +588,46 @@ describe('AlertDispatcherJob (incidents 2.1)', () => {
       await waitFor(() => logged.mock.calls.length === 1);
       expect(String((logged.mock.calls[0] as unknown[])[0])).toContain('database down');
       await expect(job.deliverAlerts()).resolves.toBe(0);
+    });
+  });
+  describe('defensive alert fallbacks', () => {
+    it('uses the creation time for a STALE row without its reading time', async () => {
+      alerts.claimDue.mockResolvedValueOnce([due({ kind: AlertKind.STALE, lastSeenAt: null })]);
+      await expect(job.deliverAlerts()).resolves.toBe(1);
+      expect(emitter.emit).toHaveBeenCalledWith(INCIDENT_ALERT, {
+        recipientId: 'u-p',
+        alert: expect.objectContaining({
+          kind: 'STALE',
+          at: CREATED.toISOString(),
+          message: 'Device silent: TL-0042 (Le Thi E), last heard 10:15.',
+        }) as unknown,
+      });
+      expect(alerts.markSent).toHaveBeenCalledWith(['a-1'], expect.any(Date), tx);
+    });
+
+    it('logs primitive wake failures and permits the next live delivery', async () => {
+      const logged = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      const live = jest.spyOn(job, 'deliverAlerts').mockRejectedValueOnce('live unavailable');
+      const email = jest
+        .spyOn(job, 'deliverEmailAlerts')
+        .mockRejectedValueOnce('email unavailable');
+      try {
+        job.wake();
+        await waitFor(() => logged.mock.calls.length === 2);
+        expect(logged).toHaveBeenCalledWith(
+          'Woken WEB and WEBSOCKET delivery failed, the cron retries it: live unavailable',
+        );
+        expect(logged).toHaveBeenCalledWith(
+          'Woken EMAIL delivery failed, the cron retries it: email unavailable',
+        );
+        alerts.claimDue.mockResolvedValueOnce([due()]);
+        await expect(job.deliverAlerts()).resolves.toBe(1);
+        expect(emitter.emit).toHaveBeenCalledTimes(1);
+      } finally {
+        live.mockRestore();
+        email.mockRestore();
+        logged.mockRestore();
+      }
     });
   });
 });
