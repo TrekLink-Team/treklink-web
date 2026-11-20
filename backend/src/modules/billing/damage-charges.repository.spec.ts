@@ -109,3 +109,25 @@ describe('DamageChargesRepository (billing task 2.5, D-081)', () => {
     expect($transaction).toHaveBeenCalledWith(['rows', 'total']);
   });
 });
+
+describe('Damage repository default client coverage', () => {
+  it('uses the injected client for pending reads and empty or populated contract counts', async () => {
+    const findMany = jest.fn().mockResolvedValue([{ id: 'dc-1' }]);
+    const count = jest.fn().mockResolvedValue(2);
+    const repository = new DamageChargesRepository({
+      damageCharge: { findMany, count },
+    } as unknown as PrismaService);
+    await expect(repository.pendingOfContract('c-1')).resolves.toEqual([{ id: 'dc-1' }]);
+    expect(findMany).toHaveBeenCalledWith({
+      where: { contractId: 'c-1', status: DamageChargeStatus.PENDING_APPROVAL },
+      orderBy: { createdAt: 'asc' },
+      select: DAMAGE_CHARGE_SELECT,
+    });
+    await expect(repository.countPendingOfContracts([])).resolves.toBe(0);
+    expect(count).not.toHaveBeenCalled();
+    await expect(repository.countPendingOfContracts(['c-1'])).resolves.toBe(2);
+    expect(count).toHaveBeenCalledWith({
+      where: { contractId: { in: ['c-1'] }, status: DamageChargeStatus.PENDING_APPROVAL },
+    });
+  });
+});

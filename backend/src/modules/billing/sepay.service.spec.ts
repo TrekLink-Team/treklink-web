@@ -465,6 +465,57 @@ describe('SePay sandbox (billing task 3.2)', () => {
     });
   });
 
+  describe('SePay request collision and verification coverage', () => {
+    const collision = () =>
+      new Prisma.PrismaClientKnownRequestError('reference collision', {
+        code: 'P2002',
+        clientVersion: 'test',
+      });
+    it('retries a reference collision and succeeds on the next insert', async () => {
+      payments.insertSepayPayment.mockRejectedValueOnce(collision());
+      await expect(service.request('inv-1', undefined, MANAGER, AT)).resolves.toMatchObject({
+        id: 'p-1',
+      });
+      expect(payments.insertSepayPayment).toHaveBeenCalledTimes(2);
+      expect(payments.lockInvoiceRequests).toHaveBeenCalledTimes(2);
+    });
+    it('stops after five reference collisions and propagates other database errors', async () => {
+      const error = collision();
+      payments.insertSepayPayment.mockRejectedValue(error);
+      await expect(service.request('inv-1', undefined, MANAGER, AT)).rejects.toBe(error);
+      expect(payments.insertSepayPayment).toHaveBeenCalledTimes(5);
+      const unavailable = new Error('database unavailable');
+      payments.insertSepayPayment.mockRejectedValue(unavailable);
+      await expect(service.request('inv-1', undefined, MANAGER, AT)).rejects.toBe(unavailable);
+      expect(payments.insertSepayPayment).toHaveBeenCalledTimes(6);
+    });
+    it('rejects a wrong key with the expected byte length and accepts a mixed-case prefix', () => {
+      expect(() => service.assertWebhookKey('Apikey sandbox-key-999')).toThrow();
+      expect(() => service.assertWebhookKey(`aPiKeY ${KEY}`)).not.toThrow();
+      expect(payments.gatewayTxnExists).not.toHaveBeenCalled();
+    });
+    it('permits staff to request a payment and refuses a missing invoice', async () => {
+      await expect(
+        service.request(
+          'inv-1',
+          undefined,
+          { id: 's-1', roles: ['STAFF'], organizationId: null },
+          AT,
+        ),
+      ).resolves.toMatchObject({ id: 'p-1' });
+      invoices.lockWithLines.mockResolvedValueOnce(null);
+      await expect(service.request('missing', undefined, MANAGER, AT)).rejects.toMatchObject({
+        errorCode: ErrorCode.NOT_FOUND,
+      });
+      expect(payments.insertSepayPayment).toHaveBeenCalledTimes(1);
+    });
+    it('does not log expiry work when no pending requests have expired', async () => {
+      payments.expireDue.mockResolvedValueOnce(0);
+      await expect(service.expirePayments(AT)).resolves.toBe(0);
+      expect(payments.expireDue).toHaveBeenCalledWith(AT);
+    });
+  });
+
   it('expires PENDING requests past their expiry (MSG25)', async () => {
     await expect(service.expirePayments(AT)).resolves.toBe(2);
     expect(payments.expireDue).toHaveBeenCalledWith(AT);

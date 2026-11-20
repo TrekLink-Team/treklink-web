@@ -173,3 +173,31 @@ describe('InvoicesService (billing task 2.2)', () => {
     }
   });
 });
+
+describe('Invoice deposit deadline and first invoice coverage', () => {
+  it.each([null, TERM.startsAt, new Date(TERM.startsAt.getTime() + 1)])(
+    'keeps the term start for deposit deadline %s',
+    async (depositDueBy) => {
+      const insert = jest.fn().mockResolvedValue({ id: 'i-1' });
+      const service = new InvoicesService({ insert } as unknown as InvoicesRepository);
+      await service.issueTermInvoice({ ...MONTHLY, depositDueBy }, TERM, TX, AT);
+      expect(insert).toHaveBeenCalledWith(
+        expect.anything(),
+        [
+          expect.objectContaining({ dueAt: TERM.startsAt }),
+          expect.objectContaining({ dueAt: TERM.endsAt }),
+        ],
+        TX,
+      );
+    },
+  );
+  it('returns the first chargeable invoice without changing it', async () => {
+    const row = { id: 'i-1', lines: [] };
+    const firstChargeableInvoice = jest.fn().mockResolvedValue(row);
+    const service = new InvoicesService({
+      firstChargeableInvoice,
+    } as unknown as InvoicesRepository);
+    await expect(service.firstChargeableInvoice('c-1')).resolves.toBe(row);
+    expect(firstChargeableInvoice).toHaveBeenCalledWith('c-1');
+  });
+});

@@ -390,3 +390,119 @@ describe('InvoicesRepository (billing task 1.1)', () => {
     );
   });
 });
+
+describe('Invoice refund and lifecycle persistence coverage', () => {
+  const invoice = {
+    findMany: jest.fn(),
+    count: jest.fn(),
+    findUnique: jest.fn(),
+    findFirst: jest.fn(),
+    aggregate: jest.fn(),
+    update: jest.fn(),
+    create: jest.fn(),
+  };
+  const db = { invoice, $executeRaw: jest.fn() };
+  const tx = db as unknown as Prisma.TransactionClient;
+  const repository = new InvoicesRepository(db as unknown as PrismaService);
+  beforeEach(() => {
+    jest.resetAllMocks();
+    invoice.findMany.mockResolvedValue([ROW]);
+    invoice.count.mockResolvedValue(1);
+    invoice.update.mockResolvedValue({ ...ROW, status: 'REFUNDED' });
+    invoice.findUnique.mockResolvedValue({ ...ROW, lines: [] });
+  });
+  it('records all refund fields on the locked invoice', async () => {
+    const refund = { amountVnd: 80n, at: AT, byId: 's-1', note: 'Bank R-42' };
+    await expect(repository.markRefunded('inv-1', refund, tx)).resolves.toMatchObject({
+      status: 'REFUNDED',
+    });
+    expect(invoice.update).toHaveBeenCalledWith({
+      where: { id: 'inv-1' },
+      data: {
+        status: 'REFUNDED',
+        refundedVnd: 80n,
+        refundedAt: AT,
+        refundedById: 's-1',
+        refundNote: 'Bank R-42',
+      },
+      select: INVOICE_SELECT,
+    });
+  });
+  it.each([null, 80n])(
+    'sums recorded refunds and defaults an empty sum to zero: %s',
+    async (refundedVnd) => {
+      invoice.aggregate.mockResolvedValue({ _sum: { refundedVnd } });
+      await expect(repository.refundedOfContract('c-1')).resolves.toBe(refundedVnd ?? 0n);
+      expect(invoice.aggregate).toHaveBeenCalledWith({
+        where: { contractId: 'c-1', refundedVnd: { not: null } },
+        _sum: { refundedVnd: true },
+      });
+      await repository.refundedOfContract('c-1', tx);
+    },
+  );
+  it.each(['issuedAt', 'number', 'status', 'totalVnd', 'paidVnd'] as const)(
+    'sorts the page by %s with a stable id tie-breaker',
+    async (field) => {
+      await expect(repository.page({}, 2, 3, undefined, { field, order: 'asc' })).resolves.toEqual([
+        [ROW],
+        1,
+      ]);
+      expect(invoice.findMany).toHaveBeenCalledWith({
+        where: {},
+        skip: 2,
+        take: 3,
+        orderBy: [{ [field]: 'asc' }, { id: 'asc' }],
+        select: INVOICE_SELECT,
+      });
+      expect(invoice.count).toHaveBeenCalledWith({ where: {} });
+    },
+  );
+  it('reads invoice detail and scopes organization lookup, including missing invoices', async () => {
+    await expect(repository.detail('inv-1')).resolves.toMatchObject({ id: 'inv-1', lines: [] });
+    expect(invoice.findUnique).toHaveBeenCalledWith({
+      where: { id: 'inv-1' },
+      select: {
+        ...INVOICE_SELECT,
+        lines: {
+          select: {
+            seq: true,
+            type: true,
+            description: true,
+            quantity: true,
+            unitVnd: true,
+            amountVnd: true,
+            dueAt: true,
+            paidVnd: true,
+          },
+          orderBy: { seq: 'asc' },
+        },
+      },
+    });
+    invoice.findFirst
+      .mockResolvedValueOnce({ organizationId: 'org-1' })
+      .mockResolvedValueOnce(null);
+    await expect(repository.organizationOfContract('c-1')).resolves.toBe('org-1');
+    await expect(repository.organizationOfContract('missing', tx)).resolves.toBeNull();
+    expect(invoice.findFirst).toHaveBeenCalledWith({
+      where: { contractId: 'c-1' },
+      select: { organizationId: true },
+    });
+  });
+  it('rejects invoice numbering after the last six-digit number without inserting', async () => {
+    invoice.findFirst.mockResolvedValue({ number: 'INV-2026-999999' });
+    await expect(
+      repository.insert(
+        {
+          organizationId: 'org-1',
+          contractId: 'c-1',
+          termId: null,
+          kind: InvoiceKind.CLOSING,
+          issuedAt: AT,
+        },
+        [LINE],
+        tx,
+      ),
+    ).rejects.toThrow('Invoice number range exhausted for 2026.');
+    expect(invoice.create).not.toHaveBeenCalled();
+  });
+});

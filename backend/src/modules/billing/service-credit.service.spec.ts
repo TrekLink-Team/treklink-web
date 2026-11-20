@@ -108,10 +108,13 @@ const build = (
     refundReferenceUsed: jest.fn().mockResolvedValue(null),
     approvedWithRemainder: jest.fn().mockResolvedValue([]),
     requestedOfContract: jest.fn().mockResolvedValue([]),
+    insertRelease: jest.fn((data: object) => Promise.resolve(credit({ ...data, kind: 'RELEASE' }))),
+    page: jest.fn().mockResolvedValue([[], 0]),
   };
   const invoices = { lockClosingInvoice: jest.fn().mockResolvedValue(null) };
   const ledger = { land: jest.fn((cid: string, invoice: object) => Promise.resolve(invoice)) };
   const devices = {
+    assetTags: jest.fn().mockResolvedValue(new Map()),
     inspectionFor: jest.fn().mockResolvedValue(
       options.inspection === undefined
         ? {
@@ -457,5 +460,149 @@ describe('ServiceCreditService.onContractClosed (REQ-EVT-15)', () => {
       { status: ServiceCreditStatus.REFUND_DUE },
       TX,
     );
+  });
+});
+
+describe('Service credit release, list and refund lifecycle coverage', () => {
+  const release = {
+    contract: {
+      id: 'c-1',
+      organizationId: 'org-1',
+      planType: 'MONTHLY' as const,
+      monthlyUnitPriceVnd: 450_000n,
+    },
+    term: { startsAt: TERM_START, endsAt: day(30) },
+    contractDeviceId: 'cd-1',
+    deviceId: 'dev-1',
+    unitReleaseId: 'r-1',
+  };
+  it('records a released unit credit and audits the computed unused days', async () => {
+    const { service, credits, events } = build();
+    const result = await service.requestReleaseCredit(release, STAFF, day(10), TX);
+    expect(result.quote).toEqual({
+      termDays: 30,
+      usedDays: 10,
+      unusedDays: 20,
+      creditVnd: 300_000n,
+    });
+    expect(result.credit).toMatchObject({ kind: 'RELEASE', computedVnd: 300_000n });
+    expect(credits.insertRelease).toHaveBeenCalledWith(
+      {
+        contractId: 'c-1',
+        organizationId: 'org-1',
+        contractDeviceId: 'cd-1',
+        deviceId: 'dev-1',
+        unitReleaseId: 'r-1',
+        computedVnd: 300_000n,
+        requestedById: 'staff-1',
+      },
+      TX,
+    );
+    expect(events.emitAfterCommit).toHaveBeenCalledWith(
+      AUDIT_RECORD,
+      expect.objectContaining({
+        action: 'serviceCredit.requested',
+        after: {
+          status: 'REQUESTED',
+          kind: 'RELEASE',
+          computedVnd: '300000',
+          unusedDays: 20,
+          termDays: 30,
+        },
+      }),
+    );
+  });
+  it.each(['day', 'missing term', 'last day'])(
+    'records no release credit for %s',
+    async (scenario) => {
+      const { service, credits } = build();
+      const input =
+        scenario === 'day'
+          ? { ...release, contract: { ...release.contract, planType: 'DAY' as const } }
+          : scenario === 'missing term'
+            ? { ...release, term: null }
+            : release;
+      const result = await service.requestReleaseCredit(
+        input,
+        STAFF,
+        scenario === 'last day' ? day(30) : day(10),
+        TX,
+      );
+      expect(result.credit).toBeNull();
+      expect(credits.insertRelease).not.toHaveBeenCalled();
+    },
+  );
+  it('returns requested close blockers and marks approved remainders refund due', async () => {
+    const { service, credits } = build();
+    credits.requestedOfContract.mockResolvedValue([{ id: 'pending' }]);
+    await expect(service.requestedOf('c-1', TX)).resolves.toEqual([{ id: 'pending' }]);
+    expect(credits.requestedOfContract).toHaveBeenCalledWith('c-1', TX);
+    credits.approvedWithRemainder.mockResolvedValue([
+      credit({ id: 'sc-1' }),
+      credit({ id: 'sc-2' }),
+    ]);
+    await expect(service.onContractClosed('c-1', TX)).resolves.toBe(2);
+    expect(credits.update).toHaveBeenNthCalledWith(1, 'sc-1', { status: 'REFUND_DUE' }, TX);
+    expect(credits.update).toHaveBeenNthCalledWith(2, 'sc-2', { status: 'REFUND_DUE' }, TX);
+    credits.approvedWithRemainder.mockResolvedValue([]);
+    await expect(service.onContractClosed('c-1', TX)).resolves.toBe(0);
+  });
+  it.each(['decide', 'refund'] as const)(
+    'rejects a missing credit during %s without writing',
+    async (operation) => {
+      const { service, credits } = build({ row: null });
+      const result =
+        operation === 'decide'
+          ? service.decide('missing', { decision: 'APPROVE', expectedVersion: 1 }, ADMIN, day(14))
+          : service.recordRefund('missing', 'R-1', STAFF, day(14));
+      await expect(result).rejects.toMatchObject({ errorCode: ErrorCode.NOT_FOUND });
+      expect(credits.update).not.toHaveBeenCalled();
+    },
+  );
+  it('labels credit pages with asset tags and release notes, preserving missing labels', async () => {
+    const { service, credits, devices, basis } = build();
+    const rows = [
+      credit(),
+      credit({ id: 'sc-2', kind: 'RELEASE', unitReleaseId: 'r-1' }),
+      credit({ id: 'sc-3', deviceId: 'missing', kind: 'RELEASE', unitReleaseId: 'r-2' }),
+    ];
+    credits.page.mockResolvedValue([rows, 3]);
+    devices.assetTags.mockResolvedValue(new Map([['dev-1', 'TL-1']]));
+    const note = { reason: 'Released', releasedAt: day(10) };
+    basis.releaseNotes.mockResolvedValue(new Map([['r-1', note]]));
+    const result = await service.list({ organizationId: 'org-1' }, { pageNumber: 2, pageSize: 2 });
+    expect(credits.page).toHaveBeenCalledWith({ organizationId: 'org-1' }, 2, 2);
+    expect(devices.assetTags).toHaveBeenCalledWith(['dev-1', 'missing']);
+    expect(basis.releaseNotes).toHaveBeenCalledWith(['r-1', 'r-2']);
+    expect(result.items).toEqual([
+      { ...rows[0], assetTag: 'TL-1', release: null },
+      { ...rows[1], assetTag: 'TL-1', release: note },
+      { ...rows[2], assetTag: null, release: null },
+    ]);
+  });
+  it('does not query release notes for an empty credit page', async () => {
+    const { service, basis } = build();
+    await expect(service.list({}, {})).resolves.toMatchObject({ items: [], totalCount: 0 });
+    expect(basis.releaseNotes).not.toHaveBeenCalled();
+  });
+  it('rejects an outage without its required start before looking up the device', async () => {
+    const { service, credits } = build();
+    await expect(
+      service.request('c-1', { ...REQUEST, outageFrom: undefined }, STAFF, day(14)),
+    ).rejects.toMatchObject({ errorCode: ErrorCode.VALIDATION_FAILED });
+    expect(credits.insert).not.toHaveBeenCalled();
+  });
+  it('rejects a future start supplied by the source fault report', async () => {
+    const { service, basis, credits } = build();
+    basis.faultReportSource.mockResolvedValue({ reportedAt: day(15) });
+    await expect(
+      service.request(
+        'c-1',
+        { ...REQUEST, outageFrom: undefined, outageSourceFaultReportId: 'f-1' },
+        STAFF,
+        day(14),
+      ),
+    ).rejects.toMatchObject({ errorCode: ErrorCode.VALIDATION_FAILED });
+    expect(credits.insert).not.toHaveBeenCalled();
   });
 });
