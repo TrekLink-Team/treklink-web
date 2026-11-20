@@ -22,8 +22,8 @@ Passwords, the MQTT node password, Field Station secrets and API keys are never 
 |---|---|
 | Environment | AWS staging, `https://54-153-147-237.sslip.io` (API `https://54-153-147-237.sslip.io/api`, demo sign-in `/demo`). Source: `deploy/system-endpoints.json` on `main` (D-104) and `Documents/guides/docs/developer-guide.md` in `capstone` |
 | MQTT broker | `mqtts://54-153-147-237.sslip.io:8883` (same guide; `deploy/aws/RUNBOOK.md` §7) |
-| What the host runs | `NODE_ENV=production`, the simulator off, Demo control off (`DEMO_CONTROLS_ENABLED=false`, `deploy/aws/.env.aws.example:14-16`). So `/t/admin/demo` and its quick scenarios are absent, and `demo:term-end` refuses to run there (`backend/prisma/demo-term-end.ts:10`). Every step below uses the real screens. Mail is SMTP (`MAIL_TRANSPORT=smtp`, `.env.aws.example:73`): every `treklink.dev+...@gmail.com` address lands in the team inbox `treklink.dev@gmail.com` |
-| Database state | Wiped and reseeded on Sat 2026-11-21 (`prisma migrate deploy`, then `seed:demo`). Before each flow: the fresh seed (section 2) plus what the earlier flows of the same rehearsal left (section 3) |
+| What the host runs | `NODE_ENV=production`, the simulator off, Demo control off (`DEMO_CONTROLS_ENABLED=false`, `deploy/aws/.env.aws.example:14-16`). So `/t/admin/demo` and its quick scenarios are absent. Every step below uses the real screens. Mail is SMTP (`MAIL_TRANSPORT=smtp`, `.env.aws.example:73`): every `treklink.dev+...@gmail.com` address lands in the team inbox `treklink.dev@gmail.com` |
+| Database state | Wiped and reseeded on Sat 2026-11-21, and again before each later rehearsal (section 11). Before each flow: the fresh seed (section 2) plus what the earlier flows of the same rehearsal left (section 3) |
 | Browser | One browser profile per window (a private window shares nothing with a normal one). The session is held in memory: a reload or a typed URL signs the window out (`frontend/src/entities/session/model.ts`, 2026-11-01 script §1.4). Move with the sidebar and the links |
 
 Run order, always the same, because each flow uses what the earlier one left:
@@ -39,9 +39,8 @@ Run order, always the same, because each flow uses what the earlier one left:
 **SOS timing rule (D-111, as stated by the leader for this task).** Send no SOS until at least 5 minutes
 after the MF-01c handover. An SOS inside the 300 s attribution margin of a handover
 (`gatewaySync.attributionMarginSeconds`, `backend/prisma/migrations/20261004120100_seed/migration.sql`) is
-stored Unattributed and its incident stays Unrouted until the routing fix TK-245 lands after the RC. The
-D-111 entry in `treklink-docs` was not available to this session; the rule above is the one given with the
-task.
+stored Unattributed and its incident stays Unrouted until the routing fix TK-245 lands after the RC. No
+rehearsal sends a live SOS inside the margin (leader ruling 2026-11-20).
 
 ## 2. Accounts and seed data (fresh seed)
 
@@ -64,17 +63,15 @@ Seed records used below (`seed-demo.ts`):
 |---|---|---|
 | ORG-0001, Suong Ngan Trekking Co., Ltd., 42 Le Hong Phong, Da Lat, Lam Dong, tax code 0000000001 | Active; Manager and Operator are members; roster: Operator primary, Manager backup (`:151-155, 444`) | all |
 | treklink-v3, "TrekLink v3 (GPS, SOS button)", 450,000 VND a month | 10 units Available: TL-0003 to TL-0006, TL-0011 to TL-0016 (`:186-197, 256-275`) | MF-01b, MF-01c |
-| RC-2026-0001, monthly | Active, TL-0009 (node `!de000009`, holder Le Thi E) and TL-0010 (`!de00000a`, holder Pham Van F) Rented, handed over when the seed ran | MF-02, MF-03, MF-04 |
+| RC-2026-0001, monthly | Active, TL-0009 (node `!de000009`, holder Vo Thi Mai Anh) and TL-0010 (`!de00000a`, holder Dang Quoc Viet) Rented, handed over when the seed ran | MF-02, MF-03, MF-04 |
 | RC-2026-0002, monthly | Active, TL-0017 (holder Hoang Thi Mai) and TL-0018 (holder Vu Van Nam) Rented, first invoice paid | MF-05 |
 | RC-2026-0003, monthly | Defaulted, TL-0019 Rented, term balance unpaid | MF-03 unhappy (optional) |
 | INC-2026-000001 | Unrouted incident on TL-0001, a unit in no custody | MF-03 unhappy |
 | Field Station `fs-org-0001-1`, "Ta Nang basecamp laptop" | Active, never reported. Its secret is not known to anyone (the seed stores a hash), so MF-02 uses the station created in MF-01c | MF-01c |
 | Damage rates | ANTENNA_BROKEN 300,000 VND, CASING_CRACKED 400,000 VND (`:248-251`) | MF-05 |
 
-QUESTION FOR THE LEADER: the holder labels of RC-2026-0001 are "Le Thi E" and "Pham Van F"
-(`seed-demo.ts:94-97`). They read as placeholders, which D-109 and Mr. Duc's clean-data rule forbid, and
-MF-03 shows "Pham Van F" in the SOS banner. Changing them is a seed change (code), outside this documentation
-task. Until a ruling, the playbook uses them as they are.
+The holder labels of TL-0009 and TL-0010 come from treklink-web PR 530 and are in the seed from the
+2026-11-21 reseed on.
 
 ## 3. What each flow leaves behind
 
@@ -88,8 +85,9 @@ task. Until a ruling, the playbook uses them as they are.
 | MF-04 | API key "Bidoup ranger dashboard" of ORG-0001, Revoked | |
 | MF-05 | RC-2026-0002 Closed; TL-0017 Available; TL-0018 in maintenance; closing invoice paid | end of the run |
 
-A second rehearsal on the same data moves every new code by one (ORG-0003, RC-2026-0006 and on), refuses
-the MF-01a registration (same tax code), and has only 5 v3 units left. Run section 11 between rehearsals.
+Every rehearsal starts on a reseeded staging database (section 11), so the codes above hold for each run.
+Without the reseed every new code moves by one (ORG-0003, RC-2026-0006 and on), the MF-01a registration is
+refused (same tax code), and only 5 v3 units are left.
 
 ---
 
@@ -195,25 +193,31 @@ Fallback: record the deposit at the counter (step 5).
 
 Accounts: T (KhoaDD), C Operator, B Staff. Data before: after MF-01c; credential `fs-org-0001-2`.
 
-The seeded units carry placeholder node ids (`seed-demo.ts:252-256`), so a physical node is not on any
-contract after the reseed. The bridge therefore runs in simulation mode for TL-0009 and TL-0010, which is
-the gateway's documented demo mode (`gateway/src/config.ts:140-170`) and must be said aloud as simulated.
-QUESTION FOR THE LEADER: if the device demo must use physical units (D-093), which units, and who registers
-their real node ids on staging after the reseed? This playbook follows the seed.
+The device flows MF-02 and MF-03 run on the leader's physical units (leader ruling 2026-11-20). The seeded
+units carry placeholder node ids (`seed-demo.ts:252-256`), which stay as the fallback.
+
+**Before the run (after every reseed).** The leader registers the real node ids of the physical units on
+staging and posts, in the team's private channel, the asset tag and contract of each unit. Write them in
+the Notes of the rehearsal log. Where a step below names TL-0009 or TL-0010, use the physical unit the
+leader names in its place; the expected screens then show that unit's asset tag and holder.
 
 Gateway environment on the laptop (names only; values from MF-01c step 9): `MQTT_BROKER_URL` = the Broker
-URL shown, `GATEWAY_FS_USERNAME=fs-org-0001-2`, `GATEWAY_FS_SECRET`, `GATEWAY_SERIAL_SIMULATION=true`,
-`GATEWAY_SIM_NODES=!de000009,!de00000a`, `GATEWAY_SIM_SOS_EVERY=0` (no SOS during MF-02; the default 12
-sends one every twelfth tick), `GATEWAY_SIM_INTERVAL_MS=30000`.
+URL shown, `GATEWAY_FS_USERNAME=fs-org-0001-2`, `GATEWAY_FS_SECRET`, `GATEWAY_SERIAL_SIMULATION=false`,
+`GATEWAY_SERIAL_PORT` = the USB port of the node attached to the laptop (`gateway/src/config.ts:137-144`).
+
+**Fallback, disclosed as simulated.** If the physical units cannot report, restart the gateway in its demo
+mode for the seed nodes (`gateway/src/config.ts:140-170`) and say aloud that the data is simulated:
+`GATEWAY_SERIAL_SIMULATION=true`, `GATEWAY_SIM_NODES=!de000009,!de00000a`, `GATEWAY_SIM_SOS_EVERY=0` (no SOS
+during MF-02; the default 12 sends one every twelfth tick), `GATEWAY_SIM_INTERVAL_MS=30000`.
 
 ### Happy run
 
 | Step | Page | Action | Value typed | Expected screen | Fallback |
 |---|---|---|---|---|---|
-| 1 | T | `npm run dev:gateway` from the repository root | the variables above | Gateway lines: connected to the broker, a position and a telemetry reading per node every 30 s **(check by hand: log wording)** | Wrong secret: the broker refuses; recheck the copy. Broker unreachable: section 11 step 3 |
+| 1 | T | `npm run dev:gateway` from the repository root | the variables above | Gateway lines: connected to the broker, the serial port open, packets from the physical units as they report **(check by hand: log wording)** | Wrong secret: the broker refuses; recheck the copy. Units silent or port not found: the simulated fallback above, then section 11 step 3 |
 | 2 | Talk | Path: node, LoRa, laptop over USB, SQLite queue (SOS first), MQTT QoS 1, backend ingest with `eventId` dedup | | | |
-| 3 | C, `/o/map` | **Live map** | | TL-0009 and TL-0010 with battery and a recent last-seen time | Wait one 30 s tick; then check step 4 |
-| 4 | B, `/t/admin/sync` | Sidebar **Field data sync** | | MQTT subscriber up; Field Stations table: "Bidoup ranger post", Connected, a Last sync; Recent field events for TL-0009 and TL-0010, Attribution "Attributed" | If the station reads "Never reported", the health report waits up to 60 s (`GATEWAY_HEALTH_INTERVAL_MS`); refresh |
+| 3 | C, `/o/map` | **Live map** | | The physical units (fallback: TL-0009 and TL-0010) with battery and a recent last-seen time | Wait for the next report; then check step 4 |
+| 4 | B, `/t/admin/sync` | Sidebar **Field data sync** | | MQTT subscriber up; Field Stations table: "Bidoup ranger post", Connected, a Last sync; Recent field events for the physical units (fallback: TL-0009 and TL-0010), Attribution "Attributed" | If the station reads "Never reported", the health report waits up to 60 s (`GATEWAY_HEALTH_INTERVAL_MS`); refresh |
 
 ### Unhappy case: duplicate packet
 
@@ -227,15 +231,17 @@ sends one every twelfth tick), `GATEWAY_SIM_INTERVAL_MS=30000`.
 ## 8. MF-03: SOS to incident
 
 Accounts: C Operator (primary), A Manager (backup), B Staff. Data before: after MF-02, gateway running.
-**Start no earlier than the MF-01c handover time plus 5 minutes.** TL-0010 was handed over by the seed on
-Saturday, so its SOS is attributed to RC-2026-0001 and routed to the Operator.
+**Start no earlier than the MF-01c handover time plus 5 minutes (D-111), and no earlier than 5 minutes after
+the handover of the physical unit used.** TL-0010 was handed over by the seed, so its SOS is attributed to
+RC-2026-0001 and routed to the Operator. The steps name TL-0010; with a physical unit, read its asset tag
+and holder.
 
 ### Happy run
 
 | Step | Page | Action | Value typed | Expected screen | Fallback |
 |---|---|---|---|---|---|
-| 1 | T | Send one SOS from TL-0010: `npm --prefix backend run replay:mqtt -- sos --now --new-ids` with `MQTT_USERNAME=node-!de00000a` | | | Restart the gateway with `GATEWAY_SIM_NODES=!de00000a` and `GATEWAY_SIM_SOS_EVERY=1`, stop it after the first SOS |
-| 2 | C, any page | | | Red banner "SOS: TL-0010 (Pham Van F), hh:mm. Acknowledge now." with **Acknowledge** (`AlertBanner.tsx`) | No banner in 10 s: `/o/incidents`; if the incident is Unrouted, the SOS was inside the margin: go to the unhappy case and say so |
+| 1 | Physical unit | Press the unit's SOS control once (on a v3, hold the user button 3 s, `seed-demo.ts:203`) **(check by hand: the variant of the leader's unit)** | | The gateway log shows the SOS queued first | Disclosed as simulated: `npm --prefix backend run replay:mqtt -- sos --now --new-ids` with `MQTT_USERNAME=node-!de00000a` (TL-0010) |
+| 2 | C, any page | | | Red banner "SOS: TL-0010 (Dang Quoc Viet), hh:mm. Acknowledge now." with **Acknowledge** (`AlertBanner.tsx`) | No banner in 10 s: `/o/incidents`; if the incident is Unrouted, the SOS was inside the margin: go to the unhappy case and say so |
 | 3 | C, `/o/incidents` | Open the new incident (INC-2026-000002) | | Device TL-0010, state Notifying primary, last coordinates | |
 | 4 | C | **Acknowledge** | | Toast "Saved."; Owner Nguyen Thanh Tung, Acknowledged; banner gone | |
 | 5 | C | **Response under way**, What is being done, **Save response** | Ranger team dispatched from the Ta Nang post | State Responding | |
@@ -245,8 +251,8 @@ Saturday, so its SOS is attributed to RC-2026-0001 and routed to the Operator.
 ### Unhappy case: SOS without attribution (Unrouted)
 
 The rule forbids a live SOS inside the margin, so the seeded INC-2026-000001 on TL-0001 (a unit in no
-custody) stands in: it is the same Unrouted path an early SOS takes until TK-245.
-QUESTION FOR THE LEADER: should a live SOS inside the 300 s margin be shown on purpose instead?
+custody) stands in: it is the same Unrouted path an early SOS takes until TK-245 (leader ruling
+2026-11-20: no live SOS inside the margin).
 
 | Step | Page | Action | Value typed | Expected screen | Fallback |
 |---|---|---|---|---|---|
@@ -283,10 +289,8 @@ API keys carry no expiry on `dev` (`ApiKeysPage.tsx` shows Active or Revoked onl
 ## 10. MF-05: term end to close
 
 Accounts: A Manager, B Staff. Data before: RC-2026-0002 Active, TL-0017 and TL-0018 Rented, first invoice
-paid. Its term ends a month after the seed, and `demo:term-end` refuses `NODE_ENV=production`, so the
-return is brought forward with **End contract now** (D-097), the real Staff and Manager action.
-QUESTION FOR THE LEADER: is End contract now acceptable as "term end" on stage, or must the term end be
-moved with `demo:term-end` run from a laptop against the staging database?
+paid. Its term ends a month after the seed, so on stage the term end is **End contract now** (D-097), the
+real Staff and Manager action (leader ruling 2026-11-20).
 
 ### Happy run with the unhappy case (damaged return)
 
@@ -307,28 +311,18 @@ moved with `demo:term-end` run from a laptop against the staging database?
 
 ## 11. Reset procedure
 
-1. **Full reset (restores section 2 exactly).** Only on the shared staging database, only by the leader or
-   the member the leader names, and only when no one is rehearsing: wipe the database (drop and recreate the
-   `public` schema), then from a laptop with `DATABASE_URL` and `DATABASE_DIRECT_URL` of staging and the four
-   `SEED_*_PASSWORD` values from the team's private channel:
+Rehearsals 2 and 3 run on staging, with a reseed between runs (leader ruling 2026-11-20).
 
-   ```bash
-   npm --prefix backend run prisma:deploy
-   npm --prefix backend run seed:demo
-   ```
-
-   Check: `/demo` lists four accounts; `/t/contracts` shows RC-2026-0001 to RC-2026-0003 only; 10 v3 units
-   Available.
-2. **Local reset for rehearsals 2 and 3** when staging cannot be wiped: the disposable local stack of the
-   2026-11-01 run book §1 and §2 (`docker compose up -d postgres mosquitto`, `prisma:deploy`, `seed:demo`)
-   gives the same section 2 data. Device steps then use the local broker.
-3. **Device fallback for MF-02 and MF-03.** If the gateway cannot start, publish the recorded trek
+1. **Reseed staging (leader and orchestrator).** Only when no one is rehearsing. The leader wipes the Neon
+   staging database; the orchestrator then runs the reseed script `ignore/khoa/docs/seed-host-2026-11-20.sh`
+   on the staging host through AWS SSM. No secret or host detail is written here.
+2. **Check after the reseed.** `/demo` lists four accounts; `/t/contracts` shows RC-2026-0001 to RC-2026-0003
+   only; 10 v3 units Available; TL-0010's holder reads Dang Quoc Viet.
+3. **Register the physical units again** (section 7, Before the run): the reseed removes them.
+4. **Device fallback for MF-02 and MF-03.** If the gateway cannot start, publish the recorded trek
    (`npm --prefix backend run replay:mqtt -- trek --now --new-ids --interval 2000`, TL-0009) with the broker
-   variables of section 7.
-4. After every run: stop the gateway; revoke `fs-org-0001-2`; confirm no API key is Active.
-
-QUESTION FOR THE LEADER: D-109 asks for a reset between rehearsals, and staging is wiped only on Sat
-2026-11-21. Are rehearsals 2 and 3 on staging (a wipe each time) or on the local stack (step 2)?
+   variables of section 7, and say it is simulated.
+5. After every run: stop the gateway; revoke `fs-org-0001-2`; confirm no API key is Active.
 
 ---
 
@@ -400,6 +394,6 @@ differed from this file, then correct the file.
 - Its MF-01a step 6 reads the invitation code from the console mail log; AWS sends SMTP mail to the team inbox.
 - Its MF-02 runs the gateway against a local broker with no credential; AWS needs the Field Station
   credential and TLS. Its seeded station `fs-org-0001-1` has no usable secret on a fresh seed.
-- Its MF-05 step 2 runs `demo:term-end`, which refuses `NODE_ENV=production`.
+- Its MF-05 step 2 moves the term end with a terminal script; on stage the term end is End contract now (leader ruling 2026-11-20).
 - Its MF-01 step 2 card count ("8 available") and step 2a ("Only 10 ...") disagree with each other; a fresh
   seed has 10 v3 units Available.
