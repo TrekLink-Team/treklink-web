@@ -39,7 +39,7 @@ test('MF-03 steps 1 to 6: the Operator handles the SOS from TL-0010', async ({ p
   await runBackendScript('replay:mqtt', ['sos', '--now', '--new-ids']);
 
   // Step 2: the banner on every page, and the map header.
-  const banner = page.getByRole('alert').filter({ hasText: /SOS: TL-0010 \(Pham Van F\), \d{2}:\d{2}\. Acknowledge now\./ });
+  const banner = page.getByRole('alert').filter({ hasText: /SOS: TL-0010 \(Dang Quoc Viet\), \d{2}:\d{2}\. Acknowledge now\./ });
   await expect(banner).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/\d+ devices?, 1 SOS open/)).toBeVisible();
 
@@ -48,7 +48,7 @@ test('MF-03 steps 1 to 6: the Operator handles the SOS from TL-0010', async ({ p
   await page.getByRole('row').filter({ hasText: 'TL-0010' }).first().getByRole('link').first().click();
   const main = page.getByRole('main');
   await expect(main.getByText('TL-0010').first()).toBeVisible();
-  await expect(main.getByText('Pham Van F').first()).toBeVisible();
+  await expect(main.getByText('Dang Quoc Viet').first()).toBeVisible();
   await expect(main.getByText('Unclaimed').first()).toBeVisible();
   await expect(statusBadge(main, 'Notifying primary')).toBeVisible();
   await expect(main.getByText('Last known coordinates')).toBeVisible();

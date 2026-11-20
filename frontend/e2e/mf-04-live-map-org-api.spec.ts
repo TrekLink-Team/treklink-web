@@ -23,7 +23,7 @@ test('MF-04 steps 1 to 3: the Operator live map, search and the sovereignty over
   // Step 2
   await page.getByPlaceholder('Search asset tag, holder or contract').fill('TL-0010');
   await expect(list.getByRole('button')).toHaveCount(1);
-  await expect(list.getByRole('button', { name: /^TL-0010 .*Pham Van F / })).toBeVisible();
+  await expect(list.getByRole('button', { name: /^TL-0010 .*Dang Quoc Viet / })).toBeVisible();
 
   // Step 3: the overlay labels are map markers the server lists (REQ-UBI-02, D-031); they are drawn at
   // every zoom. Zoom out as the presenter does, then read the credit.
