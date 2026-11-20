@@ -44,7 +44,7 @@ test('360 px: Live map (MF-04 steps 1 and 2, MF-02 step 3)', async ({ page }) =>
   await search.fill('TL-0010');
   // The device list, not the map marker, which carries the same name once TL-0010 had an SOS.
   const list = page.getByLabel('Devices', { exact: true });
-  await expectOnScreen(list.getByRole('button', { name: /^TL-0010 .*Pham Van F / }), 'TL-0010 row');
+  await expectOnScreen(list.getByRole('button', { name: /^TL-0010 .*Dang Quoc Viet / }), 'TL-0010 row');
   await expectOnScreen(tab(page, 'Incidents'), 'Incidents tab');
   await expectNoHorizontalScroll(page, 'Live map, searched');
 });
