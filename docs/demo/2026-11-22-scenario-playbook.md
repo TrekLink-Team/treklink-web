@@ -48,7 +48,7 @@ MF-01a to MF-05 in order; about 30 to 35 minutes per group, 5 minutes of slides,
 | MQTT broker | The Broker URL shown with the Field Station credential (MF-01c step 9); `deploy/aws/RUNBOOK.md` §7 |
 | What the host runs | `NODE_ENV=production`, the simulator off, Demo control off (`DEMO_CONTROLS_ENABLED=false`, `deploy/aws/.env.aws.example:14-16`). So `/t/admin/demo` and its quick scenarios are absent. Every step below uses the real screens. Mail is SMTP (`MAIL_TRANSPORT=smtp`, `.env.aws.example:73`): every `treklink.dev+...@gmail.com` address lands in the team inbox `treklink.dev@gmail.com` |
 | Database state | Wiped and reseeded on Sat 2026-11-21, and again before each later rehearsal (section 11). Before each flow: the fresh seed (section 2) plus what the earlier flows of the same rehearsal left (section 3) |
-| Browser | One browser profile per window (a private window shares nothing with a normal one). The session is held in memory: a reload or a typed URL signs the window out (`frontend/src/entities/session/model.ts`, 2026-11-01 script §1.4). Move with the sidebar and the links |
+| Browser | One browser profile per account: a private window shares nothing with a normal one, but all private windows of one browser share one session, so two InPrivate windows sign in as the last account used (rehearsal 1). Use, for example, Edge for Staff, Edge InPrivate for one account and Chrome for another. The session is held in memory: a reload or a typed URL signs the window out (`frontend/src/entities/session/model.ts`, 2026-11-01 script §1.4). Move with the sidebar and the links |
 
 Run order, always the same, because each flow uses what the earlier one left:
 
@@ -339,6 +339,7 @@ real Staff and Manager action (leader ruling 2026-11-20).
 | 7 | B | TL-0018: **Inspect**, **Damaged**, tick Casing cracked (CASING_CRACKED), **Record inspection** | | "Damaged, maintenance", "Damage 400,000 VND, on the closing invoice" |  Casing cracked not listed: sign in again as B, open the counter with **More actions**, **Open the counter**, inspect again |
 | 8 | B, Close | Tab **Close** | | Blocker "... unpaid on the contract's invoices." with **Open the invoices**; no Close action yet |  No blocker shown: switch to another tab and back (the close check reloads on focus); if **Close contract** is offered, go to step 10 and say nothing was due |
 | 9 | B | **Open the invoices**, the Closing invoice, **Record counter payment**, Method Cash, receipt, **Record** | the prefilled amount; receipt CT-2026-0419 | Toast "Payment of <amount> VND received." (amount = 400,000 VND less any end-now credit) **(check by hand)** | `/t/billing`, filter the contract |
+| 9b | B | When step 8 shows no blocker and **Money** reads "TrekLink owes ... VND" (the end-now credit exceeds the damage, rehearsal 1): the Closing invoice row, **Actions**, record the refund | reference CT-2026-0419 | The invoice reads "Refunded to organization: <amount> VND" | Record it from `/t/billing` on the Closing invoice |
 | 10 | B | Counter tab Close, **Close contract**, confirm | | Toast "RC-2026-0002 closed."; badge Closed | If a blocker remains, read it and resolve it; the close check reloads on focus |
 
 ---
@@ -386,7 +387,7 @@ differed from this file, then correct the file.
 
 | Date | Who ran it | Environment | Result | Notes |
 |---|---|---|---|---|
-| | | | | |
+| 2026-11-21 | LongLP | AWS staging, reseed of 2026-11-21 | Pass with fallback (step 8) | Step 8: the first **Set password and sign in** answered "Internal server error" (about 17:38); the second press signed in (treklink-web#533). U1 refused as written |
 | | | | | |
 | | | | | |
 
@@ -394,7 +395,7 @@ differed from this file, then correct the file.
 
 | Date | Who ran it | Environment | Result | Notes |
 |---|---|---|---|---|
-| | | | | |
+| 2026-11-21 | LongLP | AWS staging, reseed of 2026-11-21 | Pass with deviation (step 4) | RC-2026-0004 was sent from Tran Van Binh (ORG-0002), not window A: two Edge InPrivate windows share one session. Run each account in its own browser profile |
 | | | | | |
 | | | | | |
 
@@ -402,7 +403,7 @@ differed from this file, then correct the file.
 
 | Date | Who ran it | Environment | Result | Notes |
 |---|---|---|---|---|
-| | | | | |
+| 2026-11-21 | LongLP | AWS staging, reseed of 2026-11-21 | Pass with deviation (step 7) | RC-2026-0004 belonged to ORG-0002, so the only signer offered was Tran Van Binh; handed over 18:19. Battery unhappy case not run in this run |
 | | | | | |
 | | | | | |
 
@@ -426,7 +427,7 @@ differed from this file, then correct the file.
 
 | Date | Who ran it | Environment | Result | Notes |
 |---|---|---|---|---|
-| | | | | |
+| 2026-11-21 | LongLP | AWS staging, reseed of 2026-11-21 | Pass | Step 1 lists no RC-2026-0004 units (that contract was ORG-0002 in this run). Step 6: 200 with five units, all NOT_HEARD (MF-02 not run); U2: 401 after the revoke |
 | | | | | |
 | | | | | |
 
@@ -434,7 +435,7 @@ differed from this file, then correct the file.
 
 | Date | Who ran it | Environment | Result | Notes |
 |---|---|---|---|---|
-| | | | | |
+| 2026-11-21 | LongLP | AWS staging, reseed of 2026-11-21 | Pass with fallback (step 2) | Step 2: End now answered "Internal server error" (about 18:36) yet the contract ended (closing invoice issued 18:36); pressed once. Steps 8 and 9: the end-now credit exceeded the damage, so nothing was due and TrekLink owed 470,000 VND; refund recorded on the closing invoice (CT-2026-0419). Closed 18:43 |
 | | | | | |
 | | | | | |
 
