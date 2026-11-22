@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   contractKeys,
   endContract,
+  fetchContract,
   fetchEndPreview,
   type ContractDetail,
 } from '../../entities/contract/api';
@@ -19,8 +20,11 @@ import { creditText, owedText } from './endNowText';
 const REASON_MAX = 500;
 const FORM_ID = 'end-now-form';
 const REASON_ID = 'end-now-reason';
+const ENDED_MESSAGE = 'Contract ended. Check the units in at the counter.';
 const isStateRefusal = (error: unknown): error is ApiError =>
   error instanceof ApiError && error.errorCode === 'INVALID_STATE_TRANSITION';
+// What End now leaves the contract in (api-design 30): RETURN_DUE, or RETURNED when every unit is back.
+const ENDED_STATUSES: readonly string[] = ['RETURN_DUE', 'RETURNED'];
 
 /**
  * End contract now (screen 5.2, rentals api-design 30 and 31, D-097): Staff or the Org Manager end an
@@ -91,19 +95,43 @@ export const EndNowDialog: React.FC<{
     try {
       await endContract(contract.id, trimmed, contract.version);
     } catch (error) {
-      submitting.current = false;
-      setPending(false);
       if (isStateRefusal(error)) {
+        submitting.current = false;
+        setPending(false);
         closeForChangedState();
         return;
       }
       const stale = error instanceof ApiError && error.errorCode === 'STALE_VERSION';
+      // An error can arrive after the server committed the end (treklink-web#535), so the contract is
+      // read again first: a committed end is never shown as failed, which would invite a second press.
+      const ended = !stale && (await endedMeanwhile());
+      submitting.current = false;
+      setPending(false);
+      if (ended) {
+        showToast(ENDED_MESSAGE);
+        onClose();
+        void refresh();
+        return;
+      }
       setFailure({ message: messageOf(error), stale });
       return;
     }
-    showToast('Contract ended. Check the units in at the counter.');
+    showToast(ENDED_MESSAGE);
     onClose();
     void refresh();
+  };
+
+  const endedMeanwhile = async (): Promise<boolean> => {
+    try {
+      const latest = await queryClient.fetchQuery({
+        queryKey: contractKeys.detail(contract.id),
+        queryFn: () => fetchContract(contract.id),
+        staleTime: 0,
+      });
+      return latest.version !== contract.version && ENDED_STATUSES.includes(latest.status);
+    } catch {
+      return false;
+    }
   };
 
   const ready = preview.data;

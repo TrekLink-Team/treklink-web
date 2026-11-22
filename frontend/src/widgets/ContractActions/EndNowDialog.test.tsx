@@ -197,6 +197,53 @@ describe('End contract now dialog', () => {
     expect(close).not.toHaveBeenCalled();
   });
 
+  // treklink-web#535: the server committed the end and still answered 500 "Internal server error".
+  describe('an error after the request was sent', () => {
+    const serverError = () => new ApiError(500, 'INTERNAL_ERROR', 'Internal server error');
+    const answer = (detail: () => Promise<unknown>) =>
+      api.mockImplementation((endpoint: string) => {
+        if (endpoint.endsWith('/end-preview')) return Promise.resolve(PREVIEW);
+        if (endpoint.endsWith('/end')) return Promise.reject(serverError());
+        return detail();
+      });
+    const press = async () => {
+      open();
+      await screen.findByText(/24 unused days/);
+      typeReason('The trek season ended early');
+      fireEvent.click(endButton());
+    };
+
+    it('reads the contract again and closes as a success when the end was committed', async () => {
+      answer(() => Promise.resolve({ ...contract, status: 'RETURN_DUE', version: 5 }));
+      await press();
+
+      await waitFor(() => expect(close).toHaveBeenCalledTimes(1));
+      expect(api).toHaveBeenCalledWith('/contracts/c-2');
+      expect(useToast.getState().message).toBe(
+        'Contract ended. Check the units in at the counter.',
+      );
+      expect(screen.queryByText('Internal server error')).toBeNull();
+    });
+
+    it('shows the error and keeps the dialog open when the contract did not change', async () => {
+      answer(() => Promise.resolve(contract));
+      await press();
+
+      expect(await screen.findByText('Internal server error')).toBeTruthy();
+      expect(api).toHaveBeenCalledWith('/contracts/c-2');
+      expect(close).not.toHaveBeenCalled();
+      expect((endButton() as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    it('shows the error when the contract cannot be read again', async () => {
+      answer(() => Promise.reject(new ApiError(503, 'SERVICE_UNAVAILABLE', 'Unavailable.')));
+      await press();
+
+      expect(await screen.findByText('Internal server error')).toBeTruthy();
+      expect(close).not.toHaveBeenCalled();
+    });
+  });
+
   it('words the credit and the amount owed from the preview only', () => {
     expect(creditText({ ...PREVIEW, planType: 'DAY', creditVnd: 0 })).toBe(
       'No credit: a day plan is already billed per day.',
