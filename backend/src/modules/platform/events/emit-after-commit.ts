@@ -8,6 +8,7 @@ import {
   isConnectionError,
   isTransientDatabaseError,
 } from '../../../common/prisma/transient-error';
+import { inBackgroundWork } from './background-work';
 
 interface PendingEvent {
   name: string;
@@ -24,9 +25,16 @@ export type TransactionOptions = Parameters<PrismaService['$transaction']>[1];
 // so a long interactive transaction can pass Prisma's default 5 s limit and be closed under it
 // (treklink-web#487). The business operations that write a contract or the closing invoice in one transaction
 // pass this longer limit (handover, return, damage decision, payments, SePay, End now). It stays per
-// call, because a client-wide limit let slow transactions starve the pool. The wait to start is
-// client-wide (`TRANSACTION_MAX_WAIT_MS` in prisma.service.ts).
+// call, because a client-wide limit let slow transactions starve the pool.
 export const SLOW_LINK_TRANSACTION = { timeout: 20_000 } as const;
+
+// How long a transaction of request work may wait for a pooled connection and for the database to
+// start it. Prisma's default is 2 s; a Neon compute waking from suspend, reached over the Sydney to
+// Singapore link, takes longer, and the first request after an idle period failed with P2028
+// (treklink-web#533). Request work holds no connection while it waits, so the wait cannot starve the
+// pool. Work inside a scheduled job keeps Prisma's 2 s (background-work.ts): a client-wide 20 s let the
+// jobs' nested waits hold every connection (treklink-web#537). A caller's own `maxWait` wins.
+export const TRANSACTION_MAX_WAIT_MS = 20_000;
 
 // A transaction that failed to start on a dropped or unreachable connection is started once more
 // (treklink-web#533). Only a start is retried: once the work has run, a failure may follow a commit,
@@ -72,13 +80,16 @@ export class TransactionalEvents {
     work: (tx: Prisma.TransactionClient) => Promise<T>,
     options?: TransactionOptions,
   ): Promise<T> {
+    const startOptions = inBackgroundWork()
+      ? options
+      : { maxWait: TRANSACTION_MAX_WAIT_MS, ...options };
     for (let attempt = 1; ; attempt += 1) {
       let entered = false;
       try {
         return await this.prisma.$transaction((tx) => {
           entered = true;
           return work(tx);
-        }, options);
+        }, startOptions);
       } catch (error) {
         if (entered || !isTransientDatabaseError(error)) throw error;
         const detail = error instanceof Error ? error.message : String(error);

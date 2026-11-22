@@ -2,12 +2,13 @@ import { HttpStatus, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
 import { DomainException, ErrorCode } from '../../../common/errors';
+import { PrismaService } from '../../../common/prisma/prisma.service';
+import { runAsBackgroundWork } from './background-work';
 import {
-  PRISMA_CLIENT_OPTIONS,
-  PrismaService,
+  SLOW_LINK_TRANSACTION,
   TRANSACTION_MAX_WAIT_MS,
-} from '../../../common/prisma/prisma.service';
-import { SLOW_LINK_TRANSACTION, TransactionalEvents } from './emit-after-commit';
+  TransactionalEvents,
+} from './emit-after-commit';
 
 // `$transaction` runs the callback with a stand-in client and resolves or rejects with it, which
 // is all the event queue depends on.
@@ -140,7 +141,10 @@ describe('TransactionalEvents', () => {
       await expect(events.transaction(work, SLOW_LINK_TRANSACTION)).resolves.toBe('done');
 
       expect(transaction).toHaveBeenCalledTimes(2);
-      expect(transaction).toHaveBeenLastCalledWith(expect.any(Function), SLOW_LINK_TRANSACTION);
+      expect(transaction).toHaveBeenLastCalledWith(expect.any(Function), {
+        maxWait: TRANSACTION_MAX_WAIT_MS,
+        ...SLOW_LINK_TRANSACTION,
+      });
       expect(work).toHaveBeenCalledTimes(1);
       expect(emitted).toHaveBeenCalledTimes(1);
     });
@@ -190,8 +194,40 @@ describe('TransactionalEvents', () => {
     });
   });
 
-  it('gives every interactive transaction a maxWait that survives a cold start', () => {
-    expect(TRANSACTION_MAX_WAIT_MS).toBeGreaterThanOrEqual(10_000);
-    expect(PRISMA_CLIENT_OPTIONS.transactionOptions.maxWait).toBe(TRANSACTION_MAX_WAIT_MS);
+  // treklink-web#533: Prisma's default maxWait of 2 s failed the first request after an idle period.
+  describe('the start wait', () => {
+    let transaction: jest.Mock;
+
+    beforeEach(() => {
+      transaction = jest.fn((work: (tx: object) => Promise<unknown>) => work({}));
+      events = new TransactionalEvents(
+        { $transaction: transaction } as unknown as PrismaService,
+        emitter,
+      );
+    });
+
+    it('gives request work a maxWait that survives a cold start, with the caller options', async () => {
+      await events.transaction(() => Promise.resolve('done'), SLOW_LINK_TRANSACTION);
+      await events.transaction(() => Promise.resolve('done'));
+
+      expect(TRANSACTION_MAX_WAIT_MS).toBeGreaterThanOrEqual(10_000);
+      expect(transaction.mock.calls.map(([, options]: unknown[]) => options)).toEqual([
+        { maxWait: TRANSACTION_MAX_WAIT_MS, ...SLOW_LINK_TRANSACTION },
+        { maxWait: TRANSACTION_MAX_WAIT_MS },
+      ]);
+    });
+
+    it('keeps a maxWait the caller passes', async () => {
+      await events.transaction(() => Promise.resolve('done'), { maxWait: 1_000 });
+
+      expect(transaction).toHaveBeenCalledWith(expect.any(Function), { maxWait: 1_000 });
+    });
+
+    // treklink-web#537: inside a scheduled job the long wait held the whole pool.
+    it('leaves background work on Prisma default wait', async () => {
+      await runAsBackgroundWork(() => events.transaction(() => Promise.resolve('done')));
+
+      expect(transaction).toHaveBeenCalledWith(expect.any(Function), undefined);
+    });
   });
 });

@@ -5,6 +5,7 @@ import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob, CronTime } from 'cron';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { ValidatedEnvironment } from '../config/environment-variables';
+import { runAsBackgroundWork } from '../events/background-work';
 import { SCHEDULED_JOB_KEY, ScheduledJobOptions } from './scheduled-job.decorator';
 
 export type JobOutcome = 'succeeded' | 'failed' | 'skipped';
@@ -90,7 +91,8 @@ export class JobRunnerService implements OnApplicationBootstrap {
 
           this.logger.log(`Job ${name} started`);
           outcome = 'failed';
-          await handler();
+          // The handler's transactions keep Prisma's short start wait while this one holds a connection.
+          await runAsBackgroundWork(() => handler());
           outcome = 'succeeded';
         },
         { timeout: JOB_MAX_DURATION_MS },
