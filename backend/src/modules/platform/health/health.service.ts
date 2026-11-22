@@ -2,6 +2,7 @@ import { HttpStatus, Inject, Injectable, Logger, Optional } from '@nestjs/common
 import { ConfigService } from '@nestjs/config';
 import { DomainException, ErrorCode } from '../../../common/errors';
 import { PrismaService } from '../../../common/prisma/prisma.service';
+import { isConnectionError } from '../../../common/prisma/transient-error';
 import { ValidatedEnvironment } from '../config/environment-variables';
 import { BACKEND_VERSION } from './backend-version';
 import { MQTT_HEALTH_PROBE, MqttHealthProbe } from './mqtt-health-probe';
@@ -51,7 +52,7 @@ export class HealthService {
     });
 
     try {
-      await Promise.race([this.prisma.$queryRaw`SELECT 1`, timeout]);
+      await Promise.race([this.probe(), timeout]);
     } catch (error) {
       this.logger.warn(
         `Database unreachable: ${error instanceof Error ? error.message : String(error)}`,
@@ -63,6 +64,18 @@ export class HealthService {
       );
     } finally {
       clearTimeout(timer);
+    }
+  }
+
+  // A pooled connection that a suspended Neon compute dropped fails the first query at once
+  // (treklink-web#533); the probe asks once more on a fresh connection, still inside
+  // HEALTH_DB_TIMEOUT_MS, so an idle database reads as up and a real outage still answers 503.
+  private async probe(): Promise<void> {
+    try {
+      await this.prisma.$queryRaw`SELECT 1`;
+    } catch (error) {
+      if (!isConnectionError(error)) throw error;
+      await this.prisma.$queryRaw`SELECT 1`;
     }
   }
 
