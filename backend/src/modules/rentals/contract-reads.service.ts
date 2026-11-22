@@ -1,4 +1,4 @@
-import { HttpStatus, Inject, Injectable, Optional } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ContractStatus, PlanType } from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
@@ -11,6 +11,7 @@ import {
 } from '../../common/dto/paging';
 import { resolveSort, SortQuery } from '../../common/dto/sorting';
 import { DomainException, ErrorCode } from '../../common/errors';
+import { isConnectionError } from '../../common/prisma/transient-error';
 import { BalanceService, BalanceSummary } from '../billing';
 import {
   DevicesService,
@@ -77,6 +78,8 @@ const notFound = () =>
 // REQ-ERR-06); the organization comes from the verified token.
 @Injectable()
 export class ContractReadsService {
+  private readonly logger = new Logger(ContractReadsService.name);
+
   constructor(
     private readonly contracts: ContractsRepository,
     private readonly organizations: OrganizationsService,
@@ -190,6 +193,26 @@ export class ContractReadsService {
       variantCode: variantOf.get(row.hardwareVariantId)?.code ?? null,
       variant: variantOf.get(row.hardwareVariantId) ?? null,
     });
+  }
+
+  // The labels of a decision's answer, read after its transaction committed. A dropped connection is
+  // tried once more; a read that still fails is logged and the answer goes out without labels, because
+  // the change is committed and a 500 would tell the caller it failed (treklink-web#535). Every client
+  // refetches the contract after a decision.
+  async labellerAfterCommit(
+    rows: readonly { organizationId: string; hardwareVariantId: string }[],
+  ): Promise<(row: { organizationId: string; hardwareVariantId: string }) => ContractLabels> {
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await this.labeller(rows);
+      } catch (error) {
+        if (attempt < 2 && isConnectionError(error)) continue;
+        this.logger.error(
+          `Labels after a committed change failed: ${error instanceof Error ? error.stack : String(error)}`,
+        );
+        return () => ({ organization: null, variantCode: null, variant: null });
+      }
+    }
   }
 
   private async visible(id: string, caller: Caller): Promise<ContractDetailRow> {

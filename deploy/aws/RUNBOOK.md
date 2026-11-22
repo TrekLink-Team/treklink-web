@@ -43,10 +43,12 @@ Prices change. Check every amount in this runbook on the AWS pricing pages befor
 All in `ap-southeast-2` (Sydney), the only region where the organisation's SCP allows EC2 (verified
 2026-11-10 on the first account, and again on 2026-11-15 on account 566332862593, whose SCP also denies EC2 in
 `ap-southeast-1`). Neon stays in Singapore, so every query crosses the Sydney to Singapore link: the backend
-gives the long contract and billing transactions (Complete handover, check-in, inspection, close, damage decision,
-counter and SePay payments) a 20 s limit
+gives the long contract and billing transactions (Complete handover, check-in, inspection, close, End now, damage
+decision, counter and SePay payments) a 20 s limit
 instead of Prisma's 5 s (`SLOW_LINK_TRANSACTION` in `backend/src/modules/platform/events/emit-after-commit.ts`,
-treklink-web#487). Stack `treklink-<stage>`, stage `staging` by default:
+treklink-web#487, #535). Every transaction may wait 20 s instead of Prisma's 2 s to start, so a Neon compute
+waking from suspend does not fail the first request after an idle period (`TRANSACTION_MAX_WAIT_MS` in
+`backend/src/common/prisma/prisma.service.ts`, treklink-web#533). Stack `treklink-<stage>`, stage `staging` by default:
 
 | Piece | Detail |
 |---|---|

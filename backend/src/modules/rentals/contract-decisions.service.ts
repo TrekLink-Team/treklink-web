@@ -5,7 +5,7 @@ import { DomainException, ErrorCode } from '../../common/errors';
 import { BalanceService, ChargesService, EarlyEndQuote, InvoicesService } from '../billing';
 import { DevicesService, DeviceTag } from '../devices';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
-import { TransactionalEvents } from '../platform/events/emit-after-commit';
+import { SLOW_LINK_TRANSACTION, TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { ContractLifecycleService } from './contract-lifecycle.service';
 import { ContractRow, ContractsRepository, DeviceRow, Holder } from './contracts.repository';
@@ -536,7 +536,9 @@ export class ContractDecisionsService {
         term: term ? { seq: term.seq, startsAt: term.startsAt, endsAt: term.endsAt } : null,
         earlyEnd,
       };
-    });
+      // End now closes the term and writes the closing invoice, like check-in and close, so it takes
+      // the same slow-link limit (treklink-web#535).
+    }, SLOW_LINK_TRANSACTION);
   }
 
   // The End now preview (REQ-EVT-28, api-design 31): billing's computation for `at`, and the balance

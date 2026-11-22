@@ -1,4 +1,4 @@
-import { ExecutionContext } from '@nestjs/common';
+import { ExecutionContext, Logger } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { ContractStatus, PlanType, Prisma } from '@prisma/client';
@@ -8,6 +8,7 @@ import {
   PolicyHandler,
 } from '../../common/decorators/access.decorator';
 import { DevicesService } from '../devices';
+import { OrganizationsService } from '../organizations';
 import { ContractDecisionsService } from './contract-decisions.service';
 import { ContractReadsService } from './contract-reads.service';
 import {
@@ -273,7 +274,7 @@ describe('ContractsController (rentals api-design 01)', () => {
       reject: jest.fn().mockResolvedValue({ contract: rejected, paidVnd: 2_250_000n }),
     };
     const reads = {
-      labeller: jest
+      labellerAfterCommit: jest
         .fn()
         .mockResolvedValue(() => ({ organization: ORG, variantCode: 'treklink-v3' })),
     };
@@ -406,7 +407,7 @@ describe('ContractsController (rentals api-design 01)', () => {
         }),
       };
       const reads = {
-        labeller: jest
+        labellerAfterCommit: jest
           .fn()
           .mockResolvedValue(() => ({ organization: ORG, variantCode: 'treklink-v3' })),
       };
@@ -437,6 +438,40 @@ describe('ContractsController (rentals api-design 01)', () => {
         currentTerm: term,
         earlyEnd: { creditVnd: 3_600_000, owedToOrganizationVnd: 3_600_000, unusedDays: 24 },
       });
+    });
+
+    // treklink-web#535: the End now transaction committed, then a read for the answer's labels failed
+    // and the request answered 500, so the Manager saw a failure for a contract that had ended.
+    it('answers success when the labels read after the commit fails', async () => {
+      const failing = jest.fn().mockRejectedValue(new Error('Server has closed the connection.'));
+      const reads = new ContractReadsService(
+        {} as never,
+        { labelsOf: failing } as unknown as OrganizationsService,
+        { variants: jest.fn().mockResolvedValue([]) } as unknown as DevicesService,
+        {} as never,
+        {} as never,
+      );
+      const logged = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      const controller = new ContractsController(
+        {} as ContractsService,
+        {} as DevicesService,
+        reads,
+        decisions as unknown as ContractDecisionsService,
+      );
+
+      const view = await controller.end(
+        'c-1',
+        { reason: 'Trek finished early', expectedVersion: 1 },
+        MANAGER,
+      );
+
+      expect(view).toMatchObject({
+        status: ContractStatus.RETURN_DUE,
+        organization: null,
+        earlyEnd: { creditVnd: 3_600_000 },
+      });
+      expect(logged).toHaveBeenCalled();
+      logged.mockRestore();
     });
 
     it('answers the preview in numbers', async () => {

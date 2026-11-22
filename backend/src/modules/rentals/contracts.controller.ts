@@ -315,7 +315,7 @@ export class ContractsController {
       },
       caller,
     );
-    const label = await this.reads.labeller([approved.contract]);
+    const label = await this.reads.labellerAfterCommit([approved.contract]);
     return {
       ...labelledView(approved.contract, label(approved.contract), approved.term),
       reservationExpiresAt: approved.reservationExpiresAt,
@@ -341,7 +341,7 @@ export class ContractsController {
     @CurrentCaller() caller: Caller,
   ): Promise<ContractView & { paidVnd: number }> {
     const { contract, paidVnd } = await this.decisions.reject(id, dto, caller);
-    const label = await this.reads.labeller([contract]);
+    const label = await this.reads.labellerAfterCommit([contract]);
     return { ...labelledView(contract, label(contract), null), paidVnd: Number(paidVnd) };
   }
 
@@ -359,7 +359,7 @@ export class ContractsController {
     @CurrentCaller() caller: Caller,
   ) {
     const { contract, retainedVnd } = await this.decisions.cancel(id, dto, caller);
-    const label = await this.reads.labeller([contract]);
+    const label = await this.reads.labellerAfterCommit([contract]);
     return { ...labelledView(contract, label(contract), null), retainedVnd: Number(retainedVnd) };
   }
 
@@ -412,7 +412,7 @@ export class ContractsController {
       dto.expectedVersion,
       caller,
     );
-    const label = await this.reads.labeller([contract]);
+    const label = await this.reads.labellerAfterCommit([contract]);
     return {
       ...labelledView(contract, label(contract), term),
       dueAtEndVnd: Number(dueAtEndVnd),
@@ -435,7 +435,7 @@ export class ContractsController {
       { reason: dto.reason, expectedVersion: dto.expectedVersion },
       caller,
     );
-    const label = await this.reads.labeller([contract]);
+    const label = await this.reads.labellerAfterCommit([contract]);
     return {
       ...labelledView(contract, label(contract), term),
       earlyEnd: {
