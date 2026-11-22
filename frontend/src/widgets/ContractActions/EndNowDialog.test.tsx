@@ -235,6 +235,24 @@ describe('End contract now dialog', () => {
       expect((endButton() as HTMLButtonElement).disabled).toBe(false);
     });
 
+    // The version guard: a status read without a newer version is not this end committing.
+    it('shows the error when the contract reads Return due at the same version', async () => {
+      answer(() => Promise.resolve({ ...contract, status: 'RETURN_DUE', version: 4 }));
+      await press();
+
+      expect(await screen.findByText('Internal server error')).toBeTruthy();
+      expect(api).toHaveBeenCalledWith('/contracts/c-2');
+      expect(close).not.toHaveBeenCalled();
+    });
+
+    it('shows the error when a newer version is still running', async () => {
+      answer(() => Promise.resolve({ ...contract, status: 'ENDING', version: 5 }));
+      await press();
+
+      expect(await screen.findByText('Internal server error')).toBeTruthy();
+      expect(close).not.toHaveBeenCalled();
+    });
+
     it('shows the error when the contract cannot be read again', async () => {
       answer(() => Promise.reject(new ApiError(503, 'SERVICE_UNAVAILABLE', 'Unavailable.')));
       await press();
