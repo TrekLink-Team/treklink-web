@@ -277,11 +277,16 @@ export const ContractDetailPage: React.FC<{
       ? askedTab
       : 'overview';
 
+  // A tab or a mode is a new history entry, so browser Back returns to the previous tab or leaves
+  // the mode (treklink-web#536); leaving a mode from inside it replaces the entry.
   const setQuery = (next: { tab?: HomeTab; mode?: HomeMode }) => {
     const query = new URLSearchParams();
     if (next.mode) query.set('mode', next.mode);
     else if (next.tab && next.tab !== 'overview') query.set('tab', next.tab);
-    setParams(query, { replace: !next.mode });
+    setParams(query, { replace: !next.mode && !next.tab });
+  };
+  const showTab = (next: HomeTab) => {
+    if (next !== tab || mode) setQuery({ tab: next });
   };
 
   const openInvoice = openInvoiceOf(invoices.data?.items);
@@ -436,7 +441,7 @@ export const ContractDetailPage: React.FC<{
       <ContractActionBar
         tabs={tabs}
         tab={tab}
-        onTab={(next) => setQuery({ tab: next })}
+        onTab={showTab}
         modeTitle={modeTitle}
         overviewHref={base}
         actions={actions}

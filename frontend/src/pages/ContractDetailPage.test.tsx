@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContractDetailPage } from './ContractDetailPage';
 
@@ -109,6 +109,34 @@ describe('ContractDetailPage', () => {
   });
 
   afterEach(() => cleanup());
+
+  // treklink-web#536: each tab change is a history entry, so browser Back returns to the tab before.
+  it('puts the tab in the address with a history entry per change', async () => {
+    const router = createMemoryRouter(
+      [{ path: '/t/contracts/:id', element: <ContractDetailPage scope="t" /> }],
+      { initialEntries: ['/t/contracts/c-1'] },
+    );
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+    const tab = (name: string) => screen.getByRole('tab', { name: new RegExp(`^${name}`) });
+    await screen.findByText('5 x TrekLink v3');
+    fireEvent.click(tab('Devices'));
+    expect(router.state.location.search).toBe('?tab=devices');
+    fireEvent.click(tab('Money'));
+    expect(router.state.location.search).toBe('?tab=money');
+    // Choosing the tab already shown adds no entry.
+    fireEvent.click(tab('Money'));
+
+    await act(() => router.navigate(-1));
+    expect(router.state.location.search).toBe('?tab=devices');
+    expect(tab('Devices').getAttribute('aria-selected')).toBe('true');
+    await act(() => router.navigate(-1));
+    expect(router.state.location.search).toBe('');
+    expect(tab('Overview').getAttribute('aria-selected')).toBe('true');
+  });
 
   it('names the variant by the display name the request form shows', async () => {
     renderPage();
