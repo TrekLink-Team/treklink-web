@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { UnsavedChangesProvider } from '../app/providers/UnsavedChangesProvider';
 import { AuthContext } from '../app/providers/useAuth';
 import { ApiError } from '../shared/api/apiClient';
 import type { SessionUser } from '../entities/session/model';
@@ -287,5 +288,136 @@ describe('ContractRequestPage availability and the hold at request', () => {
       ),
     ).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Plan and devices' })).toBeTruthy();
+  });
+});
+
+// treklink-web#536: the step is in the address, so browser Back and Forward move between steps, and
+// browser Back past step 1 asks the same question as Cancel while something is entered.
+describe('ContractRequestPage browser history', () => {
+  const renderInRouter = (entries: string[]) => {
+    api.mockImplementation((endpoint: string) =>
+      Promise.resolve(
+        endpoint === '/plans'
+          ? PLANS
+          : endpoint === '/devices/availability'
+            ? [{ hardwareVariantId: 'v-3', code: 'treklink-v3', available: 9 }]
+            : endpoint === '/quotes'
+              ? { planType: 'MONTHLY', firstPaymentVnd: 1, termFeeVnd: 2, formula: 'f' }
+              : { id: 'org-1', status: 'ACTIVE' },
+      ),
+    );
+    const router = createMemoryRouter(
+      [
+        {
+          path: '*',
+          element: (
+            <UnsavedChangesProvider canBlock={() => true}>
+              <Routes>
+                <Route path="/o/contracts/new" element={<ContractRequestPage />} />
+                <Route path="/o/contracts" element={<p>contracts list</p>} />
+              </Routes>
+            </UnsavedChangesProvider>
+          ),
+        },
+      ],
+      { initialEntries: entries, initialIndex: entries.length - 1 },
+    );
+    render(
+      <AuthContext.Provider value={{ user: MANAGER, signOut: vi.fn() }}>
+        <QueryClientProvider
+          client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+        >
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      </AuthContext.Provider>,
+    );
+    return router;
+  };
+  const stepHeading = () => screen.getByRole('heading', { level: 2, name: /Plan and devices|Start date|Review and send/ });
+  const fillStepOne = async () => {
+    fireEvent.click(await screen.findByRole('radio', { name: 'V3' }));
+    fireEvent.change(screen.getByLabelText(/Quantity/), { target: { value: '6' } });
+  };
+  const browserBack = () => act(() => router.navigate(-1));
+  let router: ReturnType<typeof renderInRouter>;
+
+  it('pushes each step into the address and steps back with browser Back, keeping the values', async () => {
+    router = renderInRouter(['/o/contracts', '/o/contracts/new']);
+    await fillStepOne();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(router.state.location.search).toBe('?step=2');
+    expect(stepHeading().textContent).toBe('Start date');
+    fireEvent.change(screen.getByLabelText('Start date (handover day)'), {
+      target: { value: '2999-01-01' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(router.state.location.search).toBe('?step=3');
+    expect(stepHeading().textContent).toBe('Review and send');
+
+    await browserBack();
+    expect(stepHeading().textContent).toBe('Start date');
+    expect((screen.getByLabelText('Start date (handover day)') as HTMLInputElement).value).toBe(
+      '2999-01-01',
+    );
+    await browserBack();
+    expect(router.state.location.search).toBe('');
+    expect(stepHeading().textContent).toBe('Plan and devices');
+    expect((screen.getByLabelText(/Quantity/) as HTMLInputElement).value).toBe('6');
+    expect((screen.getByRole('radio', { name: 'V3' }) as HTMLInputElement).checked).toBe(true);
+
+    await act(() => router.navigate(1));
+    expect(stepHeading().textContent).toBe('Start date');
+  });
+
+  it('returns to the entry Next pushed when the in-page Back is used', async () => {
+    router = renderInRouter(['/o/contracts', '/o/contracts/new']);
+    await fillStepOne();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await waitFor(() => expect(router.state.location.search).toBe(''));
+    expect(stepHeading().textContent).toBe('Plan and devices');
+    // No step entry was added: the next browser Back leaves the form (and asks first).
+    await browserBack();
+    expect(await screen.findByRole('dialog', { name: 'Discard this request?' })).toBeTruthy();
+  });
+
+  it('asks "Discard this request?" on browser Back from step 1 with something entered', async () => {
+    router = renderInRouter(['/o/contracts', '/o/contracts/new']);
+    await fillStepOne();
+    await browserBack();
+    const dialog = await screen.findByRole('dialog', { name: 'Discard this request?' });
+    expect(dialog.textContent).toContain('What you entered is not saved.');
+    fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(router.state.location.pathname).toBe('/o/contracts/new');
+    expect((screen.getByLabelText(/Quantity/) as HTMLInputElement).value).toBe('6');
+
+    await browserBack();
+    fireEvent.click(await screen.findByRole('button', { name: 'Discard' }));
+    expect(await screen.findByText('contracts list')).toBeTruthy();
+  });
+
+  it('leaves without a dialog on browser Back from a clean form', async () => {
+    router = renderInRouter(['/o/contracts', '/o/contracts/new']);
+    await screen.findByRole('radio', { name: 'V3' });
+    await browserBack();
+    expect(await screen.findByText('contracts list')).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('leaves through Cancel after one confirmation, with no second prompt from the guard', async () => {
+    router = renderInRouter(['/o/contracts/new']);
+    await fillStepOne();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    expect(await screen.findByText('contracts list')).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('sends a deep link to a later step back to the first unfilled step, and corrects the address', async () => {
+    router = renderInRouter(['/o/contracts/new?step=3']);
+    await screen.findByRole('radio', { name: 'V3' });
+    expect(stepHeading().textContent).toBe('Plan and devices');
+    await waitFor(() => expect(router.state.location.search).toBe(''));
   });
 });

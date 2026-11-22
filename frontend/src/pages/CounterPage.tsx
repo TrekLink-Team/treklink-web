@@ -32,6 +32,7 @@ import { ApiError } from '../shared/api/apiClient';
 import { toNodeId } from '../shared/lib/meshtastic-dock';
 import { formatDateTime, formatDay, formatVnd } from '../shared/lib/format';
 import { useMediaQuery } from '../shared/lib/useMediaQuery';
+import { useStepParam } from '../shared/lib/useStepParam';
 import { Badge, ErrorState, Field, Loading, PageTitle } from '../shared/ui/bits';
 import { invalid, messageOf } from '../shared/ui/errors';
 import { ConfirmDialog, Dialog } from '../shared/ui/Dialog';
@@ -82,6 +83,39 @@ const batteryOf = (value: string): number | null => {
 };
 
 const BATTERY_RULE = 'Enter the battery as a whole number from 0 to 100.';
+
+// The key version a unit carries: what this visit recorded, else what the server holds. An undo in
+// this visit wins over a contract read that may still carry the old record.
+const versionIn = (provisioned: Record<string, number | null>, device: ContractDevice) =>
+  device.deviceId in provisioned
+    ? (provisioned[device.deviceId] ?? undefined)
+    : (device.provisionedKeyVersion ?? undefined);
+
+const checkIn = (checks: Record<string, Check>, deviceId: string): Check =>
+  checks[deviceId] ?? { battery: '', gpsFixOk: false };
+
+// Step 1 is complete when every unit carries the current key version, a battery reading and a GPS
+// fix; the error each unfinished row shows.
+const deviceErrorsOf = (
+  devices: ContractDevice[],
+  keyVersion: number | undefined,
+  provisioned: Record<string, number | null>,
+  checks: Record<string, Check>,
+) => {
+  const errors: Record<string, string> = {};
+  devices.forEach((device) => {
+    const check = checkIn(checks, device.deviceId);
+    const battery = Number(check.battery);
+    if (versionIn(provisioned, device) !== keyVersion) {
+      errors[device.deviceId] = "Provision this device with the organization's key before handover.";
+    } else if (check.battery === '' || !Number.isInteger(battery) || battery < 0 || battery > 100) {
+      errors[device.deviceId] = BATTERY_RULE;
+    } else if (!check.gpsFixOk) {
+      errors[device.deviceId] = 'No GPS fix: swap this device before handover.';
+    }
+  });
+  return errors;
+};
 
 // What a row shows while it docks (screen 5.4, "Docking in progress").
 const DOCK_STAGE_TEXT: Record<DockStage, string> = {
@@ -267,7 +301,6 @@ export const CounterPage: React.FC<{
   // the title and the summary scroll with the checklist (chapter 06 §11.1, treklink-web#470).
   const phone = !useMediaQuery('(min-width: 768px)', true);
   const [today] = useState(() => new Date(Date.now() + ZONE_OFFSET_MS).toISOString().slice(0, 10));
-  const [step, setStep] = useState(0);
   const [checks, setChecks] = useState<Record<string, Check>>({});
   // This visit's records: a key version, or null for a record undone here (rentals api-design 19).
   const [provisioned, setProvisioned] = useState<Record<string, number | null>>({});
@@ -307,6 +340,20 @@ export const CounterPage: React.FC<{
   const [recordingPayment, setRecordingPayment] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const refetchInvoice = firstInvoice.refetch;
+  // The step is in the address (`?step=2`, beside `mode=handover` in the contract home), so browser
+  // Back and Forward move between steps; the readings of step 1 live on this page only, so a deep
+  // link or a reload past it shows step 1 (treklink-web#536).
+  const stepOneDone =
+    contract.data !== undefined &&
+    Object.keys(
+      deviceErrorsOf(
+        contract.data.devices.filter((device) => !device.lostAt),
+        organization.data?.channelKeyVersion,
+        provisioned,
+        checks,
+      ),
+    ).length === 0;
+  const { step, forward, back, jump } = useStepParam(stepOneDone ? STEPS.length - 1 : 0);
 
   // The payment may have been recorded elsewhere while step 1 was open: read it again on step 2.
   useEffect(() => {
@@ -391,7 +438,7 @@ export const CounterPage: React.FC<{
   const exposedOn = (device: (typeof devices)[number]) =>
     keyExposed && keyVersion !== undefined && versionOf(device) === keyVersion;
   const reprovision = (device: (typeof devices)[number]) => {
-    setStep(0);
+    jump(0);
     // After the step renders, the unit's provision control takes focus and comes into view.
     window.setTimeout(() => {
       const control = document.getElementById(`provision-${device.deviceId}`);
@@ -515,7 +562,7 @@ export const CounterPage: React.FC<{
     },
   };
 
-  const checkOf = (deviceId: string): Check => checks[deviceId] ?? { battery: '', gpsFixOk: false };
+  const checkOf = (deviceId: string): Check => checkIn(checks, deviceId);
 
   const setCheck = (deviceId: string, change: Partial<Check>) =>
     setChecks((current) => ({ ...current, [deviceId]: { ...checkOf(deviceId), ...change } }));
@@ -605,11 +652,7 @@ export const CounterPage: React.FC<{
   };
 
   // What this visit recorded, else what the server holds, so a reload keeps step 1 (frontend 5.4).
-  // An undo in this visit wins over a contract read that may still carry the old record.
-  const versionOf = (device: ContractDevice): number | undefined =>
-    device.deviceId in provisioned
-      ? (provisioned[device.deviceId] ?? undefined)
-      : (device.provisionedKeyVersion ?? undefined);
+  const versionOf = (device: ContractDevice): number | undefined => versionIn(provisioned, device);
   const exposedDevices = devices.filter((device) => exposedOn(device));
 
   const contractVersion = Math.max(data.version, undoneVersion ?? data.version);
@@ -704,30 +747,14 @@ export const CounterPage: React.FC<{
 
   // Step 1 is complete when every unit carries the current key version and has a battery reading.
   const devicesReady = () => {
-    const errors: Record<string, string> = {};
-    devices.forEach((device) => {
-      const battery = Number(checkOf(device.deviceId).battery);
-      if (versionOf(device) !== keyVersion) {
-        errors[device.deviceId] =
-          "Provision this device with the organization's key before handover.";
-      } else if (
-        checkOf(device.deviceId).battery === '' ||
-        !Number.isInteger(battery) ||
-        battery < 0 ||
-        battery > 100
-      ) {
-        errors[device.deviceId] = BATTERY_RULE;
-      } else if (!checkOf(device.deviceId).gpsFixOk) {
-        errors[device.deviceId] = 'No GPS fix: swap this device before handover.';
-      }
-    });
+    const errors = deviceErrorsOf(devices, keyVersion, provisioned, checks);
     setRowErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const next = () => {
     if (step === 0 && !devicesReady()) return;
-    setStep((current) => Math.min(current + 1, STEPS.length - 1));
+    forward(Math.min(step + 1, STEPS.length - 1));
   };
 
   const submit = async (acknowledgeLowBattery: boolean) => {
@@ -783,7 +810,7 @@ export const CounterPage: React.FC<{
           return;
         case 'FIRST_PAYMENT_MISSING':
           setPaymentError('The first payment is not recorded yet.');
-          setStep(1);
+          jump(1);
           return;
         case 'DEVICE_NOT_PROVISIONED':
           setRowErrors(
@@ -797,7 +824,7 @@ export const CounterPage: React.FC<{
           setProvisioned({});
           // The server's record is the truth now: reload it rather than trust the cached versions.
           void queryClient.invalidateQueries({ queryKey: contractKeys.detail(contractId) });
-          setStep(0);
+          jump(0);
           return;
         case 'DEVICE_CHECK_FAILED':
           setRowErrors(
@@ -808,7 +835,7 @@ export const CounterPage: React.FC<{
               ]),
             ),
           );
-          setStep(0);
+          jump(0);
           return;
         case 'SIGNER_NOT_MANAGER':
           setFormErrors({ signer: failure.message });
@@ -1482,7 +1509,7 @@ export const CounterPage: React.FC<{
             type="button"
             className={SECONDARY_BUTTON}
             disabled={step === 0}
-            onClick={() => setStep((current) => Math.max(current - 1, 0))}
+            onClick={back}
           >
             Back
           </button>

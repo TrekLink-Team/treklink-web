@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { billingKeys } from '../entities/billing/api';
 import { ApiError } from '../shared/api/apiClient';
@@ -334,6 +334,50 @@ describe('CounterPage (screen 5.4)', () => {
     await toSignStep();
     fireEvent.click(screen.getByRole('button', { name: 'Complete handover' }));
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+  });
+
+  // treklink-web#536: the step is in the address, beside mode=handover in the contract home.
+  it('keeps the step in the address beside mode=handover and steps back with browser Back', async () => {
+    const router = createMemoryRouter(
+      [{ path: '/t/contracts/:id', element: <CounterPage contractId="c-1" embedded /> }],
+      { initialEntries: ['/t/contracts/c-1?mode=handover'] },
+    );
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByRole('heading', { name: '1. Devices' })).toBeTruthy();
+    await readyDevices();
+    next();
+    expect(screen.getByRole('heading', { name: '2. Payment' })).toBeTruthy();
+    expect(router.state.location.search).toBe('?mode=handover&step=2');
+    next();
+    expect(router.state.location.search).toBe('?mode=handover&step=3');
+
+    await act(() => router.navigate(-1));
+    expect(screen.getByRole('heading', { name: '2. Payment' })).toBeTruthy();
+    await act(() => router.navigate(-1));
+    expect(screen.getByRole('heading', { name: '1. Devices' })).toBeTruthy();
+    expect(router.state.location.search).toBe('?mode=handover');
+    // The readings of step 1 are kept.
+    screen
+      .getAllByLabelText('Battery %')
+      .forEach((input) => expect((input as HTMLInputElement).value).toBe('90'));
+  });
+
+  it('opens a deep link past an unfilled step 1 on step 1, and corrects the address', async () => {
+    const router = createMemoryRouter(
+      [{ path: '/t/counter/:contractId', element: <CounterPage /> }],
+      { initialEntries: ['/t/counter/c-1?step=4'] },
+    );
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByRole('heading', { name: '1. Devices' })).toBeTruthy();
+    await waitFor(() => expect(router.state.location.search).toBe(''));
   });
 
   it('answers an asset tag of another contract with MSG12', () => {
