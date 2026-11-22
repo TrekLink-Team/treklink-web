@@ -46,9 +46,12 @@ All in `ap-southeast-2` (Sydney), the only region where the organisation's SCP a
 gives the long contract and billing transactions (Complete handover, check-in, inspection, close, End now, damage
 decision, counter and SePay payments) a 20 s limit
 instead of Prisma's 5 s (`SLOW_LINK_TRANSACTION` in `backend/src/modules/platform/events/emit-after-commit.ts`,
-treklink-web#487, #535). Every transaction may wait 20 s instead of Prisma's 2 s to start, so a Neon compute
-waking from suspend does not fail the first request after an idle period (`TRANSACTION_MAX_WAIT_MS` in
-`backend/src/common/prisma/prisma.service.ts`, treklink-web#533). Stack `treklink-<stage>`, stage `staging` by default:
+treklink-web#487, #535). A transaction of request work may wait 20 s instead of Prisma's 2 s to start, so a
+Neon compute waking from suspend does not fail the first request after an idle period (`TRANSACTION_MAX_WAIT_MS`
+in the same file, treklink-web#533); work inside a scheduled job keeps the 2 s, because each job holds a
+connection while its handler waits for another (treklink-web#537). The host also sets three values for the cold
+start (treklink-web#533), in `deploy/aws/.env.aws`: `connection_limit=20&pool_timeout=20&connect_timeout=15` on
+`DATABASE_URL`, and `HEALTH_DB_TIMEOUT_MS=10000`. Stack `treklink-<stage>`, stage `staging` by default:
 
 | Piece | Detail |
 |---|---|
