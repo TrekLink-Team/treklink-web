@@ -1,5 +1,5 @@
 import { createMongoAbility } from '@casl/ability';
-import { HttpStatus } from '@nestjs/common';
+import { HttpStatus, Logger } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import {
@@ -9,6 +9,8 @@ import {
   PolicyHandler,
 } from '../../common/decorators/access.decorator';
 import { RESPONSE_MESSAGE_KEY } from '../../common/decorators/response-message.decorator';
+import { DevicesService } from '../devices';
+import { OrganizationsService } from '../organizations';
 import { ContractReadsService } from './contract-reads.service';
 import {
   IssueChannelKeyDto,
@@ -17,6 +19,19 @@ import {
 } from './dto/contract-decision.dto';
 import { HandoverController } from './handover.controller';
 import { HandoverService } from './handover.service';
+
+// A reads service whose label read after the commit fails (treklink-web#535): a dropped connection,
+// tried once more, then the answer goes out without labels.
+const failingReads = () =>
+  new ContractReadsService(
+    {} as never,
+    {
+      labelsOf: jest.fn().mockRejectedValue(new Error('Server has closed the connection.')),
+    } as unknown as OrganizationsService,
+    { variants: jest.fn().mockResolvedValue([]) } as unknown as DevicesService,
+    {} as never,
+    {} as never,
+  );
 
 const STAFF: Caller = { id: 'u-staff', roles: ['STAFF'], organizationId: null };
 
@@ -171,34 +186,34 @@ describe('HandoverController channel key and docked nodeNum (rentals api-design 
 
 // D-100 (rentals REQ-EVT-30, api-design 10): the handover answer lists each unit's key and its exposure.
 describe('HandoverController complete with a key flagged exposed', () => {
+  const unitKeys = [
+    { deviceId: 'd-1', assetTag: 'TL-0042', keyVersion: 1, keyExposed: true },
+    { deviceId: 'd-2', assetTag: 'TL-0043', keyVersion: 1, keyExposed: true },
+  ];
+  const row = {
+    id: 'c-1',
+    code: 'RC-2026-0042',
+    planType: 'MONTHLY',
+    dayPlanDays: null,
+    hardwareVariantId: 'v-3',
+    quantity: 2,
+    requestedStartDate: new Date('2026-11-06T00:00:00Z'),
+    monthlyUnitPriceVnd: 450_000n,
+    dayPremium: null,
+    holdingFeeRatio: { toNumber: () => 0.5 },
+    status: 'ACTIVE',
+    statusChangedAt: new Date('2026-11-06T03:00:00Z'),
+    handedOverAt: new Date('2026-11-06T03:00:00Z'),
+    endsAt: null,
+    noticeGivenAt: null,
+    returnDueAt: null,
+    version: 3,
+    unitKeys,
+  };
   it('answers the count and each unit with keyVersion and keyExposed', async () => {
-    const unitKeys = [
-      { deviceId: 'd-1', assetTag: 'TL-0042', keyVersion: 1, keyExposed: true },
-      { deviceId: 'd-2', assetTag: 'TL-0043', keyVersion: 1, keyExposed: true },
-    ];
-    const row = {
-      id: 'c-1',
-      code: 'RC-2026-0042',
-      planType: 'MONTHLY',
-      dayPlanDays: null,
-      hardwareVariantId: 'v-3',
-      quantity: 2,
-      requestedStartDate: new Date('2026-11-06T00:00:00Z'),
-      monthlyUnitPriceVnd: 450_000n,
-      dayPremium: null,
-      holdingFeeRatio: { toNumber: () => 0.5 },
-      status: 'ACTIVE',
-      statusChangedAt: new Date('2026-11-06T03:00:00Z'),
-      handedOverAt: new Date('2026-11-06T03:00:00Z'),
-      endsAt: null,
-      noticeGivenAt: null,
-      returnDueAt: null,
-      version: 3,
-      unitKeys,
-    };
     const handover = { complete: jest.fn().mockResolvedValue(row) };
     const reads = {
-      labeller: jest
+      labellerAfterCommit: jest
         .fn()
         .mockResolvedValue(() => ({ organization: null, variantCode: 'treklink-v3' })),
     };
@@ -221,5 +236,32 @@ describe('HandoverController complete with a key flagged exposed', () => {
       STAFF,
     );
     expect(answer).toMatchObject({ status: 'ACTIVE', devicesHandedOver: 2, devices: unitKeys });
+  });
+
+  // treklink-web#535: Complete handover is a demo step; a failed label read after the commit must not
+  // answer 500 for a handover that happened.
+  it('answers success when the labels read after the commit fails', async () => {
+    const handover = { complete: jest.fn().mockResolvedValue({ ...row, unitKeys: [] }) };
+    const logged = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const controller = new HandoverController(
+      handover as unknown as HandoverService,
+      failingReads(),
+    );
+
+    const answer = await controller.complete(
+      'c-1',
+      {
+        signedByMemberId: 'u-manager',
+        identityChecked: 'CCCD ...4821',
+        signaturePng: 'iVBORw0KGgo',
+        deviceChecks: [{ deviceId: 'd-1', batteryPct: 96, gpsFixOk: true }],
+        expectedVersion: 2,
+      },
+      STAFF,
+    );
+
+    expect(answer).toMatchObject({ status: 'ACTIVE', organization: null, devicesHandedOver: 1 });
+    expect(logged).toHaveBeenCalled();
+    logged.mockRestore();
   });
 });

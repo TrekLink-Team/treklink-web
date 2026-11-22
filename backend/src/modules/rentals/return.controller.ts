@@ -150,7 +150,7 @@ export class ReturnController {
     @CurrentCaller() caller: Caller,
   ) {
     const closed = await this.returns.close(id, dto.expectedVersion, caller);
-    const labels = (await this.reads.labeller([closed]))(closed);
+    const labels = (await this.reads.labellerAfterCommit([closed]))(closed);
     return {
       ...contractBase(closed, labels.organization, labels.variantCode, null),
       closedAt: closed.statusChangedAt,
