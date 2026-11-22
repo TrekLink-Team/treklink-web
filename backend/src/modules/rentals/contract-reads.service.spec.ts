@@ -1,7 +1,8 @@
 import { validateQuery } from '../../common/pipes/app-validation.pipe';
 import { ContractQueryDto } from './dto/contract-decision.dto';
 import { ConfigService } from '@nestjs/config';
-import { ContractStatus } from '@prisma/client';
+import { Logger } from '@nestjs/common';
+import { ContractStatus, Prisma } from '@prisma/client';
 import { Caller } from '../../common/decorators/access.decorator';
 import { ErrorCode } from '../../common/errors';
 import { BalanceService } from '../billing';
@@ -34,6 +35,7 @@ describe('ContractReadsService', () => {
   let provisioning: jest.Mock;
   let nextSteps: jest.Mock;
   let idsMatching: jest.Mock;
+  let labelsOf: jest.Mock;
 
   beforeEach(() => {
     nextSteps = jest.fn().mockResolvedValue(new Map());
@@ -54,10 +56,11 @@ describe('ContractReadsService', () => {
     };
     directory = { namesOf: jest.fn().mockResolvedValue(new Map([['u-mgr', 'Pham Duc Huy']])) };
     idsMatching = jest.fn().mockResolvedValue(['org-1', 'org-3']);
+    labelsOf = jest.fn().mockResolvedValue(new Map([['org-1', ORG]]));
     service = new ContractReadsService(
       contracts as unknown as ContractsRepository,
       {
-        labelsOf: jest.fn().mockResolvedValue(new Map([['org-1', ORG]])),
+        labelsOf,
         idsMatching,
       } as unknown as OrganizationsService,
       {
@@ -250,5 +253,50 @@ describe('ContractReadsService', () => {
     await expect(service.transitions('c-1', MANAGER)).resolves.toEqual([
       expect.objectContaining({ toStatus: ContractStatus.REQUESTED, actor: 'Pham Duc Huy' }),
     ]);
+  });
+
+  // treklink-web#535: the labels of a decision's answer are read after its transaction committed.
+  describe('labellerAfterCommit', () => {
+    const dropped = () =>
+      new Prisma.PrismaClientKnownRequestError('Server has closed the connection.', {
+        code: 'P1017',
+        clientVersion: 'test',
+      });
+    let logged: jest.SpyInstance;
+
+    beforeEach(() => {
+      logged = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => logged.mockRestore());
+
+    it('reads the labels once more after a dropped connection', async () => {
+      labelsOf.mockRejectedValueOnce(dropped());
+
+      const label = await service.labellerAfterCommit([ROW]);
+
+      expect(label(ROW)).toMatchObject({ organization: ORG, variantCode: 'treklink-v3' });
+      expect(labelsOf).toHaveBeenCalledTimes(2);
+      expect(logged).not.toHaveBeenCalled();
+    });
+
+    it('answers without labels and logs when the read still fails', async () => {
+      labelsOf.mockRejectedValue(dropped());
+
+      const label = await service.labellerAfterCommit([ROW]);
+
+      expect(label(ROW)).toEqual({ organization: null, variantCode: null, variant: null });
+      expect(labelsOf).toHaveBeenCalledTimes(2);
+      expect(logged).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not read again after an error that is not a connection error', async () => {
+      labelsOf.mockRejectedValue(new Error('unexpected'));
+
+      const label = await service.labellerAfterCommit([ROW]);
+
+      expect(label(ROW).organization).toBeNull();
+      expect(labelsOf).toHaveBeenCalledTimes(1);
+    });
   });
 });

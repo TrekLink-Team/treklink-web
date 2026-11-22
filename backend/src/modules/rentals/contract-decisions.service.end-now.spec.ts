@@ -5,7 +5,7 @@ import { DomainException, ErrorCode } from '../../common/errors';
 import { BalanceService, ChargesService, InvoicesService } from '../billing';
 import { DevicesService } from '../devices';
 import { AUDIT_RECORD } from '../platform/audit/audit-record.event';
-import { TransactionalEvents } from '../platform/events/emit-after-commit';
+import { SLOW_LINK_TRANSACTION, TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { CONTRACT_ENDED_EARLY, ContractDecisionsService } from './contract-decisions.service';
 import { ContractLifecycleService } from './contract-lifecycle.service';
@@ -60,10 +60,12 @@ describe('ContractDecisionsService End now (rentals task 10.2, D-097)', () => {
   let charges: { creditEarlyEnd: jest.Mock; earlyEndCredit: jest.Mock };
   let balances: { balanceSummary: jest.Mock; afterCredit: jest.Mock };
   let emitted: { name: string; payload: unknown }[];
+  let transactionOptions: unknown[];
   let service: ContractDecisionsService;
 
   beforeEach(() => {
     emitted = [];
+    transactionOptions = [];
     contracts = {
       lockById: jest.fn().mockResolvedValue(contract()),
       findById: jest.fn().mockResolvedValue(contract()),
@@ -97,7 +99,11 @@ describe('ContractDecisionsService End now (rentals task 10.2, D-097)', () => {
     // Events are held until the work resolves, as `TransactionalEvents` holds them until commit.
     let pending: { name: string; payload: unknown }[] = [];
     const events = {
-      transaction: async (work: (tx: Prisma.TransactionClient) => Promise<unknown>) => {
+      transaction: async (
+        work: (tx: Prisma.TransactionClient) => Promise<unknown>,
+        options?: unknown,
+      ) => {
+        transactionOptions.push(options);
         pending = [];
         const result = await work(TX);
         emitted.push(...pending);
@@ -118,6 +124,14 @@ describe('ContractDecisionsService End now (rentals task 10.2, D-097)', () => {
   });
 
   const input = { reason: '  Trek finished early  ', expectedVersion: 4 };
+
+  // treklink-web#535: End now writes the closing invoice, so over the Sydney to Singapore link it
+  // needs the same transaction limit as check-in and close, not Prisma's default 5 s.
+  it('runs in one transaction with the slow-link limit', async () => {
+    await service.endNow('c-2', input, MANAGER, AT);
+
+    expect(transactionOptions).toEqual([SLOW_LINK_TRANSACTION]);
+  });
 
   it('closes the term, credits it, sets the dates and moves ACTIVE to RETURN_DUE', async () => {
     const ended = await service.endNow('c-2', input, STAFF, AT);
