@@ -170,7 +170,7 @@ export class HandoverController {
       },
       caller,
     );
-    const label = await this.reads.labeller([contract]);
+    const label = await this.reads.labellerAfterCommit([contract]);
     const labels = label(contract);
     return {
       ...contractBase(contract, labels.organization, labels.variantCode, null),
