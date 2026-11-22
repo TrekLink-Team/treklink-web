@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, type Location } from 'react-router-dom';
 import { useAuth } from '../app/providers/useAuth';
 import { billingKeys, fetchQuote, usePlans, type QuoteRequest } from '../entities/billing/api';
 import {
@@ -15,6 +15,8 @@ import { ApiError } from '../shared/api/apiClient';
 import { formatDateTime, formatDay, formatVnd, todayDay } from '../shared/lib/format';
 import { ChevronDown } from 'lucide-react';
 import { useDebounced } from '../shared/lib/useDebounced';
+import { useStepParam } from '../shared/lib/useStepParam';
+import { useUnsavedChanges, type LeaveGuard } from '../shared/lib/unsavedChanges';
 import { useMediaQuery } from '../shared/lib/useMediaQuery';
 import { Empty, ErrorState, Field, Loading, PageTitle } from '../shared/ui/bits';
 import { PageActionBar, StickyPageHeader, PageScrollBody } from '../shared/ui/PageChrome';
@@ -34,6 +36,17 @@ import {
 
 const STEPS = ['Plan and devices', 'Start date', 'Review and send'] as const;
 const QUOTE_DEBOUNCE_MS = 400;
+const PATH = '/o/contracts/new';
+
+// Browser Back past the first step, or any link out, asks the same question as Cancel; a step change
+// in the address stays inside the form (treklink-web#536).
+const DISCARD: LeaveGuard = {
+  stays: (next: Location) => next.pathname === PATH,
+  title: 'Discard this request?',
+  description: 'What you entered is not saved.',
+  confirmLabel: 'Discard',
+  cancelLabel: 'Keep editing',
+};
 // MSG14, shown after sending (wording amended for D-092 rule 1: the request holds its devices).
 const MSG14 =
   'Request sent. Your devices are held; TrekLink will confirm your handover appointment.';
@@ -75,8 +88,9 @@ export const ContractRequestPage: React.FC = () => {
   const queryClient = useQueryClient();
   const showToast = useToast((state) => state.show);
   const plans = usePlans();
-  const [step, setStep] = useState(0);
   const [discarding, setDiscarding] = useState(false);
+  // Set once the in-page discard is confirmed, so the router's guard lets the page go.
+  const [leaving, setLeaving] = useState(false);
   const [planType, setPlanType] = useState<PlanType>('MONTHLY');
   const [dayPlanDays, setDayPlanDays] = useState<number | ''>('');
   const [variantId, setVariantId] = useState('');
@@ -119,6 +133,12 @@ export const ContractRequestPage: React.FC = () => {
         ...(planType === 'DAY' ? { dayPlanDays: Number(dayPlanDays) } : {}),
       }
     : null;
+  const startValid = startDate !== '' && startDate >= todayDay();
+  // The step is in the address (`?step=2`), so browser Back and Forward move between steps; a deep
+  // link past an unfilled step shows that step (treklink-web#536).
+  const { step, forward, back, jump } = useStepParam(
+    !stepOneValid ? 0 : !startValid ? 1 : STEPS.length - 1,
+  );
   const settledRequest = useDebounced(quoteRequest, QUOTE_DEBOUNCE_MS);
   const quote = useQuery({
     queryKey: settledRequest ? billingKeys.quote(settledRequest) : ['quote', 'none'],
@@ -139,6 +159,12 @@ export const ContractRequestPage: React.FC = () => {
     setErrors((current) => (current[field] ? { ...current, [field]: undefined } : current));
 
   const dirty = variantId !== '' || quantity !== '' || startDate !== '' || dayPlanDays !== '';
+  // Browser Back and links out ask through the app's navigation guard; once sent, nothing is lost.
+  useUnsavedChanges(dirty && !sent && !leaving, DISCARD);
+  useEffect(() => {
+    // The guard is released in the same commit, before this runs.
+    if (leaving) navigate('/o/contracts');
+  }, [leaving, navigate]);
   // Leaving with something entered asks first, in the shared confirmation dialog.
   const cancel = () => {
     if (dirty) setDiscarding(true);
@@ -160,19 +186,19 @@ export const ContractRequestPage: React.FC = () => {
       if (Object.keys(found).length > 0) return;
     }
     if (step === 1) {
-      if (startDate === '' || startDate < todayDay()) {
+      if (!startValid) {
         setErrors({ requestedStartDate: 'Start date must not be in the past.' });
         return;
       }
       setErrors({});
     }
-    setStep(step + 1);
+    forward(step + 1);
   };
 
   const send = async () => {
     if (overAvailable) {
       setErrors({ quantity: msg11(availableNow, variantName) });
-      setStep(0);
+      jump(0);
       return;
     }
     setPending(true);
@@ -197,8 +223,8 @@ export const ContractRequestPage: React.FC = () => {
       if (failure instanceof ApiError && failure.errorCode === 'INSUFFICIENT_DEVICES') {
         void availability.refetch();
       }
-      if (found.quantity || found.dayPlanDays || found.hardwareVariantId) setStep(0);
-      else if (found.requestedStartDate) setStep(1);
+      if (found.quantity || found.dayPlanDays || found.hardwareVariantId) jump(0);
+      else if (found.requestedStartDate) jump(1);
       setPending(false);
     }
   };
@@ -570,7 +596,7 @@ export const ContractRequestPage: React.FC = () => {
         label="Request steps"
         start={
           step > 0 ? (
-            <button type="button" className={SECONDARY_BUTTON} onClick={() => setStep(step - 1)}>
+            <button type="button" className={SECONDARY_BUTTON} onClick={back}>
               Back
             </button>
           ) : (
@@ -611,7 +637,7 @@ export const ContractRequestPage: React.FC = () => {
           confirmLabel="Discard"
           cancelLabel="Keep editing"
           destructive
-          onConfirm={() => navigate('/o/contracts')}
+          onConfirm={() => setLeaving(true)}
           onCancel={() => setDiscarding(false)}
         />
       )}
