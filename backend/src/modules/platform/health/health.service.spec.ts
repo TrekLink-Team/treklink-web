@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 import { DomainException, ErrorCode } from '../../../common/errors';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { ValidatedEnvironment } from '../config/environment-variables';
@@ -9,13 +10,23 @@ import { MqttHealthProbe } from './mqtt-health-probe';
 
 const TIMEOUT_MS = 2000;
 
-const serviceWith = (queryRaw: jest.Mock, probe?: MqttHealthProbe): HealthService => {
+const serviceWith = (
+  queryRaw: jest.Mock,
+  probe?: MqttHealthProbe,
+  timeoutMs = TIMEOUT_MS,
+): HealthService => {
   const prisma = { $queryRaw: queryRaw } as unknown as PrismaService;
   const config = {
-    get: (key: string) => (key === 'HEALTH_DB_TIMEOUT_MS' ? TIMEOUT_MS : undefined),
+    get: (key: string) => (key === 'HEALTH_DB_TIMEOUT_MS' ? timeoutMs : undefined),
   } as unknown as ConfigService<ValidatedEnvironment, true>;
   return new HealthService(prisma, config, probe);
 };
+
+const dropped = () =>
+  new Prisma.PrismaClientKnownRequestError('Server has closed the connection.', {
+    code: 'P1017',
+    clientVersion: 'test',
+  });
 
 const probe = (connected: boolean | Error): MqttHealthProbe => ({
   isConnected: () => {
@@ -116,5 +127,59 @@ describe('HealthService', () => {
       serviceWith(jest.fn().mockRejectedValue(new Error('down')), { isConnected }).check(),
     );
     expect(isConnected).not.toHaveBeenCalled();
+  });
+
+  // treklink-web#533: after an idle period the first probe met a connection the suspended Neon compute
+  // had dropped, and the health check answered 503 while the database was about to answer.
+  it('asks once more after a dropped connection and reports ok', async () => {
+    const queryRaw = jest.fn().mockRejectedValueOnce(dropped()).mockResolvedValue([]);
+
+    const report = await serviceWith(queryRaw).check();
+
+    expect(report.components.database).toBe('up');
+    expect(queryRaw).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps 503 when the second probe fails too', async () => {
+    const queryRaw = jest.fn().mockRejectedValue(dropped());
+
+    await expectServiceUnavailable(serviceWith(queryRaw).check());
+    expect(queryRaw).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not ask again after an error that is not a connection error', async () => {
+    const queryRaw = jest.fn().mockRejectedValue(new Error('permission denied'));
+
+    await expectServiceUnavailable(serviceWith(queryRaw).check());
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports ok for a slow first answer within a raised HEALTH_DB_TIMEOUT_MS', async () => {
+    jest.useFakeTimers();
+    const raisedMs = 10_000;
+    let resolveQuery: (rows: unknown[]) => void = () => undefined;
+    const query = new Promise<unknown[]>((resolve) => (resolveQuery = resolve));
+    const pending = serviceWith(jest.fn().mockReturnValue(query), undefined, raisedMs).check();
+
+    // A Neon compute waking from suspend over the Sydney to Singapore link answers after 6 s.
+    await jest.advanceTimersByTimeAsync(6_000);
+    resolveQuery([]);
+
+    await expect(pending).resolves.toMatchObject({ components: { database: 'up' } });
+  });
+
+  it('keeps the retry inside HEALTH_DB_TIMEOUT_MS', async () => {
+    jest.useFakeTimers();
+    const queryRaw = jest
+      .fn()
+      .mockRejectedValueOnce(dropped())
+      .mockReturnValue(new Promise(() => undefined));
+    const pending = serviceWith(queryRaw).check();
+    const asserted = expectServiceUnavailable(pending);
+
+    await jest.advanceTimersByTimeAsync(TIMEOUT_MS);
+
+    await asserted;
+    expect(queryRaw).toHaveBeenCalledTimes(2);
   });
 });
