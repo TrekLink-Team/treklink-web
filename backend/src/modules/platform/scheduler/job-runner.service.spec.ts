@@ -1,10 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DiscoveryModule } from '@nestjs/core';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../../../common/prisma/prisma.service';
-import { JobRunnerService } from './job-runner.service';
+import { inBackgroundWork } from '../events/background-work';
+import { TransactionalEvents, TRANSACTION_MAX_WAIT_MS } from '../events/emit-after-commit';
+import { JOB_MAX_DURATION_MS, JobRunnerService } from './job-runner.service';
 import { ScheduledJob } from './scheduled-job.decorator';
 
 @Injectable()
@@ -80,6 +83,37 @@ describe('JobRunnerService', () => {
     await expect(runner.run('sample.sweep', () => jobs.sweep())).resolves.toBe('succeeded');
 
     expect(jobs.runs).toBe(1);
+  });
+
+  // treklink-web#537: nine jobs fire together each minute, each holding a connection for its lock. A
+  // long start wait in their handlers' transactions held the whole pool and every request timed out.
+  it('runs the handler as background work, so its transactions keep the short start wait', async () => {
+    const inner = jest.fn((work: (tx: object) => Promise<unknown>) => work({}));
+    const events = new TransactionalEvents(
+      { $transaction: inner } as unknown as PrismaService,
+      new EventEmitter2(),
+    );
+    let background: boolean | undefined;
+
+    await runner.run('sample.sweep', async () => {
+      background = inBackgroundWork();
+      await events.transaction(() => Promise.resolve('done'), { timeout: 5_000 });
+    });
+
+    expect(background).toBe(true);
+    expect(inner).toHaveBeenCalledWith(expect.any(Function), { timeout: 5_000 });
+    expect(inBackgroundWork()).toBe(false);
+  });
+
+  it('starts its own lock transaction without a long start wait', async () => {
+    const prisma = (runner as unknown as { prisma: { $transaction: jest.Mock } }).prisma;
+
+    await runner.run('sample.sweep', () => jobs.sweep());
+
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      timeout: JOB_MAX_DURATION_MS,
+    });
+    expect(TRANSACTION_MAX_WAIT_MS).toBeGreaterThan(2_000);
   });
 
   it('skips the run when another instance holds the lock', async () => {
