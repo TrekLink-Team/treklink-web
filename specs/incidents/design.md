@@ -81,6 +81,7 @@ stateDiagram-v2
     RESPONDING --> FALSE_ALARM : member declares
     UNROUTED --> FALSE_ALARM : Staff declare
     UNROUTED --> REPORTED : Staff report
+    UNROUTED --> NOTIFY_PRIMARY : attributed device SOS joins
     ESCALATED --> REPORTED : Staff report
     REPORTED --> CLOSED : authority case closed
     RESOLVED --> NOTIFY_PRIMARY : device SOS in reopen window
@@ -100,6 +101,11 @@ organization the triggering field event is attributed to (D-040), never the devi
 REQ-EVT-03), so an unattributed SOS, or an organization with nobody to alert, reopens to `UNROUTED`. A
 device packet only opens or reopens an incident; a person ends it, and only the system closes a
 `RESOLVED` or `FALSE_ALARM` episode, once its reopen window has ended (REQ-UBI-05, D-038 rule 2).
+An attributed SOS that joins an `UNROUTED` episode routes it by the same path as a reopen: the
+`ROUTED` transition from `UNROUTED`, `DEVICE` actor, to `NOTIFY_PRIMARY` (or the first non-empty tier) of
+that event's organization and contract, which the incident takes. An unattributed SOS, or one whose
+organization has nobody to alert, leaves the episode `UNROUTED` and is appended (amended 2026-11-23,
+D-111).
 
 | Timer column | Set when entering | Cleared when leaving |
 |---|---|---|
