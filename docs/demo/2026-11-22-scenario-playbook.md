@@ -252,8 +252,10 @@ and holder.
 ### Unhappy case: SOS without attribution (Unrouted)
 
 The rule forbids a live SOS inside the margin, so the seeded INC-2026-000001 on TL-0001 (a unit in no
-custody) stands in: it is the same Unrouted path an early SOS takes until TK-245 (leader ruling
-2026-11-20: no live SOS inside the margin).
+custody) stands in: it is the same Unrouted path an early SOS takes. Since TK-245 the next attributed SOS
+from that unit would route an early SOS's incident to the organization's primary; TL-0001 is in no
+custody, so INC-2026-000001 stays Unrouted for the Staff steps below (leader ruling 2026-11-20: no live
+SOS inside the margin).
 
 | Step | Page | Action | Value typed | Expected screen | Fallback |
 |---|---|---|---|---|---|
