@@ -112,9 +112,15 @@ export class IncidentIngress {
     }
     // D-111: an episode went UNROUTED because its SOS was unattributed (the attribution margin after a
     // handover) or nobody could be alerted. The first later SOS that is attributed routes it as a
-    // reopen is routed, to that event's organization and contract. An unattributed SOS, or one whose
-    // organization still has nobody to alert, leaves it UNROUTED with TrekLink Staff and is appended.
-    if (open.state === 'UNROUTED' && event.organizationId) {
+    // reopen is routed, to that event's organization and contract, when the episode has no
+    // organization or the same one. An episode of another organization stays that organization's
+    // emergency: the next holder's SOS never moves it or alerts them (AC-09). An unattributed SOS, or
+    // one whose organization still has nobody to alert, leaves it UNROUTED with TrekLink Staff too.
+    if (
+      open.state === 'UNROUTED' &&
+      event.organizationId &&
+      (open.organizationId === null || open.organizationId === event.organizationId)
+    ) {
       const route = await this.routing.route(event, at, tx);
       if (route.to === 'NOTIFY_PRIMARY') return this.reroute(open, event, 'ROUTED', route, at, tx);
     }

@@ -382,6 +382,26 @@ describe('IncidentIngress.onSos (incidents 2.3, design §4)', () => {
       expect(events.emitAfterCommit).not.toHaveBeenCalled();
     });
 
+    // AC-09: an episode Unrouted because A had nobody to alert still belongs to A, so an SOS of the
+    // unit's next holder B never moves A's open emergency to B.
+    it('keeps an UNROUTED episode of another organization UNROUTED and only appends', async () => {
+      const ofA = incident('UNROUTED', { organizationId: 'org-a', contractId: 'c-a' });
+      repository.lockOpenByDevice.mockResolvedValue(ofA);
+      const fromB = event({ organizationId: 'org-b', contractId: 'c-b' });
+      await ingress.onSos(fromB, tx);
+      expect(repository.appendEvent).toHaveBeenCalledWith(ofA, fromB.occurredAt, tx);
+      expect(routing.route).not.toHaveBeenCalled();
+      expect(lifecycle.apply).not.toHaveBeenCalled();
+    });
+
+    it('routes an UNROUTED episode of the same organization once someone can be alerted', async () => {
+      const ofA = incident('UNROUTED', { organizationId: 'org-a', contractId: 'c-a' });
+      repository.lockOpenByDevice.mockResolvedValue(ofA);
+      await ingress.onSos(event(), tx);
+      expect(calls()[0].slice(1, 4)).toEqual(['UNROUTED', 'NOTIFY_PRIMARY', { kind: 'DEVICE' }]);
+      expect(calls()[0][4].route).toEqual({ organizationId: 'org-a', contractId: 'c-a' });
+    });
+
     it('does not route an already routed episode a second time', async () => {
       const routed = incident('NOTIFY_PRIMARY');
       repository.lockOpenByDevice.mockResolvedValue(routed);
