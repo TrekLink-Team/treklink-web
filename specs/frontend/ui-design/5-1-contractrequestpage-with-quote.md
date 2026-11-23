@@ -38,7 +38,7 @@ and the page confirms the hold expiry and the deposit due. The wireframe predate
 | Control | Endpoint | Confirmation | Success message |
 |---|---|---|---|
 | Plan, variant or quantity changed (quote refresh, debounced 400 ms once all step 1 fields are valid) | billing 02 `POST /api/quotes` | none | the quote panel updates |
-| Next and Back (between steps) | none | none | none |
+| Next and Back (between steps; the step is in the address, see "Step address and leaving" below) | none | none | none |
 | Availability refresh: automatic every 30 s and on window focus, and the **Refresh** button beside the count | devices 24 `GET /api/devices/availability` | none | the count updates |
 | Send request (step 3, primary) | rentals 01 `POST /api/contracts` | none: the request holds the units; the deposit is due before the hold expires | toast MSG14; the page shows the confirmation panel "Request RC-... sent", "N devices are held for you until {time}.", "Deposit due before then: {amount}." with **Open the contract** (`/o/contracts/:id`, screen 5.2) and **Pay the deposit** (`/o/invoices?contractId=`) |
 | Cancel (header link) | none; back to `/o/contracts` | asks first if a field is filled (chapter 06 §8.7) | none |
@@ -93,3 +93,26 @@ Chapter 06 §7 (Screen Design Checklist) and §8 (UI and UX practices), ticked b
 - [x] Accessibility: step indicator, focus after Next and errors, live quote region
 - [x] Live data: none; query keys listed
 - [x] Traceability: UC-15, US-UC15
+
+## Step address and leaving (D-112, 2026-11-23)
+
+Added by KhoaDD under D-112, which records this catch-up with treklink-web#538 as an exception to the
+spec freeze of D-103.
+
+- The step is in the address: `/o/contracts/new` shows step 1, `?step=2` and `?step=3` the later steps.
+  Next pushes a history entry. The in-page Back returns to the entry Next pushed, or replaces the address
+  when there is none. Browser Back and Forward move between steps, and the values entered stay.
+- A deep link or a reload to a step whose earlier steps are not filled shows the first unfilled step and
+  corrects the address in place, with no new history entry. The page keeps no values across a reload, so
+  a reload of `?step=3` shows step 1.
+- A server refusal that sends the user to an earlier step replaces the current entry: a quantity,
+  day-plan length or variant error opens step 1, a start date error opens step 2.
+- The request has unsaved values while a variant, quantity, day-plan length or start date is entered and
+  the request is not sent; the plan choice alone does not count. While it has them:
+  - browser Back past step 1, or any link out of `/o/contracts/new`, asks "Discard this request?" ("What
+    you entered is not saved.", buttons Discard and Keep editing) in the app's confirmation dialog. Keep
+    editing stays on the step with the values; Discard leaves. A move between steps never asks.
+  - a reload or closing the tab shows the browser's own warning, whose wording the page does not set.
+  - Cancel and Back to contracts ask the same question in the page's own dialog, once.
+- Nothing asks on a clean form, after a successful send, or on sign-out: the guard acts only while a user
+  is signed in.

@@ -16,6 +16,15 @@ Scope from the task: rentals api-design 07 to 10 in four steps (design §5): dev
 
 Since D-096 (2026-11-04) the same four steps also run inside the contract home's Handover mode, `/t/contracts/:id?mode=handover` (screen 5.2): the home shows the title, status and actions, so the counter drops its own title and sticky header there and keeps its stepper and its Back and Next bar. A signed handover returns the home to its Overview.
 
+Amended 2026-11-23 by KhoaDD under D-112 (an exception to the D-103 spec freeze, treklink-web#538): the
+step is in the address as `?step=N`, absent on step 1, on `/t/counter/:contractId` and beside the mode in
+the contract home (`?mode=handover&step=2`; `mode=handover` is kept). Next pushes a history entry, the
+in-page Back returns to the entry Next pushed, and browser Back and Forward move between steps with the
+step 1 readings kept. The step 1 readings live on the page only, so a deep link or a reload to a later
+step opens step 1 and corrects the address in place. A server refusal or Re-provision {assetTag} that
+opens an earlier step replaces the current entry. Handover has no discard prompt: browser Back from step
+1, a link out or a reload leaves without asking.
+
 ## Data
 
 | Shown | Source (api-design file, property) |
