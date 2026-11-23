@@ -762,6 +762,24 @@ describe('IncidentLifecycle task 1.2', () => {
       expect(repository.compareAndSet).not.toHaveBeenCalled();
     });
 
+    it('refuses to move an UNROUTED episode of one organization to another (AC-09)', async () => {
+      current = row('UNROUTED', { organizationId: 'org-a', contractId: 'contract-a' });
+      await expect(route()).rejects.toMatchObject({
+        errorCode: ErrorCode.INVALID_STATE_TRANSITION,
+      });
+      expect(repository.compareAndSet).not.toHaveBeenCalled();
+      current = row('UNROUTED', {
+        organizationId: 'org-b',
+        contractId: null,
+        tierDeadlineAt: null,
+      });
+      await expect(route()).resolves.toMatchObject({
+        state: 'NOTIFY_PRIMARY',
+        organizationId: 'org-b',
+        contractId: 'contract-b',
+      });
+    });
+
     it('still lets only the system route a new incident out of DETECTED', async () => {
       current = row('DETECTED');
       await expect(route()).rejects.toMatchObject({

@@ -335,8 +335,14 @@ export class IncidentLifecycle {
         (ends && reason.occurredAt >= ends && at >= ends))
     )
       throw invalid();
-    // Only an attributed SOS routes an UNROUTED episode (D-111).
-    if (code === 'ROUTED' && current.state === 'UNROUTED' && !reason.route?.organizationId)
+    // Only an attributed SOS routes an UNROUTED episode, and only to the organization the episode has,
+    // if it has one: another holder's SOS never takes over that emergency (D-111, AC-09).
+    if (
+      code === 'ROUTED' &&
+      current.state === 'UNROUTED' &&
+      (!reason.route?.organizationId ||
+        (current.organizationId !== null && current.organizationId !== reason.route.organizationId))
+    )
       throw invalid();
     if (code === 'OWNER_DEACTIVATED' && !current.ownerId) throw invalid();
   }

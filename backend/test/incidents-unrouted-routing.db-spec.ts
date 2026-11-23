@@ -104,8 +104,41 @@ describe('an attributed SOS routes an UNROUTED episode, against Postgres (D-111)
       })
     ).id;
 
-  // A unit handed over `handedOverSecondsAgo` before now to the test organization.
-  const handedOverUnit = async (handedOverSecondsAgo: number) => {
+  // A custody interval of the device for `owner`, on a contract of its own (D-040).
+  const custody = async (
+    deviceId: string,
+    owner: string,
+    handedOverAt: Date,
+    checkedInAt: Date | null = null,
+  ) => {
+    const contract = await prisma.rentalContract.create({
+      data: {
+        code: `RC-D111-${runId.slice(0, 8)}-${++serial}`,
+        organizationId: owner,
+        planType: PlanType.MONTHLY,
+        hardwareVariantId: variantId,
+        quantity: 1,
+        requestedStartDate: new Date('2026-11-01T00:00:00Z'),
+        monthlyUnitPriceVnd: 250_000n,
+        holdingFeeRatio: new Prisma.Decimal('0.5'),
+        requestedById: managerId,
+        status: ContractStatus.ACTIVE,
+      },
+    });
+    await prisma.contractDevice.create({
+      data: {
+        contractId: contract.id,
+        deviceId,
+        handedOverAt,
+        checkedInAt,
+        holderName: 'Le Thi E',
+        holderPhone: '0912345678',
+      },
+    });
+    return contract.id;
+  };
+
+  const unit = async () => {
     const nodeNum = Number.parseInt(randomUUID().slice(0, 7), 16);
     const device = await prisma.device.create({
       data: {
@@ -118,31 +151,15 @@ describe('an attributed SOS routes an UNROUTED episode, against Postgres (D-111)
         status: 'RENTED',
       },
     });
-    const contract = await prisma.rentalContract.create({
-      data: {
-        code: `RC-D111-${runId.slice(0, 8)}-${serial}`,
-        organizationId,
-        planType: PlanType.MONTHLY,
-        hardwareVariantId: variantId,
-        quantity: 1,
-        requestedStartDate: new Date('2026-11-01T00:00:00Z'),
-        monthlyUnitPriceVnd: 250_000n,
-        holdingFeeRatio: new Prisma.Decimal('0.5'),
-        requestedById: managerId,
-        status: ContractStatus.ACTIVE,
-      },
-    });
+    return { nodeNum, deviceId: device.id };
+  };
+
+  // A unit handed over `handedOverSecondsAgo` before now to the test organization.
+  const handedOverUnit = async (handedOverSecondsAgo: number) => {
+    const { nodeNum, deviceId } = await unit();
     const handedOverAt = new Date(Date.now() - handedOverSecondsAgo * 1000);
-    await prisma.contractDevice.create({
-      data: {
-        contractId: contract.id,
-        deviceId: device.id,
-        handedOverAt,
-        holderName: 'Le Thi E',
-        holderPhone: '0912345678',
-      },
-    });
-    return { nodeNum, deviceId: device.id, contractId: contract.id, handedOverAt };
+    const contractId = await custody(deviceId, organizationId, handedOverAt);
+    return { nodeNum, deviceId, contractId, handedOverAt };
   };
 
   // An SOS text of the node whose device clock reads `at`.
@@ -276,6 +293,60 @@ describe('an attributed SOS routes an UNROUTED episode, against Postgres (D-111)
       version: routed.version,
     });
     expect(await prisma.incidentTransition.count({ where: { incidentId: opened.id } })).toBe(3);
+  });
+
+  // AC-09: A had nobody to alert, so A's episode is UNROUTED but still A's. After the unit is checked
+  // in and handed to B, B's first SOS must not move A's open emergency to B or alert B's primary.
+  it('keeps an UNROUTED episode of A with Staff when the next holder B sends an SOS', async () => {
+    const nobodyOnDuty = (
+      await prisma.organization.create({
+        data: {
+          code: `d111-a-${runId}`,
+          legalName: 'D111 organization with no roster',
+          taxCode: `a-${runId}`,
+          address: 'Test only',
+          contactEmail: 'test@example.invalid',
+          contactPhone: '0000000000',
+          documentsSeen: [],
+          status: 'ACTIVE',
+        },
+      })
+    ).id;
+    const { nodeNum, deviceId } = await unit();
+    const now = Date.now();
+    const contractOfA = await custody(
+      deviceId,
+      nobodyOnDuty,
+      new Date(now - 3600_000),
+      new Date(now - 1800_000),
+    );
+    await custody(deviceId, organizationId, new Date(now - 1500_000));
+    // 1. A's SOS, inside A's custody and clear of both margins, uploaded late: UNROUTED, kept on A.
+    await expect(ingestion.ingest(sos(nodeNum, new Date(now - 3000_000)))).resolves.toBe(
+      'ACCEPTED',
+    );
+    const opened = await prisma.incident.findFirstOrThrow({ where: { deviceId } });
+    expect(opened).toMatchObject({
+      state: 'UNROUTED',
+      organizationId: nobodyOnDuty,
+      contractId: contractOfA,
+    });
+    // 2. B's SOS, attributed to B: appended, the episode stays A's and UNROUTED.
+    await expect(ingestion.ingest(sos(nodeNum, new Date()))).resolves.toBe('ACCEPTED');
+    expect(await prisma.incident.findUniqueOrThrow({ where: { id: opened.id } })).toMatchObject({
+      state: 'UNROUTED',
+      organizationId: nobodyOnDuty,
+      contractId: contractOfA,
+      eventCount: 2,
+      version: opened.version,
+    });
+    expect(await prisma.incident.count({ where: { deviceId } })).toBe(1);
+    expect(await prisma.incidentTransition.count({ where: { incidentId: opened.id } })).toBe(2);
+    expect(
+      await prisma.alertDelivery.count({
+        where: { incidentId: opened.id, recipientId: { in: [operatorId, managerId] } },
+      }),
+    ).toBe(0);
   });
 
   it('keeps the episode UNROUTED when the next SOS is Unattributed as well', async () => {
