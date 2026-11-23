@@ -37,10 +37,11 @@ Run order, always the same, because each flow uses what the earlier one left:
 7. MF-05 term end to close (RC-2026-0002)
 
 **SOS timing rule (D-111, as stated by the leader for this task).** Send no SOS until at least 5 minutes
-after the MF-01c handover. An SOS inside the 300 s attribution margin of a handover
-(`gatewaySync.attributionMarginSeconds`, `backend/prisma/migrations/20261004120100_seed/migration.sql`) is
-stored Unattributed and its incident stays Unrouted until the routing fix TK-245 lands after the RC. No
-rehearsal sends a live SOS inside the margin (leader ruling 2026-11-20).
+after the MF-01c handover: this stays the simple path. An SOS inside the 300 s attribution margin of a
+handover (`gatewaySync.attributionMarginSeconds`, `backend/prisma/migrations/20261004120100_seed/migration.sql`)
+is still stored Unattributed and its incident goes Unrouted, but since TK-245 the next attributed SOS from
+the same unit joins that incident and routes it to the organization's primary. No rehearsal sends a live
+SOS inside the margin (leader ruling 2026-11-20).
 
 ## 2. Accounts and seed data (fresh seed)
 

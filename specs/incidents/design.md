@@ -231,9 +231,15 @@ reads (api-design 01 to 07) return `simulated`, and the screens show a "Simulate
 
    An earlier SOS uploaded late, which occurred before the episode ended, is appended to it.
 4. Otherwise, if within the correlation window of `lastEventAt`: append (event count, last position,
-   `CONFIRMED` upgrade for a suspected incident).
-5. Otherwise (open, but older than the window): append too. One open incident per device means a new
-   episode on an open incident is the same emergency still running.
+   `CONFIRMED` upgrade for a suspected incident). An `UNROUTED` episode joined by an attributed SOS
+   whose organization has someone to alert is also routed, through the reopen's routing path (§2):
+   `ROUTED`, `DEVICE` actor, to `NOTIFY_PRIMARY` (or the first non-empty tier) of that event's
+   organization and contract, which the incident takes. An unattributed SOS, or one whose
+   organization has nobody to alert, is only appended and the episode stays `UNROUTED` (amended
+   2026-11-23, D-111).
+5. Otherwise (open, but older than the window): append too, with the `UNROUTED` routing of step 4. One
+   open incident per device means a new episode on an open incident is the same emergency still
+   running (amended 2026-11-23, D-111).
 
 `onPosition(event, tx, history)` appends positions of an open incident (`gatewaySync.retroTagGraceSeconds`
 before the SOS included) and counts cadence for `SUSPECTED` creation. A position joins only an
