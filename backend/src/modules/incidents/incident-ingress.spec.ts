@@ -318,6 +318,109 @@ describe('IncidentIngress.onSos (incidents 2.3, design §4)', () => {
     expect(repository.insert).not.toHaveBeenCalled();
   });
 
+  // D-111 (TK-245): an SOS stored Unattributed inside the attribution margin after a handover opens an
+  // UNROUTED episode; the next SOS of the unit, attributed, joins that episode and routes it.
+  describe('an attributed SOS joining an UNROUTED episode (D-111)', () => {
+    const unattributed = () => incident('UNROUTED', { organizationId: null, contractId: null });
+
+    it('routes the episode to the event organization and contract, as a reopen is routed', async () => {
+      const open = unattributed();
+      repository.lockOpenByDevice.mockResolvedValue(open);
+      const sos = event({ eventId: 'evt-2', occurredAt: new Date('2026-10-29T03:10:00Z') });
+      await ingress.onSos(sos, tx);
+      expect(repository.appendEvent).toHaveBeenCalledWith(open, sos.occurredAt, tx);
+      expect(routing.route).toHaveBeenCalledWith(sos, expect.any(Date), tx);
+      expect(calls()).toHaveLength(1);
+      const [id, expected, to, actor, reason] = calls()[0];
+      expect([id, expected, to, actor]).toEqual([
+        'inc-1',
+        'UNROUTED',
+        'NOTIFY_PRIMARY',
+        { kind: 'DEVICE' },
+      ]);
+      // The reopen path's reason, so the lifecycle writes the same tier alerts, history and audit.
+      expect(reason).toEqual({
+        code: 'ROUTED',
+        at: new Date('2026-10-29T03:30:00Z'),
+        recipients: RECIPIENTS,
+        refEventId: 'evt-2',
+        occurredAt: sos.occurredAt,
+        route: { organizationId: 'org-a', contractId: 'c-a' },
+      });
+      expect(repository.insert).not.toHaveBeenCalled();
+    });
+
+    it('keeps an episode UNROUTED when an unattributed SOS joins it (unchanged)', async () => {
+      const open = unattributed();
+      repository.lockOpenByDevice.mockResolvedValue(open);
+      const sos = event({ organizationId: null, contractId: null });
+      await ingress.onSos(sos, tx);
+      expect(repository.appendEvent).toHaveBeenCalledWith(open, sos.occurredAt, tx);
+      expect(routing.route).not.toHaveBeenCalled();
+      expect(lifecycle.apply).not.toHaveBeenCalled();
+    });
+
+    it('keeps the episode UNROUTED with Staff when the attributed organization has nobody to alert', async () => {
+      routing.route.mockResolvedValue({
+        to: 'UNROUTED',
+        recipients: { ...RECIPIENTS, primary: [] },
+      });
+      const open = unattributed();
+      repository.lockOpenByDevice.mockResolvedValue(open);
+      await ingress.onSos(event(), tx);
+      expect(repository.appendEvent).toHaveBeenCalledTimes(1);
+      expect(repository.appendEvent).toHaveBeenCalledWith(open, event().occurredAt, tx);
+      expect(lifecycle.apply).not.toHaveBeenCalled();
+    });
+
+    it('routes a SUSPECTED UNROUTED episode too, and the transition announces it', async () => {
+      const open = incident('UNROUTED', { organizationId: null, contractId: null });
+      open.confidence = 'SUSPECTED';
+      repository.lockOpenByDevice.mockResolvedValue(open);
+      await ingress.onSos(event(), tx);
+      expect(calls()[0].slice(1, 4)).toEqual(['UNROUTED', 'NOTIFY_PRIMARY', { kind: 'DEVICE' }]);
+      expect(events.emitAfterCommit).not.toHaveBeenCalled();
+    });
+
+    it('does not route an already routed episode a second time', async () => {
+      const routed = incident('NOTIFY_PRIMARY');
+      repository.lockOpenByDevice.mockResolvedValue(routed);
+      await ingress.onSos(event({ eventId: 'evt-3' }), tx);
+      expect(repository.appendEvent).toHaveBeenCalledWith(routed, event().occurredAt, tx);
+      expect(routing.route).not.toHaveBeenCalled();
+      expect(lifecycle.apply).not.toHaveBeenCalled();
+    });
+
+    it('leaves a routed episode on its organization when the SOS names another one', async () => {
+      const routed = incident('ACKNOWLEDGED', { ownerId: 'owner' });
+      repository.lockOpenByDevice.mockResolvedValue(routed);
+      await ingress.onSos(event({ organizationId: 'org-b', contractId: 'c-b' }), tx);
+      expect(repository.appendEvent).toHaveBeenCalledWith(routed, event().occurredAt, tx);
+      expect(routing.route).not.toHaveBeenCalled();
+      expect(lifecycle.apply).not.toHaveBeenCalled();
+    });
+
+    it('opens a new routed incident when the earlier episode is CLOSED (unchanged)', async () => {
+      repository.lockOpenByDevice.mockResolvedValue(null);
+      await ingress.onSos(event(), tx);
+      expect(repository.insert).toHaveBeenCalled();
+      expect(calls()).toHaveLength(1);
+      expect(calls()[0].slice(1, 4)).toEqual(['DETECTED', 'NOTIFY_PRIMARY', { kind: 'SYSTEM' }]);
+      expect(calls()[0][4].code).toBe('ROUTED');
+      expect(repository.appendEvent).not.toHaveBeenCalled();
+    });
+
+    it('still reopens a RESOLVED episode with REOPENED, not ROUTED (unchanged)', async () => {
+      repository.lockOpenByDevice.mockResolvedValue(
+        incident('RESOLVED', { reopenWindowEndsAt: WINDOW_END }),
+      );
+      await ingress.onSos(event(), tx);
+      expect(calls()).toHaveLength(1);
+      expect(calls()[0].slice(1, 4)).toEqual(['RESOLVED', 'NOTIFY_PRIMARY', { kind: 'DEVICE' }]);
+      expect(calls()[0][4].code).toBe('REOPENED');
+    });
+  });
+
   describe('onPosition', () => {
     it('joins a running episode, moves its last position and announces it after commit', async () => {
       const open = incident('ACKNOWLEDGED', { ownerId: 'u-1' });

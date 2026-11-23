@@ -4,7 +4,7 @@ import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
 import { IncidentLifecycle, tierOf } from './incident-lifecycle';
 import { IncidentsRepository } from './incidents.repository';
-import { Attribution, RoutingService } from './routing.service';
+import { Attribution, Route, RoutingService } from './routing.service';
 
 // An SOS as gateway-sync stores it: the field event and its attribution at the occurrence time
 // (D-040). The SOS text carries no position; the fix rides a separate POSITION_APP packet (FGT).
@@ -108,23 +108,15 @@ export class IncidentIngress {
       }
       // Inside the window, or a window never set: the device reopens the episode, re-routed as at
       // creation, so an unattributed SOS or an organization with nobody to alert reopens to UNROUTED.
-      await this.repository.appendEvent(open, event.occurredAt, tx);
+      return this.reroute(open, event, 'REOPENED', await this.routing.route(event, at, tx), at, tx);
+    }
+    // D-111: an episode went UNROUTED because its SOS was unattributed (the attribution margin after a
+    // handover) or nobody could be alerted. The first later SOS that is attributed routes it as a
+    // reopen is routed, to that event's organization and contract. An unattributed SOS, or one whose
+    // organization still has nobody to alert, leaves it UNROUTED with TrekLink Staff and is appended.
+    if (open.state === 'UNROUTED' && event.organizationId) {
       const route = await this.routing.route(event, at, tx);
-      return this.lifecycle.apply(
-        open.id,
-        open.state,
-        route.to,
-        { kind: 'DEVICE' },
-        {
-          code: 'REOPENED',
-          at,
-          recipients: route.recipients,
-          refEventId: event.eventId,
-          occurredAt: event.occurredAt,
-          route: { organizationId: event.organizationId, contractId: event.contractId },
-        },
-        tx,
-      );
+      if (route.to === 'NOTIFY_PRIMARY') return this.reroute(open, event, 'ROUTED', route, at, tx);
     }
     // Steps 4 and 5: any other open episode is the same emergency still running. A late SOS that
     // occurred before the episode ended is recorded on it.
@@ -249,6 +241,35 @@ export class IncidentIngress {
       route.to,
       { kind: 'SYSTEM' },
       { code: 'ROUTED', at, recipients: route.recipients, refEventId: event.eventId },
+      tx,
+    );
+  }
+
+  // The device routes an episode its SOS joins, as at creation (REQ-EVT-03): a reopen (REQ-EVT-10)
+  // or an UNROUTED episode routed by an attributed SOS (D-111). The episode takes the event's
+  // attribution, and the lifecycle writes the tier alerts, the history row and the audit record.
+  private async reroute(
+    open: Incident,
+    event: SosEvent,
+    code: 'REOPENED' | 'ROUTED',
+    route: Route,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<Incident> {
+    await this.repository.appendEvent(open, event.occurredAt, tx);
+    return this.lifecycle.apply(
+      open.id,
+      open.state,
+      route.to,
+      { kind: 'DEVICE' },
+      {
+        code,
+        at,
+        recipients: route.recipients,
+        refEventId: event.eventId,
+        occurredAt: event.occurredAt,
+        route: { organizationId: event.organizationId, contractId: event.contractId },
+      },
       tx,
     );
   }

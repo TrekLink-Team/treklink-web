@@ -42,15 +42,18 @@ export interface IncidentTransitionReason {
   note?: string;
   refEventId?: string;
   occurredAt?: Date;
-  // Reopening must supply a fresh attribution, even when it is unchanged.
+  // Reopening, and routing an UNROUTED episode (D-111), must supply a fresh attribution, even when it
+  // is unchanged.
   route?: { organizationId: string | null; contractId: string | null };
 }
 
 type ReasonCode = IncidentTransitionReason['code'];
 const EDGES: Readonly<Record<ReasonCode, readonly (readonly [IncidentState, IncidentState])[]>> = {
+  // D-111: the first attributed SOS that joins an UNROUTED episode routes it, as the DEVICE.
   ROUTED: [
     ['DETECTED', 'NOTIFY_PRIMARY'],
     ['DETECTED', 'UNROUTED'],
+    ['UNROUTED', 'NOTIFY_PRIMARY'],
   ],
   EMPTY_TIER: [
     ['NOTIFY_PRIMARY', 'NOTIFY_BACKUP'],
@@ -125,6 +128,9 @@ export const tierMembers = (state: TimedTier, recipients: IncidentRecipients): r
     : state === 'NOTIFY_BACKUP'
       ? recipients.backup
       : recipients.managers;
+// The transitions that move an incident to the attribution of the SOS behind them (`reason.route`).
+const takesRoute = (code: ReasonCode, from: IncidentState): boolean =>
+  code === 'REOPENED' || (code === 'ROUTED' && from === 'UNROUTED');
 const invalid = () =>
   new DomainException(
     HttpStatus.CONFLICT,
@@ -289,8 +295,11 @@ export class IncidentLifecycle {
         !actor.roles.some((role) => role === 'STAFF' || role === 'ADMIN')
       )
         throw forbidden();
+    } else if (code === 'ROUTED' && current.state === 'UNROUTED') {
+      // D-111: only the attributed SOS that joins the episode routes it.
+      if (actor.kind !== 'DEVICE') throw invalid();
     } else if (actor.kind !== 'SYSTEM' && !(actor.kind === 'DEVICE' && code === 'REOPENED')) {
-      // A packet may open or reopen an incident, never end it (REQ-UBI-05, D-038 rule 2).
+      // A packet may open, reopen or route an incident, never end it (REQ-UBI-05, D-038 rule 2).
       throw invalid();
     }
     if ((code === 'FALSE_ALARM' || code === 'RESOLVED') && !reason.note?.trim()) {
@@ -326,6 +335,9 @@ export class IncidentLifecycle {
         (ends && reason.occurredAt >= ends && at >= ends))
     )
       throw invalid();
+    // Only an attributed SOS routes an UNROUTED episode (D-111).
+    if (code === 'ROUTED' && current.state === 'UNROUTED' && !reason.route?.organizationId)
+      throw invalid();
     if (code === 'OWNER_DEACTIVATED' && !current.ownerId) throw invalid();
   }
 
@@ -343,8 +355,10 @@ export class IncidentLifecycle {
       statusDueAt: null,
       reopenWindowEndsAt: null,
     };
+    const routed = takesRoute(reason.code, current.state);
+    if (routed) Object.assign(patch, reason.route);
     if (reason.code === 'REOPENED')
-      Object.assign(patch, reason.route, {
+      Object.assign(patch, {
         ownerId: null,
         acknowledgedAt: null,
         resolvedAt: null,
@@ -354,8 +368,7 @@ export class IncidentLifecycle {
         closedAt: null,
       });
     if (isTier(to)) {
-      const organizationId =
-        reason.code === 'REOPENED' ? reason.route!.organizationId : current.organizationId;
+      const organizationId = routed ? reason.route!.organizationId : current.organizationId;
       if (!organizationId) throw invalid();
       const key =
         to === 'NOTIFY_PRIMARY'
