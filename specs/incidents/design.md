@@ -101,11 +101,12 @@ organization the triggering field event is attributed to (D-040), never the devi
 REQ-EVT-03), so an unattributed SOS, or an organization with nobody to alert, reopens to `UNROUTED`. A
 device packet only opens or reopens an incident; a person ends it, and only the system closes a
 `RESOLVED` or `FALSE_ALARM` episode, once its reopen window has ended (REQ-UBI-05, D-038 rule 2).
-An attributed SOS that joins an `UNROUTED` episode routes it by the same path as a reopen: the
-`ROUTED` transition from `UNROUTED`, `DEVICE` actor, to `NOTIFY_PRIMARY` (or the first non-empty tier) of
-that event's organization and contract, which the incident takes. An unattributed SOS, or one whose
-organization has nobody to alert, leaves the episode `UNROUTED` and is appended (amended 2026-11-23,
-D-111).
+An attributed SOS that joins an `UNROUTED` episode with no organization or the same organization
+routes it by the same path as a reopen: the `ROUTED` transition from `UNROUTED`, `DEVICE` actor, to
+`NOTIFY_PRIMARY` (or the first non-empty tier) of that event's organization and contract, which the
+incident takes. An unattributed SOS, one whose organization has nobody to alert, or one of another
+organization than the episode's leaves the episode `UNROUTED` and is appended: the next holder's SOS
+never takes over an earlier holder's emergency (AC-09) (amended 2026-11-23, D-111).
 
 | Timer column | Set when entering | Cleared when leaving |
 |---|---|---|
@@ -231,12 +232,12 @@ reads (api-design 01 to 07) return `simulated`, and the screens show a "Simulate
 
    An earlier SOS uploaded late, which occurred before the episode ended, is appended to it.
 4. Otherwise, if within the correlation window of `lastEventAt`: append (event count, last position,
-   `CONFIRMED` upgrade for a suspected incident). An `UNROUTED` episode joined by an attributed SOS
-   whose organization has someone to alert is also routed, through the reopen's routing path (§2):
-   `ROUTED`, `DEVICE` actor, to `NOTIFY_PRIMARY` (or the first non-empty tier) of that event's
-   organization and contract, which the incident takes. An unattributed SOS, or one whose
-   organization has nobody to alert, is only appended and the episode stays `UNROUTED` (amended
-   2026-11-23, D-111).
+   `CONFIRMED` upgrade for a suspected incident). An `UNROUTED` episode with no organization or the
+   same organization, joined by an attributed SOS whose organization has someone to alert, is also
+   routed, through the reopen's routing path (§2): `ROUTED`, `DEVICE` actor, to `NOTIFY_PRIMARY` (or
+   the first non-empty tier) of that event's organization and contract, which the incident takes. An
+   unattributed SOS, one whose organization has nobody to alert, or one of another organization than
+   the episode's is only appended and the episode stays `UNROUTED` (AC-09) (amended 2026-11-23, D-111).
 5. Otherwise (open, but older than the window): append too, with the `UNROUTED` routing of step 4. One
    open incident per device means a new episode on an open incident is the same emergency still
    running (amended 2026-11-23, D-111).
