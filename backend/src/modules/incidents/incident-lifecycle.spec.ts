@@ -83,7 +83,12 @@ const TARGETS: Partial<Record<IncidentState, Partial<Record<IncidentState, Code>
     FALSE_ALARM: 'FALSE_ALARM',
   },
   ESCALATED: { ACKNOWLEDGED: 'ACKNOWLEDGED', REPORTED: 'AUTHORITY_REPORTED' },
-  UNROUTED: { REPORTED: 'AUTHORITY_REPORTED', FALSE_ALARM: 'FALSE_ALARM' },
+  // D-111: an attributed SOS joining an UNROUTED episode routes it, as the DEVICE.
+  UNROUTED: {
+    REPORTED: 'AUTHORITY_REPORTED',
+    FALSE_ALARM: 'FALSE_ALARM',
+    NOTIFY_PRIMARY: 'ROUTED',
+  },
   REPORTED: { ACKNOWLEDGED: 'ACKNOWLEDGED', CLOSED: 'CASE_CLOSED' },
   // A reopen is re-routed as at creation, so it may land in UNROUTED (REQ-EVT-10, REQ-EVT-03).
   RESOLVED: { NOTIFY_PRIMARY: 'REOPENED', UNROUTED: 'REOPENED', CLOSED: 'REOPEN_WINDOW_ENDED' },
@@ -157,6 +162,7 @@ describe('IncidentLifecycle task 1.2', () => {
       (from === 'UNROUTED' && to === 'FALSE_ALARM')
     )
       actor = STAFF;
+    if (from === 'UNROUTED' && code === 'ROUTED') actor = { kind: 'DEVICE' };
     const work = apply(to, code ?? 'ROUTED', actor, {
       note: 'Outcome or reason',
       occurredAt: AT,
@@ -646,6 +652,122 @@ describe('IncidentLifecycle task 1.2', () => {
     await expect(
       apply('UNROUTED', 'ROUTED', SYSTEM, { at: new Date('invalid') }),
     ).rejects.toMatchObject({ errorCode: ErrorCode.INVALID_STATE_TRANSITION });
+  });
+
+  describe('an UNROUTED episode routed by an attributed SOS (D-111)', () => {
+    const DEVICE: IncidentActor = { kind: 'DEVICE' };
+    const ROUTE = { organizationId: 'org-b', contractId: 'contract-b' };
+    const route = (
+      actor: IncidentActor = DEVICE,
+      overrides: Partial<IncidentTransitionReason> = {},
+    ) =>
+      apply('NOTIFY_PRIMARY', 'ROUTED', actor, {
+        occurredAt: AT,
+        refEventId: 'event-2',
+        route: ROUTE,
+        ...overrides,
+      });
+
+    beforeEach(() => {
+      current = row('UNROUTED', {
+        organizationId: null,
+        contractId: null,
+        tierDeadlineAt: null,
+        statusDueAt: null,
+        reopenWindowEndsAt: null,
+      });
+    });
+
+    it('takes the event attribution, starts the primary tier and alerts it as a reopen does', async () => {
+      const result = await route();
+      expect(result).toMatchObject({
+        state: 'NOTIFY_PRIMARY',
+        organizationId: 'org-b',
+        contractId: 'contract-b',
+        ownerId: null,
+        tierDeadlineAt: new Date(AT.getTime() + 10000),
+        reopenCount: 0,
+        version: 8,
+      });
+      expect(parameters.get).toHaveBeenCalledWith('incidents.primaryAckTimeoutSeconds', tx);
+      expect(repository.insertTransition).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fromState: 'UNROUTED',
+          toState: 'NOTIFY_PRIMARY',
+          reason: 'ROUTED',
+          actorId: null,
+          refEventId: 'event-2',
+          createdAt: AT,
+        }),
+        tx,
+      );
+      expect(alerts.enqueue).toHaveBeenCalledWith(
+        [
+          expect.objectContaining({ recipientId: 'primary', channel: 'WEB', tier: 'PRIMARY' }),
+          expect.objectContaining({ recipientId: 'primary', channel: 'WEBSOCKET' }),
+          expect.objectContaining({ recipientId: 'primary', channel: 'EMAIL' }),
+          expect.objectContaining({ recipientId: null, channel: 'API_EVENT', tier: 'PRIMARY' }),
+        ],
+        tx,
+      );
+      expect(events.emitAfterCommit).toHaveBeenCalledWith(INCIDENT_ALERTS_QUEUED, {
+        incidentId: 'incident',
+      });
+      expect(events.emitAfterCommit).toHaveBeenCalledWith(
+        'incident.changed',
+        expect.objectContaining({
+          organizationId: 'org-b',
+          state: 'NOTIFY_PRIMARY',
+          tier: 'PRIMARY',
+        }),
+      );
+      const audit = (events.emitAfterCommit.mock.calls as [string, unknown][]).find(
+        ([name]) => name === 'audit.record',
+      );
+      expect(audit?.[1]).toMatchObject({
+        actorId: null,
+        organizationId: 'org-b',
+        action: 'incident.transition',
+        before: { state: 'UNROUTED', version: 7 },
+        after: { state: 'NOTIFY_PRIMARY', reason: 'ROUTED' },
+      });
+    });
+
+    it('skips an empty primary tier inside the routed organization', async () => {
+      const result = await route(DEVICE, { recipients: { ...RECIPIENTS, primary: [] } });
+      expect(result).toMatchObject({ state: 'NOTIFY_BACKUP', organizationId: 'org-b' });
+      expect(repository.insertTransition).toHaveBeenLastCalledWith(
+        expect.objectContaining({ fromState: 'NOTIFY_PRIMARY', reason: 'EMPTY_TIER' }),
+        tx,
+      );
+    });
+
+    // A member never sees an unattributed incident, so the tenancy check refuses first.
+    it.each<[string, IncidentActor, ErrorCode]>([
+      ['the system', SYSTEM, ErrorCode.INVALID_STATE_TRANSITION],
+      ['a member', MEMBER, ErrorCode.NOT_FOUND],
+      ['Staff', STAFF, ErrorCode.INVALID_STATE_TRANSITION],
+    ])('refuses the route when %s asks for it', async (_label, actor, errorCode) => {
+      await expect(route(actor)).rejects.toMatchObject({ errorCode });
+      expect(repository.compareAndSet).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['no attribution', { route: undefined }],
+      ['an unattributed SOS', { route: { organizationId: null, contractId: null } }],
+    ])('refuses the route with %s', async (_label, overrides) => {
+      await expect(route(DEVICE, overrides)).rejects.toMatchObject({
+        errorCode: ErrorCode.INVALID_STATE_TRANSITION,
+      });
+      expect(repository.compareAndSet).not.toHaveBeenCalled();
+    });
+
+    it('still lets only the system route a new incident out of DETECTED', async () => {
+      current = row('DETECTED');
+      await expect(route()).rejects.toMatchObject({
+        errorCode: ErrorCode.INVALID_STATE_TRANSITION,
+      });
+    });
   });
 
   it('does not queue domain events when outbox persistence fails', async () => {
