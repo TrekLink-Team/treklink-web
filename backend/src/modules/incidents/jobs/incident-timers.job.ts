@@ -139,6 +139,49 @@ export class IncidentTimersJob {
     });
   }
 
+  // The demo panel's close (specs/demo/design.md §11, D-110): a disclosed demo time control. The reopen
+  // window of a RESOLVED or FALSE_ALARM incident ends now and the normal REOPEN_WINDOW_ENDED close applies,
+  // under the row lock and the expected version, as SYSTEM; the panel's actor is audited separately.
+  async closeDemo(id: string, expectedVersion: number, now = new Date()) {
+    return this.events.transaction(async (tx) => {
+      const current = await this.incidents.lockById(id, tx);
+      if (!current)
+        throw new DomainException(HttpStatus.NOT_FOUND, ErrorCode.NOT_FOUND, 'Incident not found.');
+      if (current.version !== expectedVersion)
+        throw new DomainException(
+          HttpStatus.CONFLICT,
+          ErrorCode.STALE_VERSION,
+          'Reload the incident and try again.',
+        );
+      if (!CLOSE_AFTER_REOPEN_WINDOW.states.includes(current.state as TimedState))
+        throw new DomainException(
+          HttpStatus.CONFLICT,
+          ErrorCode.INVALID_STATE_TRANSITION,
+          `This cannot be done while it is ${current.state}.`,
+        );
+      const due = await this.incidents.compareAndSet(current, { reopenWindowEndsAt: now }, tx);
+      if (!due)
+        throw new DomainException(
+          HttpStatus.CONFLICT,
+          ErrorCode.STALE_VERSION,
+          'Reload the incident and try again.',
+        );
+      return this.lifecycle.apply(
+        id,
+        due.state,
+        'CLOSED',
+        { kind: 'SYSTEM' },
+        {
+          code: 'REOPEN_WINDOW_ENDED',
+          at: now,
+          recipients: { primary: [], backup: [], managers: [], staff: [] },
+          expectedVersion: due.version,
+        },
+        tx,
+      );
+    });
+  }
+
   // REQ-EVT-04: the next non-empty tier, or ESCALATED after the Manager tier.
   @ScheduledJob('incidents.tierTimeouts', '*/5 * * * * *')
   tierTimeouts(): Promise<number> {

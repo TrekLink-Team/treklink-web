@@ -290,3 +290,77 @@ describe('W43 targeted demo escalation', () => {
     });
   });
 });
+
+describe('IncidentTimersJob.closeDemo (demo panel, D-110)', () => {
+  const now = new Date('2026-11-24T08:00:00Z');
+  const tx = { tx: true };
+  const build = (override = {}) => {
+    const current = { id: 'i', code: 'INC-1', state: 'RESOLVED', version: 5, ...override };
+    const incidents = {
+      lockById: jest.fn().mockResolvedValue(current),
+      compareAndSet: jest
+        .fn()
+        .mockResolvedValue({ ...current, version: 6, reopenWindowEndsAt: now }),
+    };
+    const lifecycle = {
+      apply: jest.fn().mockResolvedValue({ ...current, state: 'CLOSED', version: 7 }),
+    };
+    const events = {
+      transaction: jest.fn((work: (t: object) => Promise<unknown>) => work(tx)),
+      emitAfterCommit: jest.fn(),
+    };
+    const job = new IncidentTimersJob(
+      incidents as unknown as IncidentsRepository,
+      lifecycle as unknown as IncidentLifecycle,
+      { recipientsOf: jest.fn() } as unknown as RoutingService,
+      events as unknown as TransactionalEvents,
+    );
+    return { job, incidents, lifecycle };
+  };
+
+  it.each(['RESOLVED', 'FALSE_ALARM'])(
+    'ends the reopen window of a %s incident and closes it as SYSTEM',
+    async (state) => {
+      const f = build({ state });
+      await expect(f.job.closeDemo('i', 5, now)).resolves.toMatchObject({ state: 'CLOSED' });
+      expect(f.incidents.compareAndSet).toHaveBeenCalledWith(
+        expect.objectContaining({ version: 5 }),
+        { reopenWindowEndsAt: now },
+        tx,
+      );
+      expect(f.lifecycle.apply).toHaveBeenCalledWith(
+        'i',
+        state,
+        'CLOSED',
+        { kind: 'SYSTEM' },
+        expect.objectContaining({ code: 'REOPEN_WINDOW_ENDED', at: now, expectedVersion: 6 }),
+        tx,
+      );
+    },
+  );
+
+  it.each(['NOTIFY_PRIMARY', 'ACKNOWLEDGED', 'CLOSED'])(
+    'refuses a %s incident before any write',
+    async (state) => {
+      const f = build({ state });
+      await expect(f.job.closeDemo('i', 5, now)).rejects.toMatchObject({
+        errorCode: 'INVALID_STATE_TRANSITION',
+      });
+      expect(f.incidents.compareAndSet).not.toHaveBeenCalled();
+    },
+  );
+
+  it('refuses a stale version, a lost race and an unknown incident', async () => {
+    const f = build();
+    await expect(f.job.closeDemo('i', 4, now)).rejects.toMatchObject({
+      errorCode: 'STALE_VERSION',
+    });
+    f.incidents.compareAndSet.mockResolvedValueOnce(null);
+    await expect(f.job.closeDemo('i', 5, now)).rejects.toMatchObject({
+      errorCode: 'STALE_VERSION',
+    });
+    expect(f.lifecycle.apply).not.toHaveBeenCalled();
+    f.incidents.lockById.mockResolvedValueOnce(null);
+    await expect(f.job.closeDemo('i', 5, now)).rejects.toMatchObject({ errorCode: 'NOT_FOUND' });
+  });
+});

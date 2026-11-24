@@ -43,6 +43,25 @@ const INCIDENT_SORTS: SortColumns<IncidentSortField, Prisma.IncidentOrderByWithR
 export class IncidentsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Incidents not yet CLOSED, newest first, for the demo panel (specs/demo/design.md §11, D-110).
+  panelOptions() {
+    return this.prisma.incident.findMany({
+      where: { state: { not: 'CLOSED' } },
+      select: {
+        id: true,
+        code: true,
+        state: true,
+        version: true,
+        organizationId: true,
+        deviceId: true,
+        ownerId: true,
+        simulated: true,
+      },
+      orderBy: { firstEventAt: 'desc' },
+      take: 100,
+    });
+  }
+
   async lockById(id: string, tx: Prisma.TransactionClient): Promise<Incident | null> {
     const rows = await tx.$queryRaw<
       Incident[]

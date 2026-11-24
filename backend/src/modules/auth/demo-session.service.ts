@@ -30,6 +30,20 @@ export class DemoSessionService {
     return this.eligibleByEmail(email);
   }
 
+  // The demo panel's read of a seeded account (specs/demo/design.md §11, D-110): the account as a session
+  // sees it, or null, with no token and nothing recorded. It runs in production (the AWS staging), so it
+  // refuses unless the panel is configured; the panel acts as this account through the owning services.
+  async panelAccountOf(email: string): Promise<SessionUser | null> {
+    if (!this.config.get('DEMO_PANEL_PASSWORD_HASH', { infer: true })?.trim()) {
+      throw new DomainException(
+        HttpStatus.FORBIDDEN,
+        ErrorCode.DEMO_DISABLED,
+        'The demo panel is not configured.',
+      );
+    }
+    return this.eligibleByEmail(email);
+  }
+
   async switchTo(email: string, client: ClientInfo): Promise<SignInResult> {
     this.assertEnabled();
     const user = await this.eligibleByEmail(email);

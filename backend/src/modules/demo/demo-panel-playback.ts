@@ -1,0 +1,556 @@
+import { HttpStatus, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { DomainException, ErrorCode } from '../../common/errors';
+import { DevicesService } from '../devices';
+import { IncidentsQueryService } from '../incidents';
+import { OrganizationsService } from '../organizations';
+import { ContractsService } from '../rentals';
+import type { StagedRecord } from './demo-scenarios.service';
+import { DemoPanelService, PanelCommand, PanelContext, PanelInput } from './demo-panel.service';
+
+export const PLAYBACK_FLOWS = [
+  'MF-01a',
+  'MF-01b',
+  'MF-01c',
+  'MF-02',
+  'MF-03',
+  'MF-04',
+  'MF-05',
+] as const;
+export type PlaybackFlow = (typeof PLAYBACK_FLOWS)[number];
+export const PLAYBACK_COMMAND_NAMES = ['START', 'PAUSE', 'RESUME', 'STEP', 'STOP'] as const;
+export type PlaybackCommandName = (typeof PLAYBACK_COMMAND_NAMES)[number];
+export type PlaybackStatus = 'IDLE' | 'RUNNING' | 'PAUSED' | 'DONE' | 'FAILED' | 'STOPPED';
+type StepStatus = 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
+
+// The interval bounds and default of REQ-PNL-08 (demo tool constants, design §11).
+export const PLAYBACK_MIN_SECONDS = 3;
+export const PLAYBACK_MAX_SECONDS = 60;
+export const PLAYBACK_DEFAULT_SECONDS = 10;
+
+interface Resolved {
+  command: PanelCommand;
+  input: PanelInput;
+}
+
+// One step of a flow, from docs/demo/2026-11-22-scenario-playbook.md: the window and screen the site
+// clicker shows, the line the presenter says, the click, and the panel command, if any, that performs it.
+interface StepSpec {
+  title: string;
+  window: string;
+  screen: string;
+  line: string;
+  click: string;
+  run?: (ctx: PanelContext) => Promise<Resolved>;
+}
+
+export interface PlaybackStepView {
+  title: string;
+  window: string;
+  screen: string;
+  line: string;
+  click: string;
+  status: StepStatus;
+  error: string | null;
+  records: StagedRecord[];
+}
+
+export interface PlaybackState {
+  flow: PlaybackFlow | null;
+  status: PlaybackStatus;
+  index: number;
+  intervalSeconds: number;
+  nextAt: Date | null;
+  steps: PlaybackStepView[];
+  error: string | null;
+}
+
+export interface PlaybackCommandInput {
+  command: PlaybackCommandName;
+  flow?: PlaybackFlow;
+  intervalSeconds?: number;
+}
+
+const busy = () =>
+  new DomainException(
+    HttpStatus.CONFLICT,
+    ErrorCode.DEMO_BUSY,
+    'A demo action is already running. Try again in a moment.',
+  );
+const wrongState = (status: PlaybackStatus) =>
+  new DomainException(
+    HttpStatus.CONFLICT,
+    ErrorCode.INVALID_STATE_TRANSITION,
+    `This cannot be done while it is ${status}.`,
+  );
+const invalid = (message: string) =>
+  new DomainException(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_FAILED, message);
+const unavailable = (message: string) =>
+  new DomainException(HttpStatus.CONFLICT, ErrorCode.DEMO_SCENARIO_UNAVAILABLE, message);
+
+// The scripted playback of the main flows (specs/demo/requirements.md REQ-PNL-08, design §11, D-110 rule
+// 3). One run at a time, in process memory (the AWS host runs one backend). A timer runs the next step
+// `intervalSeconds` after the last one finished; pause clears it; resume and STEP run the next step at
+// once. A failed step stops the run with its error and its committed links. Every executed step is one
+// panel command, so it is audited and registered like an action of route 14.
+@Injectable()
+export class DemoPanelPlayback implements OnModuleDestroy {
+  private readonly logger = new Logger(DemoPanelPlayback.name);
+  private state: PlaybackState = {
+    flow: null,
+    status: 'IDLE',
+    index: 0,
+    intervalSeconds: PLAYBACK_DEFAULT_SECONDS,
+    nextAt: null,
+    steps: [],
+    error: null,
+  };
+  private specs: StepSpec[] = [];
+  private context: PanelContext = {};
+  private client = 'unknown';
+  private timer: NodeJS.Timeout | null = null;
+  private executing: Promise<void> | null = null;
+  // Set by the reseed while it runs (DemoPanelResetService), so a playback cannot start under it.
+  resetting = false;
+
+  constructor(
+    private readonly panel: DemoPanelService,
+    private readonly contracts: ContractsService,
+    private readonly devices: DevicesService,
+    private readonly incidents: IncidentsQueryService,
+    private readonly organizations: OrganizationsService,
+  ) {}
+
+  onModuleDestroy() {
+    this.clearTimer();
+  }
+
+  view(): PlaybackState {
+    return { ...this.state, steps: this.state.steps.map((step) => ({ ...step })) };
+  }
+
+  // A run that has not ended: the reseed refuses while one is RUNNING or PAUSED.
+  active(): boolean {
+    return (
+      this.state.status === 'RUNNING' || this.state.status === 'PAUSED' || this.executing !== null
+    );
+  }
+
+  async command(input: PlaybackCommandInput, client: string): Promise<PlaybackState> {
+    switch (input.command) {
+      case 'START':
+        this.start(input, client);
+        break;
+      case 'PAUSE':
+        if (this.state.status !== 'RUNNING') throw wrongState(this.state.status);
+        this.clearTimer();
+        this.state.status = 'PAUSED';
+        break;
+      case 'RESUME':
+        if (this.state.status !== 'PAUSED') throw wrongState(this.state.status);
+        if (this.executing) throw busy();
+        this.state.status = 'RUNNING';
+        this.schedule(0);
+        break;
+      case 'STEP':
+        if (this.state.status !== 'PAUSED' && this.state.status !== 'RUNNING')
+          throw wrongState(this.state.status);
+        if (this.executing) throw busy();
+        this.clearTimer();
+        await this.step();
+        break;
+      case 'STOP':
+        if (this.state.status !== 'PAUSED' && this.state.status !== 'RUNNING')
+          throw wrongState(this.state.status);
+        this.clearTimer();
+        this.state.status = 'STOPPED';
+        break;
+    }
+    return this.view();
+  }
+
+  private start(input: PlaybackCommandInput, client: string) {
+    if (this.resetting || this.active()) throw busy();
+    if (!input.flow || !PLAYBACK_FLOWS.includes(input.flow))
+      throw invalid('Choose a main flow to play.');
+    const seconds = input.intervalSeconds ?? PLAYBACK_DEFAULT_SECONDS;
+    if (
+      !Number.isInteger(seconds) ||
+      seconds < PLAYBACK_MIN_SECONDS ||
+      seconds > PLAYBACK_MAX_SECONDS
+    )
+      throw invalid(
+        `intervalSeconds must be a whole number from ${PLAYBACK_MIN_SECONDS} to ${PLAYBACK_MAX_SECONDS}.`,
+      );
+    this.specs = this.flowSteps(input.flow);
+    this.context = {};
+    this.client = client;
+    this.state = {
+      flow: input.flow,
+      status: 'RUNNING',
+      index: 0,
+      intervalSeconds: seconds,
+      nextAt: null,
+      error: null,
+      steps: this.specs.map(({ title, window, screen, line, click }) => ({
+        title,
+        window,
+        screen,
+        line,
+        click,
+        status: 'PENDING',
+        error: null,
+        records: [],
+      })),
+    };
+    this.schedule(0);
+  }
+
+  private schedule(delayMs: number) {
+    this.clearTimer();
+    this.state.nextAt = new Date(Date.now() + delayMs);
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      void this.step();
+    }, delayMs);
+    this.timer.unref?.();
+  }
+
+  private clearTimer() {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    this.state.nextAt = null;
+  }
+
+  // Runs the step at `index` once; the caller has checked that no step is executing.
+  private step(): Promise<void> {
+    const work = this.execute().finally(() => {
+      this.executing = null;
+    });
+    this.executing = work;
+    return work;
+  }
+
+  private async execute() {
+    const index = this.state.index;
+    const spec = this.specs[index];
+    const view = this.state.steps[index];
+    if (!spec || !view) return;
+    view.status = 'RUNNING';
+    try {
+      if (spec.run) {
+        const { command, input } = await spec.run(this.context);
+        const result = await this.panel.run(command, input, this.client);
+        view.records = result.records;
+        this.context = { ...this.context, ...result.context };
+      }
+      view.status = 'DONE';
+    } catch (error) {
+      view.status = 'FAILED';
+      view.error = error instanceof Error ? error.message : 'The step failed.';
+      const details = error instanceof DomainException ? error.resultDetails : undefined;
+      view.records = (details as { records?: StagedRecord[] } | undefined)?.records ?? [];
+      this.state.status = 'FAILED';
+      this.state.error = `${spec.title}: ${view.error}`;
+      this.clearTimer();
+      this.logger.warn(`Demo playback ${this.state.flow} failed at step ${index + 1}.`);
+      return;
+    }
+    this.state.index = index + 1;
+    if (this.state.index >= this.specs.length) {
+      this.state.status = 'DONE';
+      this.clearTimer();
+    } else if (this.state.status === 'RUNNING') {
+      this.schedule(this.state.intervalSeconds * 1000);
+    }
+  }
+
+  // --- record lookups the steps need, each through an exported read ------------------------------------
+
+  private async organizationId(code = 'ORG-0001'): Promise<string> {
+    const organization = (await this.organizations.activeDemoOptions()).find(
+      (row) => row.code === code,
+    );
+    if (!organization) throw unavailable(`${code} is not Active. Reseed the demo data.`);
+    return organization.id;
+  }
+
+  private async contractVersion(id: string): Promise<number> {
+    const contract = await this.contracts.demoDetail(id);
+    if (!contract)
+      throw unavailable('The contract of the earlier step is gone. Start the flow again.');
+    return contract.version;
+  }
+
+  private async contractByCode(code: string) {
+    const contract = await this.contracts.byCode(code);
+    if (!contract) throw unavailable(`${code} is not in the demo data. Reseed the demo data.`);
+    return contract;
+  }
+
+  private async approvedContract(ctx: PanelContext): Promise<{ id: string; version: number }> {
+    if (ctx.contractId)
+      return { id: ctx.contractId, version: await this.contractVersion(ctx.contractId) };
+    const organizationId = await this.organizationId();
+    const contract = (await this.contracts.panelOptions()).find(
+      (row) => row.status === 'APPROVED' && row.organizationId === organizationId,
+    );
+    if (!contract) throw unavailable('No approved ORG-0001 contract. Play MF-01b first.');
+    return contract;
+  }
+
+  private async sosDevice(): Promise<string> {
+    const preferred = await this.devices.byAssetTag('TL-0010');
+    if (preferred && preferred.status === 'RENTED') return preferred.id;
+    const organizationId = await this.organizationId();
+    const custody = await this.contracts.visibleDevices({ organizationId });
+    const units = await this.devices.projections(custody.map((unit) => unit.deviceId));
+    const unit = units.find((device) => device.status === 'RENTED' && device.nodeNum !== null);
+    if (!unit) throw unavailable('ORG-0001 has no rented unit with a node number.');
+    return unit.id;
+  }
+
+  private async incidentVersion(ctx: PanelContext): Promise<Resolved['input']> {
+    if (!ctx.incidentId) throw unavailable('The SOS step opened no incident.');
+    const incident = await this.incidents.panelRecord(ctx.incidentId);
+    if (!incident) throw unavailable('The incident of the SOS step is gone.');
+    return { recordId: incident.id, expectedVersion: incident.version };
+  }
+
+  private narration(
+    title: string,
+    window: string,
+    screen: string,
+    line: string,
+    click: string,
+  ): StepSpec {
+    return { title, window, screen, line, click };
+  }
+
+  // The steps of each main flow (playbook §4 to §10). Windows: A Manager, B Staff, C Operator, D Admin,
+  // E the new organization's Manager.
+  private flowSteps(flow: PlaybackFlow): StepSpec[] {
+    switch (flow) {
+      case 'MF-01a':
+        return [
+          {
+            title: 'Organization registers',
+            window: 'E, not signed in',
+            screen: '/register',
+            line: 'A trekking company registers itself; it gets its organization code at once.',
+            click: 'Register your organization, fill the seven fields, Register.',
+            run: () => Promise.resolve({ command: 'organization-register', input: {} }),
+          },
+          {
+            title: 'Staff record counter verification',
+            window: 'B, Staff',
+            screen: '/t/organizations',
+            line: 'Staff check the papers in person before anyone can approve.',
+            click: 'Tab Pending, the new organization, Counter verification, Record verification.',
+            run: (ctx) =>
+              Promise.resolve({
+                command: 'organization-verify',
+                input: { recordId: ctx.organizationId, expectedVersion: ctx.version },
+              }),
+          },
+          {
+            title: 'Admin approves the organization',
+            window: 'D, Admin',
+            screen: '/t/organizations',
+            line: 'Only an Admin approves; the Manager then receives the invitation mail.',
+            click: 'Tab Pending, the new organization, Approve.',
+            run: (ctx) =>
+              Promise.resolve({
+                command: 'organization-approve',
+                input: { recordId: ctx.organizationId, expectedVersion: ctx.version },
+              }),
+          },
+        ];
+      case 'MF-01b':
+        return [
+          {
+            title: 'Manager requests a contract',
+            window: 'A, Manager',
+            screen: '/o/contracts/new',
+            line: 'The Manager asks for TrekLink v3 units from today; the units are held for 24 hours.',
+            click: 'Request a contract, Monthly, TrekLink v3, quantity, start today, Send request.',
+            run: () => Promise.resolve({ command: 'contract-create', input: {} }),
+          },
+          {
+            title: 'Staff approve the request',
+            window: 'B, Staff',
+            screen: '/t/contracts',
+            line: 'Staff approve with a handover appointment; the units are reserved.',
+            click: 'Show Requested, the new contract, Show details, Approve.',
+            run: async (ctx) => ({
+              command: 'contract-approve',
+              input: {
+                recordId: ctx.contractId,
+                expectedVersion: ctx.contractId
+                  ? await this.contractVersion(ctx.contractId)
+                  : undefined,
+              },
+            }),
+          },
+        ];
+      case 'MF-01c':
+        return [
+          {
+            title: 'Counter payment and handover',
+            window: 'B, Staff with A',
+            screen: '/t/counter',
+            line: 'The holding fee is paid at the counter, every unit is provisioned and the Manager signs.',
+            click:
+              'Open the contract, Start handover, readings, provisioning, payment, Sign, Complete handover.',
+            run: async (ctx) => {
+              const contract = await this.approvedContract(ctx);
+              return {
+                command: 'contract-handover',
+                input: { recordId: contract.id, expectedVersion: contract.version },
+              };
+            },
+          },
+        ];
+      case 'MF-02':
+        return [
+          this.narration(
+            'The field data path',
+            'Talk',
+            'Slide',
+            'Node, LoRa, laptop over USB, SQLite queue with SOS first, MQTT QoS 1, ingestion with eventId dedup.',
+            'None.',
+          ),
+          {
+            title: 'Units report their positions (simulated)',
+            window: 'C, Operator',
+            screen: '/o/map',
+            line: 'Each rented unit reports a position; say aloud that these packets are simulated.',
+            click: 'Live map.',
+            run: () => Promise.resolve({ command: 'field-positions', input: {} }),
+          },
+          this.narration(
+            'Sync status',
+            'B, Staff',
+            '/t/admin/sync',
+            'Staff see the subscriber up and the recent field events, attributed.',
+            'Sidebar Field data sync.',
+          ),
+        ];
+      case 'MF-03':
+        return [
+          {
+            title: 'SOS from TL-0010 (simulated)',
+            window: 'Physical unit',
+            screen: 'Gateway log',
+            line: 'The hiker holds the SOS button; the alert reaches the on-duty Operator.',
+            click: 'None; watch window C for the red banner.',
+            run: async () => ({
+              command: 'incident-sos',
+              input: { deviceId: await this.sosDevice() },
+            }),
+          },
+          {
+            title: 'Operator acknowledges',
+            window: 'C, Operator',
+            screen: '/o/incidents',
+            line: 'The Operator takes ownership; escalation stops.',
+            click: 'Acknowledge on the banner or the incident.',
+            run: async (ctx) => ({
+              command: 'incident-acknowledge',
+              input: await this.incidentVersion(ctx),
+            }),
+          },
+          {
+            title: 'Response under way',
+            window: 'C, Operator',
+            screen: '/o/incidents',
+            line: 'The response is recorded: a ranger team is dispatched.',
+            click: 'Response under way, Save response.',
+            run: async (ctx) => ({
+              command: 'incident-respond',
+              input: await this.incidentVersion(ctx),
+            }),
+          },
+          {
+            title: 'Incident resolved',
+            window: 'C, Operator',
+            screen: '/o/incidents',
+            line: 'The outcome is recorded; the history lists every step.',
+            click: 'Report outcome, Resolve incident.',
+            run: async (ctx) => ({
+              command: 'incident-resolve',
+              input: await this.incidentVersion(ctx),
+            }),
+          },
+        ];
+      case 'MF-04':
+        return [
+          this.narration(
+            'Live map',
+            'C, Operator',
+            '/o/map',
+            'Every unit of the organization with battery and last seen.',
+            'Live map.',
+          ),
+          this.narration(
+            'Search a unit',
+            'C, Operator',
+            '/o/map',
+            'Find a hiker by asset tag, holder or contract.',
+            'Search TL-0010.',
+          ),
+          this.narration(
+            'Sovereignty overlay',
+            'C, Operator',
+            '/o/map',
+            'Hoang Sa and Truong Sa are drawn as Vietnamese territory on every map.',
+            'Zoom out to 6 or 7, drag left.',
+          ),
+          this.narration(
+            'Fleet map',
+            'B, Staff',
+            '/t/map',
+            'Staff see every organization, then filter one.',
+            'Fleet map, filter ORG-0001.',
+          ),
+          this.narration(
+            'Organization API',
+            'A, Manager',
+            '/o/api-keys',
+            'An API key gives the organization its own dashboard feed.',
+            'Create API key, then the curl call.',
+          ),
+        ];
+      case 'MF-05':
+        return [
+          {
+            title: 'Term ends and units come back',
+            window: 'A, Manager, then B, Staff',
+            screen: '/t/counter',
+            line: 'Notice, End contract now, then check-in, reset and inspection of every unit.',
+            click: 'Give notice, End contract now; Record return, check in, Record reset, Inspect.',
+            run: async () => {
+              const contract = await this.contractByCode('RC-2026-0002');
+              return {
+                command: 'contract-return',
+                input: { recordId: contract.id, expectedVersion: contract.version },
+              };
+            },
+          },
+          {
+            title: 'Closing invoice paid and contract closed',
+            window: 'B, Staff',
+            screen: '/t/counter',
+            line: 'Open balances are paid at the counter; the contract closes.',
+            click: 'Open the invoices, Record counter payment; tab Close, Close contract.',
+            run: async (ctx) => {
+              const id = ctx.contractId ?? (await this.contractByCode('RC-2026-0002')).id;
+              return {
+                command: 'contract-close',
+                input: { recordId: id, expectedVersion: await this.contractVersion(id) },
+              };
+            },
+          },
+        ];
+    }
+  }
+}

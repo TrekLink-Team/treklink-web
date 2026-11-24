@@ -105,3 +105,42 @@ export const simulationDatabaseAllowed = (
 ): boolean =>
   isSimulationDatabaseUrl(config.get('DATABASE_URL', { infer: true })) &&
   isSimulationDatabaseUrl(config.get('DATABASE_DIRECT_URL', { infer: true }));
+
+// The dedicated Neon demo branch of the demo panel reseed (specs/demo/design.md §11, D-110 rule 4). True
+// only when DEMO_DATABASE_HOST is set, the host of DATABASE_URL is exactly that host, the host of
+// DATABASE_DIRECT_URL is that host or the same Neon endpoint without `-pooler` in its first label, and
+// neither query string carries a parameter that moves the connection or its database (the staging list
+// above, any case, after one more decoding). A URL that does not parse fails it.
+const withoutPooler = (host: string): string => host.replace(/^([^.]+)-pooler\./, '$1.');
+
+export const isDemoDatabaseUrls = (
+  expectedHost: string | undefined,
+  databaseUrl: string,
+  directUrl: string,
+): boolean => {
+  const expected = (expectedHost ?? '').trim().toLowerCase();
+  if (!expected) return false;
+  let live: URL;
+  let direct: URL;
+  try {
+    live = new URL(databaseUrl);
+    direct = new URL(directUrl);
+  } catch {
+    return false;
+  }
+  if (
+    carriesQueryParameter(live, STAGING_REFUSED_PARAMETERS) ||
+    carriesQueryParameter(direct, STAGING_REFUSED_PARAMETERS)
+  )
+    return false;
+  if (live.hostname.toLowerCase() !== expected) return false;
+  const directHost = direct.hostname.toLowerCase();
+  return directHost === expected || withoutPooler(directHost) === withoutPooler(expected);
+};
+
+export const demoDatabaseMatches = (config: ConfigService<ValidatedEnvironment, true>): boolean =>
+  isDemoDatabaseUrls(
+    config.get('DEMO_DATABASE_HOST', { infer: true }),
+    config.get('DATABASE_URL', { infer: true }),
+    config.get('DATABASE_DIRECT_URL', { infer: true }),
+  );

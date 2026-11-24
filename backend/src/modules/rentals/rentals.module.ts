@@ -82,6 +82,8 @@ import { TermRolloverJob } from './term-rollover.job';
     TermRolloverJob,
     HandoverService,
     FaultReportsService,
+    // demo panel (D-110): check-in, inspection and close of contract-return and contract-close.
+    ReturnService,
   ],
 })
 export class RentalsModule {}
