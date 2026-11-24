@@ -11,6 +11,9 @@ import { DemoPanelController } from './demo-panel.controller';
 import { DemoPanelFailures } from './demo-panel-failures';
 import { DemoPanelGuard } from './demo-panel.guard';
 import { DemoPanelPlayback } from './demo-panel-playback';
+import { DemoPanelResetService } from './demo-panel-reset.service';
+import { DemoResetRepository } from './demo-reset.repository';
+import { DEMO_SEED_LOADER, DemoSeedRunner, loadSeedModule } from './demo-seed.runner';
 import { DemoPanelService } from './demo-panel.service';
 import { DemoQuickRepository } from './demo-quick.repository';
 
@@ -34,7 +37,11 @@ import { DemoQuickRepository } from './demo-quick.repository';
     DemoPanelFailures,
     DemoPanelService,
     DemoPanelPlayback,
+    DemoPanelResetService,
     DemoQuickRepository,
+    DemoResetRepository,
+    DemoSeedRunner,
+    { provide: DEMO_SEED_LOADER, useValue: loadSeedModule },
   ],
 })
 export class DemoPanelModule {}

@@ -10,6 +10,7 @@ import { DemoPanelFailures } from './demo-panel-failures';
 import { DemoPanelGuard } from './demo-panel.guard';
 import { hashPanelPassword } from './demo-panel-password';
 import { DemoPanelPlayback } from './demo-panel-playback';
+import { DemoPanelResetService } from './demo-panel-reset.service';
 import { DemoPanelService } from './demo-panel.service';
 
 // Every route of the panel controller, read from its metadata, so a new route is enumerated here without
@@ -63,6 +64,7 @@ describe('every panel route refuses without the password (AC-PNL-01)', () => {
         { provide: DemoPanelFailures, useValue: neverBlocked },
         { provide: DemoPanelService, useValue: service },
         { provide: DemoPanelPlayback, useValue: service },
+        { provide: DemoPanelResetService, useValue: service },
         {
           provide: ConfigService,
           useValue: {

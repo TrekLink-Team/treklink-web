@@ -1,5 +1,5 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Req, UseGuards } from '@nestjs/common';
-import { IsIn, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 import { Public } from '../../common/decorators/access.decorator';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator';
 import { DemoPanelGuard, PanelRequest } from './demo-panel.guard';
@@ -13,6 +13,7 @@ import {
   PlaybackCommandName,
   PlaybackFlow,
 } from './demo-panel-playback';
+import { DemoPanelResetService } from './demo-panel-reset.service';
 import { DemoPanelService, PanelInput } from './demo-panel.service';
 
 export class DemoPanelActionDto implements PanelInput {
@@ -34,6 +35,10 @@ export class DemoPanelPlaybackDto implements PlaybackCommandInput {
   intervalSeconds?: number;
 }
 
+export class DemoPanelResetDto {
+  @IsString() @MaxLength(100) confirmation!: string;
+}
+
 const clientOf = (request: PanelRequest) => request.demoPanelClient ?? 'unknown';
 
 // The demo panel routes (specs/demo api-design 13 to 16, D-110). No account and no policy: @Public on the
@@ -47,12 +52,14 @@ export class DemoPanelController {
   constructor(
     private readonly panel: DemoPanelService,
     private readonly playback: DemoPanelPlayback,
+    private readonly resets: DemoPanelResetService,
   ) {}
 
   @Get()
   @ResponseMessage('OK')
   async overview() {
-    return { ...(await this.panel.overview()), playback: this.playback.view() };
+    const [panel, reset] = await Promise.all([this.panel.overview(), this.resets.availability()]);
+    return { ...panel, playback: this.playback.view(), reset };
   }
 
   @Post('actions/:action')
@@ -71,5 +78,12 @@ export class DemoPanelController {
   @ResponseMessage('Playback updated')
   playbackCommand(@Body() dto: DemoPanelPlaybackDto, @Req() request: PanelRequest) {
     return this.playback.command(dto, clientOf(request));
+  }
+
+  @Post('reset')
+  @HttpCode(200)
+  @ResponseMessage('Demo data reseeded')
+  reset(@Body() dto: DemoPanelResetDto, @Req() request: PanelRequest) {
+    return this.resets.reset(dto.confirmation, clientOf(request));
   }
 }

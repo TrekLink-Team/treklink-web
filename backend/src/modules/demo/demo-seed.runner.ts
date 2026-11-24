@@ -84,6 +84,17 @@ export class DemoSeedRunner {
     }
   }
 
+  // Whether the seed file loads in this build (the demo panel reseed, D-110). The AWS image ships only
+  // dist/ and no ts-node, so there it is false and the reseed refuses before any row is touched.
+  loadable(): boolean {
+    try {
+      this.load();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   run(passwords: DemoSeedPasswords, now: Date, env: NodeJS.ProcessEnv = process.env) {
     return this.load().seedDemo(this.prisma, passwords, {
       now,

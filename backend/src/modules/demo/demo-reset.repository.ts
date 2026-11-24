@@ -12,6 +12,9 @@ export const KEPT_TABLES: readonly string[] = [
   'role_permissions',
 ];
 
+// The one wiped table a kept table references (§3): emptied with DELETE after the others are truncated.
+const DELETED_LAST = 'users';
+
 const quote = (identifier: string): string => `"${identifier.replace(/"/g, '""')}"`;
 
 interface KeptForeignKey {
@@ -64,6 +67,39 @@ export class DemoResetRepository {
           );
         }
         return { truncated, kept: KEPT_TABLES };
+      },
+      { timeout: 60_000 },
+    );
+  }
+
+  // The data-only wipe of the demo panel reseed (specs/demo/design.md §11, D-110 rule 4). One
+  // transaction and no DDL: every foreign key from a kept table to a wiped one is nulled (the
+  // `business_parameters."updatedById"` of §3); every wiped table except `users` is truncated with
+  // RESTART IDENTITY and without CASCADE, so an unexpected reference from a kept table fails the
+  // statement and rolls everything back; `users`, which a kept table references, is emptied with
+  // DELETE once nothing else points at it. Returns the wiped tables.
+  async wipeData(): Promise<string[]> {
+    return this.prisma.$transaction(
+      async (tx) => {
+        const rows = await tx.$queryRaw<{ tablename: string }[]>`
+          SELECT tablename FROM pg_catalog.pg_tables
+          WHERE schemaname = current_schema() AND tablename <> ALL(${KEPT_TABLES as string[]})
+          ORDER BY tablename`;
+        const wiped = rows.map((row) => row.tablename);
+        if (wiped.length === 0) return wiped;
+        for (const key of await this.keptForeignKeys(tx, wiped)) {
+          const nulls = key.columns.map((column) => `${quote(column)} = NULL`).join(', ');
+          const anySet = key.columns.map((column) => `${quote(column)} IS NOT NULL`).join(' OR ');
+          await tx.$executeRawUnsafe(`UPDATE ${quote(key.tableName)} SET ${nulls} WHERE ${anySet}`);
+        }
+        const truncated = wiped.filter((table) => table !== DELETED_LAST);
+        if (truncated.length)
+          await tx.$executeRawUnsafe(
+            `TRUNCATE TABLE ${truncated.map(quote).join(', ')} RESTART IDENTITY`,
+          );
+        if (wiped.includes(DELETED_LAST))
+          await tx.$executeRawUnsafe(`DELETE FROM ${quote(DELETED_LAST)}`);
+        return wiped;
       },
       { timeout: 60_000 },
     );

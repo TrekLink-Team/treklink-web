@@ -40,6 +40,8 @@ describe('whole AppModule boot with VITE_APP_ENV unset (W43b)', () => {
       TS_NODE_PROJECT: join(__dirname, '..', 'tsconfig.json'),
     };
     delete env.VITE_APP_ENV;
+    // The demo panel loads only with a hash that parses (D-110, REQ-PNL-01).
+    delete env.DEMO_PANEL_PASSWORD_HASH;
     try {
       // The empty child/parent directories prevent local .env files from supplying the missing key.
       const output = execFileSync(
@@ -64,4 +66,7 @@ describe('whole AppModule boot with VITE_APP_ENV unset (W43b)', () => {
       expect(results[path]).toEqual({ status: 404, isSuccess: false, statusCode: 404 });
     },
   );
+  it('omits /api/demo/panel without DEMO_PANEL_PASSWORD_HASH (D-110, AC-PNL-01)', () => {
+    expect(results['/api/demo/panel']).toEqual({ status: 404, isSuccess: false, statusCode: 404 });
+  });
 });
