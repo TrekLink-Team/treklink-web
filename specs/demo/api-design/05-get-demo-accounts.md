@@ -124,12 +124,12 @@ flowchart TB
     S((Start))
     A0["Accept request"]
     S --> A0
-    D1{"`DEMO_TEST_ACCOUNTS_ENABLED` is not `true`: the route does not exist?"}
+    D1{"DEMO_TEST_ACCOUNTS_ENABLED is not true: the route does not exist?"}
     A0 --> D1
     E1["Return 404 NOT_FOUND"]
     D1 -->|yes| E1
     E1 --> X1((End))
-    D2{"A `SEED_*_PASSWORD` variable is missing?"}
+    D2{"A SEED_*_PASSWORD variable is missing?"}
     D1 -->|no| D2
     E2["Return 409 DEMO_SEED_NOT_CONFIGURED"]
     D2 -->|yes| E2

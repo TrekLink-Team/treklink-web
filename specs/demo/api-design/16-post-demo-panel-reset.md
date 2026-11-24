@@ -226,6 +226,23 @@ Wipes the demo data and loads the standard demo seed, only on the dedicated Neon
 ```
 </td>
         </tr>
+        <tr>
+            <td>500</td>
+            <td>The wipe or the seed failed after the lock was taken; the audit entry names the error (<code>INTERNAL_ERROR</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "INTERNAL_ERROR"
+  },
+  "isSuccess": false,
+  "statusCode": 500,
+  "message": "Internal server error"
+}
+```
+</td>
+        </tr>
     </tbody>
 </table>
 
@@ -234,62 +251,79 @@ Wipes the demo data and loads the standard demo seed, only on the dedicated Neon
 ```mermaid
 flowchart TB
     S((Start))
-    A0["Accept request"]
+    A0["Accept request: no account, no token"]
     S --> A0
-    Auth["DemoPanelGuard: failure limit, then the password in constant time"]
-    A0 --> Auth
-    AuthCheck{"API key missing or wrong?"}
-    Auth --> AuthCheck
-    AuthError["Return 401 DEMO_PANEL_PASSWORD_INVALID"]
-    AuthCheck -->|yes| AuthError
-    AuthError --> AuthEnd((End))
-    D1{"The body or query fails validation?"}
-    AuthCheck -->|no| D1
-    E1["Return 400 VALIDATION_FAILED"]
-    D1 -->|yes| E1
-    E1 --> X1((End))
-    D2{"`DEMO_PANEL_PASSWORD_HASH` is unset or does not parse: the route does not exist?"}
-    D1 -->|no| D2
-    E2["Return 404 NOT_FOUND"]
-    D2 -->|yes| E2
-    E2 --> X2((End))
-    D3{"Five wrong or missing passwords from this address within ten minutes?"}
-    D2 -->|no| D3
-    E3["Return 429 RATE_LIMITED"]
-    D3 -->|yes| E3
-    E3 --> X3((End))
-    D4{"The confirmation is not `RESET DEMO DATA`?"}
-    D3 -->|no| D4
-    E4["Return 400 VALIDATION_FAILED"]
-    D4 -->|yes| E4
-    E4 --> X4((End))
-    D5{"A reseed ran less than five minutes ago?"}
-    D4 -->|no| D5
-    E5["Return 429 RATE_LIMITED"]
-    D5 -->|yes| E5
-    E5 --> X5((End))
-    D6{"Another reseed or a playback is running?"}
-    D5 -->|no| D6
-    E6["Return 409 DEMO_BUSY"]
-    D6 -->|yes| E6
-    E6 --> X6((End))
-    D7{"A `SEED_*_PASSWORD` is missing or the seed is not in this build?"}
-    D6 -->|no| D7
-    E7["Return 409 DEMO_SEED_NOT_CONFIGURED"]
-    D7 -->|yes| E7
-    E7 --> X7((End))
-    P0["Check the failure limit and the password"]
-    D7 -->|no| P0
-    P1["Check the flag, the host, the confirmation, the spacing, the lock and the seed"]
-    P0 --> P1
-    P2["Wipe the data in one transaction (no DDL)"]
-    P1 --> P2
-    P3["Run the demo seed"]
-    P2 --> P3
-    P4["Emit audit.record demo.panel.reset"]
-    P3 --> P4
+    H{"Panel password hash unset or malformed?"}
+    A0 --> H
+    HE["Return 404 NOT_FOUND: the route does not exist"]
+    H -->|yes| HE
+    HE --> HX((End))
+    L{"Five attempts from this address in ten minutes already?"}
+    H -->|no| L
+    LE["Return 429 RATE_LIMITED, no compare"]
+    L -->|yes| LE
+    LE --> LX((End))
+    R["Reserve this attempt before the compare"]
+    L -->|no| R
+    P{"Panel password missing or wrong?"}
+    R --> P
+    PE["Return 401 DEMO_PANEL_PASSWORD_INVALID, the attempt stays counted"]
+    P -->|yes| PE
+    PE --> PX((End))
+    G["Give this attempt back"]
+    P -->|no| G
+    C0{"Body fails validation?"}
+    G --> C0
+    CE0["Return 400 VALIDATION_FAILED"]
+    C0 -->|yes| CE0
+    CE0 --> CX0((End))
+    C1{"DEMO_RESET_ENABLED is not true?"}
+    C0 -->|no| C1
+    CE1["Return 403 DEMO_DISABLED"]
+    C1 -->|yes| CE1
+    CE1 --> CX1((End))
+    C2{"Database host is not exactly DEMO_DATABASE_HOST, or a URL carries a target override?"}
+    C1 -->|no| C2
+    CE2["Return 403 DEMO_DATABASE_NOT_ALLOWED"]
+    C2 -->|yes| CE2
+    CE2 --> CX2((End))
+    C3{"Confirmation is not RESET DEMO DATA?"}
+    C2 -->|no| C3
+    CE3["Return 400 VALIDATION_FAILED"]
+    C3 -->|yes| CE3
+    CE3 --> CX3((End))
+    C4{"A reseed ran less than five minutes ago?"}
+    C3 -->|no| C4
+    CE4["Return 429 RATE_LIMITED"]
+    C4 -->|yes| CE4
+    CE4 --> CX4((End))
+    C5{"A reseed, a playback or a panel action is running?"}
+    C4 -->|no| C5
+    CE5["Return 409 DEMO_BUSY"]
+    C5 -->|yes| CE5
+    CE5 --> CX5((End))
+    C6{"Seed not in this build or a SEED password unset?"}
+    C5 -->|no| C6
+    CE6["Return 409 DEMO_SEED_NOT_CONFIGURED"]
+    C6 -->|yes| CE6
+    CE6 --> CX6((End))
+    T0["Take the panel lock: panel actions now answer 409"]
+    C6 -->|no| T0
+    T1["Check the URL Prisma reads and current_database()"]
+    T0 --> T1
+    T2["Wipe the data in one transaction, no DDL, then run the demo seed"]
+    T1 --> T2
+    F2{"The live database check, the wipe or the seed failed?"}
+    T2 --> F2
+    FF2["finally: emit audit demo.panel.reset with the error, release the lock"]
+    F2 -->|yes| FF2
+    FR2["Return 403 DEMO_DATABASE_NOT_ALLOWED for the database check, otherwise 500"]
+    FF2 --> FR2
+    FR2 --> FX2((End))
+    T3["finally: emit audit demo.panel.reset, release the lock"]
+    F2 -->|no| T3
     OK["Return 200"]
-    P4 --> OK
+    T3 --> OK
     OK --> Z((End))
 ```
 

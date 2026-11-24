@@ -196,7 +196,7 @@ flowchart TB
     S((Start))
     A0["Check token, policy and organization scope"]
     S --> A0
-    D1{"`DEMO_SIMULATION_ENABLED` is not `true`: the route does not exist?"}
+    D1{"DEMO_SIMULATION_ENABLED is not true: the route does not exist?"}
     A0 --> D1
     E1["Return 404 NOT_FOUND"]
     D1 -->|yes| E1

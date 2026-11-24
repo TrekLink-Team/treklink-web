@@ -241,7 +241,7 @@ flowchart TB
     E3["Return 409 DEMO_SCENARIO_UNAVAILABLE"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"A `SEED_*_PASSWORD` variable is missing?"}
+    D4{"A SEED_*_PASSWORD variable is missing?"}
     D3 -->|no| D4
     E4["Return 409 DEMO_SEED_NOT_CONFIGURED"]
     D4 -->|yes| E4
