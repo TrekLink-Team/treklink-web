@@ -24,6 +24,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api
 
 // Endpoints whose 401 is an answer, not an expired access token.
 const NO_REFRESH = ['/auth/login', '/auth/refresh'];
+const NO_REFRESH_PREFIX = '/demo/panel';
 
 const FALLBACK_MESSAGE = 'API request failed';
 const FALLBACK_CODE = 'UNKNOWN';
@@ -126,7 +127,14 @@ export async function apiClient<T>(endpoint: string, options: RequestInit = {}):
   const sentToken = handlers?.getTokens()?.accessToken ?? null;
   const response = await send(endpoint, options, sentToken);
 
-  if (response.status !== 401 || !handlers || NO_REFRESH.includes(normalize(endpoint))) {
+  // The demo panel's 401 is a wrong panel password, never an expired session (D-110).
+  const path = normalize(endpoint);
+  if (
+    response.status !== 401 ||
+    !handlers ||
+    NO_REFRESH.includes(path) ||
+    path.startsWith(NO_REFRESH_PREFIX)
+  ) {
     return unwrap<T>(response);
   }
 

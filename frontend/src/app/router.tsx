@@ -51,6 +51,7 @@ import { OrganizationDetailPage } from '../pages/OrganizationDetailPage';
 import { OrganizationReviewPage } from '../pages/OrganizationReviewPage';
 import { PlansPage } from '../pages/PlansPage';
 import { DemoSignInPage } from '../pages/DemoSignInPage';
+import { DemoPanelPage } from '../pages/DemoPanelPage';
 import { RegisterPage } from '../pages/RegisterPage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { SignInPage } from '../pages/SignInPage';
@@ -114,6 +115,8 @@ export const AppRoutes: React.FC = () => (
   <Routes>
     <Route path="/" element={<PlansPage />} />
     <Route path="/plans" element={<PlansPage />} />
+    {/* The demo panel (D-110): no account, guarded by the panel password on every request. */}
+    <Route path="/demo/panel" element={<DemoPanelPage />} />
     <Route element={<SignedOutOnly />}>
       <Route path="/sign-in" element={<SignInPage />} />
       <Route path="/demo" element={<DemoSignInPage />} />
