@@ -51,6 +51,16 @@ const IDENTITY = { id: true, assetTag: true, nodeNum: true, status: true } as co
 export class DevicesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Devices a demo panel action can use, by asset tag (specs/demo/design.md §11, D-110).
+  panelOptions() {
+    return this.prisma.device.findMany({
+      where: { status: { in: ['AVAILABLE', 'MAINTENANCE', 'RENTED'] } },
+      select: { id: true, assetTag: true, status: true, version: true, nodeNum: true },
+      orderBy: { assetTag: 'asc' },
+      take: 200,
+    });
+  }
+
   // One device by its asset tag (demo module, D-088).
   findByAssetTag(assetTag: string, client: Client = this.prisma) {
     return client.device.findUnique({

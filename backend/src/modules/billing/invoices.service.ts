@@ -85,6 +85,11 @@ export class InvoicesService {
     return this.invoices.firstChargeableInvoice(contractId);
   }
 
+  // Invoices with an amount due, of one contract or of all, for the demo panel (D-110).
+  panelOptions(contractId?: string) {
+    return this.invoices.panelOptions(contractId);
+  }
+
   // One TERM invoice: the holding fee due at the term start (or the request's hold expiry when that
   // comes first) and the balance due at the term end. The contract's approved service credits still
   // owed land on it (design §9.3: the next term invoice not yet issued, REQ-EVT-14).

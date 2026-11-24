@@ -138,6 +138,26 @@ const sumAmounts = (lines: readonly NewInvoiceLine[]): bigint =>
 export class InvoicesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Invoices with an amount due, newest first, for the demo panel (specs/demo/design.md §11, D-110).
+  panelOptions(contractId?: string) {
+    return this.prisma.invoice.findMany({
+      where: {
+        status: { in: ['ISSUED', 'PARTIALLY_PAID'] },
+        ...(contractId ? { contractId } : {}),
+      },
+      select: {
+        id: true,
+        number: true,
+        contractId: true,
+        organizationId: true,
+        totalVnd: true,
+        paidVnd: true,
+      },
+      orderBy: { issuedAt: 'desc' },
+      take: 100,
+    });
+  }
+
   // Issues an invoice with its numbered lines (seq from 1) under the next INV-<year>-NNNNNN.
   async insert(
     invoice: NewInvoice,

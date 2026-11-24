@@ -275,6 +275,15 @@ export class IncidentsQueryService {
     return this.repository.demoOptions();
   }
 
+  // Incidents not yet CLOSED for the demo panel, and one incident by id (specs/demo/design.md §11, D-110).
+  panelOptions() {
+    return this.repository.panelOptions();
+  }
+
+  panelRecord(id: string) {
+    return this.repository.findById(id);
+  }
+
   async list(
     query: IncidentListQuery,
     caller: Caller,

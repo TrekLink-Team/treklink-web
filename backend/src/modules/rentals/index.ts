@@ -39,3 +39,4 @@ export {
 
 export { HandoverService } from './handover.service';
 export { FaultReportsService } from './fault-reports.service';
+export { ReturnService } from './return.service';

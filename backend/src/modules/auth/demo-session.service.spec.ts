@@ -100,3 +100,26 @@ describe('DemoSessionService', () => {
     expect(accounts.insertAuthEvent).not.toHaveBeenCalled();
   });
 });
+
+describe('DemoSessionService.panelAccountOf (D-110)', () => {
+  it('reads the seeded account in production when the panel is configured, issuing nothing', async () => {
+    const { service, tokens, accounts } = build({
+      NODE_ENV: 'production',
+      DEMO_CONTROLS_ENABLED: false,
+      DEMO_PANEL_PASSWORD_HASH: 'scrypt:aa:bb',
+    });
+    await expect(service.panelAccountOf('treklink.dev+manager@gmail.com')).resolves.toEqual(
+      SESSION_USER,
+    );
+    expect(tokens.issue).not.toHaveBeenCalled();
+    expect(accounts.insertAuthEvent).not.toHaveBeenCalled();
+  });
+
+  it('refuses with DEMO_DISABLED when the panel is not configured', async () => {
+    const { service, accounts } = build({ NODE_ENV: 'development', DEMO_CONTROLS_ENABLED: true });
+    await expect(service.panelAccountOf('treklink.dev+manager@gmail.com')).rejects.toMatchObject({
+      errorCode: 'DEMO_DISABLED',
+    });
+    expect(accounts.findByEmail).not.toHaveBeenCalled();
+  });
+});

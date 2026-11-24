@@ -501,6 +501,11 @@ export class ContractsService {
     return this.contracts.detail(id);
   }
 
+  // Contracts a demo panel action can move (specs/demo/design.md §11, D-110).
+  panelOptions() {
+    return this.contracts.panelOptions();
+  }
+
   // A contract by its code, or null (demo module, D-088).
   byCode(code: string): Promise<ContractRow | null> {
     return this.contracts.findByCode(code);

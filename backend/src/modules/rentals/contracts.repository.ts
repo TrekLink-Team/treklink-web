@@ -212,6 +212,18 @@ export const codeYear = (at: Date): number =>
 export class ContractsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Contracts an action of the demo panel can move, newest first (specs/demo/design.md §11, D-110).
+  panelOptions() {
+    return this.prisma.rentalContract.findMany({
+      where: {
+        status: { in: ['REQUESTED', 'APPROVED', 'ACTIVE', 'ENDING', 'RETURN_DUE', 'RETURNED'] },
+      },
+      select: { id: true, code: true, status: true, version: true, organizationId: true },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+  }
+
   // Inserts the contract REQUESTED with its code and its first transition row (REQ-UBI-01).
   async insertRequested(
     data: NewContract,

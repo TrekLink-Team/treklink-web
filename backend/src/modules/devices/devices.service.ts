@@ -220,6 +220,11 @@ export class DevicesService {
     @Inject(CUSTODY_RESOLVER) private readonly custody: CustodyResolver,
   ) {}
 
+  // Devices a demo panel action can use (specs/demo/design.md §11, D-110).
+  panelOptions() {
+    return this.devices.panelOptions();
+  }
+
   // One device by its asset tag with its version, or null (demo module, D-088).
   byAssetTag(assetTag: string) {
     return this.devices.findByAssetTag(assetTag);
