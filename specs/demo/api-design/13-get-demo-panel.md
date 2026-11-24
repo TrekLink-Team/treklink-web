@@ -170,35 +170,35 @@ No body.
 ```mermaid
 flowchart TB
     S((Start))
-    A0["Accept request"]
+    A0["Accept request: no account, no token"]
     S --> A0
-    Auth["DemoPanelGuard: failure limit, then the password in constant time"]
-    A0 --> Auth
-    AuthCheck{"API key missing or wrong?"}
-    Auth --> AuthCheck
-    AuthError["Return 401 DEMO_PANEL_PASSWORD_INVALID"]
-    AuthCheck -->|yes| AuthError
-    AuthError --> AuthEnd((End))
-    D1{"`DEMO_PANEL_PASSWORD_HASH` is unset or does not parse: the route does not exist?"}
-    AuthCheck -->|no| D1
-    E1["Return 404 NOT_FOUND"]
-    D1 -->|yes| E1
-    E1 --> X1((End))
-    D2{"Five wrong or missing passwords from this address within ten minutes?"}
-    D1 -->|no| D2
-    E2["Return 429 RATE_LIMITED"]
-    D2 -->|yes| E2
-    E2 --> X2((End))
-    P0["Check the failure limit and the password"]
-    D2 -->|no| P0
-    P1["Read options through exported services"]
-    P0 --> P1
-    P2["Read the playback state"]
-    P1 --> P2
-    P3["Evaluate the reseed checks"]
-    P2 --> P3
+    H{"Panel password hash unset or malformed?"}
+    A0 --> H
+    HE["Return 404 NOT_FOUND: the route does not exist"]
+    H -->|yes| HE
+    HE --> HX((End))
+    L{"Five attempts from this address in ten minutes already?"}
+    H -->|no| L
+    LE["Return 429 RATE_LIMITED, no compare"]
+    L -->|yes| LE
+    LE --> LX((End))
+    R["Reserve this attempt before the compare"]
+    L -->|no| R
+    P{"Panel password missing or wrong?"}
+    R --> P
+    PE["Return 401 DEMO_PANEL_PASSWORD_INVALID, the attempt stays counted"]
+    P -->|yes| PE
+    PE --> PX((End))
+    G["Give this attempt back"]
+    P -->|no| G
+    T0["Read options through exported services"]
+    G --> T0
+    T1["Read the playback state"]
+    T0 --> T1
+    T2["Evaluate the reseed checks that need no input"]
+    T1 --> T2
     OK["Return 200"]
-    P3 --> OK
+    T2 --> OK
     OK --> Z((End))
 ```
 

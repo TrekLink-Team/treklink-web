@@ -200,6 +200,23 @@ Runs one simulator or live data action through the owning module's exported serv
         </tr>
         <tr>
             <td>409</td>
+            <td>A reseed is running (<code>DEMO_BUSY</code>)</td>
+<td>
+
+```json
+{
+  "result": {
+    "errorCode": "DEMO_BUSY"
+  },
+  "isSuccess": false,
+  "statusCode": 409,
+  "message": "The demo data is being reseeded. Try again when the reseed finishes."
+}
+```
+</td>
+        </tr>
+        <tr>
+            <td>409</td>
             <td>The record's state does not allow the action (<code>INVALID_STATE_TRANSITION</code>)</td>
 <td>
 
@@ -223,57 +240,67 @@ Runs one simulator or live data action through the owning module's exported serv
 ```mermaid
 flowchart TB
     S((Start))
-    A0["Accept request"]
+    A0["Accept request: no account, no token"]
     S --> A0
-    Auth["DemoPanelGuard: failure limit, then the password in constant time"]
-    A0 --> Auth
-    AuthCheck{"API key missing or wrong?"}
-    Auth --> AuthCheck
-    AuthError["Return 401 DEMO_PANEL_PASSWORD_INVALID"]
-    AuthCheck -->|yes| AuthError
-    AuthError --> AuthEnd((End))
-    D1{"The body or query fails validation?"}
-    AuthCheck -->|no| D1
-    E1["Return 400 VALIDATION_FAILED"]
-    D1 -->|yes| E1
-    E1 --> X1((End))
-    D2{"No such record, or it belongs to another organization?"}
-    D1 -->|no| D2
-    E2["Return 404 NOT_FOUND"]
-    D2 -->|yes| E2
-    E2 --> X2((End))
-    D3{"`DEMO_PANEL_PASSWORD_HASH` is unset or does not parse: the route does not exist?"}
-    D2 -->|no| D3
-    E3["Return 404 NOT_FOUND"]
-    D3 -->|yes| E3
-    E3 --> X3((End))
-    D4{"Five wrong or missing passwords from this address within ten minutes?"}
-    D3 -->|no| D4
-    E4["Return 429 RATE_LIMITED"]
-    D4 -->|yes| E4
-    E4 --> X4((End))
-    D5{"Another user changed the record first (expectedVersion differs)?"}
-    D4 -->|no| D5
-    E5["Return 409 STALE_VERSION"]
-    D5 -->|yes| E5
-    E5 --> X5((End))
-    D6{"The record's state does not allow the action?"}
-    D5 -->|no| D6
-    E6["Return 409 INVALID_STATE_TRANSITION"]
-    D6 -->|yes| E6
-    E6 --> X6((End))
-    P0["Check the failure limit and the password"]
-    D6 -->|no| P0
-    P1["Check the database"]
-    P0 --> P1
-    P2["Allocate a demo run"]
-    P1 --> P2
-    P3["Call the owning exported service as the acting account"]
-    P2 --> P3
-    P4["Save the run links, emit audit demo.panel.<action>"]
-    P3 --> P4
+    H{"Panel password hash unset or malformed?"}
+    A0 --> H
+    HE["Return 404 NOT_FOUND: the route does not exist"]
+    H -->|yes| HE
+    HE --> HX((End))
+    L{"Five attempts from this address in ten minutes already?"}
+    H -->|no| L
+    LE["Return 429 RATE_LIMITED, no compare"]
+    L -->|yes| LE
+    LE --> LX((End))
+    R["Reserve this attempt before the compare"]
+    L -->|no| R
+    P{"Panel password missing or wrong?"}
+    R --> P
+    PE["Return 401 DEMO_PANEL_PASSWORD_INVALID, the attempt stays counted"]
+    P -->|yes| PE
+    PE --> PX((End))
+    G["Give this attempt back"]
+    P -->|no| G
+    C0{"Body fails validation?"}
+    G --> C0
+    CE0["Return 400 VALIDATION_FAILED"]
+    C0 -->|yes| CE0
+    CE0 --> CX0((End))
+    C1{"Action not in the catalogue?"}
+    C0 -->|no| C1
+    CE1["Return 400 VALIDATION_FAILED"]
+    C1 -->|yes| CE1
+    CE1 --> CX1((End))
+    C2{"A reseed is running?"}
+    C1 -->|no| C2
+    CE2["Return 409 DEMO_BUSY"]
+    C2 -->|yes| CE2
+    CE2 --> CX2((End))
+    C3{"A field the action needs is missing?"}
+    C2 -->|no| C3
+    CE3["Return 400 VALIDATION_FAILED"]
+    C3 -->|yes| CE3
+    CE3 --> CX3((End))
+    C4{"Database neither local, staging nor the demo branch?"}
+    C3 -->|no| C4
+    CE4["Return 403 DEMO_DATABASE_NOT_ALLOWED"]
+    C4 -->|yes| CE4
+    CE4 --> CX4((End))
+    T0["Allocate a demo run, count the action in flight"]
+    C4 -->|no| T0
+    T1["Call the owning exported service as the acting account"]
+    T0 --> T1
+    F1{"The service refused or failed?"}
+    T1 --> F1
+    FF1["Save the run with the error, emit audit demo.panel.action with the error"]
+    F1 -->|yes| FF1
+    FR1["Return the owning status and code with the committed records"]
+    FF1 --> FR1
+    FR1 --> FX1((End))
+    T2["Save the run links, emit audit demo.panel.action"]
+    F1 -->|no| T2
     OK["Return 200"]
-    P4 --> OK
+    T2 --> OK
     OK --> Z((End))
 ```
 

@@ -264,7 +264,7 @@ flowchart TB
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"`DEMO_SIMULATION_ENABLED` is not `true`: the route does not exist?"}
+    D3{"DEMO_SIMULATION_ENABLED is not true: the route does not exist?"}
     D2 -->|no| D3
     E3["Return 404 NOT_FOUND"]
     D3 -->|yes| E3
@@ -274,7 +274,7 @@ flowchart TB
     E4["Return 404 NOT_FOUND"]
     D4 -->|yes| E4
     E4 --> X4((End))
-    D5{"The simulated node is `STOPPED`?"}
+    D5{"The simulated node is STOPPED?"}
     D4 -->|no| D5
     E5["Return 409 INVALID_STATE_TRANSITION"]
     D5 -->|yes| E5

@@ -243,17 +243,17 @@ flowchart TB
     E1["Return 400 VALIDATION_FAILED"]
     D1 -->|yes| E1
     E1 --> X1((End))
-    D2{"`DEMO_SIMULATION_ENABLED` is not `true`: the route does not exist?"}
+    D2{"DEMO_SIMULATION_ENABLED is not true: the route does not exist?"}
     D1 -->|no| D2
     E2["Return 404 NOT_FOUND"]
     D2 -->|yes| E2
     E2 --> X2((End))
-    D3{"The trail is unknown, or `startMetres` is past its end?"}
+    D3{"The trail is unknown, or startMetres is past its end?"}
     D2 -->|no| D3
     E3["Return 400 VALIDATION_FAILED"]
     D3 -->|yes| E3
     E3 --> X3((End))
-    D4{"No such device, or it is `DISPOSED`?"}
+    D4{"No such device, or it is DISPOSED?"}
     D3 -->|no| D4
     E4["Return 404 NOT_FOUND"]
     D4 -->|yes| E4

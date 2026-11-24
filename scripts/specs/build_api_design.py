@@ -63,6 +63,12 @@ def errors_for(ep):
     return errs
 
 
+def label(text):
+    """A flowchart label Mermaid parses: no double quote, and no backtick, which opens a Mermaid markdown
+    string and fails the parse when it closes mid-label (Mermaid 11, review of treklink-web#541)."""
+    return text.replace('"', "'").replace("`", "")
+
+
 def activity(ep, errs):
     """Guards in order (each a yes-branch to its error), then the happy-path steps."""
     if ep.get("activity"):
@@ -73,7 +79,7 @@ def activity(ep, errs):
     prev, edge = "A0", ""
     if ep.get("pre_validation_auth"):
         call, code = ep["pre_validation_auth"]
-        lines += [f'    Auth["{call}"]', "    A0 --> Auth",
+        lines += [f'    Auth["{label(call)}"]', "    A0 --> Auth",
                   '    AuthCheck{"API key missing or wrong?"}', "    Auth --> AuthCheck",
                   f'    AuthError["Return 401 {code}"]', "    AuthCheck -->|yes| AuthError",
                   "    AuthError --> AuthEnd((End))"]
@@ -82,8 +88,7 @@ def activity(ep, errs):
     # in that order ahead of the 400 branch; their errors are not drawn again below.
     first = ep.get("guards_first", [])
     for i, (question, status, code) in enumerate(first):
-        label = question.replace('"', "'")
-        lines += [f'    G{i}{{"{label}?"}}', f"    {prev} -->{edge} G{i}",
+        lines += [f'    G{i}{{"{label(question)}?"}}', f"    {prev} -->{edge} G{i}",
                   f'    GE{i}["Return {status} {code}"]', f"    G{i} -->|yes| GE{i}", f"    GE{i} --> GX{i}((End))"]
         prev, edge = f"G{i}", "|no|"
     drawn = {(status, code) for _, status, code in first}
@@ -92,13 +97,11 @@ def activity(ep, errs):
         if status in (401, 403) or (status, code) in drawn:
             continue
         n += 1
-        label = desc.replace('"', "'")
-        lines += [f'    D{n}{{"{label}?"}}', f"    {prev} -->{edge} D{n}",
+        lines += [f'    D{n}{{"{label(desc)}?"}}', f"    {prev} -->{edge} D{n}",
                   f'    E{n}["Return {status} {code}"]', f"    D{n} -->|yes| E{n}", f"    E{n} --> X{n}((End))"]
         prev, edge = f"D{n}", "|no|"
     for i, step in enumerate(ep.get("steps", [])):
-        label = step.replace('"', "'")
-        lines += [f'    P{i}["{label}"]', f"    {prev} -->{edge} P{i}"]
+        lines += [f'    P{i}["{label(step)}"]', f"    {prev} -->{edge} P{i}"]
         prev, edge = f"P{i}", ""
     lines += [f'    OK["Return {ep.get("status", 200)}"]', f"    {prev} -->{edge} OK", "    OK --> Z((End))"]
     return "\n".join(lines)

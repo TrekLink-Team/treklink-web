@@ -338,6 +338,40 @@ PANEL_RESULT = {"action": "incident-acknowledge", "runId": 12, "label": "Demo 12
                 "records": [{"label": "Incident, acknowledged", "code": "INC-2026-000002",
                              "path": "/o/incidents/7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d"}]}
 
+def panel_activity(checks, steps, failure=None):
+    """The activity of a panel route as the guard and the route run it (review of treklink-web#541): the
+    route exists only with a hash that parses (404), the attempt is refused over the failure limit (429) or
+    reserved before the password compare (401), then the route's own checks in code order, each
+    (question, status, code), then its steps. `failure` = (after_step_index, question, finally_step, reply)
+    draws the path where a step fails after the route has committed to it."""
+    lines = ["S((Start))", 'A0["Accept request: no account, no token"]', "S --> A0",
+             'H{"Panel password hash unset or malformed?"}', "A0 --> H",
+             'HE["Return 404 NOT_FOUND: the route does not exist"]', "H -->|yes| HE", "HE --> HX((End))",
+             'L{"Five attempts from this address in ten minutes already?"}', "H -->|no| L",
+             'LE["Return 429 RATE_LIMITED, no compare"]', "L -->|yes| LE", "LE --> LX((End))",
+             'R["Reserve this attempt before the compare"]', "L -->|no| R",
+             'P{"Panel password missing or wrong?"}', "R --> P",
+             'PE["Return 401 DEMO_PANEL_PASSWORD_INVALID, the attempt stays counted"]', "P -->|yes| PE",
+             "PE --> PX((End))",
+             'G["Give this attempt back"]', "P -->|no| G"]
+    prev, edge = "G", ""
+    for i, (question, status, code) in enumerate(checks):
+        lines += [f'C{i}{{"{question}?"}}', f"{prev} -->{edge} C{i}",
+                  f'CE{i}["Return {status} {code}"]', f"C{i} -->|yes| CE{i}", f"CE{i} --> CX{i}((End))"]
+        prev, edge = f"C{i}", "|no|"
+    for i, step in enumerate(steps):
+        lines += [f'T{i}["{step}"]', f"{prev} -->{edge} T{i}"]
+        prev, edge = f"T{i}", ""
+        if failure and failure[0] == i:
+            _, question, finally_step, reply = failure
+            lines += [f'F{i}{{"{question}?"}}', f"T{i} --> F{i}",
+                      f'FF{i}["{finally_step}"]', f"F{i} -->|yes| FF{i}",
+                      f'FR{i}["{reply}"]', f"FF{i} --> FR{i}", f"FR{i} --> FX{i}((End))"]
+            prev, edge = f"F{i}", "|no|"
+    lines += ['OK["Return 200"]', f"{prev} -->{edge} OK", "OK --> Z((End))"]
+    return lines
+
+
 ENDPOINTS.append(ep(
     "GET", "/api/demo/panel", "Read the demo panel", PANEL_PERMISSION,
     "Returns what the panel needs: the action catalogue, the options the actions need, the playback state and "
@@ -363,6 +397,8 @@ ENDPOINTS.append(ep(
     errors=PANEL_GUARD,
     steps=["Check the failure limit and the password", "Read options through exported services",
            "Read the playback state", "Evaluate the reseed checks"],
+    activity=panel_activity([], ["Read options through exported services", "Read the playback state",
+                                 "Evaluate the reseed checks that need no input"]),
     controller="DemoPanelController", service="DemoPanelService", call="overview()"))
 
 ENDPOINTS.append(ep(
@@ -388,8 +424,22 @@ ENDPOINTS.append(ep(
     fields=[["actedAs", "The seeded or live account the services acted as, null for a packet or time control", "object", "see sample"],
             ["records", "Links to the real screens", "array", "see sample"]],
     errors=PANEL_GUARD + [PANEL_DB, STALE,
+                          (409, "DEMO_BUSY", "A reseed is running",
+                           "The demo data is being reseeded. Try again when the reseed finishes."),
                           (409, "INVALID_STATE_TRANSITION", "The record's state does not allow the action",
                            "This cannot be done while it is RESOLVED.")],
+    activity=panel_activity(
+        [("Body fails validation", 400, "VALIDATION_FAILED"),
+         ("Action not in the catalogue", 400, "VALIDATION_FAILED"),
+         ("A reseed is running", 409, "DEMO_BUSY"),
+         ("A field the action needs is missing", 400, "VALIDATION_FAILED"),
+         ("Database neither local, staging nor the demo branch", 403, "DEMO_DATABASE_NOT_ALLOWED")],
+        ["Allocate a demo run, count the action in flight",
+         "Call the owning exported service as the acting account",
+         "Save the run links, emit audit demo.panel.action"],
+        failure=(1, "The service refused or failed",
+                 "Save the run with the error, emit audit demo.panel.action with the error",
+                 "Return the owning status and code with the committed records")),
     steps=["Check the failure limit and the password", "Check the database", "Allocate a demo run",
            "Call the owning exported service as the acting account", "Save the run links, emit audit demo.panel.<action>"],
     controller="DemoPanelController", service="DemoPanelService", call="run(action, dto, client)",
@@ -414,6 +464,13 @@ ENDPOINTS.append(ep(
                            "This cannot be done while it is DONE.")],
     steps=["Check the failure limit and the password", "Apply the command to the in-memory run",
            "Schedule or clear the next step"],
+    activity=panel_activity(
+        [("Body fails validation", 400, "VALIDATION_FAILED"),
+         ("START while a reseed or a playback runs", 409, "DEMO_BUSY"),
+         ("START with an unknown flow or an interval outside 3 to 60", 400, "VALIDATION_FAILED"),
+         ("PAUSE, RESUME, STEP or STOP in a state that does not allow it", 409, "INVALID_STATE_TRANSITION"),
+         ("RESUME or STEP while a step is executing", 409, "DEMO_BUSY")],
+        ["Apply the command to the in-memory run", "Schedule, run or clear the next step"]),
     controller="DemoPanelController", service="DemoPanelPlayback", call="command(dto, client)"))
 
 ENDPOINTS.append(ep(
@@ -437,9 +494,27 @@ ENDPOINTS.append(ep(
         (429, "RATE_LIMITED", "A reseed ran less than five minutes ago", "A reseed ran at 10:20. Try again after 10:25."),
         (409, "DEMO_BUSY", "Another reseed or a playback is running", "A demo action is already running. Try again in a moment."),
         (409, "DEMO_SEED_NOT_CONFIGURED", "A `SEED_*_PASSWORD` is missing or the seed is not in this build",
-         "The demo seed is not in this build.")],
+         "The demo seed is not in this build."),
+        (500, "INTERNAL_ERROR", "The wipe or the seed failed after the lock was taken; the audit entry names the error",
+         "Internal server error")],
     steps=["Check the failure limit and the password", "Check the flag, the host, the confirmation, the spacing, the lock and the seed",
            "Wipe the data in one transaction (no DDL)", "Run the demo seed", "Emit audit.record demo.panel.reset"],
+    activity=panel_activity(
+        [("Body fails validation", 400, "VALIDATION_FAILED"),
+         ("DEMO_RESET_ENABLED is not true", 403, "DEMO_DISABLED"),
+         ("Database host is not exactly DEMO_DATABASE_HOST, or a URL carries a target override", 403,
+          "DEMO_DATABASE_NOT_ALLOWED"),
+         ("Confirmation is not RESET DEMO DATA", 400, "VALIDATION_FAILED"),
+         ("A reseed ran less than five minutes ago", 429, "RATE_LIMITED"),
+         ("A reseed, a playback or a panel action is running", 409, "DEMO_BUSY"),
+         ("Seed not in this build or a SEED password unset", 409, "DEMO_SEED_NOT_CONFIGURED")],
+        ["Take the panel lock: panel actions now answer 409",
+         "Check the URL Prisma reads and current_database()",
+         "Wipe the data in one transaction, no DDL, then run the demo seed",
+         "finally: emit audit demo.panel.reset, release the lock"],
+        failure=(2, "The live database check, the wipe or the seed failed",
+                 "finally: emit audit demo.panel.reset with the error, release the lock",
+                 "Return 403 DEMO_DATABASE_NOT_ALLOWED for the database check, otherwise 500")),
     controller="DemoPanelController", service="DemoPanelResetService", call="reset(dto, client)",
     seq=["Svc->>DB: BEGIN, UPDATE business_parameters, TRUNCATE ... RESTART IDENTITY, DELETE FROM users, COMMIT",
          "Svc->>DB: seedDemo (own transaction)", "Svc-)Svc: emit audit.record"]))

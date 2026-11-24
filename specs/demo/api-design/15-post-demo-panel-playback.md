@@ -203,48 +203,58 @@ Starts, pauses, resumes, steps or stops the scripted playback of one main flow. 
 ```mermaid
 flowchart TB
     S((Start))
-    A0["Accept request"]
+    A0["Accept request: no account, no token"]
     S --> A0
-    Auth["DemoPanelGuard: failure limit, then the password in constant time"]
-    A0 --> Auth
-    AuthCheck{"API key missing or wrong?"}
-    Auth --> AuthCheck
-    AuthError["Return 401 DEMO_PANEL_PASSWORD_INVALID"]
-    AuthCheck -->|yes| AuthError
-    AuthError --> AuthEnd((End))
-    D1{"The body or query fails validation?"}
-    AuthCheck -->|no| D1
-    E1["Return 400 VALIDATION_FAILED"]
-    D1 -->|yes| E1
-    E1 --> X1((End))
-    D2{"`DEMO_PANEL_PASSWORD_HASH` is unset or does not parse: the route does not exist?"}
-    D1 -->|no| D2
-    E2["Return 404 NOT_FOUND"]
-    D2 -->|yes| E2
-    E2 --> X2((End))
-    D3{"Five wrong or missing passwords from this address within ten minutes?"}
-    D2 -->|no| D3
-    E3["Return 429 RATE_LIMITED"]
-    D3 -->|yes| E3
-    E3 --> X3((End))
-    D4{"`START` while a playback runs or a reseed is running?"}
-    D3 -->|no| D4
-    E4["Return 409 DEMO_BUSY"]
-    D4 -->|yes| E4
-    E4 --> X4((End))
-    D5{"`PAUSE`, `RESUME`, `STEP` or `STOP` in a state that does not allow it?"}
-    D4 -->|no| D5
-    E5["Return 409 INVALID_STATE_TRANSITION"]
-    D5 -->|yes| E5
-    E5 --> X5((End))
-    P0["Check the failure limit and the password"]
-    D5 -->|no| P0
-    P1["Apply the command to the in-memory run"]
-    P0 --> P1
-    P2["Schedule or clear the next step"]
-    P1 --> P2
+    H{"Panel password hash unset or malformed?"}
+    A0 --> H
+    HE["Return 404 NOT_FOUND: the route does not exist"]
+    H -->|yes| HE
+    HE --> HX((End))
+    L{"Five attempts from this address in ten minutes already?"}
+    H -->|no| L
+    LE["Return 429 RATE_LIMITED, no compare"]
+    L -->|yes| LE
+    LE --> LX((End))
+    R["Reserve this attempt before the compare"]
+    L -->|no| R
+    P{"Panel password missing or wrong?"}
+    R --> P
+    PE["Return 401 DEMO_PANEL_PASSWORD_INVALID, the attempt stays counted"]
+    P -->|yes| PE
+    PE --> PX((End))
+    G["Give this attempt back"]
+    P -->|no| G
+    C0{"Body fails validation?"}
+    G --> C0
+    CE0["Return 400 VALIDATION_FAILED"]
+    C0 -->|yes| CE0
+    CE0 --> CX0((End))
+    C1{"START while a reseed or a playback runs?"}
+    C0 -->|no| C1
+    CE1["Return 409 DEMO_BUSY"]
+    C1 -->|yes| CE1
+    CE1 --> CX1((End))
+    C2{"START with an unknown flow or an interval outside 3 to 60?"}
+    C1 -->|no| C2
+    CE2["Return 400 VALIDATION_FAILED"]
+    C2 -->|yes| CE2
+    CE2 --> CX2((End))
+    C3{"PAUSE, RESUME, STEP or STOP in a state that does not allow it?"}
+    C2 -->|no| C3
+    CE3["Return 409 INVALID_STATE_TRANSITION"]
+    C3 -->|yes| CE3
+    CE3 --> CX3((End))
+    C4{"RESUME or STEP while a step is executing?"}
+    C3 -->|no| C4
+    CE4["Return 409 DEMO_BUSY"]
+    C4 -->|yes| CE4
+    CE4 --> CX4((End))
+    T0["Apply the command to the in-memory run"]
+    C4 -->|no| T0
+    T1["Schedule, run or clear the next step"]
+    T0 --> T1
     OK["Return 200"]
-    P2 --> OK
+    T1 --> OK
     OK --> Z((End))
 ```
 
