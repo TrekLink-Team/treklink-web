@@ -80,3 +80,16 @@
 - [x] 8.3 Run the full backend unit suite, demo db-specs and Admin demo-panel a11y route on the disposable local e2e stack.
 
 **Done** (2026-11-07, KhoaDD under D-078): W43c verified with all 3379 backend unit tests on Node 22, 17 demo Postgres tests and the Admin demo-panel Playwright axe test. Touched-file ESLint, module boundaries, typecheck, build and CI YAML validation passed. Evidence: docs/sessions/2026-11-07-1849-w43c-ci-gates.md.
+
+## 9. Demo panel for a defence (added 2026-11-24, D-110, TK-243)
+
+Requirements §5, design §11, api-design 13 to 16, screen `ui-panel.md`. Branch `feat/demo-panel`, KhoaDD
+under D-078. Every task below is (added 2026-11-24, D-110).
+
+- [x] 9.1 Spec: requirements §5 (REQ-PNL-01 to 14, AC-PNL-01 to 04), design §11, this phase, `ui-panel.md`; api-design 13 to 16 from `scripts/specs/endpoints/demo.py`
+- [ ] 9.2 Guard: `DEMO_PANEL_PASSWORD_HASH`, `DEMO_DATABASE_HOST`, `DEMO_RESET_ENABLED` in `environment-variables.ts` and `.env.example`; `DemoPanelPassword` (scrypt, constant time), `DemoPanelFailures`, `DemoPanelGuard`, `DemoPanelModule` under `demoPanelEnabled`; `npm run demo:panel-hash`; error code `DEMO_PANEL_PASSWORD_INVALID`; unit tests, including one that enumerates every route of `DemoPanelController` and fails for a route without the guard
+- [ ] 9.3 Actions and playback: `DemoPanelService` (REQ-PNL-07, panel audit, run registry), `DemoSessionService.panelAccountOf`, `IncidentTimersJob.closeDemo`, `ReturnService` export, `demo-position-packet.ts`, `DemoPanelPlayback` (REQ-PNL-08); unit tests per action and for pause, resume, step, stop and a failed step; module boundaries green
+- [ ] 9.4 Reseed: `demoDatabaseMatches`, `DemoResetRepository.wipeData`, `AuditLogService.latestOf`, `DemoPanelResetService`; a unit test per refusal of REQ-PNL-12; `test/demo-panel.db-spec.ts` for the wipe and the kept audit entry
+- [ ] 9.5 Frontend `/demo/panel`, linked from `/demo`: password prompt held in memory for the tab, three role views, actions with results, playback controls, reseed with typed confirmation; tests; WCAG 2.2 AA at 1440 and 360 px in both themes
+- [ ] 9.6 `docs/demo/2026-11-24-demo-panel-security.md`: threat model, what the guard covers, password rotation after each defence
+- [ ] 9.7 Security review and the refusal tests before any deploy (D-110 consequences); the leader sets the variables per environment, nothing is turned on in `deploy/aws/compose.yml`
