@@ -177,7 +177,9 @@ actions, playback and the reseed from `/demo/panel`. None of them signs in to th
 - **REQ-PNL-11** (added 2026-11-24, D-110): IF one client address sends 5 wrong or missing passwords
   within 10 minutes, THEN every panel route SHALL answer that address 429 `RATE_LIMITED` until the
   10 minutes from its first failure have passed, without comparing a password. A right password does not
-  clear the count.
+  clear the count. (amended 2026-11-24, review of treklink-web#541): every attempt SHALL be counted before its password is compared, so of any number
+  of parallel requests from one address at most 5 reach a comparison; a right password SHALL give back
+  only its own attempt; an IPv6 address SHALL be counted by its /64.
 - **REQ-PNL-12** (added 2026-11-24, D-110): IF any of these holds, THEN a reseed SHALL answer as listed
   and change nothing, checked in this order:
   `DEMO_RESET_ENABLED` is not `true` (403 `DEMO_DISABLED`); `DEMO_DATABASE_HOST` is empty, or the host of
@@ -185,9 +187,15 @@ actions, playback and the reseed from `/demo/panel`. None of them signs in to th
   database endpoint, or either query string carries `host`, `hostaddr`, `service`, `servicefile`, `dbname`
   or `database` (403 `DEMO_DATABASE_NOT_ALLOWED`); the confirmation is not exactly `RESET DEMO DATA` (400
   `VALIDATION_FAILED`); a reseed started in this process, or a `demo.panel.reset` audit entry was
-  written, less than 5 minutes ago (429 `RATE_LIMITED` naming the time it opens again); another reseed or
-  playback is running (409 `DEMO_BUSY`); a `SEED_*_PASSWORD` variable is missing or the demo seed is not
-  in this build (409 `DEMO_SEED_NOT_CONFIGURED`).
+  written, less than 5 minutes ago (429 `RATE_LIMITED` naming the time it opens again); another reseed,
+  a playback or a panel action is running (409 `DEMO_BUSY`); a `SEED_*_PASSWORD` variable is missing or
+  the demo seed is not in this build (409 `DEMO_SEED_NOT_CONFIGURED`); (amended 2026-11-24, review of treklink-web#541) the `DATABASE_URL` the
+  database client reads from the process environment fails the host check, or the live connection's
+  `current_database()` is not the database that URL names (403 `DEMO_DATABASE_NOT_ALLOWED`).
+- **REQ-PNL-15** (amended 2026-11-24, review of treklink-web#541): WHILE a reseed runs, every panel action and playback step SHALL answer 409
+  `DEMO_BUSY` "The demo data is being reseeded. Try again when the reseed finishes." and change nothing.
+  The reseed's `demo.panel.reset` audit entry SHALL be written whether it succeeds or fails, with the
+  error when it fails, and SHALL start the five-minute spacing either way.
 - **REQ-PNL-13** (added 2026-11-24, D-110): IF a panel write runs on a database that is neither allowed
   for the simulation (REQ-SIM-02) nor the `DEMO_DATABASE_HOST` endpoint, THEN it SHALL answer 403
   `DEMO_DATABASE_NOT_ALLOWED` and change nothing.

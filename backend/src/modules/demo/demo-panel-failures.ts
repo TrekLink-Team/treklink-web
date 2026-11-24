@@ -6,7 +6,7 @@ import {
   PANEL_MAX_FAILURES,
 } from './demo-panel.constants';
 
-interface Window {
+export interface FailureWindow {
   count: number;
   firstAt: number;
 }
@@ -15,27 +15,45 @@ interface Window {
 // or missing password. In process memory, because the AWS host runs one backend (design §11).
 @Injectable()
 export class DemoPanelFailures {
-  private readonly windows = new Map<string, Window>();
+  private readonly windows = new Map<string, FailureWindow>();
 
   // The time the address may try again, or null when it is not over the limit.
   blockedUntil(address: string, now: number): number | null {
-    const window = this.live(address, now);
+    const window = this.live(failureKeyOf(address), now);
     return window && window.count >= PANEL_MAX_FAILURES
       ? window.firstAt + PANEL_FAILURE_WINDOW_MS
       : null;
   }
 
-  record(address: string, now: number): void {
-    const window = this.live(address, now);
-    if (window) {
-      window.count += 1;
-      return;
+  // Counts an attempt before its password is compared (review of treklink-web#541): synchronous, so of
+  // many parallel requests from one address at most PANEL_MAX_FAILURES reach a comparison. Returns the
+  // ticket to release on a right password, or the time the address may try again when it is over the
+  // limit, in which case nothing is counted.
+  reserve(address: string, now: number): { ticket: FailureWindow } | { blockedUntil: number } {
+    const key = failureKeyOf(address);
+    const live = this.live(key, now);
+    if (live && live.count >= PANEL_MAX_FAILURES)
+      return { blockedUntil: live.firstAt + PANEL_FAILURE_WINDOW_MS };
+    if (live) {
+      live.count += 1;
+      return { ticket: live };
     }
     if (this.windows.size >= PANEL_FAILURE_CAPACITY) this.evict(now);
-    this.windows.set(address, { count: 1, firstAt: now });
+    const window = { count: 1, firstAt: now };
+    this.windows.set(key, window);
+    return { ticket: window };
   }
 
-  private live(address: string, now: number): Window | null {
+  // A right password gives back its own reserved attempt; earlier failures keep counting (REQ-PNL-11).
+  release(ticket: FailureWindow): void {
+    ticket.count = Math.max(0, ticket.count - 1);
+  }
+
+  record(address: string, now: number): void {
+    this.reserve(address, now);
+  }
+
+  private live(address: string, now: number): FailureWindow | null {
     const window = this.windows.get(address);
     if (!window) return null;
     if (now - window.firstAt >= PANEL_FAILURE_WINDOW_MS) {
@@ -96,4 +114,23 @@ export const clientAddressOf = (request: PeerRequest): string => {
     if (last && isIP(last)) return last;
   }
   return peer || 'unknown';
+};
+
+// The key of the failure count: an IPv4 address as it is, an IPv6 address by its /64, because one host
+// usually holds a whole /64 and could otherwise rotate through it (review of treklink-web#541).
+export const failureKeyOf = (address: string): string => {
+  const ip = unmap(address).toLowerCase();
+  if (isIP(ip) !== 6) return ip;
+  const [head, tail = ''] = ip.split('::');
+  const left = head ? head.split(':') : [];
+  const right = ip.includes('::') && tail ? tail.split(':') : [];
+  // An embedded IPv4 tail (a.b.c.d) takes two groups; the /64 never reaches it, so it counts as two.
+  const width = (groups: string[]) => groups.reduce((n, g) => n + (g.includes('.') ? 2 : 1), 0);
+  const groups = ip.includes('::')
+    ? [...left, ...Array<string>(8 - width(left) - width(right)).fill('0'), ...right]
+    : left;
+  return `${groups
+    .slice(0, 4)
+    .map((g) => g.replace(/^0+(?=.)/, ''))
+    .join(':')}::/64`;
 };

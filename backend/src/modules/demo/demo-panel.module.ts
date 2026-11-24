@@ -10,6 +10,7 @@ import { RentalsModule } from '../rentals';
 import { DemoPanelController } from './demo-panel.controller';
 import { DemoPanelFailures } from './demo-panel-failures';
 import { DemoPanelGuard } from './demo-panel.guard';
+import { DemoPanelLock } from './demo-panel-lock';
 import { DemoPanelPlayback } from './demo-panel-playback';
 import { DemoPanelResetService } from './demo-panel-reset.service';
 import { DemoResetRepository } from './demo-reset.repository';
@@ -35,6 +36,7 @@ import { DemoQuickRepository } from './demo-quick.repository';
   providers: [
     DemoPanelGuard,
     DemoPanelFailures,
+    DemoPanelLock,
     DemoPanelService,
     DemoPanelPlayback,
     DemoPanelResetService,

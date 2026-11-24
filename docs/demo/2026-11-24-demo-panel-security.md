@@ -31,7 +31,9 @@ record is marked as demo provenance.
   same work as a wrong one. The password and the hash are never logged, returned or stored, and the
   guard's warning names only the client address.
 - **Guessing is bounded.** Five wrong or missing passwords from one address within ten minutes and that
-  address gets 429 until the window ends, before any comparison. The address is the right-most
+  address gets 429 until the window ends, before any comparison. Each attempt is counted before its
+  password is compared, so parallel guesses reach at most five comparisons, and an IPv6 client is counted
+  by its /64. The address is the right-most
   `X-Forwarded-For` entry only when the direct peer is a private or loopback proxy (Caddy on the AWS
   host). A client that connects directly cannot choose its own key.
 - **Actions keep the product rules.** Every action calls the owning module's service as the seeded or
@@ -43,8 +45,10 @@ record is marked as demo provenance.
   `DATABASE_URL` must be exactly `DEMO_DATABASE_HOST`, the direct URL must point at the same endpoint, and
   neither URL may carry a host or database override. The typed text must be exactly `RESET DEMO DATA`. No
   reseed may have run in the last five minutes, checked in memory and against the audit log, so a restart
-  does not reopen the window. No playback or other reseed may be running. The wipe runs no schema
-  statement. Its audit entry is written after the seed, so it is the first line of the fresh audit log.
+  does not reopen the window. No playback, panel action or other reseed may be running, and while the
+  reseed runs every action and playback step is refused. The URL the database client actually uses and
+  the live `current_database()` are checked before the wipe. The wipe runs no schema statement. Its audit
+  entry is written after the wipe, on success and on failure, so it is kept and names any error.
 - **The browser keeps the password in memory only.** The page holds it in a module variable for the tab,
   never in storage, a cookie or the URL, and sends it only in the `X-Demo-Panel-Password` header. **Lock**,
   a reload or a closed tab forgets it. A panel 401 never triggers the session token refresh.
