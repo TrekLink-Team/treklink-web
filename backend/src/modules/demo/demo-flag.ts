@@ -1,3 +1,5 @@
+import { parsePanelHash } from './demo-panel-password';
+
 export const DEMO_CONTROLS_FLAG = 'DEMO_CONTROLS_ENABLED';
 export const DEMO_TEST_ACCOUNTS_FLAG = 'DEMO_TEST_ACCOUNTS_ENABLED';
 
@@ -24,3 +26,9 @@ export { DEMO_SIMULATION_FLAG, demoSimulationEnabled } from '../gateway-sync';
 // W43: simulator controls share the explicit panel gate; the field simulator job keeps its own flag.
 export const demoPanelSimulationEnabled = (env: NodeJS.ProcessEnv): boolean =>
   demoControlsEnabled(env) && isTrue(env.DEMO_SIMULATION_ENABLED);
+
+// The condition of DemoPanelModule (specs/demo/requirements.md REQ-PNL-01, D-110): a panel password hash
+// that parses. Independent of every other demo flag, of VITE_APP_ENV and of NODE_ENV, because the AWS host
+// pins DEMO_CONTROLS_ENABLED=false and the leader turns the panel on per environment.
+export const demoPanelEnabled = (env: NodeJS.ProcessEnv): boolean =>
+  parsePanelHash(env.DEMO_PANEL_PASSWORD_HASH) !== null;

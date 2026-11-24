@@ -129,6 +129,24 @@ export class EnvironmentVariables {
   @IsBoolean()
   DEMO_SIMULATION_ENABLED = false;
 
+  // Owned by `demo` (specs/demo/requirements.md REQ-PNL-01, design §11, D-110): the scrypt hash of the
+  // demo panel password, `scrypt:<salt hex>:<key hex>` from `npm run demo:panel-hash`. A hash that parses
+  // loads the panel routes; unset or malformed, they answer 404. Never the plaintext password.
+  @IsOptional()
+  @IsString()
+  DEMO_PANEL_PASSWORD_HASH?: string;
+
+  // Owned by `demo` (REQ-PNL-12, D-110 rule 4): the host of the dedicated Neon demo branch as it appears in
+  // DATABASE_URL. The panel reseed runs only when the live database host equals it exactly.
+  @IsOptional()
+  @IsString()
+  DEMO_DATABASE_HOST?: string;
+
+  // Owned by `demo` (REQ-PNL-12, D-110 rule 4): true allows the panel reseed; off by default.
+  @Transform(toBoolean)
+  @IsBoolean()
+  DEMO_RESET_ENABLED = false;
+
   @IsString()
   @Matches(/^[A-Za-z0-9_-]+$/, { message: 'MQTT_ROOT must be one topic level such as treklink' })
   MQTT_ROOT = 'treklink';
