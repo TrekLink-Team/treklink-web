@@ -421,7 +421,7 @@ second reseed after five minutes repairs it. The seed file must be loadable: the
 
 | # | Route | Body | Answer |
 |---|---|---|---|
-| 13 | `GET /api/demo/panel` | | `{ reset, actions, options, playback }` |
+| 13 | `GET /api/demo/panel` | | `{ writable, reset, actions, options, playback }`; money as decimal strings |
 | 14 | `POST /api/demo/panel/actions/:action` | the fields of the action table | `{ action, runId, label, actedAs, records }` |
 | 15 | `POST /api/demo/panel/playback` | `{ command, flow?, intervalSeconds? }` | the playback state |
 | 16 | `POST /api/demo/panel/reset` | `{ confirmation }` | `{ resetAt, tables, seedGroups }` |

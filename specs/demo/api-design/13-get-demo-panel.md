@@ -26,9 +26,10 @@ No body.
 ```json
 {
   "result": {
+    "writable": true,
     "reset": {
       "available": false,
-      "reason": "DEMO_RESET_ENABLED is not true.",
+      "reason": "The demo reseed is off on this deployment.",
       "nextAllowedAt": null
     },
     "actions": [
@@ -94,11 +95,13 @@ No body.
 
 | Field | Description | Data Type | Examples |
 | --- | --- | --- | --- |
+| writable | The database accepts panel writes: local, `treklink_prod` or the `DEMO_DATABASE_HOST` branch (REQ-PNL-13) | boolean | `true` |
 | reset.available | Every reseed check that needs no input passes now (REQ-PNL-12) | boolean | `false` |
 | reset.reason | The first failing check, or null | string | see sample |
 | actions[].needs | Body fields the action requires | array | see sample |
 | options.incidents | Open, resolved and false-alarm incidents with code, state, version, device | array | `[]` |
 | options.contracts | Contracts that an action can move, with code, status and version | array | `[]` |
+| options.invoices | Invoices with an amount due; `dueVnd` is a decimal string | array | `[]` |
 | playback | The playback run of REQ-PNL-08, `status` IDLE when none ran | object | see sample |
 
 ## Validation
