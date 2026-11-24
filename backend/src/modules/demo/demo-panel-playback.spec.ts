@@ -1,4 +1,5 @@
 import { DomainException, ErrorCode } from '../../common/errors';
+import { DemoPanelLock } from './demo-panel-lock';
 import { DemoPanelPlayback } from './demo-panel-playback';
 import type { PanelInput, PanelResult } from './demo-panel.service';
 
@@ -33,14 +34,16 @@ const build = () => {
   const organizations = {
     activeDemoOptions: jest.fn().mockResolvedValue([{ id: 'org-1', code: 'ORG-0001' }]),
   };
+  const lock = new DemoPanelLock();
   const playback = new DemoPanelPlayback(
     panel as never,
     contracts as never,
     devices as never,
     incidents as never,
     organizations as never,
+    lock,
   );
-  return { playback, panel, contracts };
+  return { playback, panel, contracts, lock };
 };
 
 describe('DemoPanelPlayback (REQ-PNL-08)', () => {
@@ -160,7 +163,7 @@ describe('DemoPanelPlayback (REQ-PNL-08)', () => {
   });
 
   it('refuses a second START, a START during a reseed, an unknown flow and an interval out of bounds', async () => {
-    const { playback } = build();
+    const { playback, lock } = build();
     for (const input of [
       { command: 'START' as const },
       { command: 'START' as const, flow: 'MF-09' as never },
@@ -171,13 +174,13 @@ describe('DemoPanelPlayback (REQ-PNL-08)', () => {
         errorCode: 'VALIDATION_FAILED',
       });
     }
-    playback.resetting = true;
+    lock.beginReset();
     await expect(playback.command({ command: 'START', flow: 'MF-03' }, 'ip')).rejects.toMatchObject(
       {
         errorCode: 'DEMO_BUSY',
       },
     );
-    playback.resetting = false;
+    lock.endReset();
     await playback.command({ command: 'START', flow: 'MF-03' }, 'ip');
     await expect(playback.command({ command: 'START', flow: 'MF-04' }, 'ip')).rejects.toMatchObject(
       {

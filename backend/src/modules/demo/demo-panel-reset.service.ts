@@ -3,7 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { AUDIT_RECORD, AuditRecordEvent } from '../platform/audit/audit-record.event';
 import { AuditLogService } from '../platform/audit/audit-log.service';
-import { demoDatabaseMatches } from '../platform/config/database-url';
+import {
+  databaseNameOf,
+  demoDatabaseMatches,
+  isDemoDatabaseUrls,
+} from '../platform/config/database-url';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { TransactionalEvents } from '../platform/events/emit-after-commit';
 import { ParameterService } from '../platform/parameters/parameter.service';
@@ -12,6 +16,7 @@ import {
   PANEL_RESET_CONFIRMATION,
   PANEL_RESET_SPACING_MS,
 } from './demo-panel.constants';
+import { DemoPanelLock } from './demo-panel-lock';
 import { DemoPanelPlayback } from './demo-panel-playback';
 import { DemoResetRepository } from './demo-reset.repository';
 import { DemoSeedPasswords, DemoSeedRunner } from './demo-seed.runner';
@@ -52,7 +57,6 @@ const NO_SEED = 'The demo seed is not in this build.';
 @Injectable()
 export class DemoPanelResetService {
   private readonly logger = new Logger(DemoPanelResetService.name);
-  private running = false;
   private lastStartedAt: number | null = null;
 
   constructor(
@@ -63,6 +67,7 @@ export class DemoPanelResetService {
     private readonly repository: DemoResetRepository,
     private readonly seed: DemoSeedRunner,
     private readonly playback: DemoPanelPlayback,
+    private readonly lock: DemoPanelLock,
   ) {}
 
   // Every check that needs no input, for the panel's reseed card (api-design 13 `reset`).
@@ -70,7 +75,7 @@ export class DemoPanelResetService {
     try {
       this.assertEnvironment();
       await this.assertSpacing(now);
-      if (this.running || this.playback.active()) throw busy();
+      this.assertIdle();
       this.seedPasswords();
       return { available: true, reason: null, nextAllowedAt: null };
     } catch (error) {
@@ -88,19 +93,32 @@ export class DemoPanelResetService {
         `Type ${PANEL_RESET_CONFIRMATION} to confirm.`,
       );
     await this.assertSpacing(now);
-    if (this.running || this.playback.active()) throw busy();
+    this.assertIdle();
     const passwords = this.seedPasswords();
 
-    this.running = true;
-    this.playback.resetting = true;
+    this.lock.beginReset();
     this.lastStartedAt = now.getTime();
+    let tables: number | null = null;
+    let seedGroups: number | null = null;
+    let failure: unknown = null;
     try {
       this.logger.log(`Demo panel reset started from ${client}.`);
       // Read before the wipe: the parameter tables are kept, and the seed is dated a margin and a minute
       // earlier so a reading or an SOS right after the reseed is attributed (design §4).
       const margin = await this.parameters.get('gatewaySync.attributionMarginSeconds');
-      const wiped = await this.repository.wipeData();
-      const groups = await this.seed.run(passwords, new Date(now.getTime() - (margin + 60) * 1000));
+      await this.assertLiveDatabase();
+      tables = (await this.repository.wipeData()).length;
+      seedGroups = (await this.seed.run(passwords, new Date(now.getTime() - (margin + 60) * 1000)))
+        .length;
+      this.logger.log(`Demo panel reset finished: ${tables} tables, ${seedGroups} seed groups.`);
+      return { resetAt: now, tables, seedGroups };
+    } catch (error) {
+      failure = error;
+      this.logger.error(`Demo panel reset failed after ${tables ?? 0} tables were wiped.`);
+      throw error;
+    } finally {
+      // Written on success and on failure, after the wipe, so it is kept and also starts the
+      // five-minute spacing for a failed reseed (review of treklink-web#541).
       this.events.emitAfterCommit(AUDIT_RECORD, {
         actorId: null,
         actorRoles: [PANEL_AUDIT_ROLE],
@@ -108,17 +126,35 @@ export class DemoPanelResetService {
         action: PANEL_RESET_ACTION,
         subjectType: 'Database',
         subjectId: null,
-        after: { tables: wiped.length, seedGroups: groups.length, demo: true },
+        after: {
+          tables,
+          seedGroups,
+          error: failure ? (failure instanceof Error ? failure.message : 'Unknown failure') : null,
+          demo: true,
+        },
         ip: client,
       } satisfies AuditRecordEvent);
-      this.logger.log(
-        `Demo panel reset finished: ${wiped.length} tables, ${groups.length} seed groups.`,
-      );
-      return { resetAt: now, tables: wiped.length, seedGroups: groups.length };
-    } finally {
-      this.running = false;
-      this.playback.resetting = false;
+      this.lock.endReset();
     }
+  }
+
+  private assertIdle() {
+    if (this.lock.resetting || this.lock.actionsInFlight > 0 || this.playback.active())
+      throw busy();
+  }
+
+  // The connection Prisma actually uses (review of treklink-web#541): the client reads DATABASE_URL from
+  // the process environment when it is built, so that value must name the demo branch too, and the live
+  // connection must be on the database that URL names.
+  private async assertLiveDatabase() {
+    const processUrl = process.env.DATABASE_URL;
+    const direct = this.config.get('DATABASE_DIRECT_URL', { infer: true });
+    const host = this.config.get('DEMO_DATABASE_HOST', { infer: true });
+    if (processUrl !== undefined && !isDemoDatabaseUrls(host, processUrl, direct))
+      throw forbidden(ErrorCode.DEMO_DATABASE_NOT_ALLOWED, WRONG_DATABASE);
+    const expected = databaseNameOf(processUrl ?? this.config.get('DATABASE_URL', { infer: true }));
+    if (expected === null || (await this.repository.currentDatabase()) !== expected)
+      throw forbidden(ErrorCode.DEMO_DATABASE_NOT_ALLOWED, WRONG_DATABASE);
   }
 
   private assertEnvironment() {

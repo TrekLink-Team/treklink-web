@@ -326,7 +326,10 @@ logged: the request logger writes no request header, and the guard's own log lin
 address and the outcome.
 
 **Failure limit.** Five failures per address in a fixed window of ten minutes from the first; the sixth
-and every later request from that address answers 429 until the window ends. The counter lives in process
+and every later request from that address answers 429 until the window ends. (amended 2026-11-24, review of treklink-web#541): the guard reserves the
+attempt synchronously (`DemoPanelFailures.reserve`) before the scrypt await and releases only that
+attempt on a right password, so parallel guesses cannot all pass the check while the first are derived;
+an IPv6 address is keyed by its /64 (`failureKeyOf`). The counter lives in process
 memory (the AWS host runs one backend) and holds at most 10,000 addresses, dropping expired windows first.
 These numbers and the five-minute reseed spacing are demo tool constants of this section, kept in
 `demo-panel.constants.ts`, the same treatment as the simulation constants of §9; D-110 sets the five
@@ -392,8 +395,10 @@ hostname of `DATABASE_URL` equals it exactly (URL hostnames are lower case); the
 endpoint of the same branch); neither query string carries a target override parameter (the list of §9,
 any case, after decoding). The five-minute spacing is checked against the in-process start time of the
 last reseed and against the newest `demo.panel.reset` entry through `AuditLogService.latestOf(action)`
-(platform), so a restart does not reopen it. The reseed holds the panel lock that the playback also
-takes, then:
+(platform), so a restart does not reopen it. The reseed takes `DemoPanelLock` (amended 2026-11-24, review of treklink-web#541): it refuses while a
+playback or a panel action is in flight, and while it holds the lock every action and playback step
+answers 409 `DEMO_BUSY` (REQ-PNL-15). Before the wipe it also checks the `DATABASE_URL` of the process
+environment, which the Prisma client reads, and `current_database()` of the live connection. Then:
 
 1. Log `Demo panel reset started from <address>` (no password, no host).
 2. `DemoResetRepository.wipeData()`, one transaction, no DDL: `UPDATE business_parameters SET
@@ -403,7 +408,8 @@ takes, then:
    unchanged for the local stage.
 3. `DemoSeedRunner.run` as §4, dated the attribution margin and a minute back.
 4. Emit `audit.record` `demo.panel.reset`, written after the wipe, so it is the first entry of the fresh
-   audit log, with the number of tables wiped, the seed groups and the client address.
+   audit log, with the number of tables wiped, the seed groups and the client address. (amended 2026-11-24, review of treklink-web#541): it is
+   emitted in `finally`, so a failed reseed is audited too, with its error.
 
 A failure after step 2 leaves an empty or partly seeded database and is answered 500 with the step; a
 second reseed after five minutes repairs it. The seed file must be loadable: the AWS image ships only

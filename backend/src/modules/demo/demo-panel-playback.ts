@@ -4,6 +4,7 @@ import { DevicesService } from '../devices';
 import { IncidentsQueryService } from '../incidents';
 import { OrganizationsService } from '../organizations';
 import { ContractsService } from '../rentals';
+import { DemoPanelLock } from './demo-panel-lock';
 import type { StagedRecord } from './demo-scenarios.service';
 import { DemoPanelService, PanelCommand, PanelContext, PanelInput } from './demo-panel.service';
 
@@ -109,8 +110,6 @@ export class DemoPanelPlayback implements OnModuleDestroy {
   private client = 'unknown';
   private timer: NodeJS.Timeout | null = null;
   private executing: Promise<void> | null = null;
-  // Set by the reseed while it runs (DemoPanelResetService), so a playback cannot start under it.
-  resetting = false;
 
   constructor(
     private readonly panel: DemoPanelService,
@@ -118,6 +117,7 @@ export class DemoPanelPlayback implements OnModuleDestroy {
     private readonly devices: DevicesService,
     private readonly incidents: IncidentsQueryService,
     private readonly organizations: OrganizationsService,
+    private readonly lock: DemoPanelLock,
   ) {}
 
   onModuleDestroy() {
@@ -169,7 +169,7 @@ export class DemoPanelPlayback implements OnModuleDestroy {
   }
 
   private start(input: PlaybackCommandInput, client: string) {
-    if (this.resetting || this.active()) throw busy();
+    if (this.lock.resetting || this.active()) throw busy();
     if (!input.flow || !PLAYBACK_FLOWS.includes(input.flow))
       throw invalid('Choose a main flow to play.');
     const seconds = input.intervalSeconds ?? PLAYBACK_DEFAULT_SECONDS;

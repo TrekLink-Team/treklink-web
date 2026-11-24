@@ -4,6 +4,7 @@ import { DomainException } from '../../common/errors';
 import { ValidatedEnvironment } from '../platform/config/environment-variables';
 import { DemoPanelFailures } from './demo-panel-failures';
 import { DemoPanelGuard, PanelRequest } from './demo-panel.guard';
+import * as passwordModule from './demo-panel-password';
 import { hashPanelPassword } from './demo-panel-password';
 
 const PASSWORD = 'panel password for tests';
@@ -91,5 +92,48 @@ describe('DemoPanelGuard (REQ-PNL-02, REQ-PNL-10, REQ-PNL-11)', () => {
     expect(logged).not.toContain('secret typed value');
     expect(logged).not.toContain(hash.split(':')[2]);
     warn.mockRestore();
+  });
+});
+
+describe('DemoPanelGuard under parallel guesses (review of treklink-web#541)', () => {
+  let hash: string;
+  beforeAll(async () => {
+    hash = await hashPanelPassword(PASSWORD);
+  });
+  const config = (value: string) =>
+    ({
+      get: (key: string) =>
+        key === 'DEMO_PANEL_PASSWORD_HASH'
+          ? value
+          : key === 'DISPLAY_TIMEZONE_DEFAULT'
+            ? 'UTC'
+            : undefined,
+    }) as unknown as ConfigService<ValidatedEnvironment, true>;
+
+  it('compares at most the limit of 50 parallel wrong passwords from one address; the rest get 429', async () => {
+    const guard = new DemoPanelGuard(config(hash), new DemoPanelFailures());
+    const derive = jest.spyOn(passwordModule, 'verifyPanelPassword');
+    const outcomes = await Promise.allSettled(
+      Array.from({ length: 50 }, () => guard.canActivate(contextOf(requestWith('wrong guess')))),
+    );
+    const statuses = outcomes.map((o) =>
+      o.status === 'rejected' ? (o.reason as DomainException).getStatus() : 200,
+    );
+    expect(derive).toHaveBeenCalledTimes(5);
+    expect(statuses.filter((s) => s === 401)).toHaveLength(5);
+    expect(statuses.filter((s) => s === 429)).toHaveLength(45);
+    derive.mockRestore();
+  });
+
+  it('gives a right password its attempt back, so right passwords never add up to a block', async () => {
+    const guard = new DemoPanelGuard(config(hash), new DemoPanelFailures());
+    // The panel sends at most a read and a write at once; up to the limit may be in flight together.
+    const parallel = await Promise.all(
+      Array.from({ length: 5 }, () => guard.canActivate(contextOf(requestWith(PASSWORD)))),
+    );
+    expect(parallel.every(Boolean)).toBe(true);
+    for (let i = 0; i < 20; i += 1) {
+      await expect(guard.canActivate(contextOf(requestWith(PASSWORD)))).resolves.toBe(true);
+    }
   });
 });

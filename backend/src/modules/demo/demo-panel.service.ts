@@ -24,6 +24,7 @@ import {
 } from '../rentals';
 import { PANEL_ACTIONS, PANEL_ACTION_VIEWS, PanelAction } from './demo-panel-actions';
 import { PANEL_AUDIT_ROLE, PANEL_RUN_ACTOR } from './demo-panel.constants';
+import { DemoPanelLock } from './demo-panel-lock';
 import { nodePositionUplink } from './demo-position-packet';
 import { DemoQuickRepository } from './demo-quick.repository';
 import { quickOrganizationNames } from './demo-quick-names';
@@ -150,6 +151,7 @@ export class DemoPanelService {
     private readonly incidentReads: IncidentsQueryService,
     private readonly incidents: IncidentsService,
     private readonly timers: IncidentTimersJob,
+    private readonly lock: DemoPanelLock,
   ) {}
 
   // REQ-PNL-13: a local or staging database (REQ-SIM-02), or the dedicated demo branch.
@@ -194,11 +196,17 @@ export class DemoPanelService {
     return this.run(action as PanelAction, input, client, now);
   }
 
-  async run(
+  // Every action and playback step: refused with 409 DEMO_BUSY while a reseed runs, and counted as in
+  // flight so a reseed cannot start under it (review of treklink-web#541).
+  run(command: PanelCommand, input: PanelInput, client: string, now = new Date()) {
+    return this.lock.action(() => this.runUnlocked(command, input, client, now));
+  }
+
+  private async runUnlocked(
     command: PanelCommand,
     input: PanelInput,
     client: string,
-    now = new Date(),
+    now: Date,
   ): Promise<PanelResult> {
     this.validate(command, input);
     if (!this.writable())

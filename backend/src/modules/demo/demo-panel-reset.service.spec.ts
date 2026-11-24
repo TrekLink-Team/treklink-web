@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { DemoPanelLock } from './demo-panel-lock';
 import { DemoPanelResetService } from './demo-panel-reset.service';
 
 const NOW = new Date('2026-11-24T03:00:00Z');
@@ -7,6 +8,15 @@ const DEMO_URL = `postgresql://u:p@${HOST}/treklink_prod?sslmode=require`;
 const DIRECT_URL =
   'postgresql://u:p@ep-demo-1.ap-southeast-1.aws.neon.tech/treklink_prod?sslmode=require';
 const PASSWORDS = { admin: 'a', staff: 's', manager: 'm', operator: 'o' };
+
+const savedUrl = process.env.DATABASE_URL;
+beforeEach(() => {
+  process.env.DATABASE_URL = DEMO_URL;
+});
+afterAll(() => {
+  if (savedUrl === undefined) delete process.env.DATABASE_URL;
+  else process.env.DATABASE_URL = savedUrl;
+});
 
 const build = (env: Record<string, unknown> = {}) => {
   const values: Record<string, unknown> = {
@@ -21,13 +31,17 @@ const build = (env: Record<string, unknown> = {}) => {
   const events = { emitAfterCommit: jest.fn() };
   const parameters = { get: jest.fn().mockResolvedValue(300) };
   const auditLog = { latestOf: jest.fn().mockResolvedValue(null) };
-  const repository = { wipeData: jest.fn().mockResolvedValue(['audit_log', 'users']) };
+  const repository = {
+    wipeData: jest.fn().mockResolvedValue(['audit_log', 'users']),
+    currentDatabase: jest.fn().mockResolvedValue('treklink_prod'),
+  };
   const seed = {
     loadable: jest.fn().mockReturnValue(true),
     passwords: jest.fn().mockReturnValue(PASSWORDS),
     run: jest.fn().mockResolvedValue(['accounts', 'organizations', 'contracts']),
   };
-  const playback = { active: jest.fn().mockReturnValue(false), resetting: false };
+  const playback = { active: jest.fn().mockReturnValue(false) };
+  const lock = new DemoPanelLock();
   const service = new DemoPanelResetService(
     config,
     events as never,
@@ -36,8 +50,9 @@ const build = (env: Record<string, unknown> = {}) => {
     repository as never,
     seed as never,
     playback as never,
+    lock,
   );
-  return { service, events, auditLog, repository, seed, playback };
+  return { service, events, auditLog, repository, seed, playback, lock };
 };
 
 const expectNothingWiped = (f: ReturnType<typeof build>) => {
@@ -175,17 +190,25 @@ describe('DemoPanelResetService reseed (REQ-PNL-09)', () => {
       action: 'demo.panel.reset',
       subjectType: 'Database',
       subjectId: null,
-      after: { tables: 2, seedGroups: 3, demo: true },
+      after: { tables: 2, seedGroups: 3, error: null, demo: true },
       ip: '203.0.113.4',
     });
-    expect(f.playback.resetting).toBe(false);
+    expect(f.lock.resetting).toBe(false);
   });
 
   it('releases the lock when the seed fails, and still keeps five minutes before the next try', async () => {
     const f = build();
     f.seed.run.mockRejectedValueOnce(new Error('seed failed'));
     await expect(f.service.reset('RESET DEMO DATA', 'ip', NOW)).rejects.toThrow('seed failed');
-    expect(f.playback.resetting).toBe(false);
+    expect(f.lock.resetting).toBe(false);
+    // The audit line is written on failure too, with the error and the wipe it did.
+    expect(f.events.emitAfterCommit).toHaveBeenCalledWith(
+      'audit.record',
+      expect.objectContaining({
+        action: 'demo.panel.reset',
+        after: { tables: 2, seedGroups: null, error: 'seed failed', demo: true },
+      }),
+    );
     await expect(
       f.service.reset('RESET DEMO DATA', 'ip', new Date(NOW.getTime() + 1000)),
     ).rejects.toMatchObject({
@@ -211,5 +234,52 @@ describe('DemoPanelResetService reseed (REQ-PNL-09)', () => {
       available: false,
       reason: 'The demo reseed is off on this deployment.',
     });
+  });
+});
+
+describe('DemoPanelResetService lock and live connection (review of treklink-web#541)', () => {
+  it('refuses while a panel action is in flight, and actions refuse while it runs', async () => {
+    const f = build();
+    let finish: () => void = () => undefined;
+    const action = f.lock.action(() => new Promise<void>((resolve) => (finish = resolve)));
+    await expect(f.service.reset('RESET DEMO DATA', 'ip', NOW)).rejects.toMatchObject({
+      errorCode: 'DEMO_BUSY',
+    });
+    finish();
+    await action;
+    let seeded: () => void = () => undefined;
+    f.seed.run.mockReturnValueOnce(
+      new Promise((resolve) => (seeded = () => resolve(['accounts']))),
+    );
+    const reset = f.service.reset('RESET DEMO DATA', 'ip', NOW);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(f.lock.resetting).toBe(true);
+    const work = jest.fn();
+    await expect(f.lock.action(work)).rejects.toMatchObject({
+      errorCode: 'DEMO_BUSY',
+      message: 'The demo data is being reseeded. Try again when the reseed finishes.',
+    });
+    expect(work).not.toHaveBeenCalled();
+    seeded();
+    await expect(reset).resolves.toMatchObject({ seedGroups: 1 });
+    expect(f.lock.resetting).toBe(false);
+  });
+
+  it('refuses when the URL Prisma connects with names another database host', async () => {
+    const f = build();
+    process.env.DATABASE_URL = DEMO_URL.replace('ep-demo-1', 'ep-prod-1');
+    await expect(f.service.reset('RESET DEMO DATA', 'ip', NOW)).rejects.toMatchObject({
+      errorCode: 'DEMO_DATABASE_NOT_ALLOWED',
+    });
+    expect(f.repository.wipeData).not.toHaveBeenCalled();
+  });
+
+  it('refuses when the live connection is on another database than the URL names', async () => {
+    const f = build();
+    f.repository.currentDatabase.mockResolvedValueOnce('neondb');
+    await expect(f.service.reset('RESET DEMO DATA', 'ip', NOW)).rejects.toMatchObject({
+      errorCode: 'DEMO_DATABASE_NOT_ALLOWED',
+    });
+    expect(f.repository.wipeData).not.toHaveBeenCalled();
   });
 });

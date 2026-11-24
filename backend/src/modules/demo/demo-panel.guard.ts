@@ -15,8 +15,8 @@ export interface PanelRequest {
 // The panel password guard of every panel route (specs/demo/requirements.md REQ-PNL-02, REQ-PNL-10,
 // REQ-PNL-11, design §11). The routes are @Public: no account, no policy (D-110 rule 1). In order: the
 // hash must parse (404 otherwise, so a route reached without the module condition still refuses); an
-// address over the failure limit is refused before any comparison (429); the header is compared in
-// constant time (401 and a counted failure). Neither the header nor the hash is ever logged or returned.
+// address over the failure limit is refused before any comparison (429); otherwise the attempt is counted
+// first and the header compared in constant time (401), and a right password gives its attempt back. Neither the header nor the hash is ever logged or returned.
 @Injectable()
 export class DemoPanelGuard implements CanActivate {
   private readonly logger = new Logger(DemoPanelGuard.name);
@@ -34,18 +34,19 @@ export class DemoPanelGuard implements CanActivate {
     }
     const client = clientAddressOf(request);
     const now = Date.now();
-    const until = this.failures.blockedUntil(client, now);
-    if (until !== null) {
+    // The attempt is counted before the comparison, so parallel guesses cannot all pass the check
+    // while the first ones are still being derived (review of treklink-web#541).
+    const reserved = this.failures.reserve(client, now);
+    if ('blockedUntil' in reserved) {
       throw new DomainException(
         HttpStatus.TOO_MANY_REQUESTS,
         ErrorCode.RATE_LIMITED,
-        `Too many wrong panel passwords. Try again after ${this.clock(until)}.`,
+        `Too many wrong panel passwords. Try again after ${this.clock(reserved.blockedUntil)}.`,
       );
     }
     const header = request.headers[PANEL_PASSWORD_HEADER];
     const typed = (Array.isArray(header) ? header[0] : header) ?? '';
     if (!(await verifyPanelPassword(typed, hash))) {
-      this.failures.record(client, now);
       this.logger.warn(`Demo panel password refused for ${client}.`);
       throw new DomainException(
         HttpStatus.UNAUTHORIZED,
@@ -53,6 +54,7 @@ export class DemoPanelGuard implements CanActivate {
         'Enter the panel password.',
       );
     }
+    this.failures.release(reserved.ticket);
     request.demoPanelClient = client;
     return true;
   }

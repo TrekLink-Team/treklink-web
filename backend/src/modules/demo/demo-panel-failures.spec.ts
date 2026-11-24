@@ -1,4 +1,9 @@
-import { clientAddressOf, DemoPanelFailures, isProxyPeer } from './demo-panel-failures';
+import {
+  clientAddressOf,
+  DemoPanelFailures,
+  failureKeyOf,
+  isProxyPeer,
+} from './demo-panel-failures';
 import {
   PANEL_FAILURE_CAPACITY,
   PANEL_FAILURE_WINDOW_MS,
@@ -65,5 +70,34 @@ describe('clientAddressOf (design §11)', () => {
     ['2001:db8::1', false],
   ])('treats %s as a proxy peer: %s', (address, expected) => {
     expect(isProxyPeer(address)).toBe(expected);
+  });
+});
+
+describe('failure keys and reservations (review of treklink-web#541)', () => {
+  it.each([
+    ['203.0.113.9', '203.0.113.9'],
+    ['::ffff:203.0.113.9', '203.0.113.9'],
+    ['2001:db8:1:2:aaaa:bbbb:cccc:dddd', '2001:db8:1:2::/64'],
+    ['2001:0db8:0001:0002::1', '2001:db8:1:2::/64'],
+    ['2001:db8::1', '2001:db8:0:0::/64'],
+    ['::1', '0:0:0:0::/64'],
+  ])('keys %s as %s', (address, key) => {
+    expect(failureKeyOf(address)).toBe(key);
+  });
+
+  it('counts every address of one IPv6 /64 together', () => {
+    const failures = new DemoPanelFailures();
+    for (let i = 1; i <= PANEL_MAX_FAILURES; i += 1) failures.record(`2001:db8:1:2::${i}`, 0);
+    expect(failures.blockedUntil('2001:db8:1:2:ffff::9', 1)).toBe(PANEL_FAILURE_WINDOW_MS);
+    expect(failures.blockedUntil('2001:db8:1:3::1', 1)).toBeNull();
+  });
+
+  it('reserves synchronously and releases a right attempt', () => {
+    const failures = new DemoPanelFailures();
+    const tickets = Array.from({ length: PANEL_MAX_FAILURES }, () => failures.reserve('a', 0));
+    expect(failures.reserve('a', 0)).toEqual({ blockedUntil: PANEL_FAILURE_WINDOW_MS });
+    const first = tickets[0];
+    if ('ticket' in first) failures.release(first.ticket);
+    expect(failures.reserve('a', 0)).toHaveProperty('ticket');
   });
 });

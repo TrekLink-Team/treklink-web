@@ -72,6 +72,15 @@ export class DemoResetRepository {
     );
   }
 
+  // The database the live connection is on, for the reseed's connection check (review of
+  // treklink-web#541).
+  async currentDatabase(): Promise<string> {
+    const [row] = await this.prisma.$queryRaw<
+      { name: string }[]
+    >`SELECT current_database() AS name`;
+    return row.name;
+  }
+
   // The data-only wipe of the demo panel reseed (specs/demo/design.md §11, D-110 rule 4). One
   // transaction and no DDL: every foreign key from a kept table to a wiped one is nulled (the
   // `business_parameters."updatedById"` of §3); every wiped table except `users` is truncated with

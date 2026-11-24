@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { DomainException, ErrorCode } from '../../common/errors';
+import { DemoPanelLock } from './demo-panel-lock';
 import { DemoPanelService } from './demo-panel.service';
 
 const NOW = new Date('2026-11-24T03:00:30Z');
@@ -185,6 +186,7 @@ const build = (env: Record<string, unknown> = {}) => {
   const timers = {
     closeDemo: jest.fn().mockResolvedValue({ id: 'i-1', code: 'INC-2026-000002', version: 9 }),
   };
+  const lock = new DemoPanelLock();
   const service = new DemoPanelService(
     config,
     events as never,
@@ -205,9 +207,11 @@ const build = (env: Record<string, unknown> = {}) => {
     incidentReads as never,
     incidents as never,
     timers as never,
+    lock,
   );
   return {
     service,
+    lock,
     events,
     runs,
     organizations,
@@ -256,6 +260,25 @@ describe('DemoPanelService commands (REQ-PNL-03, REQ-PNL-04, REQ-PNL-07)', () =>
     ]);
     expect(parsed.options.devices[0].nodeNum).toBe(3724541953);
     expect(parsed.writable).toBe(true);
+  });
+
+  it('refuses every action and playback command while a reseed runs, before any run', async () => {
+    const f = build();
+    f.lock.beginReset();
+    for (const call of [
+      () => f.service.runAction('contract-create', {}, 'ip', NOW),
+      () => f.service.run('organization-register', {}, 'ip', NOW),
+    ]) {
+      await expect(call()).rejects.toMatchObject({
+        errorCode: 'DEMO_BUSY',
+        httpStatus: 409,
+        message: 'The demo data is being reseeded. Try again when the reseed finishes.',
+      });
+    }
+    expect(f.runs.createRun).not.toHaveBeenCalled();
+    f.lock.endReset();
+    await f.service.runAction('contract-create', {}, 'ip', NOW);
+    expect(f.lock.actionsInFlight).toBe(0);
   });
 
   it('refuses an unknown action and every playback-only command over HTTP', async () => {
