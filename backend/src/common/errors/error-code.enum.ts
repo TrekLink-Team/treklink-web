@@ -156,4 +156,6 @@ export enum ErrorCode {
   // The field simulation (specs/demo/design.md §7 and §9, D-093 amendment).
   DEMO_DATABASE_NOT_ALLOWED = 'DEMO_DATABASE_NOT_ALLOWED',
   DEMO_NODE_RUNNING = 'DEMO_NODE_RUNNING',
+  // The demo panel password (specs/demo/design.md §11, D-110).
+  DEMO_PANEL_PASSWORD_INVALID = 'DEMO_PANEL_PASSWORD_INVALID',
 }

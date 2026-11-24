@@ -1,5 +1,6 @@
 import {
   demoControlsEnabled,
+  demoPanelEnabled,
   demoPanelSimulationEnabled,
   demoTestAccountsEnabled,
 } from './demo-flag';
@@ -53,4 +54,25 @@ describe('W43 simulation panel gate', () => {
   ])('loads only for the explicit control gate and simulator flag: %j', (env, expected) =>
     expect(demoPanelSimulationEnabled(env)).toBe(expected),
   );
+});
+
+describe('demoPanelEnabled (REQ-PNL-01, D-110)', () => {
+  const valid = `scrypt:${'ab'.repeat(16)}:${'cd'.repeat(32)}`;
+
+  it('loads the panel only for a hash that parses, whatever the other demo flags say', () => {
+    expect(demoPanelEnabled({ DEMO_PANEL_PASSWORD_HASH: valid })).toBe(true);
+    expect(
+      demoPanelEnabled({
+        DEMO_PANEL_PASSWORD_HASH: valid,
+        DEMO_CONTROLS_ENABLED: 'false',
+        NODE_ENV: 'production',
+      }),
+    ).toBe(true);
+    expect(demoPanelEnabled({})).toBe(false);
+    expect(demoPanelEnabled({ DEMO_PANEL_PASSWORD_HASH: '' })).toBe(false);
+    expect(demoPanelEnabled({ DEMO_PANEL_PASSWORD_HASH: 'my-plain-password' })).toBe(false);
+    expect(demoPanelEnabled({ DEMO_CONTROLS_ENABLED: 'true', VITE_APP_ENV: 'staging' })).toBe(
+      false,
+    );
+  });
 });

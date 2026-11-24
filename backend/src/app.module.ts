@@ -8,8 +8,10 @@ import { BillingModule } from './modules/billing';
 import {
   DemoAccountsModule,
   DemoModule,
+  DemoPanelModule,
   DemoSimulationModule,
   demoControlsEnabled,
+  demoPanelEnabled,
   demoPanelSimulationEnabled,
   demoTestAccountsEnabled,
 } from './modules/demo';
@@ -55,6 +57,9 @@ import { RentalsModule } from './modules/rentals';
     // The field simulation of the demo panel (D-093 amendment, D-094), only when DEMO_SIMULATION_ENABLED is
     // true and the W43 panel gate passes; writes also require a local/staging database.
     ConditionalModule.registerWhen(DemoSimulationModule, demoPanelSimulationEnabled),
+    // The demo panel for a defence (D-110), only when DEMO_PANEL_PASSWORD_HASH parses; every route needs
+    // the panel password and no account. Independent of the other demo flags.
+    ConditionalModule.registerWhen(DemoPanelModule, demoPanelEnabled),
     // The field data simulator (gateway-sync design §2 (field data simulator), D-090), only when FIELD_SIMULATOR_ENABLED is true
     // (set on the Vercel production, which has no MQTT subscriber) or DEMO_SIMULATION_ENABLED is true.
     ConditionalModule.registerWhen(FieldSimulatorModule, fieldSimulatorEnabled),
