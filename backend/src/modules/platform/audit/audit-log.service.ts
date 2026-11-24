@@ -27,6 +27,12 @@ export class AuditLogService {
     @Optional() @Inject(ACCOUNT_DIRECTORY) private readonly directory?: AccountDirectory,
   ) {}
 
+  // The time of the newest entry of one action, or null. Exported for the demo panel reseed, which keeps
+  // five minutes between reseeds across restarts (specs/demo/design.md §11, D-110).
+  latestOf(action: string): Promise<Date | null> {
+    return this.auditLog.latestOf(action);
+  }
+
   async search(query: AuditLogQueryDto): Promise<PagedResult<AuditLogItem>> {
     const page = resolvePage(
       query,

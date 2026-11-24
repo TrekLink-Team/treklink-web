@@ -39,4 +39,14 @@ export class AuditLogRepository {
       this.prisma.auditLog.count({ where }),
     ]);
   }
+
+  // The time of the newest entry of one action, or null (the demo panel reseed spacing, D-110).
+  async latestOf(action: string): Promise<Date | null> {
+    const row = await this.prisma.auditLog.findFirst({
+      where: { action },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+    return row?.createdAt ?? null;
+  }
 }
