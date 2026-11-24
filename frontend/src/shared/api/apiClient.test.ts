@@ -74,6 +74,17 @@ describe('apiClient', () => {
     });
   });
 
+  it('never refreshes on a demo panel 401, which is a wrong panel password (D-110)', async () => {
+    fetchMock.mockResolvedValue(
+      envelope(401, { errorCode: 'DEMO_PANEL_PASSWORD_INVALID' }, 'Enter the panel password.'),
+    );
+    await expect(apiClient('/demo/panel/actions/incident-sos')).rejects.toMatchObject({
+      statusCode: 401,
+      errorCode: 'DEMO_PANEL_PASSWORD_INVALID',
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('refreshes once on 401 and retries with the new token', async () => {
     fetchMock
       .mockResolvedValueOnce(envelope(401, { errorCode: 'UNAUTHENTICATED' }, 'Unauthorized'))

@@ -78,6 +78,11 @@ export const DemoSignInPage: React.FC = () => {
             </Link>
           </div>
         )}
+        <p className="w-full max-w-xl text-body">
+          <Link to="/demo/panel" className={LINK}>
+            Open the demo panel
+          </Link>
+        </p>
         <TestAccountsBox
           onUse={(account) => void quickSignIn(account)}
           actionLabel="Sign in"

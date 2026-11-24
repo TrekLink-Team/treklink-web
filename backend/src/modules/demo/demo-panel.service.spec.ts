@@ -234,6 +234,30 @@ const audit = (f: ReturnType<typeof build>): Record<string, unknown> => {
 };
 
 describe('DemoPanelService commands (REQ-PNL-03, REQ-PNL-04, REQ-PNL-07)', () => {
+  it('reads an overview that serializes to JSON, money as a decimal string', async () => {
+    const f = build();
+    f.invoices.panelOptions.mockResolvedValueOnce([
+      {
+        id: 'inv-1',
+        number: 'INV-1',
+        contractId: 'c-1',
+        organizationId: ORG,
+        totalVnd: 900n,
+        paidVnd: 100n,
+      },
+    ]);
+    f.devices.panelOptions.mockResolvedValueOnce([
+      { id: 'd-1', assetTag: 'TL-0001', status: 'AVAILABLE', version: 0, nodeNum: 3724541953n },
+    ]);
+    const overview = await f.service.overview();
+    const parsed = JSON.parse(JSON.stringify(overview)) as typeof overview;
+    expect(parsed.options.invoices).toEqual([
+      { id: 'inv-1', number: 'INV-1', contractId: 'c-1', organizationId: ORG, dueVnd: '800' },
+    ]);
+    expect(parsed.options.devices[0].nodeNum).toBe(3724541953);
+    expect(parsed.writable).toBe(true);
+  });
+
   it('refuses an unknown action and every playback-only command over HTTP', async () => {
     const f = build();
     for (const action of ['drop-tables', 'organization-register', 'field-positions']) {

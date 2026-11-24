@@ -172,7 +172,14 @@ export class DemoPanelService {
       options: {
         incidents,
         contracts,
-        invoices: invoices.map((invoice) => ({ ...invoice, dueVnd: dueOf(invoice) })),
+        // Money as a decimal string, as the other money fields of the API (BigInt does not serialize).
+        invoices: invoices.map(({ id, number, contractId, organizationId, ...amounts }) => ({
+          id,
+          number,
+          contractId,
+          organizationId,
+          dueVnd: dueOf(amounts).toString(),
+        })),
         devices: devices.map((device) => ({ ...device, nodeNum: Number(device.nodeNum) })),
         organizations,
         variants: variants.map(({ id, code, name }) => ({ id, code, name })),
