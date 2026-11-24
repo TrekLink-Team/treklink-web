@@ -280,3 +280,156 @@ Vercel builds apply forward migrations only. W43 removes automatic seed:demo fro
 A successful quick command returns HTTP 200. A failed business step is persisted and audited, then returns the D-002 error envelope with isSuccess false, its owning error status/code and result details containing runId, label and committed records. The panel retains those links from the error details. Unknown failures return 500; mapped Prisma and HTTP failures keep their normal status/code. W43b supersedes the earlier 200-on-failure run response.
 
 Quick contract targets REQUESTED and APPROVED impose no handover-signer prerequisite. ACTIVE and RETURN_DUE select a live Manager only at handover, matching OrganizationsService.isActiveManager; an invitation still awaiting password activation does not disqualify a live Manager from signing the disclosed synthetic note.
+
+## 11. Demo panel for a defence (added 2026-11-24, D-110)
+
+Requirements §5. A panel page at `/demo/panel`, linked from `/demo`, that a panel operator drives during a
+defence with one shared password and no account. Every clause of this section is (added 2026-11-24,
+D-110).
+
+**Module.** `DemoPanelModule` in `backend/src/modules/demo/`, a third Nest module beside `DemoModule` and
+`DemoAccountsModule`. `AppModule` registers it through `ConditionalModule.registerWhen(DemoPanelModule,
+demoPanelEnabled)`, where `demoPanelEnabled` is true only when `DEMO_PANEL_PASSWORD_HASH` parses (REQ-PNL-01).
+It depends on no demo flag, because the AWS host pins `DEMO_CONTROLS_ENABLED=false` (`deploy/aws/compose.yml`)
+and the leader turns the panel on per environment through `.env`. It imports the modules of Figure 1 and
+adds no module edge.
+
+| Class | Role |
+|---|---|
+| `DemoPanelController` | The four routes of api-design 13 to 16, each `@Public()` plus `@UseGuards(DemoPanelGuard)` |
+| `DemoPanelGuard` | Password check and the failure limit of REQ-PNL-10 and REQ-PNL-11 |
+| `DemoPanelPassword` | Parses the hash and compares a typed password in constant time |
+| `DemoPanelFailures` | The per-address failure counter of REQ-PNL-11 |
+| `DemoPanelService` | Options, actions (REQ-PNL-07) and the panel audit (REQ-PNL-04) |
+| `DemoPanelPlayback` | The playback runner of REQ-PNL-08 |
+| `DemoPanelResetService` | The reseed of REQ-PNL-09 and its checks (REQ-PNL-12) |
+| `DemoResetRepository.wipeData` | The data-only wipe (below) |
+
+**Configuration** (`environment-variables.ts`, all optional, none set in any committed environment file):
+
+| Variable | Meaning |
+|---|---|
+| `DEMO_PANEL_PASSWORD_HASH` | `scrypt:<salt hex>:<hash hex>`, 16 or more salt bytes, a 32-byte key, scrypt N 16384, r 8, p 1. Made by `npm --prefix backend run demo:panel-hash`, which reads the password from standard input and prints only the hash. The plaintext password is never configured |
+| `DEMO_DATABASE_HOST` | The host of the dedicated Neon demo branch, as it appears in `DATABASE_URL` (the pooled host) |
+| `DEMO_RESET_ENABLED` | `true` allows the reseed; any other value refuses it |
+
+**Guard.** `DemoPanelGuard` is a Nest `CanActivate` on the controller class. In order: the client address is
+the right-most `X-Forwarded-For` entry when the direct peer is a private, loopback or link-local address
+(Caddy appends the client it sees), otherwise the peer address, so a client cannot choose its own key by
+sending the header; an address over the limit is refused with 429 `RATE_LIMITED` before any comparison;
+then the header `X-Demo-Panel-Password` is hashed with the configured salt and compared with
+`crypto.timingSafeEqual` against the configured key. A missing header is compared as an empty string, so
+both refusals take the same work. A failure counts against the address and answers 401
+`DEMO_PANEL_PASSWORD_INVALID`. The guard re-reads the hash from configuration and refuses with 404 when it
+does not parse, so a route reached without the module condition still refuses. Nothing of the header is
+logged: the request logger writes no request header, and the guard's own log line names only the
+address and the outcome.
+
+**Failure limit.** Five failures per address in a fixed window of ten minutes from the first; the sixth
+and every later request from that address answers 429 until the window ends. The counter lives in process
+memory (the AWS host runs one backend) and holds at most 10,000 addresses, dropping expired windows first.
+These numbers and the five-minute reseed spacing are demo tool constants of this section, kept in
+`demo-panel.constants.ts`, the same treatment as the simulation constants of §9; D-110 sets the five
+minutes.
+
+**Actors and audit.** `DemoSessionService.panelAccountOf(email)` (auth) returns the seeded account as a
+session sees it without issuing a token, and refuses unless `DEMO_PANEL_PASSWORD_HASH` is set; the legacy
+`accountOf` keeps its production refusal. A live member of an organization comes from
+`OrganizationsService.membersOf`. Every command allocates a `demo_scenario_runs` row with `actorId`
+`demo-panel` (the W43 registry of §10) and, after the owning services have committed, emits one
+`audit.record` with `actorId` null, `actorRoles` `['DEMO_PANEL']`, action `demo.panel.<command>`, subject
+`DemoScenarioRun`, and `after` holding `actedAs` (role and email), the input, the records and the client
+address. A failure is audited the same way with its error and answered as REQ-QUICK-11 answers it.
+
+**Database check for writes** (REQ-PNL-13). `simulationDatabaseAllowed` of platform (loopback, or
+`treklink_prod`), or `demoDatabaseMatches` below.
+
+**Actions** (REQ-PNL-07). Each action reads its record through the owning module's exported read, then calls:
+
+| Action | Body | Acts as | Exported service call |
+|---|---|---|---|
+| `incident-sos` | `deviceId` | none (packet) | `UplinkIngress.ingest(topic, body, now, { simulated: true })` with the packet of `demo-sos-packet.ts` for the unit's node |
+| `incident-acknowledge` | `recordId`, `expectedVersion` | live member | `IncidentsService.acknowledge` |
+| `incident-respond` | `recordId`, `expectedVersion` | the owner | `IncidentsService.responding` with the playbook note |
+| `incident-resolve` | `recordId`, `expectedVersion` | the owner | `IncidentsService.resolve` with the playbook outcome |
+| `incident-false-alarm` | `recordId`, `expectedVersion` | Staff if `UNROUTED`, else live member | `IncidentsService.falseAlarm` |
+| `incident-close` | `recordId`, `expectedVersion` | none (time control) | `IncidentTimersJob.closeDemo`: reopen window ends now, `REOPEN_WINDOW_ENDED` |
+| `contract-create` | `organizationId?`, `hardwareVariantId?`, `quantity?` | the organization's live Manager | `ContractsService.request` |
+| `contract-approve` | `recordId`, `expectedVersion` | Staff | `ContractDecisionsService.approve`, appointment at the next minute |
+| `contract-handover` | `recordId`, `expectedVersion` | Staff, signer the live Manager | `PaymentsService.recordCounter`, `HandoverService.provision`, `HandoverService.complete` |
+| `contract-return` | `recordId`, `expectedVersion` | Manager, then Staff | `giveNotice`, `endNow`, `ReturnService.checkIn`, `DevicesService.reset`, `ReturnService.inspect` (passed) |
+| `contract-close` | `recordId`, `expectedVersion` | Staff | `PaymentsService.recordCounter` per open invoice, `ReturnService.close` |
+| `contract-cancel` | `recordId`, `expectedVersion` | Staff | `ContractDecisionsService.cancel` |
+| `invoice-pay` | `recordId` | Staff | `PaymentsService.recordCounter` of the amount due |
+| `device-maintenance-open` | `deviceId`, `expectedVersion` | Staff | `MaintenanceService.open` (`STAFF_REPORTED`) |
+| `device-maintenance-complete` | `deviceId` | Staff | `MaintenanceService.complete` (`REPAIRED`) |
+
+`ReturnService` joins the exports of `rentals`; `IncidentTimersJob.closeDemo` and `IncidentsService` are
+exported by `incidents`. No repository of another module is read.
+
+**Playback** (REQ-PNL-08). `DemoPanelPlayback` holds one run in memory: `{ flow, steps[], index, status
+(IDLE, RUNNING, PAUSED, DONE, FAILED, STOPPED), intervalSeconds, nextAt, context }`. A step is either an
+action of the table above with its input taken from the run's context or a fixed record, or a narration
+line. A timer runs the next step `intervalSeconds` after the last one finished; pause clears the timer,
+resume and `STEP` run the next step at once. The steps, taken from the playbook:
+
+| Flow | Steps |
+|---|---|
+| MF-01a | register a demo organization (`OrganizationOnboardingService.register`, fresh names and tax code from the run counter); counter verification as Staff (`verify`); approval as the Admin (`approve`) |
+| MF-01b | `contract-create` for ORG-0001; `contract-approve` |
+| MF-01c | `contract-handover` of the contract from MF-01b, else the newest approved ORG-0001 contract |
+| MF-02 | narration "Gateway path: node, LoRa, laptop, queue, MQTT"; one simulated position per rented ORG-0001 unit with a node number (`demo-position-packet.ts`, the shape of `test/fixtures/mqtt/position.json`) |
+| MF-03 | `incident-sos` on TL-0010 (else the first rented ORG-0001 unit); `incident-acknowledge`; `incident-respond`; `incident-resolve` |
+| MF-04 | narration only: live map, search TL-0010, the sovereignty overlay, the fleet map, the organization API |
+| MF-05 | `contract-return` of RC-2026-0002; `contract-close` |
+
+Every executed step is one panel command (its own run and audit entry). The playback answers its state on
+`GET /api/demo/panel` and on every playback command.
+
+**Reseed** (REQ-PNL-09, REQ-PNL-12). `demoDatabaseMatches(config)`: `DEMO_DATABASE_HOST` is set; the
+hostname of `DATABASE_URL` equals it exactly (URL hostnames are lower case); the hostname of
+`DATABASE_DIRECT_URL` equals it, or equals it with `-pooler` removed from its first label (Neon's direct
+endpoint of the same branch); neither query string carries a target override parameter (the list of §9,
+any case, after decoding). The five-minute spacing is checked against the in-process start time of the
+last reseed and against the newest `demo.panel.reset` entry through `AuditLogService.latestOf(action)`
+(platform), so a restart does not reopen it. The reseed holds the panel lock that the playback also
+takes, then:
+
+1. Log `Demo panel reset started from <address>` (no password, no host).
+2. `DemoResetRepository.wipeData()`, one transaction, no DDL: `UPDATE business_parameters SET
+   "updatedById" = NULL`; `TRUNCATE` every table of the connection's schema except the kept tables of §3
+   and `users`, with `RESTART IDENTITY` and without `CASCADE`, so an unexpected reference from a kept table
+   fails the statement and rolls everything back; `DELETE FROM users`. The legacy `reset()` of §3 is
+   unchanged for the local stage.
+3. `DemoSeedRunner.run` as §4, dated the attribution margin and a minute back.
+4. Emit `audit.record` `demo.panel.reset`, written after the wipe, so it is the first entry of the fresh
+   audit log, with the number of tables wiped, the seed groups and the client address.
+
+A failure after step 2 leaves an empty or partly seeded database and is answered 500 with the step; a
+second reseed after five minutes repairs it. The seed file must be loadable: the AWS image ships only
+`dist/` and has no `ts-node`, so until the image carries a compiled seed the check of REQ-PNL-12 answers 409
+`DEMO_SEED_NOT_CONFIGURED` "The demo seed is not in this build." before any row is touched.
+
+**Errors** (added to §7):
+
+| Code | Status | When |
+|---|---|---|
+| `DEMO_PANEL_PASSWORD_INVALID` | 401 | panel password missing or wrong |
+| `RATE_LIMITED` | 429 | five failures from the address in ten minutes, or a reseed within five minutes |
+
+**Routes** (api-design 13 to 16, generated from `scripts/specs/endpoints/demo.py`):
+
+| # | Route | Body | Answer |
+|---|---|---|---|
+| 13 | `GET /api/demo/panel` | | `{ reset, actions, options, playback }` |
+| 14 | `POST /api/demo/panel/actions/:action` | the fields of the action table | `{ action, runId, label, actedAs, records }` |
+| 15 | `POST /api/demo/panel/playback` | `{ command, flow?, intervalSeconds? }` | the playback state |
+| 16 | `POST /api/demo/panel/reset` | `{ confirmation }` | `{ resetAt, tables, seedGroups }` |
+
+**Screen** (`ui-panel.md` in this folder, because `specs/frontend` stays frozen under D-103).
+
+**Threat model.** The spectator on the public site sees `/demo/panel` and its link. Without the password
+every panel route answers 401 and changes nothing; guessing is bounded by the failure limit per address;
+the reseed is further bounded by the host, the flag, the typed confirmation and the spacing. The password
+travels only over HTTPS in a header, lives only in the tab's memory, and is rotated after each defence
+(`docs/demo/2026-11-24-demo-panel-security.md`).

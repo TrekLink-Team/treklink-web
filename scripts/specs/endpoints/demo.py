@@ -7,7 +7,11 @@ NOTES = ("Control routes require `DEMO_CONTROLS_ENABLED=true` and explicit `VITE
          "Route 05 is the public test accounts list under its independent `DEMO_TEST_ACCOUNTS_ENABLED` flag (D-089). "
          "Simulation control routes 06 to 10 require both the control/environment gate and `DEMO_SIMULATION_ENABLED`; "
          "their writes require a local or named staging database and may run in staging production. "
-         "The field simulator job retains its separate flag.")
+         "The field simulator job retains its separate flag. "
+         "Panel routes 13 to 16 (added 2026-11-24, D-110) need no account: they load only when "
+         "`DEMO_PANEL_PASSWORD_HASH` parses, and every one of them requires the panel password header "
+         "`X-Demo-Panel-Password`; the reseed 16 runs only on the `DEMO_DATABASE_HOST` branch with "
+         "`DEMO_RESET_ENABLED`.")
 
 GUARDS = [(403, "DEMO_DISABLED", "`NODE_ENV` is `production`", "Demo controls are disabled in production."),
           (403, "DEMO_DATABASE_NOT_LOCAL", "The host of `DATABASE_URL` is not a loopback address",
@@ -308,3 +312,131 @@ ENDPOINTS.append(ep(
     steps=["Validate action-specific fields, environment, Admin role and database", "Allocate durable demo counter",
            "Call real owning services and retain links after each committed step", "Commit registry and emit actor audit"],
     controller="DemoQuickController", service="DemoQuickService", call="run(action, dto, caller)"))
+
+# Demo panel for a defence (added 2026-11-24, D-110; specs/demo/requirements.md §5, design §11). Routes 13 to
+# 16 belong to DemoPanelModule, loaded only when DEMO_PANEL_PASSWORD_HASH parses. They need no account: every
+# route, reads included, requires the panel password in X-Demo-Panel-Password (DemoPanelGuard).
+PANEL_PERMISSION = "Public (demo panel password header `X-Demo-Panel-Password`)"
+PANEL_AUTH = ("DemoPanelGuard: failure limit, then the password in constant time", "DEMO_PANEL_PASSWORD_INVALID")
+PANEL_GUARD = [(401, "DEMO_PANEL_PASSWORD_INVALID", "The panel password header is missing or wrong",
+                "Enter the panel password."),
+               (404, "NOT_FOUND", "`DEMO_PANEL_PASSWORD_HASH` is unset or does not parse: the route does not exist",
+                "Cannot GET /api/demo/panel"),
+               (429, "RATE_LIMITED", "Five wrong or missing passwords from this address within ten minutes",
+                "Too many wrong panel passwords. Try again after 10:25.")]
+PANEL_DB = (403, "DEMO_DATABASE_NOT_ALLOWED",
+            "The database is neither allowed for the simulation nor the `DEMO_DATABASE_HOST` endpoint",
+            "The demo panel writes only to a local, staging or demo database.")
+PANEL_PLAYBACK = {"flow": "MF-03", "status": "PAUSED", "index": 1, "intervalSeconds": 10, "nextAt": None,
+                  "steps": [{"title": "SOS from TL-0010", "window": "Physical unit", "screen": "Gateway log",
+                             "status": "DONE", "error": None, "records": []},
+                            {"title": "Operator acknowledges", "window": "C, Operator", "screen": "/o/incidents",
+                             "status": "PENDING", "error": None, "records": []}],
+                  "error": None}
+PANEL_RESULT = {"action": "incident-acknowledge", "runId": 12, "label": "Demo 12",
+                "actedAs": {"role": "ORG_OPERATOR", "email": "treklink.dev+operator@gmail.com"},
+                "records": [{"label": "Incident, acknowledged", "code": "INC-2026-000002",
+                             "path": "/o/incidents/7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d"}]}
+
+ENDPOINTS.append(ep(
+    "GET", "/api/demo/panel", "Read the demo panel", PANEL_PERMISSION,
+    "Returns what the panel needs: the action catalogue, the options the actions need, the playback state and "
+    "whether a reseed is possible now. A 200 also tells the page that the typed password is right. No account "
+    "and no policy: the panel password guards every panel route (D-110 rule 1).",
+    "D-110, REQ-PNL-01, REQ-PNL-02, REQ-PNL-06, REQ-PNL-10, REQ-PNL-11",
+    pre_validation_auth=PANEL_AUTH,
+    response={"reset": {"available": False, "reason": "DEMO_RESET_ENABLED is not true.", "nextAllowedAt": None},
+              "actions": [{"id": "incident-acknowledge", "group": "Incidents", "label": "Acknowledge",
+                           "needs": ["recordId", "expectedVersion"]}],
+              "options": {"incidents": [], "contracts": [], "invoices": [], "devices": [], "organizations": [],
+                          "variants": [], "flows": ["MF-01a", "MF-01b", "MF-01c", "MF-02", "MF-03", "MF-04", "MF-05"]},
+              "playback": PANEL_PLAYBACK},
+    fields=[["reset.available", "Every reseed check that needs no input passes now (REQ-PNL-12)", "boolean", "`false`"],
+            ["reset.reason", "The first failing check, or null", "string", "see sample"],
+            ["actions[].needs", "Body fields the action requires", "array", "see sample"],
+            ["options.incidents", "Open, resolved and false-alarm incidents with code, state, version, device", "array", "`[]`"],
+            ["options.contracts", "Contracts that an action can move, with code, status and version", "array", "`[]`"],
+            ["playback", "The playback run of REQ-PNL-08, `status` IDLE when none ran", "object", "see sample"]],
+    errors=PANEL_GUARD,
+    steps=["Check the failure limit and the password", "Read options through exported services",
+           "Read the playback state", "Evaluate the reseed checks"],
+    controller="DemoPanelController", service="DemoPanelService", call="overview()"))
+
+ENDPOINTS.append(ep(
+    "POST", "/api/demo/panel/actions/:action", "Run a demo panel action", PANEL_PERMISSION,
+    "Runs one simulator or live data action through the owning module's exported service, acting as the "
+    "account whose real screen the step stands for, under the same state machine, version, membership and "
+    "payment rules as the real screens. Writes one `demo.panel.<action>` audit entry with `actorId` null and "
+    "`actorRoles` `['DEMO_PANEL']`. A failed action answers the owning error with its committed links.",
+    "D-110 rule 3, REQ-PNL-03, REQ-PNL-04, REQ-PNL-07, REQ-PNL-13, REQ-PNL-14",
+    pre_validation_auth=PANEL_AUTH,
+    path=[["action", "incident-sos, incident-acknowledge, incident-respond, incident-resolve, incident-false-alarm, "
+                     "incident-close, contract-create, contract-approve, contract-handover, contract-return, "
+                     "contract-close, contract-cancel, invoice-pay, device-maintenance-open, "
+                     "device-maintenance-complete", "string", "`incident-acknowledge`"]],
+    body=[["recordId", "Incident, contract or invoice the action moves", "uuid", "conditional", "`7a6b5c4d-...`"],
+          ["expectedVersion", "The record's `version` as read", "int", "conditional", "`3`"],
+          ["deviceId", "Device for `incident-sos` and the maintenance actions", "uuid", "conditional", "`0d3f6a2b-...`"],
+          ["organizationId", "Organization for `contract-create`; default ORG-0001", "uuid", "no", "`5b1d2c0e-...`"],
+          ["hardwareVariantId", "Variant for `contract-create`; default `treklink-v3`", "uuid", "no", "`a1b2c3d4-...`"],
+          ["quantity", "Units for `contract-create`; default `rentals.minOrderQuantity`", "int", "no", "`5`"]],
+    sample={"recordId": "7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d", "expectedVersion": 3},
+    response=PANEL_RESULT, message="Demo panel action completed", entity="Action",
+    fields=[["actedAs", "The seeded or live account the services acted as, null for a packet or time control", "object", "see sample"],
+            ["records", "Links to the real screens", "array", "see sample"]],
+    errors=PANEL_GUARD + [PANEL_DB, STALE,
+                          (409, "INVALID_STATE_TRANSITION", "The record's state does not allow the action",
+                           "This cannot be done while it is RESOLVED.")],
+    steps=["Check the failure limit and the password", "Check the database", "Allocate a demo run",
+           "Call the owning exported service as the acting account", "Save the run links, emit audit demo.panel.<action>"],
+    controller="DemoPanelController", service="DemoPanelService", call="run(action, dto, client)",
+    seq=["Svc->>DB: INSERT demo_scenario_runs", "Svc->>Svc: owning service call", "Svc-)Svc: emit audit.record"]))
+
+ENDPOINTS.append(ep(
+    "POST", "/api/demo/panel/playback", "Control the main flow playback", PANEL_PERMISSION,
+    "Starts, pauses, resumes, steps or stops the scripted playback of one main flow. Steps come from "
+    "`docs/demo/2026-11-22-scenario-playbook.md`; each executed step is one panel action (route 14) or a "
+    "narration line. One playback runs at a time, held in the backend's memory.",
+    "D-110 rule 3, REQ-PNL-08",
+    pre_validation_auth=PANEL_AUTH,
+    body=[["command", "`START`, `PAUSE`, `RESUME`, `STEP` or `STOP`", "string", "yes", "`START`"],
+          ["flow", "`MF-01a`, `MF-01b`, `MF-01c`, `MF-02`, `MF-03`, `MF-04` or `MF-05`; with `START` only", "string", "conditional", "`MF-03`"],
+          ["intervalSeconds", "Seconds between steps, 3 to 60; default 10; with `START` only", "int", "no", "`10`"]],
+    sample={"command": "START", "flow": "MF-03", "intervalSeconds": 10},
+    response=PANEL_PLAYBACK, message="Playback updated", entity="Playback",
+    errors=PANEL_GUARD + [PANEL_DB,
+                          (409, "DEMO_BUSY", "`START` while a playback runs or a reseed is running",
+                           "A demo action is already running. Try again in a moment."),
+                          (409, "INVALID_STATE_TRANSITION", "`PAUSE`, `RESUME`, `STEP` or `STOP` in a state that does not allow it",
+                           "This cannot be done while it is DONE.")],
+    steps=["Check the failure limit and the password", "Apply the command to the in-memory run",
+           "Schedule or clear the next step"],
+    controller="DemoPanelController", service="DemoPanelPlayback", call="command(dto, client)"))
+
+ENDPOINTS.append(ep(
+    "POST", "/api/demo/panel/reset", "Reseed the demo database", PANEL_PERMISSION,
+    "Wipes the demo data and loads the standard demo seed, only on the dedicated Neon demo branch named by "
+    "`DEMO_DATABASE_HOST` with `DEMO_RESET_ENABLED` on, the typed confirmation `RESET DEMO DATA`, and no reseed "
+    "in the last five minutes. Data only: no migration and no schema statement. The audit entry "
+    "`demo.panel.reset` is written after the seed, so it is kept after the wipe. Every window must sign in again.",
+    "D-110 rule 4, REQ-PNL-09, REQ-PNL-12",
+    pre_validation_auth=PANEL_AUTH,
+    body=[["confirmation", "Exactly `RESET DEMO DATA`", "string", "yes", "`RESET DEMO DATA`"]],
+    sample={"confirmation": "RESET DEMO DATA"},
+    response={"resetAt": NOW, "tables": 61, "seedGroups": 24}, message="Demo data reseeded", entity="Database",
+    fields=[["tables", "Tables whose rows were deleted", "int", "`61`"],
+            ["seedGroups", "Row groups the demo seed created", "int", "`24`"]],
+    errors=PANEL_GUARD + [
+        (403, "DEMO_DISABLED", "`DEMO_RESET_ENABLED` is not `true`", "The demo reseed is off on this deployment."),
+        (403, "DEMO_DATABASE_NOT_ALLOWED", "The database host is not exactly `DEMO_DATABASE_HOST`, or a URL carries a target override",
+         "The reseed runs only on the dedicated demo database."),
+        (400, "VALIDATION_FAILED", "The confirmation is not `RESET DEMO DATA`", "Type RESET DEMO DATA to confirm."),
+        (429, "RATE_LIMITED", "A reseed ran less than five minutes ago", "A reseed ran at 10:20. Try again after 10:25."),
+        (409, "DEMO_BUSY", "Another reseed or a playback is running", "A demo action is already running. Try again in a moment."),
+        (409, "DEMO_SEED_NOT_CONFIGURED", "A `SEED_*_PASSWORD` is missing or the seed is not in this build",
+         "The demo seed is not in this build.")],
+    steps=["Check the failure limit and the password", "Check the flag, the host, the confirmation, the spacing, the lock and the seed",
+           "Wipe the data in one transaction (no DDL)", "Run the demo seed", "Emit audit.record demo.panel.reset"],
+    controller="DemoPanelController", service="DemoPanelResetService", call="reset(dto, client)",
+    seq=["Svc->>DB: BEGIN, UPDATE business_parameters, TRUNCATE ... RESTART IDENTITY, DELETE FROM users, COMMIT",
+         "Svc->>DB: seedDemo (own transaction)", "Svc-)Svc: emit audit.record"]))

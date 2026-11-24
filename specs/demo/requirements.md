@@ -97,3 +97,115 @@ Simulation control writes also enforce live ADMIN role plus the demo.simulate CA
 
 - **REQ-QUICK-10**: The backend SHALL leave VITE_APP_ENV without a default, so validated configuration cannot enable controls when the caller omitted the variable. A whole AppModule production boot with both demo flags enabled and VITE_APP_ENV unset SHALL omit status, quick and simulation routes (404).
 - **REQ-QUICK-11**: A failed quick action SHALL retain its audit/provenance and partial links, then answer isSuccess false with the owning HTTP status and error code. The error result SHALL include runId, label and records when a run was allocated. The panel SHALL show those links and disclose that the requesting/reporting account for quick contracts and fault reports is the signed-in Admin.
+
+## 5. Demo panel for a defence (added 2026-11-24, D-110)
+
+Authority: D-110 (leader, 2026-11-19), TK-243. Rule 6 of D-110 makes this section the one exception to the
+D-103 spec freeze: demo tooling only, no product scope. Every clause below is marked "(added 2026-11-24,
+D-110)". Where a clause of this section and an earlier section of this file disagree, this section governs
+the panel routes of api-design 13 to 16 only; the earlier routes keep their rules.
+
+**Roles in a defence** (added 2026-11-24, D-110): the **presenter** talks and reads the script; the **site
+clicker** drives the real screens with the seeded accounts; the **panel operator** runs scenarios, quick
+actions, playback and the reseed from `/demo/panel`. None of them signs in to the panel with an account.
+
+### Ubiquitous
+
+- **REQ-PNL-01** (added 2026-11-24, D-110): The system SHALL load the panel routes of api-design 13 to 16
+  only WHEN `DEMO_PANEL_PASSWORD_HASH` holds a hash of the form `scrypt:<salt hex>:<hash hex>`; otherwise
+  every panel route SHALL answer 404. The variable has no default. `DEMO_CONTROLS_ENABLED`, `VITE_APP_ENV`
+  and `NODE_ENV` SHALL NOT load or unload the panel.
+- **REQ-PNL-02** (added 2026-11-24, D-110): The panel routes SHALL need no account: no JWT and no CASL
+  policy. Every panel route, reads included, SHALL require the panel password in the request header
+  `X-Demo-Panel-Password`, compared in constant time against `DEMO_PANEL_PASSWORD_HASH`. The password and
+  the hash SHALL never be logged, returned or stored by the system. Admin accounts play no part in the
+  panel. This replaces, for these four routes only, the JWT and policy rule of REQ-UBI-02.
+- **REQ-PNL-03** (added 2026-11-24, D-110): Every panel action SHALL run through the exported service of
+  the owning module, under the same rules as the real screens (state machine, optimistic `version`,
+  membership, stock, payment and custody checks), acting as the account whose real screen the step stands
+  for: Staff for approvals, the counter and payments; the Admin for organization approval; a live member of
+  the record's organization (Operator first, then Manager) for incident owner actions and requests.
+- **REQ-PNL-04** (added 2026-11-24, D-110): The system SHALL write one audit entry per panel command, with
+  `actorId` null, `actorRoles` `['DEMO_PANEL']`, action `demo.panel.<command>`, the account the command
+  acted as, the result links and the client address, in addition to the audit entries the owning
+  services write.
+- **REQ-PNL-05** (added 2026-11-24, D-110): The panel SHALL answer in the D-002 envelope.
+
+### Event-driven
+
+- **REQ-PNL-06** (added 2026-11-24, D-110): WHEN the panel operator reads `GET /api/demo/panel` with the
+  right password, the system SHALL return the action catalogue, the options the actions need (open
+  incidents, contracts by state, unpaid invoices, devices by state, active organizations and variants),
+  the playback state and whether a reseed is possible now with the reason when it is not. A right
+  password read is how the page checks the typed password.
+- **REQ-PNL-07** (added 2026-11-24, D-110): WHEN the panel operator runs an action, the system SHALL
+  perform it and return `{ action, runId, label, actedAs, records }`, where `records` link to the real
+  screens. The actions SHALL be:
+  - incidents: `incident-sos` (a simulated SOS from a rented unit through the node uplink path, as
+    REQ-QUICK-04), `incident-acknowledge`, `incident-respond`, `incident-resolve`,
+    `incident-false-alarm` (as Staff when the incident is `UNROUTED`, as REQ-PNL-03 otherwise) and
+    `incident-close` (a disclosed demo time control: the reopen window of a `RESOLVED` or `FALSE_ALARM`
+    incident ends now and the normal close applies);
+  - contracts: `contract-create` (a monthly request, by default ORG-0001, `treklink-v3` and
+    `rentals.minOrderQuantity` units), `contract-approve`, `contract-handover` (holding fee paid at the
+    counter if due, every unit provisioned, a synthetic signature, disclosed as in REQ-QUICK-03),
+    `contract-return` (notice and end now when the contract runs, then check-in, reset and a passed
+    inspection of every unit), `contract-close` (every open balance paid at the counter, then close) and
+    `contract-cancel` (a stale request removed through the real cancel);
+  - billing: `invoice-pay` (a counter payment of what is due);
+  - devices: `device-maintenance-open` and `device-maintenance-complete`.
+- **REQ-PNL-08** (added 2026-11-24, D-110): WHEN the panel operator starts playback of a main flow
+  (`MF-01a`, `MF-01b`, `MF-01c`, `MF-02`, `MF-03`, `MF-04`, `MF-05`), the system SHALL run the flow's steps
+  of `docs/demo/2026-11-22-scenario-playbook.md` in order, one step every `intervalSeconds` (3 to 60,
+  default 10), each through the actions of REQ-PNL-07 or, for a step that only shows a screen, as a
+  narration line with no write. The operator SHALL be able to pause, resume, run the next step at once
+  and stop. One playback runs at a time. A failed step SHALL stop the playback with the step, its error
+  and its committed links. `MF-02` ingests one simulated position packet per rented unit of ORG-0001 with
+  a node number through the node uplink path.
+- **REQ-PNL-09** (added 2026-11-24, D-110): WHEN the panel operator requests a reseed with the typed
+  confirmation `RESET DEMO DATA`, the system SHALL, in order: run every check of REQ-PNL-12; delete the
+  rows of every table of the connection's schema except `_prisma_migrations` and the migration-filled
+  reference tables (design §3); load the standard demo seed; write one audit entry `demo.panel.reset`
+  after the seed, so the entry is kept after the wipe; and return `{ resetAt, tables, seedGroups }`.
+  The reseed SHALL change no schema object: no migration, no `ALTER`, no `DROP`, no `CREATE`.
+
+### Unwanted behaviour
+
+- **REQ-PNL-10** (added 2026-11-24, D-110): IF the header `X-Demo-Panel-Password` is missing or wrong,
+  THEN every panel route SHALL answer 401 `DEMO_PANEL_PASSWORD_INVALID` "Enter the panel password." and
+  change nothing.
+- **REQ-PNL-11** (added 2026-11-24, D-110): IF one client address sends 5 wrong or missing passwords
+  within 10 minutes, THEN every panel route SHALL answer that address 429 `RATE_LIMITED` until the
+  10 minutes from its first failure have passed, without comparing a password. A right password does not
+  clear the count.
+- **REQ-PNL-12** (added 2026-11-24, D-110): IF any of these holds, THEN a reseed SHALL answer as listed
+  and change nothing, checked in this order:
+  `DEMO_RESET_ENABLED` is not `true` (403 `DEMO_DISABLED`); `DEMO_DATABASE_HOST` is empty, or the host of
+  `DATABASE_URL` is not exactly `DEMO_DATABASE_HOST`, or the host of `DATABASE_DIRECT_URL` is not the same
+  database endpoint, or either query string carries `host`, `hostaddr`, `service`, `servicefile`, `dbname`
+  or `database` (403 `DEMO_DATABASE_NOT_ALLOWED`); the confirmation is not exactly `RESET DEMO DATA` (400
+  `VALIDATION_FAILED`); a reseed started in this process, or a `demo.panel.reset` audit entry was
+  written, less than 5 minutes ago (429 `RATE_LIMITED` naming the time it opens again); another reseed or
+  playback is running (409 `DEMO_BUSY`); a `SEED_*_PASSWORD` variable is missing or the demo seed is not
+  in this build (409 `DEMO_SEED_NOT_CONFIGURED`).
+- **REQ-PNL-13** (added 2026-11-24, D-110): IF a panel write runs on a database that is neither allowed
+  for the simulation (REQ-SIM-02) nor the `DEMO_DATABASE_HOST` endpoint, THEN it SHALL answer 403
+  `DEMO_DATABASE_NOT_ALLOWED` and change nothing.
+- **REQ-PNL-14** (added 2026-11-24, D-110): IF an action names an unknown action, record or state, THEN
+  the owning service's error SHALL be returned in the D-002 envelope, with the run's committed links in
+  `result.records` as REQ-QUICK-11 does.
+
+### Acceptance
+
+- **AC-PNL-01** (added 2026-11-24, D-110): With `DEMO_PANEL_PASSWORD_HASH` unset, every route of
+  api-design 13 to 16 answers 404. With it set, each of them answers 401 without the header and with a
+  wrong password, and a unit test enumerates the panel controller's routes so a new route without the
+  guard fails it.
+- **AC-PNL-02** (added 2026-11-24, D-110): The sixth wrong password from one address within 10 minutes
+  answers 429, and the right password from that address also answers 429 until the window ends.
+- **AC-PNL-03** (added 2026-11-24, D-110): A reseed is refused, with nothing deleted, for each refusal of
+  REQ-PNL-12; on the demo branch with every check passing it leaves RC-2026-0001 to RC-2026-0003 and one
+  `demo.panel.reset` audit entry.
+- **AC-PNL-04** (added 2026-11-24, D-110): The panel operator plays MF-03 on a seeded database: an SOS from
+  TL-0010 opens an incident the site clicker sees as the Operator; pause holds the next step; resume
+  acknowledges, responds and resolves it.
