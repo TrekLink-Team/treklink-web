@@ -326,7 +326,7 @@ logged: the request logger writes no request header, and the guard's own log lin
 address and the outcome.
 
 **Failure limit.** Five failures per address in a fixed window of ten minutes from the first; the sixth
-and every later request from that address answers 429 until the window ends. (amended 2026-11-24, review of treklink-web#541): the guard reserves the
+and every later request from that address answers 429 until the window ends. (amended 2026-11-24, D-110, review of treklink-web#541): the guard reserves the
 attempt synchronously (`DemoPanelFailures.reserve`) before the scrypt await and releases only that
 attempt on a right password, so parallel guesses cannot all pass the check while the first are derived;
 an IPv6 address is keyed by its /64 (`failureKeyOf`). The counter lives in process
@@ -335,7 +335,10 @@ These numbers and the five-minute reseed spacing are demo tool constants of this
 `demo-panel.constants.ts`, the same treatment as the simulation constants of §9; D-110 sets the five
 minutes.
 
-**Actors and audit.** `DemoSessionService.panelAccountOf(email)` (auth) returns the seeded account as a
+**Actors and audit.** (amended 2026-11-25, D-110 clarification) The panel acts only as the seeded Staff, Manager or Operator or a live
+organization member, never as an Admin: `seeded()` takes `PanelSeededRole` (ADMIN excluded) and refuses an
+account that holds ADMIN; a unit test runs every action and playback command and fails if any asks for
+the seeded Admin or hands an ADMIN caller to a service. `DemoSessionService.panelAccountOf(email)` (auth) returns the seeded account as a
 session sees it without issuing a token, and refuses unless `DEMO_PANEL_PASSWORD_HASH` is set; the legacy
 `accountOf` keeps its production refusal. A live member of an organization comes from
 `OrganizationsService.membersOf`. Every command allocates a `demo_scenario_runs` row with `actorId`
@@ -378,7 +381,7 @@ resume and `STEP` run the next step at once. The steps, taken from the playbook:
 
 | Flow | Steps |
 |---|---|
-| MF-01a | register a demo organization (`OrganizationOnboardingService.register`, fresh names and tax code from the run counter); counter verification as Staff (`verify`); approval as the Admin (`approve`) |
+| MF-01a | register a demo organization (`OrganizationOnboardingService.register`, fresh names and tax code from the run counter); counter verification as Staff (`verify`); (amended 2026-11-25, D-110 clarification) the approval is a waiting step: the playback pauses with "Approve ORG-.... on the Admin screen", reads `OrganizationsService.activeDemoOptions` every 3 s and runs on once the organization is Active, or when the operator presses Resume or Next step. No panel command approves |
 | MF-01b | `contract-create` for ORG-0001; `contract-approve` |
 | MF-01c | `contract-handover` of the contract from MF-01b, else the newest approved ORG-0001 contract |
 | MF-02 | narration "Gateway path: node, LoRa, laptop, queue, MQTT"; one simulated position per rented ORG-0001 unit with a node number (`demo-position-packet.ts`, the shape of `test/fixtures/mqtt/position.json`) |
@@ -395,9 +398,9 @@ hostname of `DATABASE_URL` equals it exactly (URL hostnames are lower case); the
 endpoint of the same branch); neither query string carries a target override parameter (the list of §9,
 any case, after decoding). The five-minute spacing is checked against the in-process start time of the
 last reseed and against the newest `demo.panel.reset` entry through `AuditLogService.latestOf(action)`
-(platform), so a restart does not reopen it. The reseed takes `DemoPanelLock` (amended 2026-11-24, review of treklink-web#541): it refuses while a
+(platform), so a restart does not reopen it. The reseed takes `DemoPanelLock` (amended 2026-11-24, D-110, review of treklink-web#541): it refuses while a
 playback or a panel action is in flight, and while it holds the lock every action and playback step
-answers 409 `DEMO_BUSY` (REQ-PNL-15). Before the wipe it also checks the `DATABASE_URL` of the process
+answers 409 `DEMO_BUSY` (REQ-PNL-15). Before the lock (amended 2026-11-25, D-110 clarification) it also checks the `DATABASE_URL` of the process
 environment, which the Prisma client reads, and `current_database()` of the live connection. Then:
 
 1. Log `Demo panel reset started from <address>` (no password, no host).
@@ -408,7 +411,7 @@ environment, which the Prisma client reads, and `current_database()` of the live
    unchanged for the local stage.
 3. `DemoSeedRunner.run` as §4, dated the attribution margin and a minute back.
 4. Emit `audit.record` `demo.panel.reset`, written after the wipe, so it is the first entry of the fresh
-   audit log, with the number of tables wiped, the seed groups and the client address. (amended 2026-11-24, review of treklink-web#541): it is
+   audit log, with the number of tables wiped, the seed groups and the client address. (amended 2026-11-24, D-110, review of treklink-web#541): it is
    emitted in `finally`, so a failed reseed is audited too, with its error.
 
 A failure after step 2 leaves an empty or partly seeded database and is answered 500 with the step; a

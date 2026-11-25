@@ -1,6 +1,8 @@
 import { DomainException, ErrorCode } from '../../common/errors';
 import { DemoPanelLock } from './demo-panel-lock';
-import { DemoPanelPlayback } from './demo-panel-playback';
+import { DemoPanelPlayback, PLAYBACK_WAIT_POLL_MS } from './demo-panel-playback';
+import { PANEL_ACTIONS } from './demo-panel-actions';
+import { PLAYBACK_COMMANDS } from './demo-panel.service';
 import type { PanelInput, PanelResult } from './demo-panel.service';
 
 const flush = async () => {
@@ -43,7 +45,7 @@ const build = () => {
     organizations as never,
     lock,
   );
-  return { playback, panel, contracts, lock };
+  return { playback, panel, contracts, lock, organizations };
 };
 
 describe('DemoPanelPlayback (REQ-PNL-08)', () => {
@@ -189,16 +191,15 @@ describe('DemoPanelPlayback (REQ-PNL-08)', () => {
     );
   });
 
-  it('plays MF-01a with each step taking the organization and version of the step before', async () => {
-    const { playback, panel } = build();
-    panel.run
+  const startMf01a = async (f: ReturnType<typeof build>) => {
+    f.panel.run
       .mockResolvedValueOnce({
         action: 'organization-register',
         runId: 1,
         label: 'Demo 1',
         actedAs: null,
         records: [],
-        context: { organizationId: 'org-9', version: 0 },
+        context: { organizationId: 'org-9', organizationCode: 'ORG-0009', version: 0 },
       })
       .mockResolvedValueOnce({
         action: 'organization-verify',
@@ -208,13 +209,69 @@ describe('DemoPanelPlayback (REQ-PNL-08)', () => {
         records: [],
         context: { organizationId: 'org-9', version: 1 },
       });
-    await playback.command({ command: 'START', flow: 'MF-01a', intervalSeconds: 3 }, 'ip');
-    await jest.advanceTimersByTimeAsync(10_000);
+    await f.playback.command({ command: 'START', flow: 'MF-01a', intervalSeconds: 3 }, 'ip');
+    await jest.advanceTimersByTimeAsync(7_000);
     await flush();
-    expect(panel.run.mock.calls.map(([command, input]) => [command, input])).toEqual([
+  };
+
+  it('plays MF-01a, then waits at the Admin approval with a prompt and acts as no Admin (D-110)', async () => {
+    const f = build();
+    await startMf01a(f);
+    expect(f.panel.run.mock.calls.map(([command, input]) => [command, input])).toEqual([
       ['organization-register', {}],
       ['organization-verify', { recordId: 'org-9', expectedVersion: 0 }],
-      ['organization-approve', { recordId: 'org-9', expectedVersion: 1 }],
     ]);
+    const view = f.playback.view();
+    expect(view).toMatchObject({ status: 'PAUSED', index: 2 });
+    expect(view.steps[2]).toMatchObject({
+      status: 'WAITING',
+      prompt:
+        'Approve ORG-0009 on the Admin screen (Organizations, tab Pending, Approve). The playback resumes by itself once it is Active, or press Resume.',
+    });
+    // Still pending on the real screen: the playback keeps waiting and runs nothing.
+    await jest.advanceTimersByTimeAsync(30_000);
+    expect(f.panel.run).toHaveBeenCalledTimes(2);
+    expect(f.playback.view().steps[2].status).toBe('WAITING');
+  });
+
+  it('resumes by itself once the organization is approved on the real screen', async () => {
+    const f = build();
+    await startMf01a(f);
+    f.organizations.activeDemoOptions.mockResolvedValue([
+      { id: 'org-1', code: 'ORG-0001' },
+      { id: 'org-9', code: 'ORG-0009' },
+    ]);
+    await jest.advanceTimersByTimeAsync(PLAYBACK_WAIT_POLL_MS);
+    await flush();
+    expect(f.playback.view()).toMatchObject({ status: 'DONE', index: 3 });
+    expect(f.playback.view().steps[2]).toMatchObject({ status: 'DONE', prompt: null });
+    expect(f.panel.run).toHaveBeenCalledTimes(2);
+  });
+
+  it('moves past the waiting step when the operator presses Resume', async () => {
+    const f = build();
+    await startMf01a(f);
+    const resumed = await f.playback.command({ command: 'RESUME' }, 'ip');
+    expect(resumed).toMatchObject({ status: 'DONE', index: 3 });
+    expect(f.panel.run).toHaveBeenCalledTimes(2);
+  });
+
+  it('never runs a command outside the panel commands in any flow, so no flow can act as an Admin', async () => {
+    for (const flow of [
+      'MF-01a',
+      'MF-01b',
+      'MF-01c',
+      'MF-02',
+      'MF-03',
+      'MF-04',
+      'MF-05',
+    ] as const) {
+      const f = build();
+      await f.playback.command({ command: 'START', flow, intervalSeconds: 3 }, 'ip');
+      await jest.advanceTimersByTimeAsync(60_000);
+      await flush();
+      for (const [command] of f.panel.run.mock.calls)
+        expect([...PANEL_ACTIONS, ...PLAYBACK_COMMANDS]).toContain(command);
+    }
   });
 });

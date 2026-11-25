@@ -36,7 +36,6 @@ import { nodeSosUplink } from './demo-sos-packet';
 export const PLAYBACK_COMMANDS = [
   'organization-register',
   'organization-verify',
-  'organization-approve',
   'field-positions',
 ] as const;
 export type PlaybackCommand = (typeof PLAYBACK_COMMANDS)[number];
@@ -59,6 +58,7 @@ export interface ActedAs {
 // What a command leaves for the next playback step: the record it made or moved and its version.
 export interface PanelContext {
   organizationId?: string;
+  organizationCode?: string;
   contractId?: string;
   incidentId?: string;
   version?: number;
@@ -106,6 +106,15 @@ const DEMO_ORGANIZATION = 'ORG-0001';
 const DEMO_VARIANT = 'treklink-v3';
 // The caller of the panel's own reads of another module (membership lists): TrekLink-wide, no account.
 const PANEL_READER: Caller = { id: PANEL_RUN_ACTOR, roles: ['STAFF'], organizationId: null };
+
+// The roles the panel may act as (D-110 clarification of 2026-11-24): never ADMIN.
+export type PanelSeededRole = Exclude<SeededRole, 'ADMIN'>;
+const noAdmin = () =>
+  new DomainException(
+    HttpStatus.CONFLICT,
+    ErrorCode.DEMO_SCENARIO_UNAVAILABLE,
+    'The demo panel never acts as an Admin account. Use the Admin screen.',
+  );
 
 const invalid = (message: string) =>
   new DomainException(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_FAILED, message);
@@ -347,8 +356,6 @@ export class DemoPanelService {
         return this.organizationRegister(runId);
       case 'organization-verify':
         return this.organizationVerify(id, version, now, runId);
-      case 'organization-approve':
-        return this.organizationApprove(id, version, now);
       case 'field-positions':
         return this.fieldPositions(input.organizationId, now);
     }
@@ -356,7 +363,9 @@ export class DemoPanelService {
 
   // --- actors (REQ-PNL-03) ---------------------------------------------------------------------------
 
-  private async seeded(role: SeededRole): Promise<Actor> {
+  // Never the Admin (leader ruling 2026-11-24, "No Admin at all", D-110 clarification): the type leaves
+  // ADMIN out, and an account that holds the ADMIN role is refused at run time as well.
+  private async seeded(role: PanelSeededRole): Promise<Actor> {
     const email = SEEDED_EMAILS[role];
     const user = await this.sessions.panelAccountOf(email);
     if (!user)
@@ -364,6 +373,7 @@ export class DemoPanelService {
         ErrorCode.DEMO_SCENARIO_UNAVAILABLE,
         `The seeded ${role} account is missing or may not sign in. Reseed the demo data.`,
       );
+    if (user.roles.includes('ADMIN')) throw noAdmin();
     return {
       caller: { id: user.id, roles: user.roles, organizationId: user.organization?.id ?? null },
       actedAs: { role, email: user.email },
@@ -811,7 +821,11 @@ export class DemoPanelService {
           path: `/t/organizations/${organization.id}`,
         },
       ],
-      context: { organizationId: organization.id, version: organization.version },
+      context: {
+        organizationId: organization.id,
+        organizationCode: organization.code,
+        version: organization.version,
+      },
     };
   }
 
@@ -841,18 +855,6 @@ export class DemoPanelService {
         { label: 'Organization, verified', code: saved.code, path: `/t/organizations/${id}` },
       ],
       context: { organizationId: id, version: saved.version },
-    };
-  }
-
-  private async organizationApprove(id: string, version: number, now: Date): Promise<PanelOutcome> {
-    const admin = await this.seeded('ADMIN');
-    const approved = await this.onboarding.approve(id, version, admin.caller, now);
-    return {
-      actedAs: admin.actedAs,
-      records: [
-        { label: 'Organization, active', code: approved.code, path: `/t/organizations/${id}` },
-      ],
-      context: { organizationId: id, version: approved.version },
     };
   }
 

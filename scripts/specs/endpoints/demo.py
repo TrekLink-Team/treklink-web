@@ -329,9 +329,9 @@ PANEL_DB = (403, "DEMO_DATABASE_NOT_ALLOWED",
             "The demo panel writes only to a local, staging or demo database.")
 PANEL_PLAYBACK = {"flow": "MF-03", "status": "PAUSED", "index": 1, "intervalSeconds": 10, "nextAt": None,
                   "steps": [{"title": "SOS from TL-0010", "window": "Physical unit", "screen": "Gateway log",
-                             "status": "DONE", "error": None, "records": []},
+                             "status": "DONE", "prompt": None, "error": None, "records": []},
                             {"title": "Operator acknowledges", "window": "C, Operator", "screen": "/o/incidents",
-                             "status": "PENDING", "error": None, "records": []}],
+                             "status": "PENDING", "prompt": None, "error": None, "records": []}],
                   "error": None}
 PANEL_RESULT = {"action": "incident-acknowledge", "runId": 12, "label": "Demo 12",
                 "actedAs": {"role": "ORG_OPERATOR", "email": "treklink.dev+operator@gmail.com"},
@@ -449,7 +449,10 @@ ENDPOINTS.append(ep(
     "POST", "/api/demo/panel/playback", "Control the main flow playback", PANEL_PERMISSION,
     "Starts, pauses, resumes, steps or stops the scripted playback of one main flow. Steps come from "
     "`docs/demo/2026-11-22-scenario-playbook.md`; each executed step is one panel action (route 14) or a "
-    "narration line. One playback runs at a time, held in the backend's memory.",
+    "narration line. One playback runs at a time, held in the backend's memory. The panel never acts as an Admin "
+    "(D-110 clarification, 2026-11-25): at the MF-01a approval the run pauses with a waiting step and the prompt "
+    "\"Approve ORG-.... on the Admin screen\", and runs on once the organization is Active or the operator "
+    "presses RESUME or STEP.",
     "D-110 rule 3, REQ-PNL-08",
     pre_validation_auth=PANEL_AUTH,
     body=[["command", "`START`, `PAUSE`, `RESUME`, `STEP` or `STOP`", "string", "yes", "`START`"],
@@ -457,6 +460,10 @@ ENDPOINTS.append(ep(
           ["intervalSeconds", "Seconds between steps, 3 to 60; default 10; with `START` only", "int", "no", "`10`"]],
     sample={"command": "START", "flow": "MF-03", "intervalSeconds": 10},
     response=PANEL_PLAYBACK, message="Playback updated", entity="Playback",
+    fields=[["steps[].status", "`PENDING`, `RUNNING`, `WAITING` (a person does the step on a real screen), `DONE` or `FAILED`",
+             "string", "`PENDING`"],
+            ["steps[].prompt", "What to do on the real screen while the step is `WAITING`, otherwise null", "string",
+             "`Approve ORG-0002 on the Admin screen ...`"]],
     errors=PANEL_GUARD + [PANEL_DB,
                           (409, "DEMO_BUSY", "`START` while a playback runs or a reseed is running",
                            "A demo action is already running. Try again in a moment."),
@@ -470,7 +477,8 @@ ENDPOINTS.append(ep(
          ("START with an unknown flow or an interval outside 3 to 60", 400, "VALIDATION_FAILED"),
          ("PAUSE, RESUME, STEP or STOP in a state that does not allow it", 409, "INVALID_STATE_TRANSITION"),
          ("RESUME or STEP while a step is executing", 409, "DEMO_BUSY")],
-        ["Apply the command to the in-memory run", "Schedule, run or clear the next step"]),
+        ["Apply the command to the in-memory run; RESUME or STEP at a waiting step confirms it",
+         "Schedule, run or clear the next step; a waiting step pauses and polls until its record is ready"]),
     controller="DemoPanelController", service="DemoPanelPlayback", call="command(dto, client)"))
 
 ENDPOINTS.append(ep(
@@ -488,7 +496,8 @@ ENDPOINTS.append(ep(
             ["seedGroups", "Row groups the demo seed created", "int", "`24`"]],
     errors=PANEL_GUARD + [
         (403, "DEMO_DISABLED", "`DEMO_RESET_ENABLED` is not `true`", "The demo reseed is off on this deployment."),
-        (403, "DEMO_DATABASE_NOT_ALLOWED", "The database host is not exactly `DEMO_DATABASE_HOST`, or a URL carries a target override",
+        (403, "DEMO_DATABASE_NOT_ALLOWED", "The database host is not exactly `DEMO_DATABASE_HOST`, a URL carries a target override, "
+         "or the URL Prisma reads or the live `current_database()` is not the demo branch (checked before the lock)",
          "The reseed runs only on the dedicated demo database."),
         (400, "VALIDATION_FAILED", "The confirmation is not `RESET DEMO DATA`", "Type RESET DEMO DATA to confirm."),
         (429, "RATE_LIMITED", "A reseed ran less than five minutes ago", "A reseed ran at 10:20. Try again after 10:25."),
@@ -507,14 +516,15 @@ ENDPOINTS.append(ep(
          ("Confirmation is not RESET DEMO DATA", 400, "VALIDATION_FAILED"),
          ("A reseed ran less than five minutes ago", 429, "RATE_LIMITED"),
          ("A reseed, a playback or a panel action is running", 409, "DEMO_BUSY"),
-         ("Seed not in this build or a SEED password unset", 409, "DEMO_SEED_NOT_CONFIGURED")],
-        ["Take the panel lock: panel actions now answer 409",
-         "Check the URL Prisma reads and current_database()",
+         ("Seed not in this build or a SEED password unset", 409, "DEMO_SEED_NOT_CONFIGURED"),
+         ("The URL Prisma reads, or current_database(), is not the demo branch", 403,
+          "DEMO_DATABASE_NOT_ALLOWED")],
+        ["Take the panel lock and start the five-minute spacing: panel actions now answer 409",
          "Wipe the data in one transaction, no DDL, then run the demo seed",
          "finally: emit audit demo.panel.reset, release the lock"],
-        failure=(2, "The live database check, the wipe or the seed failed",
+        failure=(1, "The wipe or the seed failed",
                  "finally: emit audit demo.panel.reset with the error, release the lock",
-                 "Return 403 DEMO_DATABASE_NOT_ALLOWED for the database check, otherwise 500")),
+                 "Return 500 INTERNAL_ERROR, or the mapped error")),
     controller="DemoPanelController", service="DemoPanelResetService", call="reset(dto, client)",
     seq=["Svc->>DB: BEGIN, UPDATE business_parameters, TRUNCATE ... RESTART IDENTITY, DELETE FROM users, COMMIT",
          "Svc->>DB: seedDemo (own transaction)", "Svc-)Svc: emit audit.record"]))
