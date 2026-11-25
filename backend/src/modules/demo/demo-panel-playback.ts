@@ -156,6 +156,7 @@ export class DemoPanelPlayback implements OnModuleDestroy {
         break;
       case 'PAUSE':
         if (this.state.status !== 'RUNNING') throw wrongState(this.state.status);
+        if (this.executing) throw busy();
         this.clearTimer();
         this.state.status = 'PAUSED';
         break;
