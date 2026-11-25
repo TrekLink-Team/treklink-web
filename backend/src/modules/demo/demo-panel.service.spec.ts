@@ -1,7 +1,9 @@
 import { ConfigService } from '@nestjs/config';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { DemoPanelLock } from './demo-panel-lock';
-import { DemoPanelService } from './demo-panel.service';
+import { PANEL_ACTIONS } from './demo-panel-actions';
+import { DemoPanelService, PLAYBACK_COMMANDS } from './demo-panel.service';
+import { SEEDED_EMAILS } from './demo-scenarios';
 
 const NOW = new Date('2026-11-24T03:00:30Z');
 const ORG = 'org-1';
@@ -211,6 +213,7 @@ const build = (env: Record<string, unknown> = {}) => {
   );
   return {
     service,
+    sessions,
     lock,
     events,
     runs,
@@ -667,23 +670,21 @@ describe('DemoPanelService commands (REQ-PNL-03, REQ-PNL-04, REQ-PNL-07)', () =>
     expect(f.onboarding.register).toHaveBeenCalledWith(
       expect.objectContaining({ taxCode: '8000000041' }),
     );
-    expect(registered.context).toEqual({ organizationId: 'org-9', version: 0 });
+    expect(registered.context).toEqual({
+      organizationId: 'org-9',
+      organizationCode: 'ORG-0009',
+      version: 0,
+    });
     await f.service.run(
       'organization-verify',
       { recordId: 'org-9', expectedVersion: 0 },
       'ip',
       NOW,
     );
-    await f.service.run(
-      'organization-approve',
-      { recordId: 'org-9', expectedVersion: 1 },
-      'ip',
-      NOW,
-    );
-    expect(f.onboarding.approve).toHaveBeenCalledWith(
+    expect(f.onboarding.verify).toHaveBeenCalledWith(
       'org-9',
-      1,
-      expect.objectContaining({ id: 'u-admin' }),
+      expect.objectContaining({ expectedVersion: 0 }),
+      expect.objectContaining({ id: 'u-staff' }),
       NOW,
     );
     await f.service.run('field-positions', {}, 'ip', NOW);
@@ -694,5 +695,47 @@ describe('DemoPanelService commands (REQ-PNL-03, REQ-PNL-04, REQ-PNL-07)', () =>
       NOW,
       { simulated: true },
     );
+  });
+
+  // Leader ruling 2026-11-24, "No Admin at all" (D-110 clarification): no panel action and no playback
+  // command may act as an Admin account, seeded or live. Every command runs here against mocks that would
+  // hand out the seeded Admin if asked; the test fails if any command asks for it or passes an ADMIN
+  // caller to a business service.
+  it('never resolves a panel action or playback command to an ADMIN account', async () => {
+    const f = build();
+    const input = { recordId: 'c-1', expectedVersion: 3, deviceId: 'd-9' };
+    for (const command of [...PANEL_ACTIONS, ...PLAYBACK_COMMANDS]) {
+      const result = await f.service.run(command, input, 'ip', NOW).catch(() => null);
+      expect(result?.actedAs?.role ?? null).not.toBe('ADMIN');
+    }
+    expect(f.sessions.panelAccountOf.mock.calls.map(([email]) => email)).not.toContain(
+      SEEDED_EMAILS.ADMIN,
+    );
+    const callers = Object.values(f)
+      .flatMap((mock) =>
+        mock && typeof mock === 'object' ? (Object.values(mock) as unknown[]) : [],
+      )
+      .filter((fn): fn is jest.Mock => jest.isMockFunction(fn))
+      .flatMap((fn) => fn.mock.calls.flat() as unknown[])
+      .filter(
+        (arg): arg is { roles: string[] } =>
+          typeof arg === 'object' &&
+          arg !== null &&
+          Array.isArray((arg as { roles?: unknown }).roles),
+      );
+    expect(callers.length).toBeGreaterThan(0);
+    expect(callers.filter((caller) => caller.roles.includes('ADMIN'))).toEqual([]);
+    expect(PLAYBACK_COMMANDS).not.toContain('organization-approve');
+  });
+
+  it('refuses a seeded account that holds the ADMIN role, before any business call', async () => {
+    const f = build();
+    f.sessions.panelAccountOf.mockResolvedValue({ ...STAFF, roles: ['STAFF', 'ADMIN'] });
+    await expect(
+      f.service.runAction('contract-approve', { recordId: 'c-1', expectedVersion: 3 }, 'ip', NOW),
+    ).rejects.toMatchObject({
+      message: 'The demo panel never acts as an Admin account. Use the Admin screen.',
+    });
+    expect(f.decisions.approve).not.toHaveBeenCalled();
   });
 });

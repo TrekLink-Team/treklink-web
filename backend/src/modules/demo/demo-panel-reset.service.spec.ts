@@ -274,12 +274,17 @@ describe('DemoPanelResetService lock and live connection (review of treklink-web
     expect(f.repository.wipeData).not.toHaveBeenCalled();
   });
 
-  it('refuses when the live connection is on another database than the URL names', async () => {
+  it('refuses when the live connection is on another database than the URL names, changing nothing', async () => {
     const f = build();
     f.repository.currentDatabase.mockResolvedValueOnce('neondb');
     await expect(f.service.reset('RESET DEMO DATA', 'ip', NOW)).rejects.toMatchObject({
       errorCode: 'DEMO_DATABASE_NOT_ALLOWED',
     });
-    expect(f.repository.wipeData).not.toHaveBeenCalled();
+    expectNothingWiped(f);
+    expect(f.lock.resetting).toBe(false);
+    // No audit entry and no spacing: a retry on the right database runs at once (REQ-PNL-12).
+    await expect(f.service.reset('RESET DEMO DATA', 'ip', NOW)).resolves.toMatchObject({
+      tables: 2,
+    });
   });
 });

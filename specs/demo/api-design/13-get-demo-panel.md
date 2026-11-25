@@ -72,6 +72,7 @@ No body.
           "window": "Physical unit",
           "screen": "Gateway log",
           "status": "DONE",
+          "prompt": null,
           "error": null,
           "records": []
         },
@@ -80,6 +81,7 @@ No body.
           "window": "C, Operator",
           "screen": "/o/incidents",
           "status": "PENDING",
+          "prompt": null,
           "error": null,
           "records": []
         }

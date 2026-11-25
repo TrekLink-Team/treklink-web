@@ -143,7 +143,7 @@ Wipes the demo data and loads the standard demo seed, only on the dedicated Neon
         </tr>
         <tr>
             <td>403</td>
-            <td>The database host is not exactly `DEMO_DATABASE_HOST`, or a URL carries a target override (<code>DEMO_DATABASE_NOT_ALLOWED</code>)</td>
+            <td>The database host is not exactly `DEMO_DATABASE_HOST`, a URL carries a target override, or the URL Prisma reads or the live `current_database()` is not the demo branch (checked before the lock) (<code>DEMO_DATABASE_NOT_ALLOWED</code>)</td>
 <td>
 
 ```json
@@ -307,23 +307,26 @@ flowchart TB
     CE6["Return 409 DEMO_SEED_NOT_CONFIGURED"]
     C6 -->|yes| CE6
     CE6 --> CX6((End))
-    T0["Take the panel lock: panel actions now answer 409"]
-    C6 -->|no| T0
-    T1["Check the URL Prisma reads and current_database()"]
+    C7{"The URL Prisma reads, or current_database(), is not the demo branch?"}
+    C6 -->|no| C7
+    CE7["Return 403 DEMO_DATABASE_NOT_ALLOWED"]
+    C7 -->|yes| CE7
+    CE7 --> CX7((End))
+    T0["Take the panel lock and start the five-minute spacing: panel actions now answer 409"]
+    C7 -->|no| T0
+    T1["Wipe the data in one transaction, no DDL, then run the demo seed"]
     T0 --> T1
-    T2["Wipe the data in one transaction, no DDL, then run the demo seed"]
-    T1 --> T2
-    F2{"The live database check, the wipe or the seed failed?"}
-    T2 --> F2
-    FF2["finally: emit audit demo.panel.reset with the error, release the lock"]
-    F2 -->|yes| FF2
-    FR2["Return 403 DEMO_DATABASE_NOT_ALLOWED for the database check, otherwise 500"]
-    FF2 --> FR2
-    FR2 --> FX2((End))
-    T3["finally: emit audit demo.panel.reset, release the lock"]
-    F2 -->|no| T3
+    F1{"The wipe or the seed failed?"}
+    T1 --> F1
+    FF1["finally: emit audit demo.panel.reset with the error, release the lock"]
+    F1 -->|yes| FF1
+    FR1["Return 500 INTERNAL_ERROR, or the mapped error"]
+    FF1 --> FR1
+    FR1 --> FX1((End))
+    T2["finally: emit audit demo.panel.reset, release the lock"]
+    F1 -->|no| T2
     OK["Return 200"]
-    T3 --> OK
+    T2 --> OK
     OK --> Z((End))
 ```
 

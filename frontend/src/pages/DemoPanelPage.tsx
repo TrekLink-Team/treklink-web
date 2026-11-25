@@ -305,6 +305,7 @@ const PlaybackCard: React.FC<{ playback: PlaybackState; announce: (text: string)
   const [error, setError] = useState<string | null>(null);
   const send = usePanelMutation(sendPlayback);
   const live = playback.status === 'RUNNING' || playback.status === 'PAUSED';
+  const waiting = playback.steps.find((step) => step.status === 'WAITING');
 
   const command = (name: PlaybackCommand) => {
     setError(null);
@@ -377,6 +378,11 @@ const PlaybackCard: React.FC<{ playback: PlaybackState; announce: (text: string)
           Stop
         </Button>
       </div>
+      {waiting?.prompt && (
+        <Alert tone="warning" className="mt-3" title="Waiting for the real screen">
+          {waiting.prompt}
+        </Alert>
+      )}
       {playback.steps.length > 0 && (
         <p className="mt-3 text-body text-ink">
           {playback.status === 'DONE'
@@ -408,6 +414,14 @@ const PlaybackCard: React.FC<{ playback: PlaybackState; announce: (text: string)
   );
 };
 
+// The badge of a step; a PENDING step reads Next or To do.
+const STEP_LABEL: Partial<Record<PlaybackState['steps'][number]['status'], string>> = {
+  RUNNING: 'Running',
+  WAITING: 'Waiting',
+  DONE: 'Done',
+  FAILED: 'Failed',
+};
+
 const StepList: React.FC<{ playback: PlaybackState }> = ({ playback }) => (
   <ol className="mt-3 flex flex-col gap-2">
     {playback.steps.map((step, index) => {
@@ -428,18 +442,19 @@ const StepList: React.FC<{ playback: PlaybackState }> = ({ playback }) => (
                   ? 'done'
                   : step.status === 'FAILED'
                     ? 'critical'
-                    : step.status === 'RUNNING'
+                    : step.status === 'RUNNING' || step.status === 'WAITING'
                       ? 'active'
                       : 'waiting'
               }
             >
-              {step.status === 'PENDING' ? (current ? 'Next' : 'To do') : step.status === 'DONE' ? 'Done' : step.status === 'FAILED' ? 'Failed' : 'Running'}
+              {STEP_LABEL[step.status] ?? (current ? 'Next' : 'To do')}
             </Badge>
           </div>
           <p className="mt-1 text-body text-ink">{step.line}</p>
           <p className="mt-1 text-body-sm text-ink-muted">
             {step.window}, {step.screen}
           </p>
+          {step.prompt && <p className="mt-1 text-body font-semibold text-ink">{step.prompt}</p>}
           {step.error && <p className="mt-1 text-body-sm text-status-critical-fg">{step.error}</p>}
           <RecordLinks records={step.records} />
         </li>
@@ -733,6 +748,11 @@ const ClickerView: React.FC<{ playback: PlaybackState }> = ({ playback }) => {
             <dt className="font-semibold text-ink">Click</dt>
             <dd className="text-ink">{current.click}</dd>
           </dl>
+        )}
+        {playback.status !== 'DONE' && current.prompt && (
+          <Alert tone="warning" className="mt-3" title="The panel is waiting for you">
+            {current.prompt}
+          </Alert>
         )}
       </Card>
       {last && (

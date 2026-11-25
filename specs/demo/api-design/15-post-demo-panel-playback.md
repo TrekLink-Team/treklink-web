@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Starts, pauses, resumes, steps or stops the scripted playback of one main flow. Steps come from `docs/demo/2026-11-22-scenario-playbook.md`; each executed step is one panel action (route 14) or a narration line. One playback runs at a time, held in the backend's memory.
+Starts, pauses, resumes, steps or stops the scripted playback of one main flow. Steps come from `docs/demo/2026-11-22-scenario-playbook.md`; each executed step is one panel action (route 14) or a narration line. One playback runs at a time, held in the backend's memory. The panel never acts as an Admin (D-110 clarification, 2026-11-25): at the MF-01a approval the run pauses with a waiting step and the prompt "Approve ORG-.... on the Admin screen", and runs on once the organization is Active or the operator presses RESUME or STEP.
 
 ## API Specification
 
@@ -49,6 +49,7 @@ Starts, pauses, resumes, steps or stops the scripted playback of one main flow. 
         "window": "Physical unit",
         "screen": "Gateway log",
         "status": "DONE",
+        "prompt": null,
         "error": null,
         "records": []
       },
@@ -57,6 +58,7 @@ Starts, pauses, resumes, steps or stops the scripted playback of one main flow. 
         "window": "C, Operator",
         "screen": "/o/incidents",
         "status": "PENDING",
+        "prompt": null,
         "error": null,
         "records": []
       }
@@ -68,6 +70,11 @@ Starts, pauses, resumes, steps or stops the scripted playback of one main flow. 
   "message": "Playback updated"
 }
 ```
+
+| Field | Description | Data Type | Examples |
+| --- | --- | --- | --- |
+| steps[].status | `PENDING`, `RUNNING`, `WAITING` (a person does the step on a real screen), `DONE` or `FAILED` | string | `PENDING` |
+| steps[].prompt | What to do on the real screen while the step is `WAITING`, otherwise null | string | `Approve ORG-0002 on the Admin screen ...` |
 
 ## Validation
 
@@ -249,9 +256,9 @@ flowchart TB
     CE4["Return 409 DEMO_BUSY"]
     C4 -->|yes| CE4
     CE4 --> CX4((End))
-    T0["Apply the command to the in-memory run"]
+    T0["Apply the command to the in-memory run; RESUME or STEP at a waiting step confirms it"]
     C4 -->|no| T0
-    T1["Schedule, run or clear the next step"]
+    T1["Schedule, run or clear the next step; a waiting step pauses and polls until its record is ready"]
     T0 --> T1
     OK["Return 200"]
     T1 --> OK

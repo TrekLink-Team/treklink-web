@@ -95,6 +95,9 @@ export class DemoPanelResetService {
     await this.assertSpacing(now);
     this.assertIdle();
     const passwords = this.seedPasswords();
+    // Before the lock and the spacing timestamp, so a wrong live database is a refusal that changes
+    // nothing: no audit entry, no five-minute wait (REQ-PNL-12, review of treklink-web#541).
+    await this.assertLiveDatabase();
 
     this.lock.beginReset();
     this.lastStartedAt = now.getTime();
@@ -106,7 +109,6 @@ export class DemoPanelResetService {
       // Read before the wipe: the parameter tables are kept, and the seed is dated a margin and a minute
       // earlier so a reading or an SOS right after the reseed is attributed (design §4).
       const margin = await this.parameters.get('gatewaySync.attributionMarginSeconds');
-      await this.assertLiveDatabase();
       tables = (await this.repository.wipeData()).length;
       seedGroups = (await this.seed.run(passwords, new Date(now.getTime() - (margin + 60) * 1000)))
         .length;

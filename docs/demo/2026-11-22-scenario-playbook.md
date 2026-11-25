@@ -400,3 +400,19 @@ differed from this file, then correct the file.
 - Its MF-05 step 2 moves the term end with a terminal script; on stage the term end is End contract now (leader ruling 2026-11-20).
 - Its MF-01 step 2 card count ("8 available") and step 2a ("Only 10 ...") disagree with each other; a fresh
   seed has 10 v3 units Available.
+
+## 14. Demo panel (D-110, TK-243)
+
+Only where the leader has turned the panel on (`docs/demo/2026-11-24-demo-panel-security.md` §4). The panel
+operator opens `/demo/panel` on a laptop or phone of their own, in a window that is not projected, with the
+password from the team's private channel.
+
+- **Use a separate connection.** Connect the panel operator's device through a phone hotspot or another
+  connection that is not the venue Wi-Fi. The panel counts wrong passwords per client address, and every
+  spectator on the venue network shares one public address with the operator, so five wrong guesses from
+  the room would lock the operator out for ten minutes.
+- **The panel never acts as the Admin** (leader ruling 2026-11-24). In MF-01a the playback pauses at the
+  approval with "Approve ORG-.... on the Admin screen": the site clicker approves it in window D
+  (section 4 step 5), and the playback runs on by itself once the organization is Active. If it does not,
+  the panel operator presses **Resume**.
+- After the defence the leader rotates the password (security note §5).

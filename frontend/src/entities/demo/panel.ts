@@ -96,7 +96,10 @@ export interface PlaybackStep {
   screen: string;
   line: string;
   click: string;
-  status: 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
+  // WAITING: a person does this step on a real screen the panel never acts on (the Admin approval,
+  // D-110 clarification); `prompt` says what to do.
+  status: 'PENDING' | 'RUNNING' | 'WAITING' | 'DONE' | 'FAILED';
+  prompt: string | null;
   error: string | null;
   records: StagedRecord[];
 }

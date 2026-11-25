@@ -21,12 +21,14 @@ export type PlaybackFlow = (typeof PLAYBACK_FLOWS)[number];
 export const PLAYBACK_COMMAND_NAMES = ['START', 'PAUSE', 'RESUME', 'STEP', 'STOP'] as const;
 export type PlaybackCommandName = (typeof PLAYBACK_COMMAND_NAMES)[number];
 export type PlaybackStatus = 'IDLE' | 'RUNNING' | 'PAUSED' | 'DONE' | 'FAILED' | 'STOPPED';
-type StepStatus = 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
+type StepStatus = 'PENDING' | 'RUNNING' | 'WAITING' | 'DONE' | 'FAILED';
 
 // The interval bounds and default of REQ-PNL-08 (demo tool constants, design §11).
 export const PLAYBACK_MIN_SECONDS = 3;
 export const PLAYBACK_MAX_SECONDS = 60;
 export const PLAYBACK_DEFAULT_SECONDS = 10;
+// How often a waiting step reads the state it waits for (D-110 clarification, demo tool constant).
+export const PLAYBACK_WAIT_POLL_MS = 3000;
 
 interface Resolved {
   command: PanelCommand;
@@ -42,6 +44,13 @@ interface StepSpec {
   line: string;
   click: string;
   run?: (ctx: PanelContext) => Promise<Resolved>;
+  // A step a person does on a real screen the panel never acts on (the Admin approval, D-110
+  // clarification): the playback pauses with the prompt and resumes by itself once `done` reads true,
+  // or when the operator presses Resume or Next step.
+  waitFor?: {
+    prompt: (ctx: PanelContext) => string;
+    done: (ctx: PanelContext) => Promise<boolean>;
+  };
 }
 
 export interface PlaybackStepView {
@@ -51,6 +60,7 @@ export interface PlaybackStepView {
   line: string;
   click: string;
   status: StepStatus;
+  prompt: string | null;
   error: string | null;
   records: StagedRecord[];
 }
@@ -149,14 +159,22 @@ export class DemoPanelPlayback implements OnModuleDestroy {
         if (this.state.status !== 'PAUSED') throw wrongState(this.state.status);
         if (this.executing) throw busy();
         this.state.status = 'RUNNING';
-        this.schedule(0);
+        if (this.confirmWait()) this.afterStep();
+        else this.schedule(0);
         break;
       case 'STEP':
         if (this.state.status !== 'PAUSED' && this.state.status !== 'RUNNING')
           throw wrongState(this.state.status);
         if (this.executing) throw busy();
         this.clearTimer();
-        await this.step();
+        // At a waiting step, Next step is the operator saying the person on the real screen is done; the
+        // playback stays paused on the step after it.
+        if (this.confirmWait()) {
+          this.state.index += 1;
+          if (this.state.index >= this.specs.length) this.state.status = 'DONE';
+        } else {
+          await this.step();
+        }
         break;
       case 'STOP':
         if (this.state.status !== 'PAUSED' && this.state.status !== 'RUNNING')
@@ -198,6 +216,7 @@ export class DemoPanelPlayback implements OnModuleDestroy {
         line,
         click,
         status: 'PENDING',
+        prompt: null,
         error: null,
         records: [],
       })),
@@ -236,6 +255,19 @@ export class DemoPanelPlayback implements OnModuleDestroy {
     const view = this.state.steps[index];
     if (!spec || !view) return;
     view.status = 'RUNNING';
+    if (spec.waitFor) {
+      if (await this.waitDone(spec)) {
+        view.status = 'DONE';
+        view.prompt = null;
+        this.afterStep();
+        return;
+      }
+      view.status = 'WAITING';
+      view.prompt = spec.waitFor.prompt(this.context);
+      this.state.status = 'PAUSED';
+      this.pollWait(spec);
+      return;
+    }
     try {
       if (spec.run) {
         const { command, input } = await spec.run(this.context);
@@ -256,12 +288,64 @@ export class DemoPanelPlayback implements OnModuleDestroy {
       return;
     }
     this.state.index = index + 1;
+    this.advance();
+  }
+
+  // After a waiting step is confirmed: move past it.
+  private afterStep() {
+    this.state.index += 1;
+    this.advance();
+  }
+
+  private advance() {
     if (this.state.index >= this.specs.length) {
       this.state.status = 'DONE';
       this.clearTimer();
     } else if (this.state.status === 'RUNNING') {
       this.schedule(this.state.intervalSeconds * 1000);
     }
+  }
+
+  // The operator confirms the waiting step (Resume or Next step): it is marked done. The caller moves past
+  // it. Returns false when the current step is not waiting.
+  private confirmWait(): boolean {
+    const view = this.state.steps[this.state.index];
+    if (view?.status !== 'WAITING') return false;
+    this.clearTimer();
+    view.status = 'DONE';
+    view.prompt = null;
+    return true;
+  }
+
+  private async waitDone(spec: StepSpec): Promise<boolean> {
+    try {
+      return (await spec.waitFor?.done(this.context)) === true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Reads the awaited state every PLAYBACK_WAIT_POLL_MS while the step waits; Stop, Resume and Next
+  // step clear the timer. Once it reads true the playback runs on at its interval.
+  private pollWait(spec: StepSpec) {
+    this.clearTimer();
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      void (async () => {
+        const view = this.state.steps[this.state.index];
+        if (view?.status !== 'WAITING' || this.state.status !== 'PAUSED') return;
+        if (await this.waitDone(spec)) {
+          if (view.status !== 'WAITING' || this.state.status !== 'PAUSED') return;
+          view.status = 'DONE';
+          view.prompt = null;
+          this.state.status = 'RUNNING';
+          this.afterStep();
+        } else {
+          this.pollWait(spec);
+        }
+      })();
+    }, PLAYBACK_WAIT_POLL_MS);
+    this.timer.unref?.();
   }
 
   // --- record lookups the steps need, each through an exported read ------------------------------------
@@ -353,16 +437,20 @@ export class DemoPanelPlayback implements OnModuleDestroy {
               }),
           },
           {
-            title: 'Admin approves the organization',
+            title: 'Admin approves the organization on the real screen',
             window: 'D, Admin',
             screen: '/t/organizations',
-            line: 'Only an Admin approves; the Manager then receives the invitation mail.',
+            line: 'Only an Admin approves; the Manager then receives the invitation mail. The panel never acts as the Admin.',
             click: 'Tab Pending, the new organization, Approve.',
-            run: (ctx) =>
-              Promise.resolve({
-                command: 'organization-approve',
-                input: { recordId: ctx.organizationId, expectedVersion: ctx.version },
-              }),
+            waitFor: {
+              prompt: (ctx) =>
+                `Approve ${ctx.organizationCode ?? 'the new organization'} on the Admin screen (Organizations, tab Pending, Approve). The playback resumes by itself once it is Active, or press Resume.`,
+              done: async (ctx) =>
+                Boolean(ctx.organizationId) &&
+                (await this.organizations.activeDemoOptions()).some(
+                  (row) => row.id === ctx.organizationId,
+                ),
+            },
           },
         ];
       case 'MF-01b':

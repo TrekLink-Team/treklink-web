@@ -27,8 +27,8 @@ const PLAYING: PlaybackState = {
   nextAt: null,
   error: null,
   steps: [
-    { title: 'SOS from TL-0010 (simulated)', window: 'Physical unit', screen: 'Gateway log', line: 'The hiker holds the SOS button.', click: 'None.', status: 'DONE', error: null, records: [{ label: 'Simulated SOS, TL-0010', code: 'INC-2026-000002', path: '/o/incidents/i-1' }] },
-    { title: 'Operator acknowledges', window: 'C, Operator', screen: '/o/incidents', line: 'The Operator takes ownership.', click: 'Acknowledge on the banner.', status: 'PENDING', error: null, records: [] },
+    { title: 'SOS from TL-0010 (simulated)', window: 'Physical unit', screen: 'Gateway log', line: 'The hiker holds the SOS button.', click: 'None.', status: 'DONE', prompt: null, error: null, records: [{ label: 'Simulated SOS, TL-0010', code: 'INC-2026-000002', path: '/o/incidents/i-1' }] },
+    { title: 'Operator acknowledges', window: 'C, Operator', screen: '/o/incidents', line: 'The Operator takes ownership.', click: 'Acknowledge on the banner.', status: 'PENDING', prompt: null, error: null, records: [] },
   ],
 };
 
@@ -269,5 +269,41 @@ describe('DemoPanelPage presenter and site clicker views', () => {
     expect(screen.getByText('C, Operator')).toBeTruthy();
     expect(screen.getByText('Acknowledge on the banner.')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'INC-2026-000002' }).getAttribute('href')).toBe('/o/incidents/i-1');
+  });
+});
+
+describe('DemoPanelPage waiting step (D-110 clarification: no Admin actor)', () => {
+  const PROMPT =
+    'Approve ORG-0009 on the Admin screen (Organizations, tab Pending, Approve). The playback resumes by itself once it is Active, or press Resume.';
+  const WAITING: PlaybackState = {
+    ...PLAYING,
+    flow: 'MF-01a',
+    index: 2,
+    steps: [
+      { ...PLAYING.steps[0], title: 'Organization registers' },
+      { ...PLAYING.steps[1], title: 'Staff record counter verification', status: 'DONE' },
+      { title: 'Admin approves the organization on the real screen', window: 'D, Admin', screen: '/t/organizations', line: 'Only an Admin approves.', click: 'Tab Pending, the new organization, Approve.', status: 'WAITING', prompt: PROMPT, error: null, records: [] },
+    ],
+  };
+  beforeEach(() => {
+    handler = (_url, init) =>
+      headerOf(init) === PASSWORD ? envelope(200, overview({ playback: WAITING })) : envelope(401, {});
+  });
+
+  it('shows the operator what to do on the Admin screen and offers Resume', async () => {
+    await unlock();
+    expect(screen.getByText(PROMPT)).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Resume' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('tells the site clicker the same prompt, and the presenter marks the step Waiting', async () => {
+    await unlock();
+    fireEvent.click(screen.getByRole('tab', { name: 'Site clicker' }));
+    expect(screen.getByText('The panel is waiting for you')).toBeTruthy();
+    expect(screen.getByText(PROMPT)).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Presenter' }));
+    const step = screen.getByText('3. Admin approves the organization on the real screen').closest('li')!;
+    expect(within(step).getByText('Waiting')).toBeTruthy();
+    expect(within(step).getByText(PROMPT)).toBeTruthy();
   });
 });
