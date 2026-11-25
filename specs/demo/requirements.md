@@ -125,11 +125,13 @@ actions, playback and the reseed from `/demo/panel`. None of them signs in to th
   membership, stock, payment and custody checks), acting as the account whose real screen the step stands
   for: Staff for approvals, the counter and payments; a live member of
   the record's organization (Operator first, then Manager) for incident owner actions and requests.
-  (amended 2026-11-25, D-110 clarification): the panel, its simulator and its playback SHALL never act as an Admin account, seeded or
+  (amended 2026-11-25, D-110 rule 8): the panel, its simulator and its playback SHALL never act as an Admin account, seeded or
   live (leader ruling 2026-11-24, "No Admin at all"). A step that only an Admin may do on the real
   screens, the MF-01a organization approval, is done by a person on the Admin screen: the playback SHALL
   pause at that step with the prompt "Approve ORG-.... on the Admin screen", SHALL resume by itself once
-  the organization reads Active, and SHALL also resume when the operator presses Resume or Next step. A
+  the organization reads Active, and SHALL also resume when the operator presses Resume or Next step. (amended 2026-11-25, D-110 rule 8, review of treklink-web#541):
+  a step the operator moves past while its record is not ready SHALL be recorded and shown SKIPPED, never
+  DONE, and a read of the awaited state SHALL count only for the step and run that started it. A
   seeded account that holds the ADMIN role SHALL be refused (409) before any business call.
 - **REQ-PNL-04** (added 2026-11-24, D-110): The system SHALL write one audit entry per panel command, with
   `actorId` null, `actorRoles` `['DEMO_PANEL']`, action `demo.panel.<command>`, the account the command
@@ -197,7 +199,7 @@ actions, playback and the reseed from `/demo/panel`. None of them signs in to th
   a playback or a panel action is running (409 `DEMO_BUSY`); a `SEED_*_PASSWORD` variable is missing or
   the demo seed is not in this build (409 `DEMO_SEED_NOT_CONFIGURED`); (amended 2026-11-24, D-110, review of treklink-web#541) the `DATABASE_URL` the
   database client reads from the process environment fails the host check, or the live connection's
-  `current_database()` is not the database that URL names (403 `DEMO_DATABASE_NOT_ALLOWED`); (amended 2026-11-25, D-110 clarification) this
+  `current_database()` is not the database that URL names (403 `DEMO_DATABASE_NOT_ALLOWED`); (amended 2026-11-25, D-110 rule 8) this
   last check runs before the reseed takes its lock, so it writes no audit entry and starts no five-minute
   wait.
 - **REQ-PNL-15** (added 2026-11-24, D-110; review of treklink-web#541): WHILE a reseed runs, every panel action and playback step SHALL answer 409

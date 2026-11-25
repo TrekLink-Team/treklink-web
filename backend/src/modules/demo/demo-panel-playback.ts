@@ -21,13 +21,15 @@ export type PlaybackFlow = (typeof PLAYBACK_FLOWS)[number];
 export const PLAYBACK_COMMAND_NAMES = ['START', 'PAUSE', 'RESUME', 'STEP', 'STOP'] as const;
 export type PlaybackCommandName = (typeof PLAYBACK_COMMAND_NAMES)[number];
 export type PlaybackStatus = 'IDLE' | 'RUNNING' | 'PAUSED' | 'DONE' | 'FAILED' | 'STOPPED';
-type StepStatus = 'PENDING' | 'RUNNING' | 'WAITING' | 'DONE' | 'FAILED';
+// SKIPPED: a waiting step the operator moved past (Resume or Next step) before its record was ready;
+// DONE is kept for a step whose record was really done (review of treklink-web#541).
+type StepStatus = 'PENDING' | 'RUNNING' | 'WAITING' | 'DONE' | 'SKIPPED' | 'FAILED';
 
 // The interval bounds and default of REQ-PNL-08 (demo tool constants, design §11).
 export const PLAYBACK_MIN_SECONDS = 3;
 export const PLAYBACK_MAX_SECONDS = 60;
 export const PLAYBACK_DEFAULT_SECONDS = 10;
-// How often a waiting step reads the state it waits for (D-110 clarification, demo tool constant).
+// How often a waiting step reads the state it waits for (D-110 rule 8, demo tool constant).
 export const PLAYBACK_WAIT_POLL_MS = 3000;
 
 interface Resolved {
@@ -119,6 +121,8 @@ export class DemoPanelPlayback implements OnModuleDestroy {
   private context: PanelContext = {};
   private client = 'unknown';
   private timer: NodeJS.Timeout | null = null;
+  // Counts the runs started, so a read that outlives its run (Stop, then START) is dropped.
+  private runId = 0;
   private executing: Promise<void> | null = null;
 
   constructor(
@@ -199,6 +203,7 @@ export class DemoPanelPlayback implements OnModuleDestroy {
       throw invalid(
         `intervalSeconds must be a whole number from ${PLAYBACK_MIN_SECONDS} to ${PLAYBACK_MAX_SECONDS}.`,
       );
+    this.runId += 1;
     this.specs = this.flowSteps(input.flow);
     this.context = {};
     this.client = client;
@@ -256,7 +261,11 @@ export class DemoPanelPlayback implements OnModuleDestroy {
     if (!spec || !view) return;
     view.status = 'RUNNING';
     if (spec.waitFor) {
-      if (await this.waitDone(spec)) {
+      const run = this.runId;
+      const ready = await this.waitDone(spec);
+      // Stop (or Stop and START) while reading: the result belongs to a run that is over.
+      if (!this.isCurrent(run, view) || this.state.status === 'STOPPED') return;
+      if (ready) {
         view.status = 'DONE';
         view.prompt = null;
         this.afterStep();
@@ -306,15 +315,20 @@ export class DemoPanelPlayback implements OnModuleDestroy {
     }
   }
 
-  // The operator confirms the waiting step (Resume or Next step): it is marked done. The caller moves past
-  // it. Returns false when the current step is not waiting.
+  // The operator moves past the waiting step (Resume or Next step) while its record is not ready: it is
+  // recorded SKIPPED, never DONE. The caller moves past it. Returns false when the step is not waiting.
   private confirmWait(): boolean {
     const view = this.state.steps[this.state.index];
     if (view?.status !== 'WAITING') return false;
     this.clearTimer();
-    view.status = 'DONE';
+    view.status = 'SKIPPED';
     view.prompt = null;
     return true;
+  }
+
+  // The view is still the current step of the run that started the read (review of treklink-web#541).
+  private isCurrent(run: number, view: PlaybackStepView): boolean {
+    return run === this.runId && this.state.steps[this.state.index] === view;
   }
 
   private async waitDone(spec: StepSpec): Promise<boolean> {
@@ -332,10 +346,18 @@ export class DemoPanelPlayback implements OnModuleDestroy {
     this.timer = setTimeout(() => {
       this.timer = null;
       void (async () => {
+        const run = this.runId;
         const view = this.state.steps[this.state.index];
         if (view?.status !== 'WAITING' || this.state.status !== 'PAUSED') return;
-        if (await this.waitDone(spec)) {
-          if (view.status !== 'WAITING' || this.state.status !== 'PAUSED') return;
+        const ready = await this.waitDone(spec);
+        // A read that outlived its step (Stop, Resume, Next step, or a new run) is dropped.
+        if (
+          !this.isCurrent(run, view) ||
+          view.status !== 'WAITING' ||
+          this.state.status !== 'PAUSED'
+        )
+          return;
+        if (ready) {
           view.status = 'DONE';
           view.prompt = null;
           this.state.status = 'RUNNING';

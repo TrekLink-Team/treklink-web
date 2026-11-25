@@ -7,7 +7,7 @@
 ---
 ## Overview
 
-Starts, pauses, resumes, steps or stops the scripted playback of one main flow. Steps come from `docs/demo/2026-11-22-scenario-playbook.md`; each executed step is one panel action (route 14) or a narration line. One playback runs at a time, held in the backend's memory. The panel never acts as an Admin (D-110 clarification, 2026-11-25): at the MF-01a approval the run pauses with a waiting step and the prompt "Approve ORG-.... on the Admin screen", and runs on once the organization is Active or the operator presses RESUME or STEP.
+Starts, pauses, resumes, steps or stops the scripted playback of one main flow. Steps come from `docs/demo/2026-11-22-scenario-playbook.md`; each executed step is one panel action (route 14) or a narration line. One playback runs at a time, held in the backend's memory. The panel never acts as an Admin (D-110 rule 8, 2026-11-25): at the MF-01a approval the run pauses with a waiting step and the prompt "Approve ORG-.... on the Admin screen", and runs on once the organization is Active or the operator presses RESUME or STEP, which records the step `SKIPPED` while the organization is still pending.
 
 ## API Specification
 
@@ -73,7 +73,7 @@ Starts, pauses, resumes, steps or stops the scripted playback of one main flow. 
 
 | Field | Description | Data Type | Examples |
 | --- | --- | --- | --- |
-| steps[].status | `PENDING`, `RUNNING`, `WAITING` (a person does the step on a real screen), `DONE` or `FAILED` | string | `PENDING` |
+| steps[].status | `PENDING`, `RUNNING`, `WAITING` (a person does the step on a real screen), `DONE`, `SKIPPED` (the operator moved past a waiting step before its record was ready) or `FAILED` | string | `PENDING` |
 | steps[].prompt | What to do on the real screen while the step is `WAITING`, otherwise null | string | `Approve ORG-0002 on the Admin screen ...` |
 
 ## Validation

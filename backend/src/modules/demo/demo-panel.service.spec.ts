@@ -697,7 +697,7 @@ describe('DemoPanelService commands (REQ-PNL-03, REQ-PNL-04, REQ-PNL-07)', () =>
     );
   });
 
-  // Leader ruling 2026-11-24, "No Admin at all" (D-110 clarification): no panel action and no playback
+  // Leader ruling 2026-11-24, "No Admin at all" (D-110 rule 8): no panel action and no playback
   // command may act as an Admin account, seeded or live. Every command runs here against mocks that would
   // hand out the seeded Admin if asked; the test fails if any command asks for it or passes an ADMIN
   // caller to a business service.

@@ -335,17 +335,32 @@ flowchart TB
 ```mermaid
 sequenceDiagram
     autonumber
-    actor C as Client
+    actor C as Panel operator
+    participant G as DemoPanelGuard
     participant Ctl as DemoPanelController
     participant Svc as DemoPanelResetService
+    participant L as DemoPanelLock
     participant DB as Postgres
-    C->>Ctl: POST /api/demo/panel/reset
-    Note over Ctl,Svc: Route guard calls DemoPanelGuard: failure limit, then the password in constant time before DTO validation
-    Note over Ctl: Global ValidationPipe validates body before the controller handler
-    Ctl->>Svc: reset(dto, client)
-    Svc->>DB: BEGIN, UPDATE business_parameters, TRUNCATE ... RESTART IDENTITY, DELETE FROM users, COMMIT
-    Svc->>DB: seedDemo (own transaction)
-    Svc-)Svc: emit audit.record
-    Svc-->>Ctl: result
-    Ctl-->>C: 200 envelope
+    C->>G: POST /api/demo/panel/reset with X-Demo-Panel-Password
+    G->>G: reserve the attempt, compare the password
+    G->>Ctl: pass, ValidationPipe checks the body
+    Ctl->>Svc: reset(confirmation, client)
+    Svc->>Svc: flag, host, confirmation, spacing (audit log)
+    Svc->>L: a reseed, a playback or a panel action running?
+    alt busy
+        Svc-->>C: 409 DEMO_BUSY, nothing changed
+    else idle
+        Svc->>Svc: seed loadable and SEED passwords set
+        Svc->>DB: SELECT current_database()
+        alt not the demo branch
+            Svc-->>C: 403 DEMO_DATABASE_NOT_ALLOWED, no audit, no spacing
+        else demo branch
+            Svc->>L: beginReset, panel actions now answer 409
+            Svc->>DB: BEGIN, UPDATE business_parameters, TRUNCATE ... RESTART IDENTITY, DELETE FROM users, COMMIT
+            Svc->>DB: seedDemo (own transaction)
+            Svc-)Svc: finally: emit audit.record demo.panel.reset, with the error on failure
+            Svc->>L: endReset
+            Svc-->>C: 200 envelope, or 500 with the error
+        end
+    end
 ```

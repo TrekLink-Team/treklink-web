@@ -272,7 +272,7 @@ describe('DemoPanelPage presenter and site clicker views', () => {
   });
 });
 
-describe('DemoPanelPage waiting step (D-110 clarification: no Admin actor)', () => {
+describe('DemoPanelPage waiting step (D-110 rule 8: no Admin actor)', () => {
   const PROMPT =
     'Approve ORG-0009 on the Admin screen (Organizations, tab Pending, Approve). The playback resumes by itself once it is Active, or press Resume.';
   const WAITING: PlaybackState = {
@@ -305,5 +305,35 @@ describe('DemoPanelPage waiting step (D-110 clarification: no Admin actor)', () 
     const step = screen.getByText('3. Admin approves the organization on the real screen').closest('li')!;
     expect(within(step).getByText('Waiting')).toBeTruthy();
     expect(within(step).getByText(PROMPT)).toBeTruthy();
+  });
+});
+
+describe('DemoPanelPage skipped step (review of treklink-web#541)', () => {
+  const SKIPPED: PlaybackState = {
+    ...PLAYING,
+    flow: 'MF-01a',
+    status: 'DONE',
+    index: 2,
+    steps: [
+      { ...PLAYING.steps[0], title: 'Organization registers' },
+      { title: 'Admin approves the organization on the real screen', window: 'D, Admin', screen: '/t/organizations', line: 'Only an Admin approves.', click: 'Approve.', status: 'SKIPPED', prompt: null, error: null, records: [] },
+    ],
+  };
+  beforeEach(() => {
+    handler = (_url, init) =>
+      headerOf(init) === PASSWORD ? envelope(200, overview({ playback: SKIPPED })) : envelope(401, {});
+  });
+
+  it('shows a skipped step as skipped in the operator, presenter and site clicker views', async () => {
+    await unlock();
+    expect(screen.getByText('Skipped: Admin approves the organization on the real screen')).toBeTruthy();
+    expect(screen.getByText('All 2 steps finished, 1 skipped.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Presenter' }));
+    const step = screen.getByText('2. Admin approves the organization on the real screen').closest('li')!;
+    expect(within(step).getByText('Skipped')).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Site clicker' }));
+    expect(
+      screen.getByRole('heading', { name: 'Skipped: Admin approves the organization on the real screen' }),
+    ).toBeTruthy();
   });
 });
