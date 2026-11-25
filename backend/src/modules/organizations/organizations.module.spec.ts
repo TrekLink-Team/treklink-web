@@ -75,10 +75,10 @@ describe('the public surface of organizations', () => {
     );
   });
 
-  it('names its event and port tokens, which are read by string', () => {
+  it('names its event tokens, which listeners in other modules read by string', () => {
     expect(api.ORGANIZATION_STATUS_CHANGED).toBe('organization.statusChanged');
-    expect(api.API_KEY_REVOKED).toBeDefined();
-    expect(api.FIELD_STATION_REVOKED).toBeDefined();
-    expect(api.ORGANIZATION_KEY_EXPOSED).toBeDefined();
+    expect(api.API_KEY_REVOKED).toBe('apiKey.revoked');
+    expect(api.FIELD_STATION_REVOKED).toBe('fieldStation.revoked');
+    expect(api.ORGANIZATION_KEY_EXPOSED).toBe('organization.keyExposed');
   });
 });
