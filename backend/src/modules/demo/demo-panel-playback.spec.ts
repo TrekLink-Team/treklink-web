@@ -118,6 +118,35 @@ describe('DemoPanelPlayback (REQ-PNL-08)', () => {
     });
   });
 
+  // Review of treklink-web#545: Pause while a step's panel command runs answers busy, like Resume and
+  // Next step, and leaves the run RUNNING.
+  it('answers busy to Pause while a step executes', async () => {
+    const { playback, panel } = build();
+    let finishStep: (result: PanelResult) => void = () => undefined;
+    panel.run.mockReturnValueOnce(new Promise((resolve) => (finishStep = resolve)));
+    await playback.command({ command: 'START', flow: 'MF-03', intervalSeconds: 5 }, 'ip');
+    await jest.advanceTimersByTimeAsync(0);
+    await flush();
+    expect(panel.run).toHaveBeenCalledTimes(1);
+    await expect(playback.command({ command: 'PAUSE' }, 'ip')).rejects.toMatchObject({
+      errorCode: ErrorCode.DEMO_BUSY,
+    });
+    expect(playback.view().status).toBe('RUNNING');
+    finishStep({
+      action: 'incident-sos',
+      runId: 1,
+      label: 'Demo 1',
+      actedAs: null,
+      records: [],
+      context: { incidentId: 'i-1' },
+    });
+    await flush();
+    expect(playback.view()).toMatchObject({ status: 'RUNNING', index: 1 });
+    await expect(playback.command({ command: 'PAUSE' }, 'ip')).resolves.toMatchObject({
+      status: 'PAUSED',
+    });
+  });
+
   it('stops a running playback and refuses PAUSE, STEP and STOP afterwards', async () => {
     const { playback, panel } = build();
     await playback.command({ command: 'START', flow: 'MF-01b' }, 'ip');
@@ -318,9 +347,9 @@ describe('DemoPanelPlayback (REQ-PNL-08)', () => {
     );
     const stepping = f.playback.command({ command: 'STEP' }, 'ip');
     await flush();
-    await expect(f.playback.command({ command: 'STEP' }, 'ip')).rejects.toBeInstanceOf(
-      DomainException,
-    );
+    await expect(f.playback.command({ command: 'STEP' }, 'ip')).rejects.toMatchObject({
+      errorCode: ErrorCode.DEMO_BUSY,
+    });
     await f.playback.command({ command: 'STOP' }, 'ip');
     finishRead([{ id: 'org-9', code: 'ORG-0009' }]);
     const view = await stepping;

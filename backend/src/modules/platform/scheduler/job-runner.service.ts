@@ -26,9 +26,12 @@ export type TickOutcome = JobOutcome | 'notDue';
 export const JOB_START_SPREAD_MS = 1_000;
 
 // One stable start offset per job, distinct while there are at most JOB_START_SPREAD_MS jobs. Jobs are
-// ordered by how often they fire, most often first, then by name, and spread evenly over the window: the
-// alert delivery jobs (every 2 s) start first and never queue behind a slower job's burst. The order does
-// not depend on the order of registration, so every replica and every restart computes the same offsets.
+// ordered by how often they fire, most often first, then by name, and spread evenly over the window, so
+// the alert delivery jobs (every 2 s) start first. Measured in a probe with stand-in handlers of 600 ms
+// and 2.5 s: the alert jobs ran at pools of 3 and 5, but staleResponses, expirePayments and
+// closeAfterReopenWindow still failed at pool 3, and requestHoldExpiry at pool 5 with 2.5 s handlers. The
+// spread does not guarantee that a slower job never fails on a small pool. The order does not depend on
+// the order of registration, so every replica and every restart computes the same offsets.
 export const jobStartOffsets = (
   jobs: ReadonlyArray<{ name: string; cron: string }>,
 ): Map<string, number> => {
