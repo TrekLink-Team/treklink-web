@@ -253,7 +253,67 @@ describe('DemoPanelPlayback (REQ-PNL-08)', () => {
     await startMf01a(f);
     const resumed = await f.playback.command({ command: 'RESUME' }, 'ip');
     expect(resumed).toMatchObject({ status: 'DONE', index: 3 });
+    // The organization is still Pending, so the step is recorded skipped, never done.
+    expect(resumed.steps[2]).toMatchObject({ status: 'SKIPPED', prompt: null });
     expect(f.panel.run).toHaveBeenCalledTimes(2);
+  });
+
+  it('records the waiting step SKIPPED on Next step too, and stays paused after it', async () => {
+    const f = build();
+    await startMf01a(f);
+    const stepped = await f.playback.command({ command: 'STEP' }, 'ip');
+    expect(stepped.steps[2].status).toBe('SKIPPED');
+    expect(stepped).toMatchObject({ status: 'DONE', index: 3 });
+  });
+
+  it('keeps DONE for an approval that really happened', async () => {
+    const f = build();
+    await startMf01a(f);
+    f.organizations.activeDemoOptions.mockResolvedValue([{ id: 'org-9', code: 'ORG-0009' }]);
+    await jest.advanceTimersByTimeAsync(PLAYBACK_WAIT_POLL_MS);
+    await flush();
+    expect(f.playback.view().steps[2].status).toBe('DONE');
+  });
+
+  // Review of treklink-web#541: Stop at the wait, START MF-01a again, then the first run's read returns
+  // Active. Without the run check, that stale read finished the new run's wait with ORG-0010 never approved.
+  it('drops a wait read that outlives its run (Stop, then START again)', async () => {
+    const f = build();
+    await startMf01a(f);
+    let finishOldRead: (rows: { id: string; code: string }[]) => void = () => undefined;
+    f.organizations.activeDemoOptions.mockReturnValueOnce(
+      new Promise((resolve) => (finishOldRead = resolve)),
+    );
+    await jest.advanceTimersByTimeAsync(PLAYBACK_WAIT_POLL_MS); // the first run's poll is now mid-read
+    await f.playback.command({ command: 'STOP' }, 'ip');
+    f.panel.run
+      .mockResolvedValueOnce({
+        action: 'organization-register',
+        runId: 3,
+        label: 'Demo 3',
+        actedAs: null,
+        records: [],
+        context: { organizationId: 'org-10', organizationCode: 'ORG-0010', version: 0 },
+      })
+      .mockResolvedValueOnce({
+        action: 'organization-verify',
+        runId: 4,
+        label: 'Demo 4',
+        actedAs: null,
+        records: [],
+        context: { organizationId: 'org-10', version: 1 },
+      });
+    await f.playback.command({ command: 'START', flow: 'MF-01a', intervalSeconds: 3 }, 'ip');
+    await jest.advanceTimersByTimeAsync(7_000);
+    await flush();
+    expect(f.playback.view().steps[2].status).toBe('WAITING');
+    // The old read now says ORG-0009 is Active.
+    finishOldRead([{ id: 'org-9', code: 'ORG-0009' }]);
+    await flush();
+    const view = f.playback.view();
+    expect(view).toMatchObject({ status: 'PAUSED', index: 2 });
+    expect(view.steps[2]).toMatchObject({ status: 'WAITING' });
+    expect(view.steps[2].prompt).toContain('ORG-0010');
   });
 
   it('never runs a command outside the panel commands in any flow, so no flow can act as an Admin', async () => {

@@ -61,6 +61,7 @@ only. Closing or reloading the tab forgets it." The password is held in a module
 | Action error (any code) | Alert in the result card with the server message and any committed links |
 | Reseed refused (403, 409, 429) | Alert in the reseed card with the server message; the card shows the reason from `reset.reason` before any click |
 | Playback failed | The failed step marked, its error and links |
+| Step skipped (amended 2026-11-25, D-110 rule 8, review of treklink-web#541) | The step reads Skipped in the Presenter list, "Skipped: <step>" in the Panel operator and Site clicker views |
 
 ## Accessibility and live data
 

@@ -103,8 +103,11 @@ and one reseed through the UI; 48 axe-clean configurations (1440, 1280, 900, 360
 400 % zoom, both themes) and the dialogs. Open: 9.7, and compiling the seed into the AWS image so the reseed
 can run there (design §11). Evidence: `docs/sessions/2026-11-24-0945-tk243-demo-panel.md`.
 
-- [x] 9.8 (amended 2026-11-25, D-110 clarification) Leader ruling 2026-11-24, "No Admin at all": the playback command `organization-approve`
+- [x] 9.8 (amended 2026-11-25, D-110 rule 8) Leader ruling 2026-11-24, "No Admin at all": the playback command `organization-approve`
   (MF-01a approval as the seeded Admin) is removed; MF-01a step 3 waits for the approval on the Admin
   screen and resumes by itself or on Resume; `seeded()` excludes ADMIN by type and at run time; a test fails
   if any action or playback command resolves to an ADMIN account. The reseed's live database check runs
   before the lock. The playbook gains §14 for the panel operator.
+- [x] 9.9 (amended 2026-11-25, D-110 rule 8, review of treklink-web#541) A wait read that outlives its step or run is dropped (run id and step identity, with a
+  test that reproduces Stop then START); Resume or Next step at a waiting step records it `SKIPPED`, shown
+  in the three views; api-design 16 draws the lock, the `current_database()` read and the audit in finally.

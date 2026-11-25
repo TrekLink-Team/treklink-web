@@ -335,7 +335,7 @@ These numbers and the five-minute reseed spacing are demo tool constants of this
 `demo-panel.constants.ts`, the same treatment as the simulation constants of §9; D-110 sets the five
 minutes.
 
-**Actors and audit.** (amended 2026-11-25, D-110 clarification) The panel acts only as the seeded Staff, Manager or Operator or a live
+**Actors and audit.** (amended 2026-11-25, D-110 rule 8) The panel acts only as the seeded Staff, Manager or Operator or a live
 organization member, never as an Admin: `seeded()` takes `PanelSeededRole` (ADMIN excluded) and refuses an
 account that holds ADMIN; a unit test runs every action and playback command and fails if any asks for
 the seeded Admin or hands an ADMIN caller to a service. `DemoSessionService.panelAccountOf(email)` (auth) returns the seeded account as a
@@ -381,7 +381,7 @@ resume and `STEP` run the next step at once. The steps, taken from the playbook:
 
 | Flow | Steps |
 |---|---|
-| MF-01a | register a demo organization (`OrganizationOnboardingService.register`, fresh names and tax code from the run counter); counter verification as Staff (`verify`); (amended 2026-11-25, D-110 clarification) the approval is a waiting step: the playback pauses with "Approve ORG-.... on the Admin screen", reads `OrganizationsService.activeDemoOptions` every 3 s and runs on once the organization is Active, or when the operator presses Resume or Next step. No panel command approves |
+| MF-01a | register a demo organization (`OrganizationOnboardingService.register`, fresh names and tax code from the run counter); counter verification as Staff (`verify`); (amended 2026-11-25, D-110 rule 8) the approval is a waiting step: the playback pauses with "Approve ORG-.... on the Admin screen", reads `OrganizationsService.activeDemoOptions` every 3 s and runs on once the organization is Active, or when the operator presses Resume or Next step, which records the step `SKIPPED` (amended 2026-11-25, D-110 rule 8, review of treklink-web#541); a read that returns after Stop, Resume, Next step or a new START is dropped (run id and step identity). No panel command approves |
 | MF-01b | `contract-create` for ORG-0001; `contract-approve` |
 | MF-01c | `contract-handover` of the contract from MF-01b, else the newest approved ORG-0001 contract |
 | MF-02 | narration "Gateway path: node, LoRa, laptop, queue, MQTT"; one simulated position per rented ORG-0001 unit with a node number (`demo-position-packet.ts`, the shape of `test/fixtures/mqtt/position.json`) |
@@ -400,7 +400,7 @@ any case, after decoding). The five-minute spacing is checked against the in-pro
 last reseed and against the newest `demo.panel.reset` entry through `AuditLogService.latestOf(action)`
 (platform), so a restart does not reopen it. The reseed takes `DemoPanelLock` (amended 2026-11-24, D-110, review of treklink-web#541): it refuses while a
 playback or a panel action is in flight, and while it holds the lock every action and playback step
-answers 409 `DEMO_BUSY` (REQ-PNL-15). Before the lock (amended 2026-11-25, D-110 clarification) it also checks the `DATABASE_URL` of the process
+answers 409 `DEMO_BUSY` (REQ-PNL-15). Before the lock (amended 2026-11-25, D-110 rule 8) it also checks the `DATABASE_URL` of the process
 environment, which the Prisma client reads, and `current_database()` of the live connection. Then:
 
 1. Log `Demo panel reset started from <address>` (no password, no host).

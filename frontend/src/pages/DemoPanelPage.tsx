@@ -306,6 +306,7 @@ const PlaybackCard: React.FC<{ playback: PlaybackState; announce: (text: string)
   const send = usePanelMutation(sendPlayback);
   const live = playback.status === 'RUNNING' || playback.status === 'PAUSED';
   const waiting = playback.steps.find((step) => step.status === 'WAITING');
+  const skipped = playback.steps.filter((step) => step.status === 'SKIPPED');
 
   const command = (name: PlaybackCommand) => {
     setError(null);
@@ -383,10 +384,15 @@ const PlaybackCard: React.FC<{ playback: PlaybackState; announce: (text: string)
           {waiting.prompt}
         </Alert>
       )}
+      {skipped.length > 0 && (
+        <p className="mt-3 text-body-sm text-ink-muted">
+          Skipped: {skipped.map((step) => step.title).join('; ')}
+        </p>
+      )}
       {playback.steps.length > 0 && (
         <p className="mt-3 text-body text-ink">
           {playback.status === 'DONE'
-            ? `All ${playback.steps.length} steps done.`
+            ? `All ${playback.steps.length} steps finished${skipped.length ? `, ${skipped.length} skipped` : ''}.`
             : `Step ${Math.min(playback.index + 1, playback.steps.length)} of ${playback.steps.length}: ${
                 playback.steps[Math.min(playback.index, playback.steps.length - 1)].title
               }`}
@@ -418,6 +424,7 @@ const PlaybackCard: React.FC<{ playback: PlaybackState; announce: (text: string)
 const STEP_LABEL: Partial<Record<PlaybackState['steps'][number]['status'], string>> = {
   RUNNING: 'Running',
   WAITING: 'Waiting',
+  SKIPPED: 'Skipped',
   DONE: 'Done',
   FAILED: 'Failed',
 };
@@ -444,7 +451,9 @@ const StepList: React.FC<{ playback: PlaybackState }> = ({ playback }) => (
                     ? 'critical'
                     : step.status === 'RUNNING' || step.status === 'WAITING'
                       ? 'active'
-                      : 'waiting'
+                      : step.status === 'SKIPPED'
+                        ? 'ended'
+                        : 'waiting'
               }
             >
               {STEP_LABEL[step.status] ?? (current ? 'Next' : 'To do')}
@@ -731,8 +740,10 @@ const PresenterView: React.FC<{ playback: PlaybackState }> = ({ playback }) =>
 const ClickerView: React.FC<{ playback: PlaybackState }> = ({ playback }) => {
   if (playback.steps.length === 0) return <NoPlayback />;
   const current = playback.steps[Math.min(playback.index, playback.steps.length - 1)];
-  const done = playback.steps.filter((step) => step.status === 'DONE');
-  const last = done[done.length - 1];
+  const finished = playback.steps.filter(
+    (step) => step.status === 'DONE' || step.status === 'SKIPPED',
+  );
+  const last = finished[finished.length - 1];
   return (
     <div className="flex flex-col gap-4 pt-3">
       <Card aria-labelledby="panel-clicker-now">
@@ -758,7 +769,7 @@ const ClickerView: React.FC<{ playback: PlaybackState }> = ({ playback }) => {
       {last && (
         <Card aria-labelledby="panel-clicker-last">
           <h2 id="panel-clicker-last" className="text-body font-bold text-ink">
-            Just done: {last.title}
+            {last.status === 'SKIPPED' ? `Skipped: ${last.title}` : `Just done: ${last.title}`}
           </h2>
           <RecordLinks records={last.records} />
         </Card>

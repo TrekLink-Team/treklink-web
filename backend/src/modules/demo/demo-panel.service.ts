@@ -107,7 +107,7 @@ const DEMO_VARIANT = 'treklink-v3';
 // The caller of the panel's own reads of another module (membership lists): TrekLink-wide, no account.
 const PANEL_READER: Caller = { id: PANEL_RUN_ACTOR, roles: ['STAFF'], organizationId: null };
 
-// The roles the panel may act as (D-110 clarification of 2026-11-24): never ADMIN.
+// The roles the panel may act as (D-110 rule 8, 2026-11-24): never ADMIN.
 export type PanelSeededRole = Exclude<SeededRole, 'ADMIN'>;
 const noAdmin = () =>
   new DomainException(
@@ -363,7 +363,7 @@ export class DemoPanelService {
 
   // --- actors (REQ-PNL-03) ---------------------------------------------------------------------------
 
-  // Never the Admin (leader ruling 2026-11-24, "No Admin at all", D-110 clarification): the type leaves
+  // Never the Admin (leader ruling 2026-11-24, "No Admin at all", D-110 rule 8): the type leaves
   // ADMIN out, and an account that holds the ADMIN role is refused at run time as well.
   private async seeded(role: PanelSeededRole): Promise<Actor> {
     const email = SEEDED_EMAILS[role];

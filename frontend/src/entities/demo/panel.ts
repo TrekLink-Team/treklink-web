@@ -97,8 +97,9 @@ export interface PlaybackStep {
   line: string;
   click: string;
   // WAITING: a person does this step on a real screen the panel never acts on (the Admin approval,
-  // D-110 clarification); `prompt` says what to do.
-  status: 'PENDING' | 'RUNNING' | 'WAITING' | 'DONE' | 'FAILED';
+  // D-110 rule 8); `prompt` says what to do. SKIPPED: the operator moved past a waiting step before its
+  // record was ready; DONE means it really happened.
+  status: 'PENDING' | 'RUNNING' | 'WAITING' | 'DONE' | 'SKIPPED' | 'FAILED';
   prompt: string | null;
   error: string | null;
   records: StagedRecord[];

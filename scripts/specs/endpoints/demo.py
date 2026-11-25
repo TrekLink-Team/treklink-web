@@ -450,9 +450,9 @@ ENDPOINTS.append(ep(
     "Starts, pauses, resumes, steps or stops the scripted playback of one main flow. Steps come from "
     "`docs/demo/2026-11-22-scenario-playbook.md`; each executed step is one panel action (route 14) or a "
     "narration line. One playback runs at a time, held in the backend's memory. The panel never acts as an Admin "
-    "(D-110 clarification, 2026-11-25): at the MF-01a approval the run pauses with a waiting step and the prompt "
+    "(D-110 rule 8, 2026-11-25): at the MF-01a approval the run pauses with a waiting step and the prompt "
     "\"Approve ORG-.... on the Admin screen\", and runs on once the organization is Active or the operator "
-    "presses RESUME or STEP.",
+    "presses RESUME or STEP, which records the step `SKIPPED` while the organization is still pending.",
     "D-110 rule 3, REQ-PNL-08",
     pre_validation_auth=PANEL_AUTH,
     body=[["command", "`START`, `PAUSE`, `RESUME`, `STEP` or `STOP`", "string", "yes", "`START`"],
@@ -460,7 +460,8 @@ ENDPOINTS.append(ep(
           ["intervalSeconds", "Seconds between steps, 3 to 60; default 10; with `START` only", "int", "no", "`10`"]],
     sample={"command": "START", "flow": "MF-03", "intervalSeconds": 10},
     response=PANEL_PLAYBACK, message="Playback updated", entity="Playback",
-    fields=[["steps[].status", "`PENDING`, `RUNNING`, `WAITING` (a person does the step on a real screen), `DONE` or `FAILED`",
+    fields=[["steps[].status", "`PENDING`, `RUNNING`, `WAITING` (a person does the step on a real screen), `DONE`, "
+             "`SKIPPED` (the operator moved past a waiting step before its record was ready) or `FAILED`",
              "string", "`PENDING`"],
             ["steps[].prompt", "What to do on the real screen while the step is `WAITING`, otherwise null", "string",
              "`Approve ORG-0002 on the Admin screen ...`"]],
@@ -526,5 +527,30 @@ ENDPOINTS.append(ep(
                  "finally: emit audit demo.panel.reset with the error, release the lock",
                  "Return 500 INTERNAL_ERROR, or the mapped error")),
     controller="DemoPanelController", service="DemoPanelResetService", call="reset(dto, client)",
-    seq=["Svc->>DB: BEGIN, UPDATE business_parameters, TRUNCATE ... RESTART IDENTITY, DELETE FROM users, COMMIT",
-         "Svc->>DB: seedDemo (own transaction)", "Svc-)Svc: emit audit.record"]))
+    # The whole sequence, because the lock, the live database read and the audit in finally do not fit
+    # the generic outline (review of treklink-web#541).
+    sequence=["actor C as Panel operator", "participant G as DemoPanelGuard", "participant Ctl as DemoPanelController",
+              "participant Svc as DemoPanelResetService", "participant L as DemoPanelLock",
+              "participant DB as Postgres",
+              "C->>G: POST /api/demo/panel/reset with X-Demo-Panel-Password",
+              "G->>G: reserve the attempt, compare the password",
+              "G->>Ctl: pass, ValidationPipe checks the body",
+              "Ctl->>Svc: reset(confirmation, client)",
+              "Svc->>Svc: flag, host, confirmation, spacing (audit log)",
+              "Svc->>L: a reseed, a playback or a panel action running?",
+              "alt busy",
+              "    Svc-->>C: 409 DEMO_BUSY, nothing changed",
+              "else idle",
+              "    Svc->>Svc: seed loadable and SEED passwords set",
+              "    Svc->>DB: SELECT current_database()",
+              "    alt not the demo branch",
+              "        Svc-->>C: 403 DEMO_DATABASE_NOT_ALLOWED, no audit, no spacing",
+              "    else demo branch",
+              "        Svc->>L: beginReset, panel actions now answer 409",
+              "        Svc->>DB: BEGIN, UPDATE business_parameters, TRUNCATE ... RESTART IDENTITY, DELETE FROM users, COMMIT",
+              "        Svc->>DB: seedDemo (own transaction)",
+              "        Svc-)Svc: finally: emit audit.record demo.panel.reset, with the error on failure",
+              "        Svc->>L: endReset",
+              "        Svc-->>C: 200 envelope, or 500 with the error",
+              "    end",
+              "end"]))
