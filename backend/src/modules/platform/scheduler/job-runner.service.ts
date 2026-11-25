@@ -18,6 +18,39 @@ export const JOB_TICK_INTERVAL_MS = 60 * 1000;
 
 export type TickOutcome = JobOutcome | 'notDue';
 
+// The timer runs of the jobs start spread over this window after their cron fire time (review of
+// treklink-web#537). Every cron here fires on a whole second, so offsets that differ inside one second
+// never start two jobs at the same instant, and an offset below one second stays inside the period of
+// every job. Without it nine jobs started at second 0 together, each held a pooled connection for its
+// lock while its handler waited for another, and the alert delivery jobs failed after the 2 s start wait.
+export const JOB_START_SPREAD_MS = 1_000;
+
+// One stable start offset per job, distinct while there are at most JOB_START_SPREAD_MS jobs. Jobs are
+// ordered by how often they fire, most often first, then by name, and spread evenly over the window: the
+// alert delivery jobs (every 2 s) start first and never queue behind a slower job's burst. The order does
+// not depend on the order of registration, so every replica and every restart computes the same offsets.
+export const jobStartOffsets = (
+  jobs: ReadonlyArray<{ name: string; cron: string }>,
+): Map<string, number> => {
+  const ordered = jobs
+    .map(({ name, cron }) => ({ name, period: cronPeriodMs(cron) }))
+    .sort((a, b) => a.period - b.period || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  return new Map(
+    ordered.map(({ name }, index) => [
+      name,
+      Math.floor((index * JOB_START_SPREAD_MS) / ordered.length),
+    ]),
+  );
+};
+
+// The gap between two consecutive fire times, from a fixed reference so the result never changes.
+const CRON_PERIOD_REFERENCE = new Date(Date.UTC(2026, 0, 1));
+const cronPeriodMs = (cron: string): number => {
+  const time = new CronTime(cron);
+  const first = time.getNextDateFrom(CRON_PERIOD_REFERENCE);
+  return time.getNextDateFrom(first).toMillis() - first.toMillis();
+};
+
 // Hosts every @ScheduledJob (specs/platform/design.md §4.6, REQ-EVT-05). A run takes
 // pg_try_advisory_xact_lock(hashtext(name)) in its own interactive transaction, so a second
 // replica, or an overlapping tick of the same replica, skips instead of double-running. The
@@ -28,6 +61,7 @@ export class JobRunnerService implements OnApplicationBootstrap {
   private readonly logger = new Logger(JobRunnerService.name);
   private readonly jobs = new Map<string, { cron: string; handler: () => unknown }>();
   private lastTickAt = Number.NEGATIVE_INFINITY;
+  private offsets: Map<string, number> | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -66,9 +100,10 @@ export class JobRunnerService implements OnApplicationBootstrap {
 
   register({ name, cron }: ScheduledJobOptions, handler: () => unknown): void {
     this.jobs.set(name, { cron, handler });
+    this.offsets = null;
     const job = CronJob.from({
       cronTime: cron,
-      onTick: () => void this.run(name, handler),
+      onTick: () => this.startAfterOffset(name, handler),
       start: false,
     });
     this.registry.addCronJob(name, job);
@@ -76,6 +111,23 @@ export class JobRunnerService implements OnApplicationBootstrap {
     this.logger.log(
       `Scheduled job ${name} registered on "${cron}"${this.timersEnabled ? '' : ', run by the request tick only'}`,
     );
+  }
+
+  // The start offset of a timer run (JOB_START_SPREAD_MS), computed once all jobs are registered.
+  startOffset(name: string): number {
+    this.offsets ??= jobStartOffsets(
+      [...this.jobs].map(([jobName, { cron }]) => ({ name: jobName, cron })),
+    );
+    return this.offsets.get(name) ?? 0;
+  }
+
+  private startAfterOffset(name: string, handler: () => unknown): void {
+    const offset = this.startOffset(name);
+    if (offset === 0) {
+      void this.run(name, handler);
+      return;
+    }
+    setTimeout(() => void this.run(name, handler), offset).unref?.();
   }
 
   // Never rejects: one failed job must not stop the scheduler or another job.
