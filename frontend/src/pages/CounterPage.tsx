@@ -29,6 +29,7 @@ import {
   type CounterRow,
 } from '../features/device-connector';
 import { ApiError } from '../shared/api/apiClient';
+import { SLOW_LINK_VARIANT } from '../shared/lib/esp-flasher';
 import { toNodeId } from '../shared/lib/meshtastic-dock';
 import { formatDateTime, formatDay, formatVnd } from '../shared/lib/format';
 import { useMediaQuery } from '../shared/lib/useMediaQuery';
@@ -1294,6 +1295,15 @@ export const CounterPage: React.FC<{
                           Swap
                         </button>
                       </div>
+                      {/* The POWER-hold line of the Flash firmware panel, with the docking steps as its
+                          ending: a v2 unit powers off during the write, the reboot and the read-back unless
+                          POWER is held (firmware#36). */}
+                      {data.hardwareVariant.code === SLOW_LINK_VARIANT && (
+                        <p className={`${WARNING} mt-2`}>
+                          Hold the power button of {tagOf(device)} until the write, the reboot and the read-back
+                          finish; a reset turns a v2 unit off otherwise.
+                        </p>
+                      )}
                       {/* Mounted for the whole visit, so a screen reader announces the first stage too
                           (WCAG 4.1.3); only its text changes. */}
                       <p

@@ -17,7 +17,13 @@ const docking = vi.hoisted(() => ({
 }));
 vi.mock('./useDocking', () => ({ useDocking: () => docking }));
 
-const DEVICE: { id: string; assetTag: string; nodeNum: number; keyVersion: number | null } = {
+const DEVICE: {
+  id: string;
+  assetTag: string;
+  nodeNum: number;
+  keyVersion: number | null;
+  variantCode?: string | null;
+} = {
   id: 'd-1',
   assetTag: 'TL-0042',
   nodeNum: 2763113171,
@@ -47,6 +53,18 @@ afterEach(() => {
 });
 
 describe('ConfigureUplinkDialog (devices design 8.8, screen 4.2)', () => {
+  it('asks Staff to hold the power button of a v2 unit, with the POWER-hold line of the docking steps (firmware#36)', () => {
+    open({ ...DEVICE, variantCode: 'treklink-v2' });
+    expect(
+      screen.getByText(
+        'Hold the power button of TL-0042 until the write, the reboot and the read-back finish; a reset turns a v2 unit off otherwise.',
+      ),
+    ).toBeTruthy();
+    cleanup();
+    open({ ...DEVICE, variantCode: 'treklink-v3' });
+    expect(screen.queryByText(/Hold the power button/)).toBeNull();
+  });
+
   it('sends the typed settings with TLS on by default and reports the broker', async () => {
     docking.configureUplink.mockResolvedValue({ ok: true });
     const onDone = open();
