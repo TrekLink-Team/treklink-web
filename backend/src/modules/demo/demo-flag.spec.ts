@@ -1,4 +1,5 @@
 import {
+  demoControlsDisabled,
   demoControlsEnabled,
   demoPanelEnabled,
   demoPanelSimulationEnabled,
@@ -14,6 +15,19 @@ describe('demoControlsEnabled', () => {
     [{}, false],
   ])('reads %j as %s', (env, expected) => {
     expect(demoControlsEnabled({ VITE_APP_ENV: 'sandbox', ...env })).toBe(expected);
+  });
+});
+
+describe('demoControlsDisabled (D-113)', () => {
+  it.each([
+    [{ DEMO_CONTROLS_ENABLED: 'true', VITE_APP_ENV: 'sandbox' }, false],
+    [{ DEMO_CONTROLS_ENABLED: 'true', VITE_APP_ENV: 'staging' }, false],
+    [{ DEMO_CONTROLS_ENABLED: 'true' }, true],
+    [{ DEMO_CONTROLS_ENABLED: 'false', VITE_APP_ENV: 'sandbox' }, true],
+    [{}, true],
+  ])('reads %j as %s, the complement of demoControlsEnabled', (env, expected) => {
+    expect(demoControlsDisabled(env)).toBe(expected);
+    expect(demoControlsEnabled(env)).toBe(!expected);
   });
 });
 

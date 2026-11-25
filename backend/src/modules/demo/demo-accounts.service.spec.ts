@@ -9,8 +9,10 @@ import { DomainException } from '../../common/errors';
 import { DemoAccountsController } from './demo-accounts.controller';
 import { DemoAccountsModule } from './demo-accounts.module';
 import { DemoAccountsService } from './demo-accounts.service';
-import { demoControlsEnabled, demoTestAccountsEnabled } from './demo-flag';
+import { demoControlsDisabled, demoControlsEnabled, demoTestAccountsEnabled } from './demo-flag';
 import { DemoGuardService } from './demo-guard.service';
+import { DEMO_STATUS_OFF } from './demo-status-off.controller';
+import { DemoStatusOffModule } from './demo-status-off.module';
 import { DemoModule } from './demo.module';
 
 const NEON =
@@ -58,7 +60,7 @@ const withEnv = (vars: Record<string, string>) => {
   });
 };
 
-// The two registrations of app.module.ts, on an otherwise empty app with a probe route.
+// The three registrations of app.module.ts, on an otherwise empty app with a probe route.
 @Controller('probe')
 class ProbeController {
   @Get()
@@ -72,6 +74,7 @@ const bootApp = async (): Promise<INestApplication> => {
     imports: [
       ConfigModule.forRoot({ ignoreEnvFile: true }),
       ConditionalModule.registerWhen(DemoModule, demoControlsEnabled),
+      ConditionalModule.registerWhen(DemoStatusOffModule, demoControlsDisabled),
       ConditionalModule.registerWhen(DemoAccountsModule, demoTestAccountsEnabled),
     ],
     controllers: [ProbeController],
@@ -198,9 +201,10 @@ describe('production on a Neon database with DEMO_TEST_ACCOUNTS_ENABLED on', () 
     expect(body.accounts.map((a) => a.password)).toEqual(Object.values(ENV));
   });
 
-  it('leaves every control panel route a 404', async () => {
+  it('answers the status with the controls off and leaves every other control route a 404 (D-113)', async () => {
     const server = serverOf(app);
-    await request(server).get('/api/demo/status').expect(404);
+    const status = await request(server).get('/api/demo/status').expect(200);
+    expect(status.body).toEqual(DEMO_STATUS_OFF);
     await request(server).post('/api/demo/scenarios/clean/stage').expect(404);
     await request(server).post('/api/demo/switch-role').send({ role: 'ADMIN' }).expect(404);
   });
@@ -225,7 +229,8 @@ describe('production on a Neon database with DEMO_TEST_ACCOUNTS_ENABLED on', () 
   });
 });
 
-// REQ-UBI-01 and REQ-EVT-05: with both flags off neither module is loaded and every demo route is a 404.
+// REQ-UBI-01 and REQ-EVT-05: with both flags off neither module is loaded and every demo route is a 404,
+// except the status, which answers with the controls off (D-113).
 describe('both demo flags off', () => {
   withEnv({ DEMO_TEST_ACCOUNTS_ENABLED: 'false', DEMO_CONTROLS_ENABLED: 'false', ...ENV });
   let app: INestApplication;
@@ -234,11 +239,12 @@ describe('both demo flags off', () => {
   });
   afterAll(() => app.close());
 
-  it('answers 404 on every demo route because no demo module is loaded', async () => {
+  it('answers 404 on every demo route but the status, which answers off (D-113)', async () => {
     const server = serverOf(app);
     await request(server).get('/api/probe').expect(200);
     await request(server).get('/api/demo/accounts').expect(404);
-    await request(server).get('/api/demo/status').expect(404);
+    const status = await request(server).get('/api/demo/status').expect(200);
+    expect(status.body).toEqual(DEMO_STATUS_OFF);
     await request(server).get('/api/demo/scenarios').expect(404);
     await request(server).post('/api/demo/scenarios/clean/stage').expect(404);
     await request(server).post('/api/demo/switch-role').send({ role: 'ADMIN' }).expect(404);

@@ -25,7 +25,23 @@ const api = vi.mocked(apiClient);
 describe('demo api (specs/demo api-design 01 to 05)', () => {
   afterEach(() => api.mockReset());
 
-  it('reads demo mode off (a 404) as null and passes other failures on', async () => {
+  it('reads demo mode off (a 200 with enabled false, D-113) as null, and an enabled status as it is', async () => {
+    const off = {
+      enabled: false,
+      quickEnabled: false,
+      roleSwitchEnabled: false,
+      databaseLocal: false,
+      lastStaged: null,
+    };
+    api.mockResolvedValueOnce(off);
+    await expect(fetchDemoStatus()).resolves.toBeNull();
+    expect(api).toHaveBeenCalledWith('/demo/status');
+    const on = { ...off, enabled: true, quickEnabled: true };
+    api.mockResolvedValueOnce(on);
+    await expect(fetchDemoStatus()).resolves.toEqual(on);
+  });
+
+  it('reads demo mode off on an older backend (a 404) as null and passes other failures on', async () => {
     api.mockRejectedValueOnce(new ApiError(404, 'NOT_FOUND', 'Cannot GET /api/demo/status'));
     await expect(fetchDemoStatus()).resolves.toBeNull();
     api.mockRejectedValueOnce(new ApiError(500, 'INTERNAL', 'boom'));

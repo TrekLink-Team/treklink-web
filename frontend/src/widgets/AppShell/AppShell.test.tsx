@@ -289,9 +289,19 @@ describe('AppShell, Demo control entry', () => {
     organization: null,
   };
 
-  it('hides the entry when the control status is off despite a simulation response', async () => {
+  it.each([
+    ['answers off (D-113)', false],
+    ['is a 404 (an older backend)', true],
+  ])('hides the entry when the control status %s despite a simulation response', async (_case, missing) => {
     const { apiClient, ApiError } = await import('../../shared/api/apiClient');
     const api = vi.mocked(apiClient);
+    const off = {
+      enabled: false,
+      quickEnabled: false,
+      roleSwitchEnabled: false,
+      databaseLocal: false,
+      lastStaged: null,
+    };
     api.mockImplementation((path: string) =>
       path === '/demo/simulation'
         ? Promise.resolve({
@@ -302,7 +312,9 @@ describe('AppShell, Demo control entry', () => {
             nodes: [],
           })
         : path === '/demo/status'
-          ? Promise.reject(new ApiError(404, 'NOT_FOUND', 'Cannot GET /api/demo/status'))
+          ? missing
+            ? Promise.reject(new ApiError(404, 'NOT_FOUND', 'Cannot GET /api/demo/status'))
+            : Promise.resolve(off)
           : new Promise(() => undefined),
     );
     act(() =>
