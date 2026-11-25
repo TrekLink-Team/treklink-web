@@ -15,7 +15,7 @@ import {
 } from '../src/common/decorators/access.decorator';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { API_KEY_RESOLVER, AuthOneOf, hashApiKey } from '../src/modules/auth';
-import { demoControlsEnabled, demoTestAccountsEnabled } from '../src/modules/demo';
+import { demoTestAccountsEnabled } from '../src/modules/demo';
 import { AUTH_ONE_OF_KEY } from '../src/modules/auth/decorators/auth-one-of.decorator';
 
 // Route guards across the whole application (auth tasks 4.3 and 4.4, REQ-UBI-04, D-061).
@@ -56,8 +56,9 @@ const AUTHENTICATED_ROUTES = new Set([
   'GET /auth/me',
   'POST /auth/password/change',
   'GET /map/config',
-  // The demo controls status (specs/demo api-design 01), routed only while the demo module is loaded.
-  ...(demoControlsEnabled(process.env) ? ['GET /demo/status'] : []),
+  // The demo controls status (specs/demo api-design 01): DemoController's while the demo module is
+  // loaded, DemoStatusOffController's otherwise (D-113), so always routed.
+  'GET /demo/status',
 ]);
 
 interface RouteInfo {

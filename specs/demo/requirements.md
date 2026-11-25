@@ -27,7 +27,7 @@
 
 ### Ubiquitous
 
-- **REQ-UBI-01**: The system SHALL load the `demo` control panel module only WHEN `DEMO_CONTROLS_ENABLED` is `true`, and its `DemoAccountsModule` only WHEN `DEMO_TEST_ACCOUNTS_ENABLED` is `true`, each independently of the other; a route of a module not loaded SHALL answer 404, so with both flags off every `/api/demo` route answers 404. Both variables default to `false`.
+- **REQ-UBI-01**: The system SHALL load the `demo` control panel module only WHEN `DEMO_CONTROLS_ENABLED` is `true`, and its `DemoAccountsModule` only WHEN `DEMO_TEST_ACCOUNTS_ENABLED` is `true`, each independently of the other; a route of a module not loaded SHALL answer 404, so with both flags off every `/api/demo` route answers 404, except `GET /api/demo/status`, which SHALL answer 200 to a signed-in user with every field at its off value while the control panel module is not loaded (D-113). Both variables default to `false`.
 - **REQ-UBI-02**: The system SHALL answer every demo endpoint in the D-002 envelope, behind the JWT guard except the public read of REQ-EVT-05; `POST` endpoints SHALL also carry a CASL policy: `demo.stage` (TrekLink Admin) for staging, `demo.switchRole` or `demo.switchRole.org` (every seeded role) for the role switch.
 - **REQ-UBI-03**: The system SHALL reach every other module's data only through that module's exported services (NFR-MNT-01).
 
@@ -63,11 +63,11 @@
 
 ## 3. Acceptance Criteria
 
-- **AC-01**: With `DEMO_CONTROLS_ENABLED=false`, `GET /api/demo/status` is 404.
+- **AC-01**: With `DEMO_CONTROLS_ENABLED=false`, `GET /api/demo/status` is 200 for a signed-in user with `enabled`, `quickEnabled`, `roleSwitchEnabled` and `databaseLocal` false and `lastStaged` null, and 401 without a token; every other control route is 404 (D-113).
 - **AC-02**: With `DATABASE_URL` on `ep-x.ap-southeast-1.aws.neon.tech`, or `postgresql://u:p@localhost:5432/neondb?host=ep-x.neon.tech` (also `HOST=` and `%68ost=`), or the same in `DATABASE_DIRECT_URL`, a stage is 403 `DEMO_DATABASE_NOT_LOCAL` and no SQL runs.
 - **AC-03**: Staging `clean`, then `contract-ready-for-handover`, then `term-ended` on a local Postgres leaves, respectively: RC-2026-0001 to RC-2026-0003 and no ORG-0002; RC-2026-0004 APPROVED with five reserved v3 units and its holding fee paid; RC-2026-0002 RETURN_DUE.
 - **AC-04**: After a stage the presenter's window is signed in as the seeded Admin without a sign-in page.
-- **AC-05**: With `DEMO_TEST_ACCOUNTS_ENABLED=true`, `NODE_ENV=production` and `DATABASE_URL` on `*.neon.tech`, `GET /api/demo/accounts` without a token returns four accounts whose passwords equal the four `SEED_*_PASSWORD` values, with `Cache-Control: no-store`, while a stage still answers 403 there. With both flags off every `/api/demo` route is 404. The root page and `/sign-in` then show the "Sandbox test accounts" box, or nothing.
+- **AC-05**: With `DEMO_TEST_ACCOUNTS_ENABLED=true`, `NODE_ENV=production` and `DATABASE_URL` on `*.neon.tech`, `GET /api/demo/accounts` without a token returns four accounts whose passwords equal the four `SEED_*_PASSWORD` values, with `Cache-Control: no-store`, while a stage still answers 403 there. With both flags off every `/api/demo` route is 404 except `GET /api/demo/status`, which answers the off status (D-113). The root page and `/sign-in` then show the "Sandbox test accounts" box, or nothing.
 - **AC-06**: With `DEMO_SIMULATION_ENABLED=true` on the Vercel staging (`NODE_ENV=production`, database `treklink_prod`), an Admin starts TL-0010 on a trail with `WALK`; within two simulator runs its marker moves on the organization's live map with a "Simulated" label. With `DATABASE_URL` on a Neon database not named `treklink_prod`, the start answers 403 `DEMO_DATABASE_NOT_ALLOWED`.
 - **AC-07**: `SOS` on a simulated rented node opens exactly one incident, labelled Simulated, routed to the on-duty operator; a second `SOS` within the episode adds to it; after `SOS_CANCEL` no further beacon arrives and the incident stays open until a person resolves it. `SILENT` turns the device stale after the threshold; `WALK` again clears it.
 - **AC-08**: A person runs AC-06 and AC-07 from the browser alone, using the panel, with no terminal, script or agent.
@@ -95,7 +95,7 @@ Simulation control writes also enforce live ADMIN role plus the demo.simulate CA
 
 ## W43b review corrections (2026-11-07)
 
-- **REQ-QUICK-10**: The backend SHALL leave VITE_APP_ENV without a default, so validated configuration cannot enable controls when the caller omitted the variable. A whole AppModule production boot with both demo flags enabled and VITE_APP_ENV unset SHALL omit status, quick and simulation routes (404).
+- **REQ-QUICK-10**: The backend SHALL leave VITE_APP_ENV without a default, so validated configuration cannot enable controls when the caller omitted the variable. A whole AppModule production boot with both demo flags enabled and VITE_APP_ENV unset SHALL omit quick and simulation routes (404) and SHALL answer `GET /api/demo/status` with the off status behind the token check (D-113).
 - **REQ-QUICK-11**: A failed quick action SHALL retain its audit/provenance and partial links, then answer isSuccess false with the owning HTTP status and error code. The error result SHALL include runId, label and records when a run was allocated. The panel SHALL show those links and disclose that the requesting/reporting account for quick contracts and fault reports is the signed-in Admin.
 
 ## 5. Demo panel for a defence (added 2026-11-24, D-110)

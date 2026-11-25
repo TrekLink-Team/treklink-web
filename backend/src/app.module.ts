@@ -10,6 +10,8 @@ import {
   DemoModule,
   DemoPanelModule,
   DemoSimulationModule,
+  DemoStatusOffModule,
+  demoControlsDisabled,
   demoControlsEnabled,
   demoPanelEnabled,
   demoPanelSimulationEnabled,
@@ -51,6 +53,9 @@ import { RentalsModule } from './modules/rentals';
     RentalsModule,
     // W43 controls require DEMO_CONTROLS_ENABLED and explicit VITE_APP_ENV sandbox/staging.
     ConditionalModule.registerWhen(DemoModule, demoControlsEnabled),
+    // Its complement (D-113): with the controls off, GET /api/demo/status answers 200 with every field off,
+    // and every other route of DemoModule stays a 404.
+    ConditionalModule.registerWhen(DemoStatusOffModule, demoControlsDisabled),
     // The read-only sandbox test accounts list (D-089), only when DEMO_TEST_ACCOUNTS_ENABLED is true,
     // in any NODE_ENV and on any database: GET /api/demo/accounts is a 404 otherwise.
     ConditionalModule.registerWhen(DemoAccountsModule, demoTestAccountsEnabled),

@@ -82,10 +82,12 @@ export const demoKeys = {
   accounts: ['demo', 'accounts'] as const,
 };
 
-// Demo mode off: the route is a 404, read as "no demo controls" rather than an error.
+// Demo mode off: a 200 with `enabled: false` (D-113), or the 404 of an older backend, both read as
+// null, "no demo controls", rather than an error.
 export const fetchDemoStatus = async (): Promise<DemoStatus | null> => {
   try {
-    return await apiClient<DemoStatus>('/demo/status');
+    const status = await apiClient<DemoStatus>('/demo/status');
+    return status?.enabled === true ? status : null;
   } catch (error) {
     if (error instanceof ApiError && error.statusCode === 404) return null;
     throw error;

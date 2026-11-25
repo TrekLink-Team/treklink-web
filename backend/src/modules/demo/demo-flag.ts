@@ -14,6 +14,10 @@ export const demoControlsEnabled = (env: NodeJS.ProcessEnv): boolean =>
   isTrue(env[DEMO_CONTROLS_FLAG]) &&
   ['sandbox', 'staging'].includes((env.VITE_APP_ENV ?? '').trim().toLowerCase());
 
+// The condition of DemoStatusOffModule (D-113): its complement, so GET /api/demo/status answers 200 with
+// the controls off instead of the 404 of an unloaded DemoModule.
+export const demoControlsDisabled = (env: NodeJS.ProcessEnv): boolean => !demoControlsEnabled(env);
+
 // The condition of DemoAccountsModule (REQ-EVT-05, D-089): the read-only test accounts list, independent
 // of the control panel flag and of NODE_ENV and the database host.
 export const demoTestAccountsEnabled = (env: NodeJS.ProcessEnv): boolean =>

@@ -60,12 +60,16 @@ describe('whole AppModule boot with VITE_APP_ENV unset (W43b)', () => {
       rmSync(temporary, { recursive: true, force: true });
     }
   }, 90000);
-  it.each(['/api/demo/status', '/api/demo/quick', '/api/demo/simulation'])(
+  it.each(['/api/demo/quick', '/api/demo/simulation'])(
     'omits %s even with both demo flags enabled in production',
     (path) => {
       expect(results[path]).toEqual({ status: 404, isSuccess: false, statusCode: 404 });
     },
   );
+  // D-113: the status is routed with the controls off, behind the token check, so 401 without a token.
+  it('routes /api/demo/status with the controls off, behind the token check (D-113)', () => {
+    expect(results['/api/demo/status']).toEqual({ status: 401, isSuccess: false, statusCode: 401 });
+  });
   it('omits /api/demo/panel without DEMO_PANEL_PASSWORD_HASH (D-110, AC-PNL-01)', () => {
     expect(results['/api/demo/panel']).toEqual({ status: 404, isSuccess: false, statusCode: 404 });
   });

@@ -282,16 +282,28 @@ describe('AccountMenu demo role switch (D-088, screen 7.5)', () => {
   });
   afterEach(() => cleanup());
 
+  const DEMO_STATUS_OFF = {
+    enabled: false,
+    quickEnabled: false,
+    roleSwitchEnabled: false,
+    databaseLocal: false,
+    lastStaged: null,
+  };
+
   const ADMIN_SESSION = {
     ...TOKENS,
     accessToken: 'admin-token',
     user: { ...STAFF, id: 'admin-1', email: 'treklink.dev+admin@gmail.com', roles: ['ADMIN'] },
   };
 
-  it('offers no role switch while demo mode is off (the status route is a 404)', async () => {
-    serve(MANAGER, {
-      '/demo/status': () => Promise.reject(new ApiError(404, 'NOT_FOUND', 'Cannot GET /api/demo/status')),
-    });
+  it.each([
+    ['answers off (D-113)', () => Promise.resolve(DEMO_STATUS_OFF)],
+    [
+      'is a 404 (an older backend)',
+      () => Promise.reject(new ApiError(404, 'NOT_FOUND', 'Cannot GET /api/demo/status')),
+    ],
+  ])('offers no role switch while demo mode is off (the status route %s)', async (_case, status) => {
+    serve(MANAGER, { '/demo/status': status });
     show(MANAGER);
     fireEvent.click(await screen.findByRole('button', { name: /account menu$/i }));
     await screen.findByRole('menuitem', { name: 'Sign out' });
