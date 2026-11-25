@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Alert, Button, Dialog, Field, Input, Switch } from '../../../shared/ui';
+import { SLOW_LINK_VARIANT } from '../../../shared/lib/esp-flasher';
 import { UPLINK_ROOT, type UplinkSettings } from '../../../shared/lib/meshtastic-dock';
+import { WARNING } from '../../../shared/ui/styles';
 import type { DockStage } from './DockingService';
 import { uplinkDockMessage } from './messages';
 import { useDocking } from './useDocking';
@@ -11,7 +13,14 @@ import { useDocking } from './useDocking';
 // goes with it, and a failure clears both passwords.
 
 interface Props {
-  device: { id: string; assetTag: string; nodeNum: number; keyVersion: number | null };
+  // variantCode picks the POWER-hold line of a v2 unit; display only.
+  device: {
+    id: string;
+    assetTag: string;
+    nodeNum: number;
+    keyVersion: number | null;
+    variantCode?: string | null;
+  };
   // The asset tag typed in the hub's confirmation of a RESERVED or RENTED unit (devices design section 12.14).
   confirmAssetTag?: string;
   onDone: (message: string) => void;
@@ -172,6 +181,15 @@ export const ConfigureUplinkDialog: React.FC<Props> = ({ device, confirmAssetTag
         <p className="text-body-sm text-ink-muted">
           Fixed by D-005: root {UPLINK_ROOT}, JSON on, MQTT encryption off, uplink on channel 0.
         </p>
+        {/* The POWER-hold line of the Flash firmware panel, with the docking steps as its ending: a v2
+            unit powers off during the write, the reboot and the read-back unless POWER is held
+            (firmware#36). */}
+        {device.variantCode === SLOW_LINK_VARIANT && (
+          <p className={WARNING}>
+            Hold the power button of {device.assetTag} until the write, the reboot and the read-back finish; a
+            reset turns a v2 unit off otherwise.
+          </p>
+        )}
         {/* Mounted while the dialog is open, so the first stage is announced too (WCAG 4.1.3). */}
         <p role="status" className={stage ? 'text-body text-ink' : 'sr-only'}>
           {stage ? stageText(stage, device.assetTag) : ''}

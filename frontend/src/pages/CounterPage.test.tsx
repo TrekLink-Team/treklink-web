@@ -692,6 +692,25 @@ describe('CounterPage docking (devices design 8.4, D-080, D-082)', () => {
     ).toBe(false);
   });
 
+  it('asks Staff to hold the power button of each v2 unit, with the POWER-hold line of the docking steps (firmware#36)', () => {
+    contract.hardwareVariant.code = 'treklink-v2';
+    try {
+      renderPage();
+      for (const tag of ['TL-0003', 'TL-0004']) {
+        expect(
+          screen.getByText(
+            `Hold the power button of ${tag} until the write, the reboot and the read-back finish; a reset turns a v2 unit off otherwise.`,
+          ),
+        ).toBeTruthy();
+      }
+    } finally {
+      contract.hardwareVariant.code = 'treklink-v3';
+    }
+    cleanup();
+    renderPage();
+    expect(screen.queryByText(/Hold the power button/)).toBeNull();
+  });
+
   it('keeps each row status region mounted and changes only its text (WCAG 4.1.3)', () => {
     const { rerender } = renderPage();
     const region = document.getElementById('dock-status-d-1');

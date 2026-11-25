@@ -702,6 +702,7 @@ export const DeviceHub: React.FC<{ timings?: DockTimings }> = ({ timings }) => {
             assetTag: uplink.connection.recognized.device.assetTag,
             nodeNum: uplink.connection.recognized.device.nodeNum,
             keyVersion: uplink.connection.recognized.device.keyVersion,
+            variantCode: uplink.connection.recognized.device.hardwareVariant.code,
           }}
           confirmAssetTag={uplink.confirmAssetTag}
           onDone={(message) => {

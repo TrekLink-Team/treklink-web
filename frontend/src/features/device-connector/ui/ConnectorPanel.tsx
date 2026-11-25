@@ -506,6 +506,7 @@ export const ConnectorPanelBody: React.FC<{ headingId: string }> = ({ headingId 
             assetTag: uplinkDevice.assetTag,
             nodeNum: uplinkDevice.nodeNum,
             keyVersion: uplinkDevice.keyVersion,
+            variantCode: uplinkDevice.hardwareVariant.code,
           }}
           onDone={(message) => {
             closeUplink();
