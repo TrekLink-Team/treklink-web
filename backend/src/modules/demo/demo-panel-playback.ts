@@ -22,7 +22,7 @@ export const PLAYBACK_COMMAND_NAMES = ['START', 'PAUSE', 'RESUME', 'STEP', 'STOP
 export type PlaybackCommandName = (typeof PLAYBACK_COMMAND_NAMES)[number];
 export type PlaybackStatus = 'IDLE' | 'RUNNING' | 'PAUSED' | 'DONE' | 'FAILED' | 'STOPPED';
 // SKIPPED: a waiting step the operator moved past (Resume or Next step) before its record was ready;
-// DONE is kept for a step whose record was really done (review of treklink-web#541).
+// DONE is kept for a step whose record was really done (reviews of treklink-web#541 and #542).
 type StepStatus = 'PENDING' | 'RUNNING' | 'WAITING' | 'DONE' | 'SKIPPED' | 'FAILED';
 
 // The interval bounds and default of REQ-PNL-08 (demo tool constants, design §11).
@@ -163,8 +163,11 @@ export class DemoPanelPlayback implements OnModuleDestroy {
         if (this.state.status !== 'PAUSED') throw wrongState(this.state.status);
         if (this.executing) throw busy();
         this.state.status = 'RUNNING';
-        if (this.confirmWait()) this.afterStep();
-        else this.schedule(0);
+        if (this.waiting()) {
+          if (await this.confirmWait()) this.afterStep();
+        } else {
+          this.schedule(0);
+        }
         break;
       case 'STEP':
         if (this.state.status !== 'PAUSED' && this.state.status !== 'RUNNING')
@@ -173,9 +176,11 @@ export class DemoPanelPlayback implements OnModuleDestroy {
         this.clearTimer();
         // At a waiting step, Next step is the operator saying the person on the real screen is done; the
         // playback stays paused on the step after it.
-        if (this.confirmWait()) {
-          this.state.index += 1;
-          if (this.state.index >= this.specs.length) this.state.status = 'DONE';
+        if (this.waiting()) {
+          if (await this.confirmWait()) {
+            this.state.index += 1;
+            if (this.state.index >= this.specs.length) this.state.status = 'DONE';
+          }
         } else {
           await this.step();
         }
@@ -315,15 +320,33 @@ export class DemoPanelPlayback implements OnModuleDestroy {
     }
   }
 
-  // The operator moves past the waiting step (Resume or Next step) while its record is not ready: it is
-  // recorded SKIPPED, never DONE. The caller moves past it. Returns false when the step is not waiting.
-  private confirmWait(): boolean {
-    const view = this.state.steps[this.state.index];
-    if (view?.status !== 'WAITING') return false;
+  private waiting(): boolean {
+    return this.state.steps[this.state.index]?.status === 'WAITING';
+  }
+
+  // The operator moves past the waiting step (Resume or Next step). The awaited state is read once more
+  // first (REQ-PNL-03, review of treklink-web#542): an approval made since the last poll is recorded DONE,
+  // a record still not ready SKIPPED, never DONE. While it reads, the step is no longer WAITING, so a poll
+  // read in flight drops its result, and `executing` makes another command answer busy. Returns true when
+  // the caller moves past the step, false when Stop ended the run during the read.
+  private async confirmWait(): Promise<boolean> {
+    const index = this.state.index;
+    const spec = this.specs[index];
+    const view = this.state.steps[index];
+    if (!spec || view?.status !== 'WAITING') return false;
     this.clearTimer();
-    view.status = 'SKIPPED';
+    view.status = 'RUNNING';
+    const read = this.waitDone(spec);
+    this.executing = read.then(() => undefined);
+    let ready: boolean;
+    try {
+      ready = await read;
+    } finally {
+      this.executing = null;
+    }
+    view.status = ready ? 'DONE' : 'SKIPPED';
     view.prompt = null;
-    return true;
+    return this.state.status !== 'STOPPED';
   }
 
   // The view is still the current step of the run that started the read (review of treklink-web#541).

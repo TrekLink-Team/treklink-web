@@ -275,6 +275,59 @@ describe('DemoPanelPlayback (REQ-PNL-08)', () => {
     expect(f.playback.view().steps[2].status).toBe('DONE');
   });
 
+  // Review of treklink-web#542: the Admin approves and the operator presses Resume before the next 3 s
+  // poll. The organization is read once more before the step is marked, so the approval reads DONE.
+  it('reads the organization once more on Resume: DONE when it is Active, SKIPPED otherwise', async () => {
+    const approved = build();
+    await startMf01a(approved);
+    approved.organizations.activeDemoOptions.mockClear();
+    approved.organizations.activeDemoOptions.mockResolvedValue([{ id: 'org-9', code: 'ORG-0009' }]);
+    const resumed = await approved.playback.command({ command: 'RESUME' }, 'ip');
+    expect(approved.organizations.activeDemoOptions).toHaveBeenCalledTimes(1);
+    expect(resumed).toMatchObject({ status: 'DONE', index: 3 });
+    expect(resumed.steps[2]).toMatchObject({ status: 'DONE', prompt: null });
+
+    const pending = build();
+    await startMf01a(pending);
+    pending.organizations.activeDemoOptions.mockClear();
+    const skipped = await pending.playback.command({ command: 'RESUME' }, 'ip');
+    expect(pending.organizations.activeDemoOptions).toHaveBeenCalledTimes(1);
+    expect(skipped.steps[2]).toMatchObject({ status: 'SKIPPED', prompt: null });
+  });
+
+  it('reads the organization once more on Next step: DONE when it is Active, SKIPPED otherwise', async () => {
+    const approved = build();
+    await startMf01a(approved);
+    approved.organizations.activeDemoOptions.mockResolvedValue([{ id: 'org-9', code: 'ORG-0009' }]);
+    const done = await approved.playback.command({ command: 'STEP' }, 'ip');
+    expect(done.steps[2].status).toBe('DONE');
+    expect(done).toMatchObject({ status: 'DONE', index: 3 });
+
+    const pending = build();
+    await startMf01a(pending);
+    const skipped = await pending.playback.command({ command: 'STEP' }, 'ip');
+    expect(skipped.steps[2].status).toBe('SKIPPED');
+  });
+
+  it('answers busy while that read runs, and does not move past the step when Stop comes during it', async () => {
+    const f = build();
+    await startMf01a(f);
+    let finishRead: (rows: { id: string; code: string }[]) => void = () => undefined;
+    f.organizations.activeDemoOptions.mockReturnValueOnce(
+      new Promise((resolve) => (finishRead = resolve)),
+    );
+    const stepping = f.playback.command({ command: 'STEP' }, 'ip');
+    await flush();
+    await expect(f.playback.command({ command: 'STEP' }, 'ip')).rejects.toBeInstanceOf(
+      DomainException,
+    );
+    await f.playback.command({ command: 'STOP' }, 'ip');
+    finishRead([{ id: 'org-9', code: 'ORG-0009' }]);
+    const view = await stepping;
+    expect(view).toMatchObject({ status: 'STOPPED', index: 2 });
+    expect(view.steps[2]).toMatchObject({ status: 'DONE', prompt: null });
+  });
+
   // Review of treklink-web#541: Stop at the wait, START MF-01a again, then the first run's read returns
   // Active. Without the run check, that stale read finished the new run's wait with ORG-0010 never approved.
   it('drops a wait read that outlives its run (Stop, then START again)', async () => {
