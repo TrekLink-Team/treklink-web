@@ -38,6 +38,7 @@
 | 32 | DELETE | `/api/devices/:id/dock` | TrekLink Staff, TrekLink Admin | [32-delete-devices-id-dock.md](32-delete-devices-id-dock.md) |
 | 33 | POST | `/api/devices/:id/hub-actions` | TrekLink Staff | [33-post-devices-id-hub-actions.md](33-post-devices-id-hub-actions.md) |
 | 34 | POST | `/api/devices/:id/hub-actions/:actionId/finish` | TrekLink Staff | [34-post-devices-id-hub-actions-actionid-finish.md](34-post-devices-id-hub-actions-actionid-finish.md) |
+| 35 | POST | `/api/devices/:id/inspection` | TrekLink Staff | [35-post-devices-id-inspection.md](35-post-devices-id-inspection.md) |
 
 Route order: `GET /api/devices/availability` and `GET /api/devices/by-node` are declared before `GET /api/devices/:id` in `DevicesController`, so a literal segment is never read as an id.
 

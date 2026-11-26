@@ -518,6 +518,36 @@ export class DevicesRepository {
     return client.device.findUnique({ where: { id }, select: UNIT_SELECT });
   }
 
+  // The unit's latest move into RETURNED and, when a loss case made it, that case's custody contract
+  // (D-114): a check-in (refType CONTRACT) or a case with a contract leaves a counter to inspect it at.
+  async lastReturnMove(
+    deviceId: string,
+    client: Client = this.prisma,
+  ): Promise<{
+    refType: string | null;
+    createdAt: Date;
+    lossCaseContractId: string | null;
+  } | null> {
+    const move = await client.deviceTransition.findFirst({
+      where: { deviceId, toStatus: DeviceStatus.RETURNED },
+      orderBy: { createdAt: 'desc' },
+      select: { refType: true, refId: true, createdAt: true },
+    });
+    if (!move) return null;
+    const lossCase =
+      move.refType === 'LOSS_CASE' && move.refId
+        ? await client.lossCase.findUnique({
+            where: { id: move.refId },
+            select: { contractId: true },
+          })
+        : null;
+    return {
+      refType: move.refType,
+      createdAt: move.createdAt,
+      lossCaseContractId: lossCase?.contractId ?? null,
+    };
+  }
+
   // The latest reset of a unit, null when it was never reset.
   async lastResetAt(deviceId: string, client: Client = this.prisma): Promise<Date | null> {
     const row = await client.deviceReset.findFirst({

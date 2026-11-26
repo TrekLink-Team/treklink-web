@@ -9,6 +9,7 @@ import {
   useDevice,
   useDeviceHistory,
   NEXT_STEP_LABELS,
+  inspectRecoveredDevice,
   nextStepPath,
   type Device,
   type DeviceDetail,
@@ -25,6 +26,7 @@ import { Dialog } from '../shared/ui/Dialog';
 import { Field, Input, Textarea } from '../shared/ui/Field';
 import { DEVICE_STATUS, MAINTENANCE_STATUS, type DeviceStatus } from '../shared/ui/status';
 import { StatusBadge } from '../shared/ui/Badge';
+import { InspectDialog } from '../features/inspect-device/InspectDialog';
 import { ReportLossDialog } from '../features/report-loss/ReportLossDialog';
 import {
   openConnector,
@@ -54,7 +56,12 @@ const NEXT_STEP_TEXT: Record<NextAction, string> = {
   INTAKE: 'Record an intake check on this page. A pass makes it available.',
 };
 
-const NextStepPanel: React.FC<{ device: DeviceDetail; step: NextStep }> = ({ device, step }) => {
+// onInspect opens the inspection of a unit recovered outside a contract (devices api-design 35, D-114).
+const NextStepPanel: React.FC<{ device: DeviceDetail; step: NextStep; onInspect: () => void }> = ({
+  device,
+  step,
+  onInspect,
+}) => {
   const path = step.action === 'INTAKE' ? null : nextStepPath(step, device.id);
   return (
     <div className={CARD} aria-labelledby="next-step-title" role="region">
@@ -73,9 +80,14 @@ const NextStepPanel: React.FC<{ device: DeviceDetail; step: NextStep }> = ({ dev
         </p>
       )}
       {!path && step.action === 'INSPECT' && (
-        <p className="mt-2 text-sm text-ink-muted">
-          It came back outside a contract, and no counter records its inspection yet.
-        </p>
+        <>
+          <p className="mt-2 text-sm text-ink-muted">
+            It came back outside a contract: record its inspection on this page.
+          </p>
+          <Button className="mt-3" variant="primary" onClick={onInspect}>
+            Inspect
+          </Button>
+        </>
       )}
     </div>
   );
@@ -192,6 +204,7 @@ export const DeviceDetailPage: React.FC = () => {
   const [editingFirmware, setEditingFirmware] = useState(false);
   const [intaking, setIntaking] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [inspecting, setInspecting] = useState(false);
   const [retiring, setRetiring] = useState(false);
   const [retireReason, setRetireReason] = useState('');
   const [retireFailure, setRetireFailure] = useState<string | null>(null);
@@ -406,7 +419,9 @@ export const DeviceDetailPage: React.FC = () => {
               </dl>
             </div>
 
-            {device.nextStep && <NextStepPanel device={device} step={device.nextStep} />}
+            {device.nextStep && (
+              <NextStepPanel device={device} step={device.nextStep} onInspect={() => setInspecting(true)} />
+            )}
 
             {phone && variantCard}
 
@@ -505,6 +520,19 @@ export const DeviceDetailPage: React.FC = () => {
             await refresh();
           })()}
           onCancel={() => setResetting(false)}
+        />
+      )}
+      {inspecting && (
+        <InspectDialog
+          assetTag={device.assetTag}
+          hardwareVariantId={device.hardwareVariant.id}
+          charged={false}
+          inspect={(input) => inspectRecoveredDevice(device.id, input)}
+          onClose={() => setInspecting(false)}
+          onDone={() => void (async () => {
+            setInspecting(false);
+            await refresh();
+          })()}
         />
       )}
       {retiring && (

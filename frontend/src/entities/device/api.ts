@@ -286,6 +286,18 @@ export const recordReset = (id: string, nodeNum?: number) =>
     ...(nodeNum === undefined ? {} : { nodeNum }),
   });
 
+// devices api-design 35 (D-114): the inspection of a RETURNED unit recovered outside a contract, the
+// counter's result choices with no damage charge.
+export interface RecoveredInspection {
+  inspection: { id: string; result: 'PASSED' | 'DAMAGED' | 'FAILED'; damageCodes: string[]; createdAt: string };
+  device: { id: string; assetTag: string; status: DeviceStatus };
+}
+
+export const inspectRecoveredDevice = (
+  id: string,
+  input: { result: 'PASSED' | 'DAMAGED' | 'FAILED'; damageCodes: string[]; note?: string },
+) => post<RecoveredInspection>(`/devices/${id}/inspection`, input);
+
 // devices api-design 33 and 34 (design section 12.14): the device hub records each action on a docked unit, started
 // before anything is written and finished when it ends. RESERVED and RENTED units need the asset tag typed.
 export type HubActionKind = 'REBOOT' | 'FACTORY_RESET' | 'RESTORE_DEFAULTS' | 'UPLINK' | 'FIRMWARE_UPDATE';

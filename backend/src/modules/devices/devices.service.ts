@@ -42,6 +42,15 @@ export const notCheckedIn = () =>
     'Check this device in on its contract first.',
   );
 
+// A RETURNED unit with a contract row to return to (D-114): its counter records the inspection, with the
+// damage charge. The state code fits, as for notCheckedIn.
+const atTheCounter = () =>
+  new DomainException(
+    HttpStatus.CONFLICT,
+    ErrorCode.INVALID_STATE_TRANSITION,
+    'Inspect this device at the counter of the contract it came back on.',
+  );
+
 const staleVersion = () =>
   new DomainException(
     HttpStatus.CONFLICT,
@@ -721,6 +730,46 @@ export class DevicesService {
     return {
       inspection,
       device: { ...unit, status: next },
+    };
+  }
+
+  // devices api-design 35 (D-114, REQ-EVT-11): the inspection of a RETURNED unit with no contract row to
+  // return to, such as one lost from stock and recovered. A unit back from a check-in, or recovered from
+  // a loss case that names a contract, is inspected at that contract's counter instead (rentals
+  // api-design 16). The rest is the counter's recordInspection: the reset after the unit's last move into
+  // RETURNED (409 RESET_REQUIRED), the open contract row refused, and the PASSED, DAMAGED and FAILED
+  // routing. No damage charge: no contract carries one.
+  async inspectRecovered(
+    deviceId: string,
+    input: { result: InspectionResult; damageCodes: string[]; note: string | null },
+    actorId: string,
+    at: Date,
+    tx: Prisma.TransactionClient,
+  ) {
+    if (input.result === InspectionResult.DAMAGED && input.damageCodes.length === 0) {
+      throw new DomainException(
+        HttpStatus.BAD_REQUEST,
+        ErrorCode.VALIDATION_FAILED,
+        'damageCodes is required.',
+      );
+    }
+    // The row lock serializes two inspections of one return, as the reset does.
+    const unit = await this.devices.lockUnit(deviceId, tx);
+    if (!unit) throw notFound();
+    if (unit.status !== DeviceStatus.RETURNED) throw wrongState(unit.status);
+    const move = await this.devices.lastReturnMove(deviceId, tx);
+    if (!move) throw wrongState(unit.status);
+    if (move.refType === 'CONTRACT' || move.lossCaseContractId !== null) throw atTheCounter();
+    const recorded = await this.recordInspection(
+      deviceId,
+      { ...input, contractDeviceId: null, checkedInAt: move.createdAt },
+      actorId,
+      at,
+      tx,
+    );
+    return {
+      inspection: recorded.inspection,
+      device: { id: deviceId, assetTag: unit.assetTag, status: recorded.device.status },
     };
   }
 
