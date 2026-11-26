@@ -55,7 +55,10 @@ the same file and listed in the
    ```
 
    A backend elsewhere than the host's port 3000 is named with `BROKER_HOOK_BACKEND`, for example
-   `BROKER_HOOK_BACKEND=http://192.168.1.10:3000`.
+   `BROKER_HOOK_BACKEND=http://192.168.1.10:3000`. The proxy resolves that name again for each request
+   through Docker's DNS (127.0.0.11), which does not read the container's `/etc/hosts`. If the hooks answer
+   502 because `host.docker.internal` (written by `extra_hosts`) does not resolve that way on your Docker
+   Engine, set `BROKER_HOOK_BACKEND` to the host's IP address, as above.
 
 3. A Field Station connects with the Username and Secret of its credential (`GATEWAY_FS_USERNAME`,
    `GATEWAY_FS_SECRET`). A revoked station is refused at its next connection, and its next publish is

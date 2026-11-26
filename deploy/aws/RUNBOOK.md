@@ -138,8 +138,9 @@ What it does, each step named in its output and in its error message when it fai
 6. SSM Run Command on the host: installs the release in `/opt/treklink/app`, writes `deploy/aws/.env`
    (mode 0600), builds the backend image, starts compose, waits for the backend to be healthy, builds the
    web app, syncs it to the frontend bucket, invalidates CloudFront, checks `https://<host name>/api/health`
-   from the host, waits up to 60 s for it to show `"mqtt":"up"` and otherwise restarts Mosquitto once and
-   fails when it is still not up 120 s later (web#517), then builds and publishes the developer docs and checks `https://<host name>/developers/`.
+   from the host, waits up to 60 s for it to show `"mqtt":"up"` and otherwise restarts broker-hook-proxy and
+   Mosquitto once and fails when it is still not up 120 s later (web#517); when compose replaced the
+   backend container it also restarts broker-hook-proxy before that wait, then builds and publishes the developer docs and checks `https://<host name>/developers/`.
    The build logs stay on the host in `/opt/treklink/logs/`; the last lines are printed when a host step
    fails.
 7. Prints the URLs and the health results.
@@ -205,7 +206,14 @@ On 2026-11-18 the go-auth plugin panicked in its ACL cache a few minutes after a
 broker exited, and the container stayed `Up` while `start.sh` slept. Three things now cover it: the plugin's
 cache is off (`mosquitto/mosquitto.conf`), `start.sh` exits within `BROKER_CHECK_SECONDS` (5 s) of the
 broker exiting so `restart: unless-stopped` starts it again, and the host step of `up.sh` restarts the broker
-once when health shows `mqtt` down. After any redeploy, and before a field test or a demo, check it:
+once when health shows `mqtt` down.
+
+On 2026-11-26 a redeploy gave the backend container a new address, and broker-hook-proxy, up 13 days,
+kept proxying the hooks to the old one: every hook answered 502, so with the cache off no client could
+connect, the backend's MQTT client included. The proxy now resolves the backend's name again for each
+request (`infra/mosquitto/broker-hook-proxy.conf.template`), and the host step restarts the proxy when the
+backend container is new and together with the broker in its recovery. After any redeploy, and before a
+field test or a demo, check it:
 
 ```bash
 curl -s https://<host name>/api/health
@@ -214,19 +222,22 @@ curl -s https://<host name>/api/health
 The answer must show `"mqtt":"up"`. When it shows `"mqtt":"down"`, on the host:
 
 ```bash
-docker compose ps mosquitto
+docker compose ps broker-hook-proxy mosquitto
 ```
 
 ```bash
-docker compose logs --tail 50 mosquitto
+docker compose logs --tail 50 broker-hook-proxy mosquitto
 ```
 
+Hook calls answered `502`, or `connect() failed ... upstream` lines, in the proxy's log mean the proxy
+cannot reach the backend. Restart both, the proxy first:
+
 ```bash
-docker compose restart mosquitto
+docker compose restart broker-hook-proxy mosquitto
 ```
 
 `docker compose ps` shows the broker `unhealthy` when port 1883 refuses a TCP connection. Compose does not
-restart an unhealthy container by itself, so restart it as above and check health again within a minute
+restart an unhealthy container by itself, so restart them as above and check health again within a minute
 (the backend reconnects every 5 s). Keep the log lines of a crash for the issue.
 
 ### Down
