@@ -312,7 +312,8 @@ describe('Field Station local API with the uplink down (REQ-STA-02)', () => {
       brokerUrl,
       queue,
       { username: '', secret: '' },
-      { reconnectPeriodMs: 200 },
+      // The aedes test broker refuses MQTT 5.
+      { reconnectPeriodMs: 200, protocolVersion: 4 },
     );
     cleanups.push(() => mqttClient.disconnect());
     const state = new StationState({ staleSeconds: 300, eventLogSize: 50 });

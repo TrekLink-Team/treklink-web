@@ -1,7 +1,16 @@
 import { EventEmitter } from 'events';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import * as mqtt from 'mqtt';
-import { SQLitePriorityQueue } from '../queue/priority-queue';
-import { connectOptions, GatewayMqttClient, redactBrokerUrl, uplinkOf } from './mqtt-client';
+import { PriorityTier, SQLitePriorityQueue } from '../queue/priority-queue';
+import {
+  connectOptions,
+  GatewayMqttClient,
+  redactBrokerUrl,
+  refusalCode,
+  uplinkOf,
+} from './mqtt-client';
 
 const mockLines: string[] = [];
 jest.mock('pino', () => ({
@@ -25,6 +34,7 @@ describe('connectOptions (gateway-sync design §4, the Field Station credential)
     expect(connectOptions({ username: 'fs-org-0001-1', secret: SECRET }, 'gw-1', 3000)).toEqual({
       clientId: 'gw-1',
       reconnectPeriod: 3000,
+      protocolVersion: 5,
       username: 'fs-org-0001-1',
       password: SECRET,
     });
@@ -36,7 +46,7 @@ describe('connectOptions (gateway-sync design §4, the Field Station credential)
     ['only the secret is set', { username: '', secret: SECRET }],
   ])('omits both when %s', (_case, credential) => {
     const options = connectOptions(credential, 'gw-1', 3000);
-    expect(options).toEqual({ clientId: 'gw-1', reconnectPeriod: 3000 });
+    expect(options).toEqual({ clientId: 'gw-1', reconnectPeriod: 3000, protocolVersion: 5 });
     expect(options).not.toHaveProperty('username');
     expect(options).not.toHaveProperty('password');
   });
@@ -128,5 +138,82 @@ describe('uplinkOf', () => {
     expect(
       uplinkOf({ ...item, createdAt: 'later' }, 1, { ...settings, stationTopic: true }),
     ).toBeNull();
+  });
+});
+
+// web#548: Mosquitto with its ACL refusing the topic, as a local Mosquitto 2.0.18 answers a QoS 1 publish
+// through mqtt.js 5.15.2: under MQTT 5 the callback gets ErrorWithReasonCode 135 (Not authorized) and the
+// PUBACK; under 3.1.1 a plain PUBACK and no error, so the refusal cannot be seen.
+class RefusingBroker extends EventEmitter {
+  outgoing: Record<number, unknown> = {};
+  published: string[] = [];
+  constructor(private readonly protocolVersion: number | undefined) {
+    super();
+  }
+  publish(
+    topic: string,
+    _payload: string,
+    _options: unknown,
+    callback: (err?: Error, packet?: object) => void,
+  ) {
+    this.published.push(topic);
+    if (this.protocolVersion === 5) {
+      const err = Object.assign(new Error('Publish error: Not authorized'), { code: 135 });
+      callback(err, { cmd: 'puback', reasonCode: 135 });
+    } else {
+      callback(undefined, { cmd: 'puback' });
+    }
+  }
+  removeOutgoingMessage() {}
+  end() {}
+}
+
+describe('GatewayMqttClient flush when the broker refuses a publish (web#548)', () => {
+  let root: string;
+  let queue: SQLitePriorityQueue;
+
+  beforeEach(() => {
+    mockLines.length = 0;
+    root = mkdtempSync(join(tmpdir(), 'gateway-refused-'));
+    queue = new SQLitePriorityQueue(join(root, 'queue.db'), {
+      logger: { warn: () => undefined, error: () => undefined },
+    });
+    const packet = { id: 7, from: 0xde000009, sender: '!de000009', type: 'text', payload: { text: 'SOS' } };
+    queue.enqueue('ev-7', PriorityTier.P0_SOS, packet);
+  });
+
+  afterEach(() => {
+    queue.close();
+    rmSync(root, { recursive: true, force: true });
+    connect.mockReset();
+    connect.mockImplementation(() => new EventEmitter());
+  });
+
+  it('keeps a row refused with reason 135, counts its attempt and shows the reason on the local page', () => {
+    let broker: RefusingBroker | undefined;
+    connect.mockImplementation((_url, options) => {
+      broker = new RefusingBroker(options.protocolVersion);
+      return broker as unknown as EventEmitter;
+    });
+    const client = new GatewayMqttClient('mqtt://localhost:1883', queue, { username: '', secret: '' });
+    client.connect();
+    broker!.emit('connect');
+
+    expect(broker!.published).toHaveLength(1);
+    expect(queue.count()).toBe(1);
+    expect(queue.peek(1)[0].retryCount).toBe(1);
+    expect(client.uplinkStatus().lastError?.message).toContain('reason code 135');
+    expect(client.uplinkStatus().lastFlushAt).toBeNull();
+    expect(mockLines.join('\n')).toContain('Failed to publish event ev-7: Publish refused by the broker, reason code 135');
+  });
+
+  it('reads the reason code from the PUBACK or the mqtt.js error, and only from 0x80', () => {
+    expect(refusalCode(undefined, { reasonCode: 135 })).toBe(135);
+    expect(refusalCode(Object.assign(new Error('x'), { code: 151 }), undefined)).toBe(151);
+    expect(refusalCode(undefined, { reasonCode: 16 })).toBeNull();
+    expect(refusalCode(undefined, { reasonCode: 0 })).toBeNull();
+    expect(refusalCode(undefined, { cmd: 'puback' })).toBeNull();
+    expect(refusalCode(Object.assign(new Error('x'), { code: 'ECONNRESET' }), undefined)).toBeNull();
+    expect(refusalCode(undefined, undefined)).toBeNull();
   });
 });
