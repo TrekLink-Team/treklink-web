@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { DomainException, ErrorCode } from '../../common/errors';
 import { DevicesService } from '../devices';
+import { FieldEventQueryService } from '../gateway-sync';
 import { IncidentsQueryService } from '../incidents';
 import { OrganizationsService } from '../organizations';
 import { ContractsService } from '../rentals';
@@ -31,6 +32,10 @@ export const PLAYBACK_MAX_SECONDS = 60;
 export const PLAYBACK_DEFAULT_SECONDS = 10;
 // How often a waiting step reads the state it waits for (D-110 rule 8, demo tool constant).
 export const PLAYBACK_WAIT_POLL_MS = 3000;
+// MF-05 never ends a contract holding a unit heard from a real node (simulated false) within this many
+// days, such as a real-unit rehearsal contract (D-110 rule 6, demo tool constant).
+export const REAL_NODE_LOOKBACK_DAYS = 7;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 interface Resolved {
   command: PanelCommand;
@@ -124,6 +129,8 @@ export class DemoPanelPlayback implements OnModuleDestroy {
   // Counts the runs started, so a read that outlives its run (Stop, then START) is dropped.
   private runId = 0;
   private executing: Promise<void> | null = null;
+  // The contract the last MF-01c run handed over, kept across runs so MF-05 ends that one first.
+  private lastHandedOver: string | null = null;
 
   constructor(
     private readonly panel: DemoPanelService,
@@ -132,6 +139,7 @@ export class DemoPanelPlayback implements OnModuleDestroy {
     private readonly incidents: IncidentsQueryService,
     private readonly organizations: OrganizationsService,
     private readonly lock: DemoPanelLock,
+    private readonly fieldEvents: FieldEventQueryService,
   ) {}
 
   onModuleDestroy() {
@@ -289,6 +297,8 @@ export class DemoPanelPlayback implements OnModuleDestroy {
         const result = await this.panel.run(command, input, this.client);
         view.records = result.records;
         this.context = { ...this.context, ...result.context };
+        if (command === 'contract-handover' && result.context.contractId)
+          this.lastHandedOver = result.context.contractId;
       }
       view.status = 'DONE';
     } catch (error) {
@@ -411,10 +421,32 @@ export class DemoPanelPlayback implements OnModuleDestroy {
     return contract.version;
   }
 
-  private async contractByCode(code: string) {
-    const contract = await this.contracts.byCode(code);
-    if (!contract) throw unavailable(`${code} is not in the demo data. Reseed the demo data.`);
-    return contract;
+  // The contract MF-05 ends (D-110 rule 6): the one the last MF-01c run handed over while it is still
+  // ACTIVE, else the newest ACTIVE contract of ORG-0001. A contract holding a unit heard from a real node
+  // in the last REAL_NODE_LOOKBACK_DAYS days is never taken, so a real-unit rehearsal stays untouched.
+  private async runningContract(now: Date = new Date()): Promise<{ id: string; version: number }> {
+    const organizationId = await this.organizationId();
+    const active = (await this.contracts.panelOptions()).filter((row) => row.status === 'ACTIVE');
+    const candidates = [
+      ...active.filter((row) => row.id === this.lastHandedOver),
+      ...active.filter(
+        (row) => row.id !== this.lastHandedOver && row.organizationId === organizationId,
+      ),
+    ];
+    const ids = new Set(candidates.map((row) => row.id));
+    const custody = (await this.contracts.visibleDevices({ organizationId: null })).filter((unit) =>
+      ids.has(unit.contractId),
+    );
+    const real = await this.fieldEvents.realNodeDevices(
+      custody.map((unit) => unit.deviceId),
+      new Date(now.getTime() - REAL_NODE_LOOKBACK_DAYS * DAY_MS),
+    );
+    const held = new Set(
+      custody.filter((unit) => real.has(unit.deviceId)).map((unit) => unit.contractId),
+    );
+    const contract = candidates.find((row) => !held.has(row.id));
+    if (!contract) throw unavailable('No running contract to end; run MF-01b and MF-01c first.');
+    return { id: contract.id, version: contract.version };
   }
 
   private async approvedContract(ctx: PanelContext): Promise<{ id: string; version: number }> {
@@ -663,7 +695,7 @@ export class DemoPanelPlayback implements OnModuleDestroy {
             line: 'Notice, End contract now, then check-in, reset and inspection of every unit.',
             click: 'Give notice, End contract now; Record return, check in, Record reset, Inspect.',
             run: async () => {
-              const contract = await this.contractByCode('RC-2026-0002');
+              const contract = await this.runningContract();
               return {
                 command: 'contract-return',
                 input: { recordId: contract.id, expectedVersion: contract.version },
@@ -677,7 +709,10 @@ export class DemoPanelPlayback implements OnModuleDestroy {
             line: 'Open balances are paid at the counter; the contract closes.',
             click: 'Open the invoices, Record counter payment; tab Close, Close contract.',
             run: async (ctx) => {
-              const id = ctx.contractId ?? (await this.contractByCode('RC-2026-0002')).id;
+              // The contract the return step ended: it is no longer ACTIVE, so it is not looked up again.
+              const id = ctx.contractId;
+              if (!id)
+                throw unavailable('The return step recorded no contract. Start the flow again.');
               return {
                 command: 'contract-close',
                 input: { recordId: id, expectedVersion: await this.contractVersion(id) },

@@ -168,6 +168,17 @@ export class SyncQueryRepository {
     return rows.filter((row) => row.simulated).map((row) => row.deviceId);
   }
 
+  // The devices among `deviceIds` heard from a real node (simulated false) at or after `since`.
+  async realNodeDevices(deviceIds: readonly string[], since: Date): Promise<string[]> {
+    if (deviceIds.length === 0) return [];
+    const rows = await this.prisma.fieldEvent.findMany({
+      where: { deviceId: { in: [...deviceIds] }, simulated: false, receivedAt: { gte: since } },
+      distinct: ['deviceId'],
+      select: { deviceId: true },
+    });
+    return rows.map((row) => row.deviceId);
+  }
+
   async lastReceivedAt(): Promise<Date | null> {
     const row = await this.prisma.fieldEvent.findFirst({
       orderBy: { seq: 'desc' },

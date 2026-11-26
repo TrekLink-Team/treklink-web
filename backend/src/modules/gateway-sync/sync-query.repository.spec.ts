@@ -101,6 +101,20 @@ describe('SyncQueryRepository', () => {
     await expect(repository.lastReceivedAt()).resolves.toBeNull();
   });
 
+  it('reads the devices heard from a real node since a time, once each, and nothing for no device', async () => {
+    const since = new Date('2026-11-19T00:00:00Z');
+    prisma.fieldEvent.findMany.mockResolvedValue([{ deviceId: 'd-1' }]);
+    await expect(repository.realNodeDevices(['d-1', 'd-2'], since)).resolves.toEqual(['d-1']);
+    expect(prisma.fieldEvent.findMany).toHaveBeenCalledWith({
+      where: { deviceId: { in: ['d-1', 'd-2'] }, simulated: false, receivedAt: { gte: since } },
+      distinct: ['deviceId'],
+      select: { deviceId: true },
+    });
+    prisma.fieldEvent.findMany.mockClear();
+    await expect(repository.realNodeDevices([], since)).resolves.toEqual([]);
+    expect(prisma.fieldEvent.findMany).not.toHaveBeenCalled();
+  });
+
   it('counts devices whose newest queue report holds messages, one row per device', async () => {
     prisma.$queryRaw.mockResolvedValue([{ reporting: 5n, buffering: 3n }]);
     await expect(repository.devicesBuffering()).resolves.toBe(3);

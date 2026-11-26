@@ -222,3 +222,18 @@ describe('FieldEventQueryService.simulatedDevices (demo design §9)', () => {
     expect(simulatedLatest).toHaveBeenCalledWith([]);
   });
 });
+
+describe('FieldEventQueryService.realNodeDevices (demo panel MF-05, D-110)', () => {
+  it('asks the repository once per device and answers a set', async () => {
+    const since = new Date('2026-11-19T00:00:00.000Z');
+    const realNodeDevices = jest.fn().mockResolvedValue(['d-1']);
+    const service = new FieldEventQueryService(
+      { realNodeDevices } as unknown as SyncQueryRepository,
+      {} as never,
+    );
+    await expect(service.realNodeDevices(['d-1', 'd-2', 'd-1'], since)).resolves.toEqual(
+      new Set(['d-1']),
+    );
+    expect(realNodeDevices).toHaveBeenCalledWith(['d-1', 'd-2'], since);
+  });
+});
