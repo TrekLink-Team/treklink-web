@@ -31,6 +31,11 @@ export interface LocalUplinkSource {
     brokerUrl: string;
     lastError: { message: string; at: number } | null;
     lastFlushAt: number | null;
+    /** Rows the broker refused MAX_REFUSALS times (web#558): how many are kept, and the newest. */
+    refused: {
+      total: number;
+      recent: { eventId: string; priority: number; reasonCode: number; refusals: number; refusedAt: number }[];
+    };
   };
 }
 
@@ -155,6 +160,10 @@ const GET_ROUTES: Record<string, Handler> = {
           lastError: broker.lastError && {
             message: broker.lastError.message,
             at: iso(broker.lastError.at),
+          },
+          refused: {
+            total: broker.refused.total,
+            recent: broker.refused.recent.map((row) => ({ ...row, refusedAt: iso(row.refusedAt) })),
           },
         },
         serial: { ...port, lastFrameAt: iso(port.lastFrameAt) },

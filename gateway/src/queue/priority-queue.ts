@@ -9,6 +9,27 @@ export { PriorityTier };
 /** The tiers the bound may shed, in the order it sheds them (REQ-STA-03): P3, then P2. */
 export const SHEDDABLE_TIERS: readonly PriorityTier[] = [PriorityTier.P3_TELEMETRY, PriorityTier.P2_GPS];
 
+/**
+ * Broker refusals (PUBACK reason code 0x80 or higher) after which a row leaves the live queue for the
+ * refused list (web#558). A refusal such as a node outside the station's custody (web#547) is permanent:
+ * kept in the queue, 20 such rows at the head of a tier would fill every batch and stall the rows behind.
+ * Three tries let a transient refusal pass.
+ */
+export const MAX_REFUSALS = 3;
+
+/** How many refused rows the refused list keeps, newest first; older ones are deleted. */
+export const REFUSED_KEEP_ROWS = 200;
+
+/** One row the broker refused MAX_REFUSALS times, as the local page shows it. */
+export interface RefusedEvent {
+  eventId: string;
+  priority: number;
+  reasonCode: number;
+  refusals: number;
+  /** Station clock, epoch ms, when the row left the queue. */
+  refusedAt: number;
+}
+
 /** One row the bound removed. */
 export interface ShedRow {
   id: number;
@@ -53,6 +74,7 @@ export class SQLitePriorityQueue {
   /** Rows shed since this process started, index 0 = P0 .. 3 = P3; only P2 and P3 can be non-zero. */
   private readonly shedCount = [0, 0, 0, 0];
   private enqueueTx!: (eventId: string, priority: PriorityTier, payload: string) => EnqueueResult;
+  private refuseTx!: (id: number, reasonCode: number) => { refusals: number; movedOut: boolean };
 
   constructor(dbPath: string = gatewayConfig.queue.dbPath, options: QueueOptions = {}) {
     this.maxRows = options.maxRows ?? gatewayConfig.queue.maxRows;
@@ -81,8 +103,25 @@ export class SQLitePriorityQueue {
       -- Within one priority this index is in rowid order, so the oldest row of a tier (the shed) and the
       -- flush order (priority, id) are index lookups rather than scans of the tier.
       CREATE INDEX IF NOT EXISTS idx_priority_id ON event_queue (priority ASC);
+      -- Rows the broker refused MAX_REFUSALS times (web#558): out of the live queue, kept for the local page.
+      CREATE TABLE IF NOT EXISTS refused_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_id TEXT NOT NULL,
+        priority INTEGER NOT NULL,
+        payload TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        refused_at TEXT NOT NULL DEFAULT (datetime('now')),
+        reason_code INTEGER NOT NULL,
+        refusals INTEGER NOT NULL
+      );
     `);
+    // A queue file written before web#558 has no refusal_count column.
+    const columns = this.db.prepare('PRAGMA table_info(event_queue)').all() as { name: string }[];
+    if (!columns.some((column) => column.name === 'refusal_count')) {
+      this.db.exec('ALTER TABLE event_queue ADD COLUMN refusal_count INTEGER NOT NULL DEFAULT 0');
+    }
     this.prepareEnqueue();
+    this.prepareRefuse();
   }
 
   // The insert and every shed it causes commit together (better-sqlite3 transaction), so a crash leaves
@@ -119,6 +158,31 @@ export class SQLitePriorityQueue {
         rows -= 1;
       }
       return result;
+    });
+  }
+
+  // The count, the move to the refused list and the trim of that list commit together.
+  private prepareRefuse(): void {
+    const count = this.db.prepare(
+      'UPDATE event_queue SET retry_count = retry_count + 1, refusal_count = refusal_count + 1 WHERE id = ?',
+    );
+    const read = this.db.prepare('SELECT refusal_count as refusals FROM event_queue WHERE id = ?');
+    const moveOut = this.db.prepare(`
+      INSERT INTO refused_events (event_id, priority, payload, created_at, reason_code, refusals)
+      SELECT event_id, priority, payload, created_at, ?, refusal_count FROM event_queue WHERE id = ?
+    `);
+    const remove = this.db.prepare('DELETE FROM event_queue WHERE id = ?');
+    const trim = this.db.prepare(
+      'DELETE FROM refused_events WHERE id NOT IN (SELECT id FROM refused_events ORDER BY id DESC LIMIT ?)',
+    );
+    this.refuseTx = this.db.transaction((id: number, reasonCode: number) => {
+      if (count.run(id).changes === 0) return { refusals: 0, movedOut: false };
+      const { refusals } = read.get(id) as { refusals: number };
+      if (refusals < MAX_REFUSALS) return { refusals, movedOut: false };
+      moveOut.run(reasonCode, id);
+      remove.run(id);
+      trim.run(REFUSED_KEEP_ROWS);
+      return { refusals, movedOut: true };
     });
   }
 
@@ -185,6 +249,32 @@ export class SQLitePriorityQueue {
   // Records a failed publish of a row, so the health report can show how often the oldest entry was tried.
   public markAttempt(id: number): void {
     this.db.prepare('UPDATE event_queue SET retry_count = retry_count + 1 WHERE id = ?').run(id);
+  }
+
+  /**
+   * Records a publish the broker refused (web#558). The row's attempt and refusal counts go up; at
+   * MAX_REFUSALS it leaves the live queue for the refused list, so it is never sent again and no longer
+   * holds a place in a batch. A row already gone (shed meanwhile) changes nothing.
+   */
+  public markRefused(id: number, reasonCode: number): { refusals: number; movedOut: boolean } {
+    return this.refuseTx(id, reasonCode);
+  }
+
+  /** The refused list for the local page: how many rows it keeps and the newest `limit` of them. */
+  public refusedSummary(limit = 5): { total: number; recent: RefusedEvent[] } {
+    const { total } = this.db.prepare('SELECT count(*) as total FROM refused_events').get() as {
+      total: number;
+    };
+    const rows = this.db
+      .prepare(
+        `SELECT event_id as eventId, priority, reason_code as reasonCode, refusals, refused_at as refusedAt
+         FROM refused_events ORDER BY id DESC LIMIT ?`,
+      )
+      .all(limit) as (Omit<RefusedEvent, 'refusedAt'> & { refusedAt: string })[];
+    return {
+      total,
+      recent: rows.map((row) => ({ ...row, refusedAt: Date.parse(`${row.refusedAt.replace(' ', 'T')}Z`) })),
+    };
   }
 
   /** Queued entries per tier, index 0 = P0 .. 3 = P3 (the health report's `depth`). */

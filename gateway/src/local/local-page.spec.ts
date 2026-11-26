@@ -69,6 +69,7 @@ describe('Field Station local page (gateway-sync task 5.2)', () => {
           brokerUrl: 'mqtt://localhost:1883',
           lastError: null,
           lastFlushAt: null,
+          refused: { total: 0, recent: [] },
         }),
       },
       serial: {

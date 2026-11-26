@@ -178,7 +178,13 @@ describe('GatewayMqttClient flush when the broker refuses a publish (web#548)', 
     queue = new SQLitePriorityQueue(join(root, 'queue.db'), {
       logger: { warn: () => undefined, error: () => undefined },
     });
-    const packet = { id: 7, from: 0xde000009, sender: '!de000009', type: 'text', payload: { text: 'SOS' } };
+    const packet = {
+      id: 7,
+      from: 0xde000009,
+      sender: '!de000009',
+      type: 'text',
+      payload: { text: 'SOS' },
+    };
     queue.enqueue('ev-7', PriorityTier.P0_SOS, packet);
   });
 
@@ -195,7 +201,10 @@ describe('GatewayMqttClient flush when the broker refuses a publish (web#548)', 
       broker = new RefusingBroker(options.protocolVersion);
       return broker as unknown as EventEmitter;
     });
-    const client = new GatewayMqttClient('mqtt://localhost:1883', queue, { username: '', secret: '' });
+    const client = new GatewayMqttClient('mqtt://localhost:1883', queue, {
+      username: '',
+      secret: '',
+    });
     client.connect();
     broker!.emit('connect');
 
@@ -204,7 +213,9 @@ describe('GatewayMqttClient flush when the broker refuses a publish (web#548)', 
     expect(queue.peek(1)[0].retryCount).toBe(1);
     expect(client.uplinkStatus().lastError?.message).toContain('reason code 135');
     expect(client.uplinkStatus().lastFlushAt).toBeNull();
-    expect(mockLines.join('\n')).toContain('Failed to publish event ev-7: Publish refused by the broker, reason code 135');
+    expect(mockLines.join('\n')).toContain(
+      'Failed to publish event ev-7: Publish refused by the broker, reason code 135',
+    );
   });
 
   it('reads the reason code from the PUBACK or the mqtt.js error, and only from 0x80', () => {
@@ -213,7 +224,116 @@ describe('GatewayMqttClient flush when the broker refuses a publish (web#548)', 
     expect(refusalCode(undefined, { reasonCode: 16 })).toBeNull();
     expect(refusalCode(undefined, { reasonCode: 0 })).toBeNull();
     expect(refusalCode(undefined, { cmd: 'puback' })).toBeNull();
-    expect(refusalCode(Object.assign(new Error('x'), { code: 'ECONNRESET' }), undefined)).toBeNull();
+    expect(
+      refusalCode(Object.assign(new Error('x'), { code: 'ECONNRESET' }), undefined),
+    ).toBeNull();
     expect(refusalCode(undefined, undefined)).toBeNull();
+  });
+});
+
+// web#558: permanently refused rows leave the queue at their third refusal and never stall the rows
+// behind them; a refusal that clears before the third still sends.
+class TopicBroker extends EventEmitter {
+  outgoing: Record<number, unknown> = {};
+  delivered: string[] = [];
+  constructor(private readonly refuse: (topic: string) => boolean) {
+    super();
+  }
+  publish(
+    topic: string,
+    payload: string,
+    _options: unknown,
+    callback: (err?: Error, packet?: object) => void,
+  ) {
+    if (this.refuse(topic)) {
+      const err = Object.assign(new Error('Publish error: Not authorized'), { code: 135 });
+      callback(err, { cmd: 'puback', reasonCode: 135 });
+    } else {
+      this.delivered.push(payload);
+      callback(undefined, { cmd: 'puback', reasonCode: 0 });
+    }
+  }
+  removeOutgoingMessage() {}
+  end() {}
+}
+
+describe('GatewayMqttClient flush with refused rows ahead of good ones (web#558)', () => {
+  let root: string;
+  let queue: SQLitePriorityQueue;
+  const position = (n: number, sender: string) => ({
+    id: n,
+    from: 1,
+    sender,
+    type: 'position',
+    payload: {},
+  });
+  const station = (refuse: (topic: string) => boolean) => {
+    let broker: TopicBroker | undefined;
+    connect.mockImplementation(() => {
+      broker = new TopicBroker(refuse);
+      return broker as unknown as EventEmitter;
+    });
+    const client = new GatewayMqttClient('mqtt://localhost:1883', queue, {
+      username: '',
+      secret: '',
+    });
+    client.connect();
+    broker!.emit('connect');
+    return { client, broker: broker! };
+  };
+
+  beforeEach(() => {
+    mockLines.length = 0;
+    root = mkdtempSync(join(tmpdir(), 'gateway-refused-head-'));
+    queue = new SQLitePriorityQueue(join(root, 'queue.db'), {
+      logger: { warn: () => undefined, error: () => undefined },
+    });
+  });
+
+  afterEach(() => {
+    queue.close();
+    rmSync(root, { recursive: true, force: true });
+    connect.mockReset();
+    connect.mockImplementation(() => new EventEmitter());
+  });
+
+  it('moves 20 permanently refused P2 rows out by the third flush and sends the good rows behind them', () => {
+    // A node outside the station's custody (web#547): every publish on its topic is refused.
+    for (let n = 0; n < 20; n += 1)
+      queue.enqueue(`ev-out-${n}`, PriorityTier.P2_GPS, position(n, '!de00000b'));
+    for (let n = 0; n < 5; n += 1)
+      queue.enqueue(`ev-ok-${n}`, PriorityTier.P2_GPS, position(100 + n, '!de000009'));
+    const { client, broker } = station((topic) => topic.endsWith('!de00000b'));
+
+    // The connect flushed once; two more frames each start a flush.
+    client.flushQueue();
+    client.flushQueue();
+
+    expect(broker.delivered.map((payload) => (JSON.parse(payload) as { id: number }).id)).toEqual([
+      100, 101, 102, 103, 104,
+    ]);
+    expect(queue.count()).toBe(0);
+    const refused = client.uplinkStatus().refused;
+    expect(refused.total).toBe(20);
+    expect(refused.recent[0]).toMatchObject({ reasonCode: 135, refusals: 3, priority: 2 });
+    expect(mockLines.join('\n')).toContain('refused by the broker 3 times, reason code 135');
+  });
+
+  it('still sends a row whose refusal clears before the third try', () => {
+    queue.enqueue('ev-late', PriorityTier.P2_GPS, position(1, '!de000009'));
+    let refusalsLeft = 2;
+    const { client, broker } = station(() => {
+      if (refusalsLeft === 0) return false;
+      refusalsLeft -= 1;
+      return true;
+    });
+    expect(queue.count()).toBe(1);
+    client.flushQueue();
+    expect(queue.peek(1)[0].retryCount).toBe(2);
+    client.flushQueue();
+
+    expect(broker.delivered).toHaveLength(1);
+    expect(queue.count()).toBe(0);
+    expect(client.uplinkStatus().refused.total).toBe(0);
   });
 });
