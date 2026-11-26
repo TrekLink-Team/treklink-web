@@ -132,6 +132,45 @@ describe('LiveMapWidget', () => {
     }
   });
 
+  it('keeps the two sovereignty labels apart at every zoom the map allows (web#551)', async () => {
+    vi.mocked(getMapConfig).mockResolvedValue(config);
+    const { container } = renderWidget();
+    const selector = '.leaflet-sovereignty-pane .leaflet-marker-icon > div';
+    await waitFor(() => expect(container.querySelectorAll(selector)).toHaveLength(2));
+    // jsdom has no layout, so each label is modelled as a box at least its rendered size: in Chromium
+    // both draw 20 px high, 196 and 200 px wide.
+    const height = 24;
+    const width = 260;
+    const labels = [...container.querySelectorAll<HTMLElement>(selector)];
+    const boxes = (zoom: number) =>
+      labels.map((element) => {
+        const place = config.sovereigntyOverlay.find(
+          (entry) => entry.label === element.textContent,
+        );
+        if (!place) throw new Error(`label not in the overlay: ${element.textContent}`);
+        const anchor = L.CRS.EPSG3857.latLngToPoint(L.latLng(place.lat, place.lon), zoom);
+        const placement = element.dataset.placement ?? 'centre';
+        const top =
+          placement === 'above'
+            ? anchor.y - height - 2
+            : placement === 'below'
+              ? anchor.y + 2
+              : anchor.y - height / 2;
+        const left = anchor.x - width / 2;
+        return { left, right: left + width, top, bottom: top + height };
+      });
+    for (let zoom = 0; zoom <= 19; zoom += 1) {
+      const [a, b] = boxes(zoom);
+      const overlap = a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+      expect({ zoom, overlap }).toEqual({ zoom, overlap: false });
+    }
+    // The northern name hangs above its anchor, the southern below it.
+    const placementOf = (label: string) =>
+      labels.find((element) => element.textContent === label)?.dataset.placement;
+    expect(placementOf('Quần đảo Hoàng Sa (Việt Nam)')).toBe('above');
+    expect(placementOf('Quần đảo Trường Sa (Việt Nam)')).toBe('below');
+  });
+
   it('shows MSG33 when the config cannot be loaded (REQ-EVT-04)', async () => {
     vi.mocked(getMapConfig).mockRejectedValue(new Error('down'));
     renderWidget();
