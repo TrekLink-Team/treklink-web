@@ -1,7 +1,8 @@
 from ._common import USER_ID, CONTRACT_ID, NOW, STALE, ep
 
 NOTES = ("Control routes require `DEMO_CONTROLS_ENABLED=true` and explicit `VITE_APP_ENV` sandbox or staging; "
-         "otherwise they answer 404 (REQ-QUICK-01). Legacy stage and role-switch writes additionally refuse "
+         "otherwise they answer 404 (REQ-QUICK-01), except `GET /api/demo/status` (01), which then answers 200 to a "
+         "signed-in user with every field off and 401 without a token (D-113). Legacy stage and role-switch writes additionally refuse "
          "NODE_ENV production and non-loopback databases (design §2). Additive quick actions 11 and 12 allow "
          "staging production, require an Admin role and `demo.stage`, and check both database URLs. "
          "Route 05 is the public test accounts list under its independent `DEMO_TEST_ACCOUNTS_ENABLED` flag (D-089). "
@@ -28,15 +29,21 @@ ENDPOINTS = []
 ENDPOINTS.append(ep(
     "GET", "/api/demo/status", "Demo controls status", "Any signed-in user",
     "Tells the client whether demo controls can act in this process and on this database, and which "
-    "scenario was staged last. The account menu and the demo page read it to show or hide the controls.",
-    "D-088, REQ-EVT-01",
+    "scenario was staged last. The account menu and the demo page read it to show or hide the controls. "
+    "While the controls are off (`DEMO_CONTROLS_ENABLED` not `true`, or `VITE_APP_ENV` not `sandbox` or `staging`), "
+    "`DemoStatusOffController` answers instead of a 404: 200 with "
+    "`{ \"enabled\": false, \"quickEnabled\": false, \"roleSwitchEnabled\": false, \"databaseLocal\": false, "
+    "\"lastStaged\": null }`, and 401 without a token, as when they are on (D-113). Every other control route "
+    "stays a 404.",
+    "D-088, D-113, REQ-EVT-01",
+    notes="With the controls off: 200, the four flags false and `lastStaged` null; 401 without a token (D-113).",
     response={"enabled": True, "quickEnabled": True, "roleSwitchEnabled": False, "databaseLocal": False,
               "lastStaged": {"scenarioId": "clean", "at": NOW}},
-    fields=[["enabled", "True when local or additive quick controls are available", "boolean", "`true`"],
-            ["quickEnabled", "The explicit control/environment gate permits additive actions", "boolean", "`true`"],
-            ["roleSwitchEnabled", "Local role switching is allowed; always false in production", "boolean", "`false`"],
-            ["databaseLocal", "Both database URLs are loopback with no target overrides", "boolean", "`false`"],
-            ["lastStaged", "Last scenario staged by this process, or null", "object", "`null`"]],
+    fields=[["enabled", "True when local or additive quick controls are available; false while the controls are off", "boolean", "`true`"],
+            ["quickEnabled", "The explicit control/environment gate permits additive actions; false while the controls are off", "boolean", "`true`"],
+            ["roleSwitchEnabled", "Local role switching is allowed; always false in production and while the controls are off", "boolean", "`false`"],
+            ["databaseLocal", "Both database URLs are loopback with no target overrides; false while the controls are off", "boolean", "`false`"],
+            ["lastStaged", "Last scenario staged by this process, or null; null while the controls are off", "object", "`null`"]],
     steps=["Read NODE_ENV and the DATABASE_URL host", "Read the last staged scenario held in memory"],
     controller="DemoController", service="DemoScenariosService", call="status()",
     seq=["Svc->>Svc: guards.facts()"]))
