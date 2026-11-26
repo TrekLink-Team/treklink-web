@@ -122,5 +122,10 @@ export class FieldEventQueryService {
       ),
     );
   }
+  // The devices among `deviceIds` with a field event from a real node (not the field simulation) received
+  // at or after `since`: the demo panel keeps a contract holding one out of its playbacks (D-110).
+  async realNodeDevices(deviceIds: readonly string[], since: Date): Promise<Set<string>> {
+    return new Set(await this.repository.realNodeDevices([...new Set(deviceIds)], since));
+  }
   // --- end monitoring reads ---------------------------------------------------------------------------
 }

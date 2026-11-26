@@ -18,14 +18,27 @@ const build = () => {
         label: 'Demo 1',
         actedAs: null,
         records: [{ label: command, code: 'X', path: '/x' }],
-        context: command === 'incident-sos' ? { incidentId: 'i-1' } : {},
+        // As the real commands: the SOS names its incident, a handover and a return their contract.
+        context:
+          command === 'incident-sos'
+            ? { incidentId: 'i-1' }
+            : command === 'contract-return'
+              ? { contractId: 'c-2' }
+              : command === 'contract-handover'
+                ? { contractId: 'c-9' }
+                : {},
       }),
     ),
   };
   const contracts = {
     byCode: jest.fn().mockResolvedValue({ id: 'c-2', version: 7 }),
     demoDetail: jest.fn().mockResolvedValue({ id: 'c-2', version: 8 }),
-    panelOptions: jest.fn().mockResolvedValue([]),
+    // RC-2026-0002 running for ORG-0001, the contract MF-05 ends unless a test says otherwise.
+    panelOptions: jest
+      .fn()
+      .mockResolvedValue([
+        { id: 'c-2', code: 'RC-2026-0002', status: 'ACTIVE', version: 7, organizationId: 'org-1' },
+      ]),
     visibleDevices: jest.fn().mockResolvedValue([]),
   };
   const devices = {
@@ -36,6 +49,7 @@ const build = () => {
   const organizations = {
     activeDemoOptions: jest.fn().mockResolvedValue([{ id: 'org-1', code: 'ORG-0001' }]),
   };
+  const fieldEvents = { realNodeDevices: jest.fn().mockResolvedValue(new Set<string>()) };
   const lock = new DemoPanelLock();
   const playback = new DemoPanelPlayback(
     panel as never,
@@ -44,8 +58,9 @@ const build = () => {
     incidents as never,
     organizations as never,
     lock,
+    fieldEvents as never,
   );
-  return { playback, panel, contracts, lock, organizations };
+  return { playback, panel, contracts, lock, organizations, fieldEvents };
 };
 
 describe('DemoPanelPlayback (REQ-PNL-08)', () => {
@@ -115,6 +130,100 @@ describe('DemoPanelPlayback (REQ-PNL-08)', () => {
     expect(stepped.status).toBe('DONE');
     await expect(playback.command({ command: 'RESUME' }, 'ip')).rejects.toMatchObject({
       errorCode: 'INVALID_STATE_TRANSITION',
+    });
+  });
+
+  // MF-05 resolves the contract at run time (AWS staging run: RC-2026-0002 was already CLOSED there).
+  describe('the contract MF-05 ends (D-110 rule 6)', () => {
+    const runMf05 = async (playback: DemoPanelPlayback) => {
+      await playback.command({ command: 'START', flow: 'MF-05', intervalSeconds: 10 }, 'ip');
+      await jest.advanceTimersByTimeAsync(0);
+      await flush();
+    };
+    const row = (id: string, status: string, organizationId = 'org-1', version = 3) => ({
+      id,
+      code: id,
+      status,
+      version,
+      organizationId,
+    });
+
+    it('ends the contract the last MF-01c run handed over while it is still ACTIVE', async () => {
+      const { playback, panel, contracts } = build();
+      contracts.panelOptions.mockResolvedValue([
+        row('c-new', 'ACTIVE'),
+        row('c-9', 'APPROVED', 'org-1', 4),
+        row('c-2', 'ACTIVE'),
+      ]);
+      await playback.command({ command: 'START', flow: 'MF-01c' }, 'ip');
+      await jest.advanceTimersByTimeAsync(0);
+      await flush();
+      expect(playback.view().status).toBe('DONE');
+      contracts.panelOptions.mockResolvedValue([
+        row('c-new', 'ACTIVE'),
+        row('c-9', 'ACTIVE', 'org-1', 5),
+        row('c-2', 'ACTIVE'),
+      ]);
+      await runMf05(playback);
+      expect(panel.run).toHaveBeenLastCalledWith(
+        'contract-return',
+        { recordId: 'c-9', expectedVersion: 5 },
+        'ip',
+      );
+    });
+
+    it('else ends the newest ACTIVE ORG-0001 contract, never one of another organization or not ACTIVE', async () => {
+      const { playback, panel, contracts } = build();
+      contracts.panelOptions.mockResolvedValue([
+        row('c-other', 'ACTIVE', 'org-2'),
+        row('c-closed', 'RETURNED'),
+        row('c-newest', 'ACTIVE', 'org-1', 6),
+        row('c-2', 'ACTIVE'),
+      ]);
+      await runMf05(playback);
+      expect(panel.run).toHaveBeenLastCalledWith(
+        'contract-return',
+        { recordId: 'c-newest', expectedVersion: 6 },
+        'ip',
+      );
+    });
+
+    it('skips a contract holding a unit heard from a real node in the last 7 days (RC-2026-0006)', async () => {
+      const { playback, panel, contracts, fieldEvents } = build();
+      contracts.panelOptions.mockResolvedValue([
+        row('c-6', 'ACTIVE', 'org-1', 9),
+        row('c-2', 'ACTIVE', 'org-1', 7),
+      ]);
+      contracts.visibleDevices.mockResolvedValue([
+        { deviceId: 'd-real', contractId: 'c-6' },
+        { deviceId: 'd-sim', contractId: 'c-2' },
+      ]);
+      fieldEvents.realNodeDevices.mockResolvedValue(new Set(['d-real']));
+      const before = Date.now();
+      await runMf05(playback);
+      expect(contracts.visibleDevices).toHaveBeenCalledWith({ organizationId: null });
+      const [deviceIds, since] = fieldEvents.realNodeDevices.mock.calls[0] as [string[], Date];
+      expect(deviceIds).toEqual(['d-real', 'd-sim']);
+      expect(before - since.getTime()).toBe(7 * 24 * 60 * 60 * 1000);
+      expect(panel.run).toHaveBeenLastCalledWith(
+        'contract-return',
+        { recordId: 'c-2', expectedVersion: 7 },
+        'ip',
+      );
+    });
+
+    it('fails with a clear message when no contract is running', async () => {
+      const { playback, panel, contracts, fieldEvents } = build();
+      contracts.panelOptions.mockResolvedValue([row('c-6', 'ACTIVE'), row('c-2', 'CLOSED')]);
+      contracts.visibleDevices.mockResolvedValue([{ deviceId: 'd-real', contractId: 'c-6' }]);
+      fieldEvents.realNodeDevices.mockResolvedValue(new Set(['d-real']));
+      await runMf05(playback);
+      expect(playback.view()).toMatchObject({
+        status: 'FAILED',
+        error:
+          'Term ends and units come back: No running contract to end; run MF-01b and MF-01c first.',
+      });
+      expect(panel.run).not.toHaveBeenCalled();
     });
   });
 

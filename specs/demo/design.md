@@ -387,7 +387,7 @@ resume and `STEP` run the next step at once. The steps, taken from the playbook:
 | MF-02 | narration "Gateway path: node, LoRa, laptop, queue, MQTT"; one simulated position per rented ORG-0001 unit with a node number (`demo-position-packet.ts`, the shape of `test/fixtures/mqtt/position.json`) |
 | MF-03 | `incident-sos` on TL-0010 (else the first rented ORG-0001 unit); `incident-acknowledge`; `incident-respond`; `incident-resolve` |
 | MF-04 | narration only: live map, search TL-0010, the sovereignty overlay, the fleet map, the organization API |
-| MF-05 | `contract-return` of RC-2026-0002; `contract-close` |
+| MF-05 | `contract-return` of the running contract, resolved at run time: the one the last MF-01c run handed over while it is still `ACTIVE`, else the newest `ACTIVE` contract of ORG-0001, never a contract holding a unit heard from a real node (`simulated` false) in the last 7 days; none: 409 `DEMO_SCENARIO_UNAVAILABLE` "No running contract to end; run MF-01b and MF-01c first."; `contract-close` of the contract the return step ended (D-110 rule 6) |
 
 Every executed step is one panel command (its own run and audit entry). The playback answers its state on
 `GET /api/demo/panel` and on every playback command.
