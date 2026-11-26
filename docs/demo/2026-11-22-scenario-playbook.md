@@ -89,11 +89,12 @@ Standing records on 2026-11-26 (verified on staging by the orchestrator, 12:xx):
 | Record | State | Rule |
 |---|---|---|
 | ORG-0001, Suong Ngan Trekking Co., Ltd. | Active; Manager and Operator are members; roster: Operator primary, Manager backup | Every flow uses it |
-| ORG-0002 to ORG-0004 | Organizations of earlier runs | Leave them |
+| ORG-0002 to ORG-0004 | Organizations of earlier runs; Managers Tran Van Binh (ORG-0002), Tran Ngoc Anh (ORG-0003), Nguyen Van An (ORG-0004) | Leave them |
 | RC-2026-0001 (ORG-0001, seed) | Active; TL-0009 and TL-0010 Rented, handed over long ago | MF-03 uses TL-0010; never end it |
-| RC-2026-0004 (ORG-0002) | Active | Leave it |
-| RC-2026-0006 (ORG-0001) | Active; five real v2 units a274, a278, a294, TL-0001, TL-0002 (LongLP's outdoor rehearsal) | **Never end it. Never run the panel's MF-02 playback while those units send** (section 14) |
-| Devices | 10 Available, 13 Rented, 3 in maintenance | MF-01b needs at least 5 TrekLink v3 Available (section 16) |
+| RC-2026-0004 (ORG-0002) | Active; TL-0003 to TL-0006 and TL-0011 Rented | Leave it |
+| RC-2026-0006 (ORG-0001) | Active; five real v2 units TL-0001, TL-0002, a274, a278, a294 (LongLP's outdoor rehearsal) | **Never end it. Never run the panel's MF-02 playback while those units send** (section 14) |
+| Devices | Available by variant on 2026-11-26 14:2x: v1 0, v2 1, v3 6, v4 3 | MF-01b requests 5 v3 units, so at least 5 v3 Available (section 16) |
+| Field Stations of ORG-0001 | `fs-org-0001-1` "Ta Nang basecamp laptop"; `fs-org-0001-2` (named `fs-org-0001-2`); `fs-org-0001-3` "Outdoor test station", the one that works with the real units (receiver a274) | Never revoke `fs-org-0001-3` |
 | INC-2026-000001 | Unrouted, old | The MF-03 unhappy case shows it and leaves it as it is |
 | Damage rates | ANTENNA_BROKEN 300,000 VND, CASING_CRACKED 400,000 VND (seed) | MF-05 **(check by hand: still active on staging)** |
 | Codes | Contracts continue from about RC-2026-0013, invoices from about INV-2026-000015 | Never hard-code a future code: say "the next RC code" and write it down when the screen shows it |
@@ -151,35 +152,35 @@ contract number **MC-2026-0002**; new password: from the team's private channel.
 
 ## 5. MF-01b: rental request and approval
 
-Accounts: A Manager (Pham Duc Huy), E Manager of ORG-0002 (Tran Van Binh), B Staff. Data before: after
-MF-01a; 10 v3 units Available.
+Accounts: A Manager (Pham Duc Huy), B Staff. Data before: after MF-01a; at least 5 v3 units Available
+(6 on 2026-11-26 14:2x, section 2). The request is the run's contract: write its code down at step 4.
 
 ### Happy run
 
 | Step | Page | Action | Value typed | Expected screen | Fallback |
 |---|---|---|---|---|---|
 | 1 | A, `/o` | **Request a contract** | | `/o/contracts/new`, steps Plan and devices, Start date, Review and send | Sidebar **Contracts**, **Request a contract** |
-| 2 | A | Plan **Monthly**; variant card **TrekLink v3 (GPS, SOS button)**; Quantity; **Next** | 5 | "10 available now" under Quantity **(check by hand: the count)**; Quote "Term fee (one month) 2,250,000 VND", "First payment, holding fee (50 %) 1,125,000 VND" | If the count is under 5, a hold is left from an earlier run: section 11 |
+| 2 | A | Plan **Monthly**; variant card **TrekLink v3 (GPS, SOS button)**; Quantity; **Next** | 5 | "6 available now" under Quantity on 2026-11-26 **(check by hand: the count)**; Quote "Term fee (one month) 2,250,000 VND", "First payment, holding fee (50 %) 1,125,000 VND" | If the count is under 5, a hold is left from an earlier run: section 11 |
 | 3 | A | Start date: today, **Next** | today's date | Today is the earliest date offered |  Today not offered: check the laptop clock and time zone (Asia/Ho_Chi_Minh), sign in again as A and start again at step 1; nothing is saved before step 4 |
-| 4 | A | **Send request** | | "Request RC-2026-0004 sent", five devices held for 24 hours, "Deposit due before then: 1,125,000 VND" with **Open the contract** and **Pay the deposit** | If the toast shows a server error, open **Contracts**: the request may exist; do not send twice |
-| 5 | B, `/t/contracts` | **Show** menu **Requested**; row RC-2026-0004, **Show details** | | Details pane with plan, devices, prices and the hold line | Search "RC-2026-0004" |
-| 6 | B | Handover appointment: a time later today; **Approve** | the next full hour | Toast "RC-2026-0004 approved. 5 devices reserved." (`ContractApprovalPage.tsx:197`) and the reserved tags | A past time is refused: "The handover appointment is in the past...": pick a later time |
+| 4 | A | **Send request** | | "Request RC-2026-00xx sent" (the run's contract: write the code down), five devices held for 24 hours, "Deposit due before then: 1,125,000 VND" with **Open the contract** and **Pay the deposit** | If the toast shows a server error, open **Contracts**: the request may exist; do not send twice |
+| 5 | B, `/t/contracts` | **Show** menu **Requested**; the run's contract, **Show details** | | Details pane with plan, devices, prices and the hold line | Search the run's contract code |
+| 6 | B | Handover appointment: a time later today; **Approve** | the next full hour | Toast "<the run's contract> approved. 5 devices reserved." (`ContractApprovalPage.tsx:197`) and the reserved tags: write them down | A past time is refused: "The handover appointment is in the past...": pick a later time |
 
-### Unhappy case: rejected request
+### Unhappy case: below the minimum order
+
+Run before step 2. With 6 v3 units Available, a second request of five (the 2026-11-21 rejected-request
+case) cannot be held, so the live staging shows the minimum order instead (`rentals.minOrderQuantity`, 5).
 
 | Step | Page | Action | Value typed | Expected screen | Fallback |
 |---|---|---|---|---|---|
-| U1 | E (Tran Van Binh), `/o` | **Request a contract**, Monthly, TrekLink v3, Quantity, **Next** | 6 | "Only 5 TrekLink v3 (GPS, SOS button) devices are available. Lower the quantity or choose another variant." and the page stays on step 1 **(check by hand: wording after the request hold)** | Go on with U2 |
-| U2 | E | Quantity 5, **Next**, start today, **Next**, **Send request** | 5 | "Request RC-2026-0005 sent", the last five v3 units held | If fewer than 5 are available, MF-01b step 4 ran twice: cancel the extra request |
-| U3 | B, `/t/contracts` | Row RC-2026-0005, **Show details**, **Reject**; Reason; **Reject** | The master contract of ORG-0002 is not countersigned yet | Dialog "Reject RC-2026-0005?"; after it the request is Rejected and its 5 units are Available again | An empty reason shows "Reason is required." |
-| U4 | E, `/o/contracts` | Open RC-2026-0005 | | Status Rejected with the reason **(check by hand)** |  Status still Requested: sign in again as E and open **Contracts** again; or show the Rejected row as B in `/t/contracts`, **Show** menu All |
+| U1 | A, `/o/contracts/new` | Plan **Monthly**; variant card **TrekLink v3 (GPS, SOS button)**; Quantity; **Next** | 4 | "The minimum order is 5 devices." under Quantity; the page stays on the first step and nothing is sent | Go on with step 2, Quantity 5 |
 
 ---
 
 ## 6. MF-01c: payment and handover
 
-Accounts: B Staff, A Manager (signs on the Staff screen). Data before: RC-2026-0004 Approved with five v3
-units Reserved. Run on the start date; the appointment time does not hold the handover up (the handover
+Accounts: B Staff, A Manager (signs on the Staff screen). Data before: the run's contract (MF-01b) Approved
+with five v3 units Reserved. Run on the start date; the appointment time does not hold the handover up (the handover
 checks only the start date, `backend/src/modules/rentals/handover.service.ts`).
 
 ### Happy run
@@ -187,14 +188,14 @@ checks only the start date, `backend/src/modules/rentals/handover.service.ts`).
 | Step | Page | Action | Value typed | Expected screen | Fallback |
 |---|---|---|---|---|---|
 | 1 | B, `/t/contracts/<id>` | From step 6 of MF-01b, **Open the contract**, **Start handover** | | Handover mode with steps Devices, Payment, Preview note, Sign | **More actions**, **Open the counter** (`/t/counter/<contractId>`) |
-| 2 | B, Devices | **Scan or type an asset tag**, **Find** | first reserved tag shown in MF-01b step 6 (for example TL-0003) | Row highlighted, "TL-0003 is on this contract." | Type the tag again without spaces |
+| 2 | B, Devices | **Scan or type an asset tag**, **Find** | first reserved tag written down at MF-01b step 6 | Row highlighted, "<tag> is on this contract." | Type the tag again without spaces |
 | 3 | B | Tick **Select all units**; **Battery % for selected**; **GPS fix for selected** GPS fix; **Set readings for selected** | 90 | "Readings set on 5 units." every row 90 and GPS fix | Set the readings on each row |
 | 4 | B | **Record provisioning for selected**, then **Next** | | "Recorded 5 of 5." each row "Provisioned v1" | A wrong unit: its row **Undo**, then **Undo provisioning**, record again |
 | 5 | B, Payment | **Record a counter payment**; Method Cash; **Receipt number**; **Record** | Amount received 1125000; receipt CT-2026-0418 | Toast "Payment of 1,125,000 VND received." Before 09:00 local, Due now reads 0 VND and the prefill is 2,250,000: type 1125000 (2026-11-01 script MF-01 step 9) | Record the payment from `/t/billing` on the contract's first invoice |
 | 6 | B, Preview note | **Next** | | The unsigned note, marked as a preview, with battery 90 % and Fix OK | **Open the preview in a new tab** |
-| 7 | B with A, Sign | **Signing Manager** Pham Duc Huy; **Identity document checked**; the Manager signs; **Complete handover** | CCCD ending 1234 | Toast "Handover complete. 5 devices issued under contract RC-2026-0004."; Active. **Write down the time** | Signature lost: clear the box and sign again |
-| 8 | B | Tab **Documents**, **Download handover note** | | `RC-2026-0004-handover-note.pdf`, two pages, letterhead and both signatures | Show the note from the contract later |
-| 9 | A, `/o/field-stations` | **Create Field Station**, Name, **Create** | Bidoup ranger post | "Credential for Bidoup ranger post": Broker URL, Username **fs-org-0001-2**, Secret, "Copy it now; it will not be shown again." Give Broker URL, Username and Secret to KhoaDD privately | Lost secret: revoke the station and create "Bidoup ranger post 2" (username `fs-org-0001-3`) |
+| 7 | B with A, Sign | **Signing Manager** Pham Duc Huy; **Identity document checked**; the Manager signs; **Complete handover** | CCCD ending 1234 | Toast "Handover complete. 5 devices issued under contract <the run's contract>."; Active. **Write down the time** | Signature lost: clear the box and sign again |
+| 8 | B | Tab **Documents**, **Download handover note** | | `<the run's contract>-handover-note.pdf`, two pages, letterhead and both signatures | Show the note from the contract later |
+| 9 | A, `/o/field-stations` | **Create Field Station**, Name, **Create** | the run's Field Station name (section 15.1) | "Credential for <name>": Broker URL, Username, the next `fs-org-0001-` username (`fs-org-0001-1` to `-3` exist) **(check by hand: the number)**, Secret, "Copy it now; it will not be shown again." Do not copy it: the device laptop keeps `fs-org-0001-3` "Outdoor test station"; section 11 revokes the run's station | Skip and say it |
 
 ### Unhappy case: unit below the minimum battery
 
@@ -207,7 +208,7 @@ Run between steps 3 and 7.
 
 ### Unhappy case: duplicate payment webhook (optional)
 
-Only if the SePay sandbox is set up on AWS **(check by hand)**. As A, on RC-2026-0004 use **Pay the
+Only if the SePay sandbox is set up on AWS **(check by hand)**. As A, on the run's contract use **Pay the
 deposit** before step 5 instead of a counter payment, pay from the sandbox, then send the same transaction
 again from the SePay sandbox. Expected: the payment page shows the payment confirmed once; the second
 delivery is answered as a duplicate and records nothing (`backend/src/modules/billing/sepay.service.ts:247`).
@@ -217,19 +218,20 @@ Fallback: record the deposit at the counter (step 5).
 
 ## 7. MF-02: device data through the Field Station bridge
 
-Accounts: T (KhoaDD), C Operator, B Staff. Data before: after MF-01c; credential `fs-org-0001-2`.
+Accounts: T (the device operator), C Operator, B Staff. Data before: after MF-01c; the gateway runs on the
+device laptop as Field Station `fs-org-0001-3` "Outdoor test station".
 
-The device flows MF-02 and MF-03 run on the leader's physical units (leader ruling 2026-11-20). The seeded
-units carry placeholder node ids (`seed-demo.ts:252-256`), which stay as the fallback.
+The device flows MF-02 and MF-03 run on the real units of RC-2026-0006 (ORG-0001): TL-0001, TL-0002, a274,
+a278 and a294, registered with their real node ids and handed over long ago. They report through
+`fs-org-0001-3` with a274 as the receiver on COM5; the receiver must itself be a unit ORG-0001 holds
+(web#547). The seed units TL-0009 and TL-0010 of RC-2026-0001 carry placeholder node ids
+(`seed-demo.ts:252-256`) and stay as the fallback. Where a step below names TL-0009 or TL-0010, read the
+real units; the expected screens then show their asset tags and holders.
 
-**Before the run (after every reseed).** The leader registers the real node ids of the physical units on
-staging and posts, in the team's private channel, the asset tag and contract of each unit. Write them in
-the Notes of the rehearsal log. Where a step below names TL-0009 or TL-0010, use the physical unit the
-leader names in its place; the expected screens then show that unit's asset tag and holder.
-
-Gateway environment on the laptop (names only; values from MF-01c step 9): `MQTT_BROKER_URL` = the Broker
-URL shown, `GATEWAY_FS_USERNAME=fs-org-0001-2`, `GATEWAY_FS_SECRET`, `GATEWAY_SERIAL_SIMULATION=false`,
-`GATEWAY_SERIAL_PORT` = the USB port of the node attached to the laptop (`gateway/src/config.ts:137-144`).
+Gateway environment on the device laptop, set before the run (names only): `MQTT_BROKER_URL` = the AWS
+broker URL, `GATEWAY_FS_USERNAME=fs-org-0001-3`, `GATEWAY_FS_SECRET` from the team's private channel,
+`GATEWAY_SERIAL_SIMULATION=false`, `GATEWAY_SERIAL_PORT=COM5`, the port of the receiver a274
+(`gateway/src/config.ts:137-144`). Not the credential of MF-01c step 9.
 
 **Fallback, disclosed as simulated.** If the physical units cannot report, restart the gateway in its demo
 mode for the seed nodes (`gateway/src/config.ts:140-170`) and say aloud that the data is simulated:
@@ -243,7 +245,7 @@ during MF-02; the default 12 sends one every twelfth tick), `GATEWAY_SIM_INTERVA
 | 1 | T | `npm run dev:gateway` from the repository root | the variables above | Gateway lines: connected to the broker, the serial port open, packets from the physical units as they report **(check by hand: log wording)** | Wrong secret: the broker refuses; recheck the copy. Units silent or port not found: the simulated fallback above, then section 11 step 3 |
 | 2 | Talk | Path: node, LoRa, laptop over USB, SQLite queue (SOS first), MQTT QoS 1, backend ingest with `eventId` dedup | | |  None, observe only |
 | 3 | C, `/o/map` | **Live map** | | The physical units (fallback: TL-0009 and TL-0010) with battery and a recent last-seen time | Wait for the next report; then check step 4 |
-| 4 | B, `/t/admin/sync` | Sidebar **Field data sync** | | MQTT subscriber up; Field Stations table: "Bidoup ranger post", Connected, a Last sync; Recent field events for the physical units (fallback: TL-0009 and TL-0010), Attribution "Attributed" | If the station reads "Never reported", the health report waits up to 60 s (`GATEWAY_HEALTH_INTERVAL_MS`); refresh |
+| 4 | B, `/t/admin/sync` | Sidebar **Field data sync** | | MQTT subscriber up; Field Stations table: "Outdoor test station", Connected, a Last sync; Recent field events for the physical units (fallback: TL-0009 and TL-0010), Attribution "Attributed" | If the station reads "Never reported", the health report waits up to 60 s (`GATEWAY_HEALTH_INTERVAL_MS`); refresh |
 
 ### Unhappy case: duplicate packet
 
@@ -268,7 +270,7 @@ and holder.
 |---|---|---|---|---|---|
 | 1 | Physical unit | Press the unit's SOS control once (on a v3, hold the user button 3 s, `seed-demo.ts:203`) **(check by hand: the variant of the leader's unit)** | | The gateway log shows the SOS queued first | Disclosed as simulated: `npm --prefix backend run replay:mqtt -- sos --now --new-ids` with `MQTT_USERNAME=node-!de00000a` (TL-0010) |
 | 2 | C, any page | | | Red banner "SOS: TL-0010 (Dang Quoc Viet), hh:mm. Acknowledge now." with **Acknowledge** (`AlertBanner.tsx`) | No banner in 10 s: `/o/incidents`; if the incident is Unrouted, the SOS was inside the margin: go to the unhappy case and say so |
-| 3 | C, `/o/incidents` | Open the new incident (INC-2026-000002) | | Device TL-0010, state Notifying primary, last coordinates |  Not in the list: open **Incidents** again from the sidebar; still absent, sign in again as C |
+| 3 | C, `/o/incidents` | Open the new incident (the run's incident: write its code down) | | Device TL-0010, state Notifying primary, last coordinates |  Not in the list: open **Incidents** again from the sidebar; still absent, sign in again as C |
 | 4 | C | **Acknowledge** | | Toast "Saved."; Owner Nguyen Thanh Tung, Acknowledged; banner gone |  "Someone else changed this. Reload to see the latest.": sign in again as C, open the incident, **Acknowledge** again |
 | 5 | C | **Response under way**, What is being done, **Save response** | Ranger team dispatched from the Ta Nang post | State Responding |  Save refused: retype the prepared value; a stale-version message: sign in again as C and repeat the step |
 | 6 | C | **Add status**, a line, save | Team at km 6, voice contact with the hiker | The update with author and time |  Save refused: retype the prepared value; a stale-version message: sign in again as C and repeat the step |
@@ -276,16 +278,17 @@ and holder.
 
 ### Unhappy case: SOS without attribution (Unrouted)
 
-The rule forbids a live SOS inside the margin, so the seeded INC-2026-000001 on TL-0001 (a unit in no
-custody) stands in: it is the same Unrouted path an early SOS takes. Since TK-245 the next attributed SOS
-from that unit would route an early SOS's incident to the organization's primary; TL-0001 is in no
-custody, so INC-2026-000001 stays Unrouted for the Staff steps below (leader ruling 2026-11-20: no live
-SOS inside the margin).
+The rule forbids a live SOS inside the margin, so the old INC-2026-000001 on TL-0001 stands in: it was
+opened while TL-0001 was in no custody, the same Unrouted path an early SOS takes (leader ruling
+2026-11-20: no live SOS inside the margin). TL-0001 is now a real unit of RC-2026-0006, and since TK-245
+the next attributed SOS from TL-0001 would join INC-2026-000001 and route it to ORG-0001's primary, so
+**MF-03 never sends its SOS from TL-0001**. On the live staging run U1 only and leave the incident
+Unrouted for the next run: U2 and U3 change it for good, so they run only when the leader retires it.
 
 | Step | Page | Action | Value typed | Expected screen | Fallback |
 |---|---|---|---|---|---|
 | U1 | B, `/t/incidents` | **Show** menu **Unrouted**; row TL-0001, **Show details** | | Owner "TrekLink Staff queue", state Unrouted | Search "INC-2026-000001" |
-| U2 | B | **Report to authorities**; Agency; Authority reference; Reported at as prefilled; **Record report** | Lam Dong Provincial Police; LD-2026-1121 | Toast "Saved."; "Reported to authority" | A future time is refused: keep the prefilled time |
+| U2 | B (only when the leader retires INC-2026-000001) | **Report to authorities**; Agency; Authority reference; Reported at as prefilled; **Record report** | Lam Dong Provincial Police; LD-2026-1121 | Toast "Saved."; "Reported to authority" | A future time is refused: keep the prefilled time |
 | U3 | B | Tab **Authority reports**, **Record case closed** on the row, confirm | | Toast "Saved."; the case reads closed |  A Closed at before the report time is refused: keep the prefilled time; row not shown: **Show** menu All reports |
 
 ---
@@ -296,11 +299,11 @@ Accounts: C Operator, B Staff, A Manager, T for `curl`. Data before: after MF-03
 
 | Step | Page | Action | Value typed | Expected screen | Fallback |
 |---|---|---|---|---|---|
-| 1 | C, `/o/map` | **Live map** | | Header with device and SOS counts; TL-0009, TL-0010, TL-0017, TL-0018, TL-0019 and the five RC-2026-0004 units ("not heard since handover") |  Units missing: show the same units on the Staff **Fleet map** (step 4); then sign in again as C |
+| 1 | C, `/o/map` | **Live map** | | Header with device and SOS counts; TL-0009 and TL-0010 (RC-2026-0001), TL-0001, TL-0002, a274, a278 and a294 (RC-2026-0006) and the five units of the run's contract ("not heard since handover"); not RC-2026-0004, which is ORG-0002's |  Units missing: show the same units on the Staff **Fleet map** (step 4); then sign in again as C |
 | 2 | C | **Search asset tag, holder or contract** | TL-0010 | One row, battery, holder, last seen | Clear the search |
 | 3 | C | Zoom out to 6 or 7, drag left | | "Quần đảo Hoàng Sa (Việt Nam)" and "Quần đảo Trường Sa (Việt Nam)" on their masks (D-031) | Tiles slow: wait; the masks draw without tiles |
 | 4 | B, `/t/map` | **Fleet map**, organization filter ORG-0001 | | Every organization's units, then ORG-0001 only |  Filter empty: choose All organizations, then ORG-0001 again; or show the Operator's Live map of step 1 |
-| 5 | A, `/o/api-keys` | **Create API key**, Name, create | Bidoup ranger dashboard | The key once with **Copy** and "Copy it now; it will not be shown again."; copy it to T privately | Lost key: revoke it, create another |
+| 5 | A, `/o/api-keys` | **Create API key**, Name, create | the run's API key name (section 15.1) | The key once with **Copy** and "Copy it now; it will not be shown again."; copy it to T privately | Lost key: revoke it, create another |
 | 6 | T | `curl -s -H "X-Api-Key: <key>" <staging address>/api/telemetry/devices` | | 200, `{ result, isSuccess, statusCode, message }`, `result.devices` with ORG-0001's units (`org-api.controller.ts:96`) | Show the Live map instead and say the API answered in rehearsal |
 
 ### Unhappy case: revoked API key
@@ -309,7 +312,7 @@ API keys carry no expiry on `dev` (`ApiKeysPage.tsx` shows Active or Revoked onl
 
 | Step | Page | Action | Value typed | Expected screen | Fallback |
 |---|---|---|---|---|---|
-| U1 | A, `/o/api-keys` | Row "Bidoup ranger dashboard", **Revoke**, confirm | | Toast "API key revoked"; status Revoked |  Row still Active: sign in again as A and **Revoke** it again from **API keys** |
+| U1 | A, `/o/api-keys` | The run's key, **Revoke**, confirm | | Toast "API key revoked"; status Revoked |  Row still Active: sign in again as A and **Revoke** it again from **API keys** |
 | U2 | T | The `curl` of step 6 again | same key | 401, `isSuccess` false, "Authentication required." (`backend/src/modules/auth/guards/api-key.guard.ts:40-45`) |  200 returned: check the key is the one copied in step 5 and its row reads Revoked, then repeat the call |
 
 ---
@@ -510,10 +513,10 @@ tax code**): it must not be found **(check by hand: none of these is on staging)
 | Manager phone | 0912 345 601 | 0912 345 602 | 0912 345 603 | 0912 345 604 | 0912 345 605 |
 | Master contract number | MC-2026-0101 | MC-2026-0102 | MC-2026-0103 | MC-2026-0104 | MC-2026-0105 |
 | Duplicate registration email (MF-01a unhappy) | `treklink.dev+langbiang2@gmail.com` | `treklink.dev+bidoup2@gmail.com` | `treklink.dev+tanung2@gmail.com` | `treklink.dev+cattien2@gmail.com` | `treklink.dev+pinetrails2@gmail.com` |
-| Holding fee receipt (MF-01c) | CT-2026-1101 | CT-2026-1102 | CT-2026-1103 | CT-2026-1204 | CT-2026-1105 |
+| Holding fee receipt (MF-01c) | CT-2026-1101 | CT-2026-1102 | CT-2026-1103 | CT-2026-1104 | CT-2026-1105 |
 | Field Station name (MF-01c) | Lang Biang ranger post | Bidoup ranger post | Ta Nung ranger post | Hon Giao ranger post | Pine Hill ranger post |
 | API key name (MF-04) | Lang Biang ranger dashboard | Bidoup ranger dashboard | Ta Nung ranger dashboard | Hon Giao ranger dashboard | Pine Hill ranger dashboard |
-| Closing invoice receipt (MF-05) | CT-2026-1111 | CT-2026-1112 | CT-2026-1113 | CT-2026-1214 | CT-2026-1115 |
+| Closing invoice receipt (MF-05) | CT-2026-1111 | CT-2026-1112 | CT-2026-1113 | CT-2026-1114 | CT-2026-1115 |
 
 Values every run shares: the new Manager's password from the team's private channel; MF-01b Plan
 **Monthly**, variant **TrekLink v3 (GPS, SOS button)**, Quantity **4** (unhappy) then **5**, start today,
@@ -552,14 +555,15 @@ handover time (MF-01c), the incident code (MF-03).
 |---|---|---|---|---|---|---|
 | 6:30 | "Staff prepare each unit at the counter." | B, **Open the contract**, **Start handover**; Devices: **Scan or type an asset tag**, **Find** | the first tag | "TL-.... is on this contract." | | **More actions**, **Open the counter** |
 | 7:00 | "Readings and the organization's channel key, for all five at once." | Tick **Select all units**; **Battery % for selected**; **GPS fix for selected**; **Set readings for selected**; then on the first row Battery %; **Record provisioning for selected**; **Next** | 90; first row 35 | "Readings set on 5 units."; "Recorded 5 of 5." | | Readings row by row |
-| 8:00 | "The holding fee is paid at the counter." | Payment: **Record a counter payment**; Method Cash; Amount received; **Receipt number**; **Record** | the Due now; CT-2026-1204 | "Payment of 1,125,000 VND received." | | `/t/billing`, the contract's first invoice |
+| 8:00 | "The holding fee is paid at the counter." | Payment: **Record a counter payment**; Method Cash; Amount received; **Receipt number**; **Record** | the Due now; CT-2026-1104 | "Payment of 1,125,000 VND received." | | `/t/billing`, the contract's first invoice |
 | 8:45 | "A unit below the minimum battery cannot be handed over." (unhappy) | Preview note **Next**; Sign: **Signing Manager**, **Identity document checked**, the Manager signs, **Complete handover** | Pham Duc Huy; CCCD ending 1234 | Refused: "Battery below 50 % on TL-.... Charge before use, or acknowledge." **(check by hand: where it shows)** | | |
 | 9:30 | "Charged, the handover completes and the note is signed." | Back to Devices, first row Battery % 90; Sign, **Complete handover** | 90 | "Handover complete. 5 devices issued under contract RC-2026-00xx."; Active: write the time down | | Panel playback **MF-01c**, **Start** (pays and hands over the approved ORG-0001 contract) |
 | 10:30 | "The organization creates a Field Station credential for its base camp laptop." | A, `/o/field-stations`, **Create Field Station**, Name, **Create** | Hon Giao ranger post | The credential once, "Copy it now; it will not be shown again." Do not copy it on stage | | Skip and say it |
 
 ### 15.5 MF-02, device data through the Field Station bridge (11:00 to 14:00)
 
-The real units of RC-2026-0006 report through the station of the device laptop. **The panel's MF-02
+The real units of RC-2026-0006 report through the device laptop's station `fs-org-0001-3` "Outdoor test
+station" (receiver a274). **The panel's MF-02
 playback is forbidden while they send** (section 14).
 
 | Time | Presenter says | Site clicker | Typed | Expected on screen | Panel operator | Fallback |
@@ -585,7 +589,7 @@ simulated.
 | 17:20 | "An SOS with no rental behind it goes to TrekLink Staff, Unrouted." (unhappy) | B, `/t/incidents`, **Show** menu **Unrouted**, INC-2026-000001, **Show details** | | Owner "TrekLink Staff queue", state Unrouted. Say the 5-minute rule (section 1) | | Show the row only; leave it Unrouted |
 
 The real SOS: the device operator presses the SOS control of the real unit agreed in the rehearsals (an
-RC-2026-0006 unit, handed over long ago) **(check by hand: the SOS control of a v2 unit)**. If the real
+RC-2026-0006 unit, handed over long ago, never TL-0001: section 8) **(check by hand: the SOS control of a v2 unit)**. If the real
 SOS arrives after the panel's, the second incident is marked **False alarm** by C after the council.
 
 ### 15.7 MF-04, live map and the organization API (18:00 to 21:00)
@@ -609,7 +613,7 @@ The contract is the one MF-01c handed over (the RC code and five tags on the she
 | 22:00 | "The units come back at the counter." | B, `/t/contracts`, **Show** menu All, the RC code, **Open the contract**, **Record return**; Check-in: the five tags | the five tags | "Check-in complete. 5 of 5 devices returned." **(check by hand: wording)** | | Tags one at a time |
 | 22:45 | "Each unit is reset and inspected before it can be rented again." | Reset and inspection: **Record reset** on each, tick the three steps; tags one to four **Inspect**, Passed, **Record inspection** | | "Reset logged"; four units Available | | |
 | 23:45 | "A damaged unit goes to maintenance and is charged on the closing invoice." (unhappy) | The fifth tag: **Inspect**, **Damaged**, tick Casing cracked (CASING_CRACKED), **Record inspection** | | "Damaged, maintenance", "Damage 400,000 VND, on the closing invoice" | | |
-| 24:15 | "Open balances are settled; the contract closes." | Tab **Close**: when it shows a balance due, **Open the invoices**, the Closing invoice, **Record counter payment**, Cash, receipt, **Record**; when TrekLink owes, section 10 step 9b; then **Close contract**, confirm | CT-2026-1214 | "RC-2026-00xx closed."; badge Closed | | Panel playback **MF-05**, **Start** (ends this contract, returns every unit Passed, pays and closes; the damaged case is then only told) |
+| 24:15 | "Open balances are settled; the contract closes." | Tab **Close**: when it shows a balance due, **Open the invoices**, the Closing invoice, **Record counter payment**, Cash, receipt, **Record**; when TrekLink owes, section 10 step 9b; then **Close contract**, confirm | CT-2026-1114 | "RC-2026-00xx closed."; badge Closed | | Panel playback **MF-05**, **Start** (ends this contract, returns every unit Passed, pays and closes; the damaged case is then only told) |
 
 After the council: section 11 for set C.
 
@@ -620,7 +624,7 @@ Done by the leader and the panel operator from 17:30, signed off by 19:00.
 - [ ] **Deploy frozen.** No `up.sh` since Sat 2026-11-28; `status.sh` shows the frozen commit.
 - [ ] **Health.** `GET <staging>/api/health` shows `"database":"up"` and `"mqtt":"up"` (`deploy/aws/RUNBOOK.md`).
 - [ ] **Panel writable.** `/demo/panel` opens with the password over the hotspot; the Panel status shows it writable **(check by hand: the status wording)**; no playback runs.
-- [ ] **Stock.** At least 5 TrekLink v3 units Available (the variant MF-01b requests); otherwise section 11 step 2 for units in maintenance.
+- [ ] **Stock.** At least 5 v3 Available (MF-01b requests 5 TrekLink v3 units; 6 on 2026-11-26); otherwise section 11 step 2 for units in maintenance.
 - [ ] **Real units.** a274, a278, a294, TL-0001 and TL-0002 charged, Rented on RC-2026-0006, reporting on **Field data sync** within the last 5 minutes; the gateway runs on the device laptop with the receiver on COM5, a unit ORG-0001 holds (web#547).
 - [ ] **No leftovers.** No incident open but INC-2026-000001; no Requested or Approved contract of ORG-0001; no unpaid invoice of an earlier run; no Active API key of an earlier run; RC-2026-0001 and RC-2026-0006 Active.
 - [ ] **Value set C unused.** Its tax code is not found in `/t/organizations`.
