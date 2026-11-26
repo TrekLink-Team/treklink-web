@@ -90,10 +90,36 @@ const MASK_STYLE: L.PathOptions = {
 const textOf = (marker: MapMarker): string =>
   marker.name ?? (marker.subtitle ? `${marker.title}, ${marker.subtitle}` : marker.title);
 
-const overlayIcon = (label: string): L.DivIcon => {
+// Which side of its anchor a sovereignty label sits on (web#551). Hoàng Sa and Trường Sa are 6.5 degrees
+// of latitude apart, about 5 px at zoom 0 and 19 px at zoom 2, less than one label's height, so two
+// labels centred on their anchors covered each other at world zoom. A label north of the overlay's middle
+// latitude hangs above its anchor and one south of it hangs below, each 2 px clear of it: the northern box
+// ends above the point where the southern box starts, so the two never meet at any zoom or width. The
+// anchors, the horizontal centring and the masks are unchanged.
+type OverlayPlacement = 'above' | 'below' | 'centre';
+
+const overlayPlacement = (lat: number, overlay: readonly { lat: number }[]): OverlayPlacement => {
+  if (overlay.length === 0) return 'centre';
+  const lats = overlay.map((place) => place.lat);
+  const middle = (Math.min(...lats) + Math.max(...lats)) / 2;
+  if (lat > middle) return 'above';
+  if (lat < middle) return 'below';
+  return 'centre';
+};
+
+const PLACEMENT_CLASS: Record<OverlayPlacement, string> = {
+  above: '-translate-y-[calc(100%+2px)]',
+  below: 'translate-y-[2px]',
+  centre: '-translate-y-1/2',
+};
+
+const overlayIcon = (label: string, placement: OverlayPlacement): L.DivIcon => {
   const element = document.createElement('div');
-  element.className =
-    'w-max -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-surface px-2 py-0.5 text-xs font-semibold text-status-critical-fg shadow';
+  element.className = cn(
+    'w-max -translate-x-1/2 whitespace-nowrap rounded bg-surface px-2 py-0.5 text-xs font-semibold text-status-critical-fg shadow',
+    PLACEMENT_CLASS[placement],
+  );
+  element.dataset.placement = placement;
   element.textContent = label;
   return L.divIcon({ html: element, className: '', iconSize: [0, 0] });
 };
@@ -501,7 +527,7 @@ const LeafletMap: React.FC<{
       const overlay = L.layerGroup().addTo(instance);
       for (const place of config.sovereigntyOverlay) {
         L.marker([place.lat, place.lon], {
-          icon: overlayIcon(place.label),
+          icon: overlayIcon(place.label, overlayPlacement(place.lat, config.sovereigntyOverlay)),
           pane: OVERLAY_PANE,
           interactive: false,
           keyboard: false,
