@@ -105,7 +105,7 @@ before pressing SOS in front of the audience.
 
 On 18 November the position stayed fixed while moving (treklink-firmware#38): fix shipped in v2.7.26-treklink.4, walk
 retest of 19 November blocked (no GPS fix), not yet verified. Latest evidence: on 25 November a294's first position
-reached the live map at 16:07 (TK-230 log); movement between two points is still to be shown. Runs are in §8.
+reached the live map at 16:07 (§8, run of 25 November); movement between two points is still to be shown. Runs are in §8.
 
 ## 6. MF-05, end, return and close
 
