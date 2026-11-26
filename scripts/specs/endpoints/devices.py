@@ -703,6 +703,45 @@ ENDPOINTS = [
        controller="DevicesController", service="HubActionService", call="finish(id, actionId, dto, actor)",
        seq=["Svc->>DB: SELECT device FOR UPDATE", "Svc->>DB: SELECT device_hub_actions",
             "Svc->>DB: UPDATE device_hub_actions; UPDATE devices; INSERT device_resets when due"]),
+
+    ep("POST", "/api/devices/:id/inspection", "Inspect a unit recovered outside a contract", "TrekLink Staff",
+       "Inspects a `RETURNED` device that has no contract row to return to, such as a unit lost from stock and "
+       "recovered (D-114, REQ-EVT-11). The counter's inspection (rentals api-design 16) needs a handed-over "
+       "contract row, so without this route such a unit never reaches `AVAILABLE`. It runs the counter's "
+       "`recordInspection` with no contract row and the unit's last move into `RETURNED` (the `LOSS_RECOVERED` "
+       "transition) as the check-in: a reset after it is required (409 `RESET_REQUIRED`, BR-28); `PASSED` moves "
+       "the unit to `AVAILABLE`, or to `MAINTENANCE` when its service falls due or its firmware is off the "
+       "baseline; `DAMAGED` and `FAILED` move it to `MAINTENANCE` with an `INSPECTION_FAILED` record. No damage "
+       "charge is created, because no contract carries one. A unit whose last move into `RETURNED` was a check-in, "
+       "or whose loss case names a contract, is refused and inspected at that contract's counter. Permission "
+       "`device.operate`, the reset's.",
+       "D-114, REQ-EVT-11, FR-DEV-07, FR-DEV-14, BR-28, BR-38",
+       path=[DEV_PATH],
+       body=[["result", "`PASSED`, `DAMAGED` or `FAILED`", "enum", "yes", "`DAMAGED`"],
+             ["damageCodes", "DamageRate codes; required for DAMAGED", "string[]", "cond.", "`[\"ANTENNA_BROKEN\"]`"],
+             ["note", "Free text, at most 500 characters", "string", "no", "`Antenna snapped at the base`"]],
+       sample={"result": "DAMAGED", "damageCodes": ["ANTENNA_BROKEN"], "note": "Antenna snapped at the base"},
+       response={"inspection": {"id": "in-1", "result": "DAMAGED", "damageCodes": ["ANTENNA_BROKEN"], "createdAt": NOW},
+                 "device": {"id": DEVICE_ID, "assetTag": "TL-0042", "status": "MAINTENANCE"}},
+       fields=[["inspection", "The inspection recorded with no contract row: `id`, `result`, `damageCodes`, `createdAt`", "object", "`{ \"result\": \"DAMAGED\" }`"],
+               ["device", "The device's id, asset tag and status after the inspection", "object",
+                "`{ \"status\": \"MAINTENANCE\" }`"]],
+       status=201, message="Inspection recorded", entity="Device",
+       errors=[(400, "VALIDATION_FAILED", "`DAMAGED` without damage codes", "damageCodes is required."),
+               (409, "RESET_REQUIRED", "No reset is logged since the unit's last move into RETURNED",
+                "Reset this device before inspecting it."),
+               (409, "INVALID_STATE_TRANSITION", "The unit came back on a contract, or its loss case names one",
+                "Inspect this device at the counter of the contract it came back on."),
+               (409, "INVALID_STATE_TRANSITION", "Its contract row is still open",
+                "Check this device in on its contract first."),
+               state_409("device", "AVAILABLE")],
+       steps=["Lock the device row; require RETURNED", "Read its last move into RETURNED and the loss case's contract",
+              "Refuse a check-in or a loss case with a contract", "DevicesService.recordInspection with no contract row",
+              "Transition to AVAILABLE or MAINTENANCE; open the maintenance record when due"],
+       controller="DevicesController", service="DevicesService", call="inspectRecovered(id, dto, actor, at, tx)",
+       seq=["Svc->>DB: SELECT device FOR UPDATE", "Svc->>DB: SELECT last device_transitions into RETURNED, loss_cases",
+            "Svc->>DB: SELECT last device_resets row",
+            "Svc->>DB: INSERT inspections, device_transitions; UPDATE devices; INSERT maintenance_records when due"]),
 ]
 
 NOTES = ("Route order: `GET /api/devices/availability` and `GET /api/devices/by-node` are declared before "

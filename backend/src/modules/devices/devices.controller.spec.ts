@@ -10,7 +10,12 @@ import {
 } from '../../common/decorators/access.decorator';
 import { RESPONSE_MESSAGE_KEY } from '../../common/decorators/response-message.decorator';
 import { validateQuery } from '../../common/pipes/app-validation.pipe';
-import { DeviceQueryDto, DevicesController, ResetDto } from './devices.controller';
+import {
+  DeviceQueryDto,
+  DevicesController,
+  RecoveredInspectionDto,
+  ResetDto,
+} from './devices.controller';
 import { DevicesService } from './devices.service';
 import { DisposeDeviceDto } from './dto/dispose-device.dto';
 import { RetireDeviceDto } from './dto/retire-device.dto';
@@ -42,6 +47,7 @@ describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
     availability: jest.Mock;
     detail: jest.Mock;
     updateFirmware: jest.Mock;
+    inspectRecovered: jest.Mock;
   };
   let intake: { record: jest.Mock; register: jest.Mock };
   let connector: { recognize: jest.Mock };
@@ -64,6 +70,10 @@ describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
       updateFirmware: jest.fn().mockResolvedValue({
         before: '2.7.19-treklink.3',
         device: { id: 'd-1', firmwareVersion: '2.7.19-treklink.4', version: 6 },
+      }),
+      inspectRecovered: jest.fn().mockResolvedValue({
+        inspection: { id: 'in-1', result: 'PASSED' },
+        device: { id: 'd-1', assetTag: 'TL-0031', status: 'AVAILABLE' },
       }),
     };
     intake = { record: jest.fn(), register: jest.fn().mockResolvedValue({ id: 'd-new' }) };
@@ -122,6 +132,60 @@ describe('DevicesController (devices api-design 05 to 09, task 4.1)', () => {
         expect(allows(name, staff)).toBe(true);
         expect(allows(name, reader)).toBe(false);
       }
+    });
+  });
+
+  describe('inspection of a unit recovered outside a contract (api-design 35, D-114)', () => {
+    it('inspects in a transaction with the trimmed note and no codes by default', async () => {
+      await expect(
+        controller.inspectRecovered(
+          'd-1',
+          { result: 'PASSED', note: '  Clean  ' },
+          CALLER as never,
+        ),
+      ).resolves.toEqual({
+        inspection: { id: 'in-1', result: 'PASSED' },
+        device: { id: 'd-1', assetTag: 'TL-0031', status: 'AVAILABLE' },
+      });
+      expect(events.transaction).toHaveBeenCalledTimes(1);
+      expect(devices.inspectRecovered).toHaveBeenCalledWith(
+        'd-1',
+        { result: 'PASSED', damageCodes: [], note: 'Clean' },
+        'staff-1',
+        expect.any(Date),
+        {},
+      );
+      await controller.inspectRecovered(
+        'd-1',
+        { result: 'DAMAGED', damageCodes: ['ANTENNA_BROKEN'], note: '   ' },
+        CALLER,
+      );
+      expect(devices.inspectRecovered).toHaveBeenLastCalledWith(
+        'd-1',
+        { result: 'DAMAGED', damageCodes: ['ANTENNA_BROKEN'], note: null },
+        'staff-1',
+        expect.any(Date),
+        {},
+      );
+    });
+
+    it('needs device.operate, the policy of the reset, and answers "Inspection recorded"', () => {
+      const staff = createMongoAbility([{ action: 'operate', subject: 'Device' }]) as PolicyAbility;
+      const reader = createMongoAbility([{ action: 'read', subject: 'Device' }]) as PolicyAbility;
+      expect(allows('inspectRecovered', staff)).toBe(true);
+      expect(allows('inspectRecovered', reader)).toBe(false);
+      expect(metadataOf(RESPONSE_MESSAGE_KEY, 'inspectRecovered')).toBe('Inspection recorded');
+    });
+
+    it("validates the body as the counter's inspection does", async () => {
+      const errorsOf = (body: object) => validate(plainToInstance(RecoveredInspectionDto, body));
+      expect(await errorsOf({ result: 'PASSED' })).toHaveLength(0);
+      expect(await errorsOf({ result: 'DAMAGED', damageCodes: ['ANTENNA_BROKEN'] })).toHaveLength(
+        0,
+      );
+      expect(await errorsOf({ result: 'BROKEN' })).not.toHaveLength(0);
+      expect(await errorsOf({ result: 'DAMAGED', damageCodes: [''] })).not.toHaveLength(0);
+      expect(await errorsOf({ result: 'PASSED', note: 'x'.repeat(501) })).not.toHaveLength(0);
     });
   });
 

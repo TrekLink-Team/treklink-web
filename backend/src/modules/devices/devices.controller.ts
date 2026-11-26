@@ -13,7 +13,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DeviceStatus, HubActionKind } from '@prisma/client';
+import { DeviceStatus, HubActionKind, InspectionResult } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -23,6 +23,7 @@ import {
   IsEnum,
   IsIn,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
@@ -132,6 +133,23 @@ export class ResetDto {
   @Min(0)
   @Max(0xffffffff)
   nodeNum?: number;
+}
+
+// devices api-design 35 (D-114): the body of the counter's inspection, rentals api-design 16.
+export class RecoveredInspectionDto {
+  @IsIn(Object.values(InspectionResult))
+  result!: InspectionResult;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  damageCodes?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
 }
 
 // devices api-design 33 (design section 12.14): the device hub starts an action on the docked unit.
@@ -255,6 +273,28 @@ export class DevicesController {
       } satisfies AuditRecordEvent);
       return device;
     });
+  }
+
+  // devices api-design 35 (D-114, REQ-EVT-11): Staff inspect a RETURNED unit that came back outside a
+  // contract. It takes the policy of the reset on this page (device.operate), held by every role that
+  // holds the counter's contract.operate.
+  @Post(':id/inspection')
+  @CheckPolicies((ability) => ability.can('operate', 'Device'))
+  @ResponseMessage('Inspection recorded')
+  inspectRecovered(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RecoveredInspectionDto,
+    @CurrentCaller() caller: Caller,
+  ) {
+    return this.events.transaction((tx) =>
+      this.devices.inspectRecovered(
+        id,
+        { result: dto.result, damageCodes: dto.damageCodes ?? [], note: dto.note?.trim() || null },
+        caller.id,
+        new Date(),
+        tx,
+      ),
+    );
   }
 
   // devices api-design 33 (design section 12.14): every status is accepted; RESERVED and RENTED need the typed

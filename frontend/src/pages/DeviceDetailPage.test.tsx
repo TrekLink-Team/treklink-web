@@ -13,6 +13,7 @@ const recordReset = vi.fn();
 const retireDevice = vi.fn();
 const disposeDevice = vi.fn();
 const editFirmware = vi.fn();
+const inspectRecoveredDevice = vi.fn();
 
 const device = (overrides: Record<string, unknown> = {}) => ({
   id: 'd-1',
@@ -72,6 +73,20 @@ vi.mock('../entities/device/api', async (importOriginal) => ({
   retireDevice: (...args: unknown[]) => retireDevice(...args),
   disposeDevice: (...args: unknown[]) => disposeDevice(...args),
   editFirmware: (...args: unknown[]) => editFirmware(...args),
+  inspectRecoveredDevice: (...args: unknown[]) => inspectRecoveredDevice(...args),
+}));
+
+// The damage price list the inspection offers its codes from (billing api-design 05).
+vi.mock('../entities/billing/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../entities/billing/api')>()),
+  useDamageRates: () => ({
+    data: [
+      { id: 'r-1', code: 'ANTENNA_BROKEN', label: 'Antenna broken', hardwareVariantId: null, amountVnd: 300000, isActive: true },
+    ],
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
 }));
 
 // The history route of screen 9.2, standing in for the page: it shows where the link led.
@@ -102,6 +117,7 @@ beforeEach(() => {
   retireDevice.mockReset();
   disposeDevice.mockReset();
   editFirmware.mockReset();
+  inspectRecoveredDevice.mockReset();
   currentRoles = ['STAFF'];
   currentDevice = device();
   historyPages = () => ({ items: [], pageNumber: 1, pageSize: 20, totalCount: 0, totalPages: 0 });
@@ -250,6 +266,61 @@ describe('DeviceDetailPage (/t/devices/:id, screen 4.2)', () => {
     expect(screen.getByRole('link', { name: 'Open the counter' }).getAttribute('href')).toBe(
       '/t/counter/c-4',
     );
+  });
+
+  it('inspects a unit recovered outside a contract on this page, and shows it Available after a pass (D-114)', async () => {
+    currentDevice = device({
+      status: 'RETURNED',
+      nextStep: { action: 'INSPECT', contractId: null },
+    });
+    inspectRecoveredDevice.mockImplementation(() => {
+      currentDevice = device({ status: 'AVAILABLE', nextStep: null });
+      return Promise.resolve({
+        inspection: { id: 'in-1', result: 'PASSED', damageCodes: [], createdAt: '2026-11-26T03:00:00Z' },
+        device: { id: 'd-1', assetTag: 'TL-0042', status: 'AVAILABLE' },
+      });
+    });
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'Next step: Inspect' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Open the counter' })).toBeNull();
+    expect(screen.queryByText('Available')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Inspect' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Inspect TL-0042' }));
+    fireEvent.click(dialog.getByLabelText('Passed'));
+    fireEvent.click(dialog.getByRole('button', { name: 'Record inspection' }));
+    await waitFor(() =>
+      expect(inspectRecoveredDevice).toHaveBeenCalledWith('d-1', { result: 'PASSED', damageCodes: [], note: undefined }),
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getAllByText('Available').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('heading', { name: /Next step/ })).toBeNull();
+  });
+
+  it('sends the damage codes of a DAMAGED inspection, without prices, and keeps a refusal in the dialog', async () => {
+    currentDevice = device({
+      status: 'RETURNED',
+      nextStep: { action: 'INSPECT', contractId: null },
+    });
+    inspectRecoveredDevice.mockRejectedValue(
+      new ApiError(409, 'RESET_REQUIRED', 'Reset this device before inspecting it.'),
+    );
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Inspect' }));
+    const dialog = within(screen.getByRole('dialog', { name: 'Inspect TL-0042' }));
+    fireEvent.click(dialog.getByLabelText('Damaged'));
+    expect(dialog.getByText('Not charged: this unit came back outside a contract.')).toBeTruthy();
+    expect(dialog.queryByText(/300/)).toBeNull();
+    fireEvent.click(dialog.getByRole('button', { name: 'Record inspection' }));
+    expect(await dialog.findByText('Choose at least one damage code.')).toBeTruthy();
+    fireEvent.click(dialog.getByLabelText('Antenna broken (ANTENNA_BROKEN)'));
+    fireEvent.change(dialog.getByLabelText('Note'), { target: { value: ' Snapped ' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'Record inspection' }));
+    expect(await dialog.findByText('Reset this device before inspecting it.')).toBeTruthy();
+    expect(inspectRecoveredDevice).toHaveBeenCalledWith('d-1', {
+      result: 'DAMAGED',
+      damageCodes: ['ANTENNA_BROKEN'],
+      note: 'Snapped',
+    });
   });
 
   it('points a unit out of maintenance at the intake check on this page, and shows nothing once available', async () => {

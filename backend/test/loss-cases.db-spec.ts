@@ -473,6 +473,77 @@ describe('loss cases against Postgres (devices task 2.7)', () => {
     expect(inspected.device.status).toBe(DeviceStatus.AVAILABLE);
   });
 
+  // D-114 (devices api-design 35): a unit lost from stock and recovered has no contract row to return to,
+  // so its device page records the inspection; a unit recovered from a renter's loss goes to the counter.
+  it('D-114: inspects a unit recovered outside a contract on its device page, after its reset only', async () => {
+    const devices = flow.get(DevicesService);
+    const steps = { keyRemoved: true, nodeDbCleared: true, ownerCleared: true };
+    const passed = { result: InspectionResult.PASSED, damageCodes: [], note: null };
+    const inspect = (deviceId: string, when: Date) =>
+      flow.prisma.$transaction((tx) =>
+        devices.inspectRecovered(deviceId, passed, flow.staff.id, when, tx),
+      );
+
+    const variantId = await flow.variant(SCHEDULE);
+    const [deviceId] = await flow.availableDevices(variantId, 1);
+    const reported = await lossCases.report(
+      deviceId,
+      { description: 'Missing at stock-take' },
+      flow.staff,
+      REPORTED_AT,
+    );
+    await lossCases.recover(
+      reported.id,
+      { note: 'Found in the store room', expectedVersion: reported.version },
+      flow.staff,
+      at('2026-11-06T02:00:00.000Z'),
+    );
+    expect(await flow.codeOf(inspect(deviceId, at('2026-11-06T02:30:00.000Z')))).toBe(
+      ErrorCode.RESET_REQUIRED,
+    );
+    await flow.prisma.$transaction((tx) =>
+      devices.reset(deviceId, steps, flow.staff.id, at('2026-11-06T03:00:00.000Z'), tx),
+    );
+    const inspected = await inspect(deviceId, at('2026-11-06T03:10:00.000Z'));
+    expect(inspected.device.status).toBe(DeviceStatus.AVAILABLE);
+    const row = await flow.prisma.inspection.findUniqueOrThrow({
+      where: { id: inspected.inspection.id },
+    });
+    expect(row).toMatchObject({
+      deviceId,
+      contractDeviceId: null,
+      result: InspectionResult.PASSED,
+    });
+    expect((await flow.prisma.device.findUniqueOrThrow({ where: { id: deviceId } })).status).toBe(
+      DeviceStatus.AVAILABLE,
+    );
+
+    // A renter's loss names its contract: the counter inspects that unit, never its device page.
+    const rented = await rentedUnit();
+    const renterLoss = await lossCases.report(
+      rented.deviceId,
+      { description: 'Left at the hut' },
+      rented.org.manager,
+      REPORTED_AT,
+    );
+    const triaged = await lossCases.triage(
+      renterLoss.id,
+      { suspectedTheft: false, expectedVersion: renterLoss.version },
+      flow.staff,
+      TRIAGED_AT,
+    );
+    await lossCases.recover(
+      triaged.id,
+      { note: 'Handed in', expectedVersion: triaged.version },
+      flow.staff,
+      at('2026-11-06T02:00:00.000Z'),
+    );
+    expect(await flow.codeOf(inspect(rented.deviceId, at('2026-11-06T03:10:00.000Z')))).toBe(
+      ErrorCode.INVALID_STATE_TRANSITION,
+    );
+    expect(await flow.prisma.inspection.count({ where: { deviceId: rented.deviceId } })).toBe(0);
+  });
+
   it('FR-DEV-13 and D-046: a suspected theft in renter custody opens one SUSPECTED_THEFT case, and the next loss of the organization links to it', async () => {
     const org = await flow.organization();
     const variantId = await flow.variant(SCHEDULE);
