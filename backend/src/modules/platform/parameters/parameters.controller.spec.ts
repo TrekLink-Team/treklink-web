@@ -5,7 +5,6 @@ import { createMongoAbility } from '@casl/ability';
 import { CHECK_POLICIES_KEY, PolicyHandler } from '../../../common/decorators/access.decorator';
 import { RESPONSE_MESSAGE_KEY } from '../../../common/decorators/response-message.decorator';
 import { DomainException, ErrorCode } from '../../../common/errors';
-import { AppAbility } from '../../auth/casl/ability.factory';
 import { ParameterReadsService } from './parameter-reads.service';
 import { ParameterService } from './parameter.service';
 import { ParametersController } from './parameters.controller';
@@ -120,9 +119,7 @@ describe('ParametersController', () => {
     const [policy] = new Reflector().get<PolicyHandler[]>(CHECK_POLICIES_KEY, ParametersController);
 
     it('needs manage on Parameter, which only the TrekLink Admin holds', () => {
-      expect(
-        policy(createMongoAbility<AppAbility>([{ action: 'manage', subject: 'Parameter' }])),
-      ).toBe(true);
+      expect(policy(createMongoAbility([{ action: 'manage', subject: 'Parameter' }]))).toBe(true);
     });
 
     it.each([
@@ -130,7 +127,7 @@ describe('ParametersController', () => {
       ['manage on Role', [{ action: 'manage', subject: 'Role' }]],
       ['no permission at all', []],
     ])('refuses a caller with %s', (_label, rules) => {
-      expect(policy(createMongoAbility<AppAbility>(rules as never))).toBe(false);
+      expect(policy(createMongoAbility(rules as never))).toBe(false);
     });
   });
 
