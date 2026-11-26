@@ -510,7 +510,31 @@ export class DevicesRepository {
         select: { deviceId: true, refType: true, refId: true, createdAt: true },
       }),
     ]);
-    return { units, resets, returns };
+    // The contract each loss case names, for a return out of a loss case (D-114), as lastReturnMove reads it.
+    const caseIds = [
+      ...new Set(
+        returns.flatMap((move) => (move.refType === 'LOSS_CASE' && move.refId ? [move.refId] : [])),
+      ),
+    ];
+    const cases =
+      caseIds.length === 0
+        ? []
+        : await client.lossCase.findMany({
+            where: { id: { in: caseIds } },
+            select: { id: true, contractId: true },
+          });
+    const contractOfCase = new Map(cases.map((row) => [row.id, row.contractId]));
+    return {
+      units,
+      resets,
+      returns: returns.map((move) => ({
+        ...move,
+        lossCaseContractId:
+          move.refType === 'LOSS_CASE' && move.refId
+            ? (contractOfCase.get(move.refId) ?? null)
+            : null,
+      })),
+    };
   }
 
   // Return, reset and inspection (task 2.4 part, built by LongLP for MF-05).
