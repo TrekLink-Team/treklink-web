@@ -20,7 +20,7 @@ import {
 } from './devices.repository';
 import { IN_SERVICE } from './in-service';
 import { MaintenanceService } from './maintenance.service';
-import { NextStep, nextStepOf } from './next-step';
+import { NextStep, nextStepOf, returnContractOf } from './next-step';
 import { CUSTODY_RESOLVER, CustodyResolver } from './ports/custody-resolver.port';
 
 const notFound = () =>
@@ -850,7 +850,8 @@ export class DevicesService {
   // devices REQ-EVT-23 (D-092 rule 4): each unit's state now and its next step back to AVAILABLE, for
   // the device page and for the checked-in rows of a contract (rentals api-design 03). A reset counts
   // when it is at or after the unit became RETURNED; the reset and inspection name the contract of the
-  // unit's last move into RETURNED when that move was a check-in (refType CONTRACT).
+  // unit's last move into RETURNED when that move was a check-in (refType CONTRACT), or the contract its
+  // loss case names when it came back from one (D-114); otherwise the device page records them.
   async nextSteps(
     deviceIds: readonly string[],
     tx?: Prisma.TransactionClient,
@@ -865,8 +866,7 @@ export class DevicesService {
       units.map((unit) => {
         const reset = resets.find((entry) => entry.deviceId === unit.id);
         const lastReturn = returns.find((entry) => entry.deviceId === unit.id);
-        const returnContractId =
-          lastReturn?.refType === 'CONTRACT' ? (lastReturn.refId ?? null) : null;
+        const returnContractId = returnContractOf(lastReturn);
         return [
           unit.id,
           {

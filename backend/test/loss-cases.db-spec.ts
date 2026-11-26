@@ -542,6 +542,13 @@ describe('loss cases against Postgres (devices task 2.7)', () => {
       ErrorCode.INVALID_STATE_TRANSITION,
     );
     expect(await flow.prisma.inspection.count({ where: { deviceId: rented.deviceId } })).toBe(0);
+    // Its next step names that counter, so the device page shows the counter link, not Inspect.
+    const states = await devices.nextSteps([rented.deviceId, deviceId]);
+    expect(states.get(rented.deviceId)).toMatchObject({
+      nextStep: { action: 'RESET', contractId: rented.contract.id },
+      lastReturnContractId: rented.contract.id,
+    });
+    expect(states.get(deviceId)?.lastReturnContractId).toBeNull();
   });
 
   it('FR-DEV-13 and D-046: a suspected theft in renter custody opens one SUSPECTED_THEFT case, and the next loss of the organization links to it', async () => {

@@ -8,8 +8,8 @@ export type NextAction = 'RESET' | 'INSPECT' | 'COMPLETE_MAINTENANCE' | 'INTAKE'
 export interface NextStep {
   action: NextAction;
   // The contract whose counter records the reset and the inspection (rentals api-design 16): the
-  // contract of the unit's last check-in; null for the other actions and for a unit recovered outside
-  // a contract.
+  // contract of the unit's last check-in, or the one its loss case names (D-114); null for the other
+  // actions and for a unit recovered outside a contract.
   contractId: string | null;
 }
 
@@ -20,6 +20,18 @@ export interface NextStepInput {
   openMaintenance: boolean;
   returnContractId: string | null;
 }
+
+// The contract whose counter records the reset and inspection of a unit's last return (D-114): the
+// contract of a check-in (refType CONTRACT), or the contract a loss case names when the unit came back
+// from that case (refType LOSS_CASE); null for a unit recovered outside a contract.
+export const returnContractOf = (
+  move:
+    { refType: string | null; refId: string | null; lossCaseContractId: string | null } | undefined,
+): string | null => {
+  if (move?.refType === 'CONTRACT') return move.refId ?? null;
+  if (move?.refType === 'LOSS_CASE') return move.lossCaseContractId;
+  return null;
+};
 
 export const nextStepOf = (input: NextStepInput): NextStep | null => {
   switch (input.status) {

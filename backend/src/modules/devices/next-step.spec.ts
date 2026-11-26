@@ -2,7 +2,7 @@ import { DeviceStatus } from '@prisma/client';
 import { DevicesRepository } from './devices.repository';
 import { DevicesService } from './devices.service';
 import { MaintenanceService } from './maintenance.service';
-import { nextStepOf } from './next-step';
+import { nextStepOf, returnContractOf } from './next-step';
 
 // devices REQ-EVT-23 (D-092 rule 4): the next step of a unit back to AVAILABLE, for the device page
 // (api-design 07) and the checked-in rows of a contract (rentals api-design 03).
@@ -77,6 +77,7 @@ describe('DevicesService.nextSteps and openLossCases', () => {
         { id: 'd-3', status: DeviceStatus.MAINTENANCE, statusChangedAt: returnedAt },
         { id: 'd-4', status: DeviceStatus.AVAILABLE, statusChangedAt: returnedAt },
         { id: 'd-5', status: DeviceStatus.RETURNED, statusChangedAt: returnedAt },
+        { id: 'd-6', status: DeviceStatus.RETURNED, statusChangedAt: returnedAt },
       ],
       // Newest first, as the repository orders them.
       resets: [
@@ -89,13 +90,14 @@ describe('DevicesService.nextSteps and openLossCases', () => {
         { deviceId: 'd-2', refType: 'CONTRACT', refId: 'c-9', createdAt: returnedAt },
         { deviceId: 'd-3', refType: 'CONTRACT', refId: 'c-9', createdAt: returnedAt },
         { deviceId: 'd-5', refType: 'LOSS_CASE', refId: 'lc-1', createdAt: returnedAt },
-      ],
+        { deviceId: 'd-6', refType: 'LOSS_CASE', refId: 'lc-2', createdAt: returnedAt },
+      ].map((move) => ({ ...move, lossCaseContractId: move.refId === 'lc-2' ? 'c-7' : null })),
     });
 
-    const states = await service.nextSteps(['d-1', 'd-2', 'd-3', 'd-4', 'd-5', 'd-1']);
+    const states = await service.nextSteps(['d-1', 'd-2', 'd-3', 'd-4', 'd-5', 'd-6', 'd-1']);
 
     expect(repository.returnStates).toHaveBeenCalledWith(
-      ['d-1', 'd-2', 'd-3', 'd-4', 'd-5'],
+      ['d-1', 'd-2', 'd-3', 'd-4', 'd-5', 'd-6'],
       undefined,
     );
     expect(states.get('d-1')).toEqual({
@@ -120,6 +122,23 @@ describe('DevicesService.nextSteps and openLossCases', () => {
       nextStep: { action: 'RESET', contractId: null },
       lastReturnContractId: null,
     });
+    // Recovered from a loss case that names a contract (D-114): that contract's counter, as the device
+    // page's inspection route refuses the unit.
+    expect(states.get('d-6')).toEqual({
+      status: DeviceStatus.RETURNED,
+      nextStep: { action: 'RESET', contractId: 'c-7' },
+      lastReturnContractId: 'c-7',
+    });
+  });
+
+  it.each([
+    [{ refType: 'CONTRACT', refId: 'c-1', lossCaseContractId: null }, 'c-1'],
+    [{ refType: 'LOSS_CASE', refId: 'lc-1', lossCaseContractId: 'c-7' }, 'c-7'],
+    [{ refType: 'LOSS_CASE', refId: 'lc-1', lossCaseContractId: null }, null],
+    [{ refType: null, refId: null, lossCaseContractId: null }, null],
+    [undefined, null],
+  ])('derives the return contract of %j as %s (D-114)', (move, expected) => {
+    expect(returnContractOf(move)).toBe(expected);
   });
 
   it('reads nothing for no unit', async () => {
