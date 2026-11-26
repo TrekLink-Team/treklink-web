@@ -99,6 +99,10 @@ const DEMO_SIGNATURE =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
 // The start of the Ta Nang to Phan Dung trail (the position fixture's point), where MF-02 places units.
 const TA_NANG = { lat: 11.5544, lon: 108.5381 };
+// The cost a demo repair records: devices api-design 14 requires actualCostVnd for COMPLETED. Zero stays
+// at or below devices.maintenanceApprovalThresholdVnd, so the record completes and never goes back to
+// PENDING_APPROVAL. A demo value, not a business number (D-110).
+export const DEMO_REPAIR_COST_VND = 0;
 const MINUTE_MS = 60_000;
 const DAY_MS = 24 * 60 * MINUTE_MS;
 // The seeded organization the playbook runs on.
@@ -791,7 +795,12 @@ export class DemoPanelService {
       this.maintenance.complete(
         deviceId,
         record.id,
-        { status: 'COMPLETED', resolution: NOTES.repaired, expectedVersion: record.version },
+        {
+          status: 'COMPLETED',
+          resolution: NOTES.repaired,
+          actualCostVnd: DEMO_REPAIR_COST_VND,
+          expectedVersion: record.version,
+        },
         staff.caller.id,
         now,
         tx,
