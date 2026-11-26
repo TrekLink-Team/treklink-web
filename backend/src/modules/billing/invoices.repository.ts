@@ -396,12 +396,14 @@ export class InvoicesRepository {
   // Invoiced, paid and outstanding over every invoice the filter matches, not one page (#501). With a
   // period it sums the lines due in [dueFrom, dueTo) only, so it equals the revenue report's row for
   // the same variant and period (`BalanceService.revenue`); outstanding never goes below zero, as there.
+  // Without a period, outstanding nets inside each contract, as the overview's "Still due" does: a
+  // credit on one contract never pays another contract's debt (#512).
   async totals(filter: InvoiceFilter, client: Client = this.prisma): Promise<InvoiceTotals> {
-    const period = filter.dueFrom && filter.dueTo;
+    if (!filter.dueFrom || !filter.dueTo) return this.totalsByContract(filter, client);
     const sums = await client.invoiceLine.aggregate({
       where: {
         invoice: this.whereOf(filter),
-        ...(period ? { dueAt: { gte: filter.dueFrom, lt: filter.dueTo } } : {}),
+        dueAt: { gte: filter.dueFrom, lt: filter.dueTo },
       },
       _sum: { amountVnd: true, paidVnd: true },
     });
@@ -409,6 +411,24 @@ export class InvoicesRepository {
     const paidVnd = sums._sum.paidVnd ?? 0n;
     const owed = invoicedVnd - paidVnd;
     return { invoicedVnd, paidVnd, outstandingVnd: owed > 0n ? owed : 0n };
+  }
+
+  // An invoice's total and paid amounts are the sums of its lines, so one grouped query covers them.
+  private async totalsByContract(filter: InvoiceFilter, client: Client): Promise<InvoiceTotals> {
+    const contracts = await client.invoice.groupBy({
+      by: ['contractId'],
+      where: this.whereOf(filter),
+      _sum: { totalVnd: true, paidVnd: true },
+    });
+    const totals = { invoicedVnd: 0n, paidVnd: 0n, outstandingVnd: 0n };
+    for (const { _sum } of contracts) {
+      const invoicedVnd = _sum.totalVnd ?? 0n;
+      const paidVnd = _sum.paidVnd ?? 0n;
+      totals.invoicedVnd += invoicedVnd;
+      totals.paidVnd += paidVnd;
+      if (invoicedVnd > paidVnd) totals.outstandingVnd += invoicedVnd - paidVnd;
+    }
+    return totals;
   }
 
   // A page of invoices, newest first unless `sort` names an allowed column (api-design 08, W26).

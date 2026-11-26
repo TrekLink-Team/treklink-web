@@ -74,6 +74,7 @@ describe('InvoicesRepository (billing task 1.1)', () => {
         findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn().mockResolvedValue(ROW),
         update: jest.fn().mockResolvedValue(ROW),
+        groupBy: jest.fn().mockResolvedValue([]),
       },
       invoiceLine: {
         aggregate: jest.fn().mockResolvedValue({ _max: { seq: 2 } }),
@@ -127,27 +128,39 @@ describe('InvoicesRepository (billing task 1.1)', () => {
       expect(query.where.invoice).toMatchObject({ organizationId: 'org-1' });
     });
 
-    it('sums every line of the matching invoices without a period, and has no page limit', async () => {
-      tx.invoiceLine.aggregate.mockResolvedValue({ _sum: { amountVnd: null, paidVnd: null } });
+    it('sums every matching invoice without a period, and has no page limit', async () => {
       await expect(repository.totals({ status: InvoiceStatus.ISSUED }, client())).resolves.toEqual({
         invoicedVnd: 0n,
         paidVnd: 0n,
         outstandingVnd: 0n,
       });
-      const query = (tx.invoiceLine.aggregate.mock.calls as unknown[][])[0][0] as Record<
-        string,
-        unknown
-      >;
-      expect(query).not.toHaveProperty('where.dueAt');
+      const query = (tx.invoice.groupBy.mock.calls as unknown[][])[0][0] as Record<string, unknown>;
+      expect(query).toMatchObject({ by: ['contractId'], where: { status: InvoiceStatus.ISSUED } });
       expect(query).not.toHaveProperty('skip');
       expect(query).not.toHaveProperty('take');
+      expect(tx.invoiceLine.aggregate).not.toHaveBeenCalled();
     });
 
-    it('never reports a negative outstanding amount, as the revenue report does', async () => {
+    it('never lets a credit on one contract lower what another contract owes (#512)', async () => {
+      tx.invoice.groupBy.mockResolvedValue([
+        { contractId: 'c-1', _sum: { totalVnd: 2_000_000n, paidVnd: 650_000n } },
+        { contractId: 'c-2', _sum: { totalVnd: -1_196_334n, paidVnd: 0n } },
+        { contractId: 'c-3', _sum: { totalVnd: null, paidVnd: null } },
+      ]);
+      await expect(repository.totals({ organizationId: 'org-1' }, client())).resolves.toEqual({
+        invoicedVnd: 803_666n,
+        paidVnd: 650_000n,
+        outstandingVnd: 1_350_000n,
+      });
+    });
+
+    it('never reports a negative outstanding amount for a period, as the revenue report does', async () => {
       tx.invoiceLine.aggregate.mockResolvedValue({
         _sum: { amountVnd: 1_000_000n, paidVnd: 1_500_000n },
       });
-      await expect(repository.totals({}, client())).resolves.toMatchObject({ outstandingVnd: 0n });
+      await expect(repository.totals(PERIOD, client())).resolves.toMatchObject({
+        outstandingVnd: 0n,
+      });
     });
   });
 
