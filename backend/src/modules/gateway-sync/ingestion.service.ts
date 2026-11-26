@@ -21,6 +21,14 @@ import { Normalizer } from './normalizer/normalizer';
 import { occurrenceTime } from './occurrence-time';
 import { isImplausibleMove, isValidPosition, toBounds } from './position-rules';
 
+// The time limit of the ingestion transaction (event, projection, the SOS incident and its routing, audit
+// row). Prisma's 5 s default closed it under a simulated SOS on the AWS staging host (Sydney to Neon in
+// Singapore, 5094 ms): the panel answered 500, and MQTT, which retries only an unreachable database,
+// would acknowledge and drop a real SOS that failed the same way (mqtt-subscriber withRetry). The start
+// wait (maxWait) stays TransactionalEvents' own: 20 s outside a scheduled job, Prisma's 2 s inside one
+// (treklink-web#533, #537), so the field simulator job cannot hold the pool while it waits.
+export const INGESTION_TRANSACTION = { timeout: 15_000 } as const;
+
 // D-006: one identity per mesh packet, whichever path delivers it.
 export const eventIdOf = (from: number, id: number): string =>
   createHash('sha256').update(`${from}:${id}`).digest('hex');
@@ -285,7 +293,7 @@ export class IngestionService {
         } satisfies FieldTelemetryEvent);
       }
       return outcome;
-    });
+    }, INGESTION_TRANSACTION);
   }
 
   // The station of a Field Station envelope when it may deliver the device's events, else the audit
