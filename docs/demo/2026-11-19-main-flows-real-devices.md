@@ -11,7 +11,7 @@ reseed of 2026-11-21.
 | Item | Value |
 |---|---|
 | Staging | the `aws-staging` entry of `deploy/system-endpoints.json` on `main` |
-| Sign-in | `/demo`, one click per account: TrekLink Staff, Org Manager, Org Operator. This describes 18 and 19 November; the quick sign-in needs `DEMO_TEST_ACCOUNTS_ENABLED` (`deploy/aws/.env.aws.example:97-101`), and on the staging now the accounts of the scenario playbook apply |
+| Sign-in | `/demo`, one click per account: TrekLink Staff, Org Manager, Org Operator. This describes 18 and 19 November; the quick sign-in needs `DEMO_TEST_ACCOUNTS_ENABLED` (`deploy/aws/.env.aws.example:102-106`), and on the staging now the accounts of the scenario playbook apply |
 | Organization | ORG-0001, TrekLink Demo Tours Co., Ltd. |
 | Receiver (station unit) | Treklink a278, `!0aa3a278`, TrekLink v2, on the laptop over USB. It must be one of the organization's rented units: the gateway publishes every packet under the receiver's node, and the broker refuses the whole topic otherwise (treklink-web#547) |
 | Remote unit (carried) | Treklink a294, `!0aa3a294`, TrekLink v2, on battery |
