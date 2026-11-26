@@ -12,7 +12,7 @@ import { FieldStationJsonAdapter } from './adapters/field-station-json.adapter';
 import { NodeJsonAdapter } from './adapters/node-json.adapter';
 import { CanonicalEnvelope } from './canonical-envelope';
 import { IngestionRepository } from './ingestion.repository';
-import { eventIdOf, IngestionService } from './ingestion.service';
+import { eventIdOf, INGESTION_TRANSACTION, IngestionService } from './ingestion.service';
 import { Normalizer } from './normalizer/normalizer';
 import { fixture } from './testing/fixtures';
 
@@ -58,6 +58,8 @@ describe('IngestionService', () => {
     linkIncident: jest.Mock;
   };
   let devices: { byNodeNum: jest.Mock; projectReading: jest.Mock };
+  // The options each ingestion transaction was started with.
+  let transactionOptions: unknown[] = [];
   let contracts: { custodyAt: jest.Mock; rentalPeriods: jest.Mock };
   let stations: { stationByUsername: jest.Mock };
   let incidents: {
@@ -84,8 +86,13 @@ describe('IngestionService', () => {
     };
     stations = { stationByUsername: jest.fn().mockResolvedValue(null) };
     emitted = [];
+    transactionOptions = [];
     const events = {
-      transaction: async <T>(work: (client: Prisma.TransactionClient) => Promise<T>) => {
+      transaction: async <T>(
+        work: (client: Prisma.TransactionClient) => Promise<T>,
+        options?: unknown,
+      ) => {
+        transactionOptions.push(options);
         const pending: { name: string; payload: unknown }[] = [];
         events.pending = pending;
         const result = await work(tx);
@@ -435,6 +442,14 @@ describe('IngestionService', () => {
       tx,
     );
     expect(emitted.map((e) => e.name)).toEqual(['field.telemetry']);
+  });
+
+  it('starts the ingestion transaction with a 15 s limit and leaves maxWait to TransactionalEvents', async () => {
+    devices.byNodeNum.mockResolvedValue({ ...device, id: 'dev-10' });
+    await service.ingest(envelopeOf('sos-fall'));
+    expect(incidents.onSos).toHaveBeenCalled();
+    expect(INGESTION_TRANSACTION).toEqual({ timeout: 15_000 });
+    expect(transactionOptions).toEqual([{ timeout: 15_000 }]);
   });
 
   it('stores an SOS as P0 without projecting or emitting', async () => {
