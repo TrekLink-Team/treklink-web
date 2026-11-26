@@ -3,11 +3,15 @@
 # certificate of MQTT_DOMAIN; this script copies it from Caddy's data volume (mounted read-only at
 # /caddy-data) into /mosquitto/tls, readable by the broker's user, starts the broker, and every
 # CERT_CHECK_SECONDS compares Caddy's files with the copy. When they differ it copies them again and sends
-# the broker SIGHUP, which makes Mosquitto 2.0.18 load the new certificate for new connections.
+# the broker SIGHUP, which makes Mosquitto 2.0.18 load the new certificate for new connections. Every
+# BROKER_CHECK_SECONDS it checks the broker is still running and exits with the broker's status when it is
+# not, so `restart: unless-stopped` starts the container again (web#517: a go-auth panic ended the broker
+# while this script slept through its hour-long certificate wait, and the container stayed Up).
 set -eu
 
 : "${MQTT_DOMAIN:?set MQTT_DOMAIN to the host name of the certificate}"
 CHECK="${CERT_CHECK_SECONDS:-3600}"
+ALIVE="${BROKER_CHECK_SECONDS:-5}"
 SOURCE_ROOT=/caddy-data/caddy/certificates
 TLS_DIR=/mosquitto/tls
 CONF=/mosquitto/config/mosquitto.conf
@@ -71,12 +75,16 @@ stop() {
 }
 trap stop TERM INT
 
+since_cert=0
 while [ "$stopping" -eq 0 ] && kill -0 "$pid" 2>/dev/null; do
-  sleep "$CHECK" &
+  sleep "$ALIVE" &
   sleeper=$!
   wait "$sleeper" || true
   sleeper=
   [ "$stopping" -eq 0 ] || break
+  since_cert=$((since_cert + ALIVE))
+  [ "$since_cert" -ge "$CHECK" ] || continue
+  since_cert=0
   if dir=$(source_dir) && ! same_as_copy "$dir"; then
     install_copy "$dir"
     kill -HUP "$pid" 2>/dev/null || true

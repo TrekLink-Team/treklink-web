@@ -51,6 +51,16 @@ services:
       - mosquitto_data:/mosquitto/data
     depends_on:
       - broker-hook-proxy
+    # Unhealthy when 1883 refuses a TCP connect (web#517), so `docker compose ps` shows a dead broker. A
+    # TCP connect needs no credential and calls no hook. Compose does not restart an unhealthy container:
+    # start.sh exits when the broker dies, which `restart` acts on, and the host deploy step restarts the
+    # broker once when /api/health shows mqtt down. The first start waits for Caddy's certificate.
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/1883"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
     stop_grace_period: 30s
     logging: *logging
 

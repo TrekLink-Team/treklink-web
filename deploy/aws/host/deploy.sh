@@ -296,6 +296,39 @@ if [ "$api_code" != "200" ]; then
   exit 1
 fi
 
+# The broker behind the field uplink (web#517): a broker that died while the backend restarted left health
+# at mqtt down with the container Up. The backend's subscriber reconnects every 5 s, so up within 60 s is
+# expected; otherwise the broker is restarted once and must be up within 120 s.
+mqtt_state() {
+  curl -s --max-time 10 "https://$HOST_NAME/api/health" 2>/dev/null \
+    | grep -o '"mqtt":"[a-z]*"' | head -n 1 | cut -d'"' -f4 || true
+}
+wait_for_mqtt() {
+  local limit="$1" waited=0
+  while [ "$waited" -le "$limit" ]; do
+    mqtt="$(mqtt_state)"
+    [ "$mqtt" = "up" ] && return 0
+    sleep 5
+    waited=$((waited + 5))
+  done
+  return 1
+}
+mqtt=""
+if wait_for_mqtt 60; then
+  echo "HEALTH mqtt up"
+else
+  echo "  /api/health shows mqtt ${mqtt:-unreadable} after 60 s: restarting mosquitto once; its last log lines:"
+  compose logs --no-color --tail 20 mosquitto || true
+  quiet compose restart mosquitto
+  if wait_for_mqtt 120; then
+    echo "HEALTH mqtt up after the broker restart"
+  else
+    echo "  /api/health still shows mqtt ${mqtt:-unreadable} after the broker restart; mosquitto's last log lines:" >&2
+    compose logs --no-color --tail 40 mosquitto >&2 || true
+    exit 1
+  fi
+fi
+
 # ---------------------------------------------------------------------------------------------------
 step "build the developer docs (Node in a container)"
 # developer-docs/ is its own npm project (not a root workspace), built after the web app is published

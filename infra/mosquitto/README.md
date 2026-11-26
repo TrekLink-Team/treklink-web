@@ -58,8 +58,8 @@ the same file and listed in the
    `BROKER_HOOK_BACKEND=http://192.168.1.10:3000`.
 
 3. A Field Station connects with the Username and Secret of its credential (`GATEWAY_FS_USERNAME`,
-   `GATEWAY_FS_SECRET`). A revoked station is refused at its next connection once the plugin's cache
-   entry (60 s at most) has expired.
+   `GATEWAY_FS_SECRET`). A revoked station is refused at its next connection, and its next publish is
+   refused too: the plugin's cache is off (web#517), so every connection and publish asks the hooks.
 
 ## Switching back
 
