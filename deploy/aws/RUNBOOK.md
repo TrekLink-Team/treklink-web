@@ -138,7 +138,8 @@ What it does, each step named in its output and in its error message when it fai
 6. SSM Run Command on the host: installs the release in `/opt/treklink/app`, writes `deploy/aws/.env`
    (mode 0600), builds the backend image, starts compose, waits for the backend to be healthy, builds the
    web app, syncs it to the frontend bucket, invalidates CloudFront, checks `https://<host name>/api/health`
-   from the host, then builds and publishes the developer docs and checks `https://<host name>/developers/`.
+   from the host, waits up to 60 s for it to show `"mqtt":"up"` and otherwise restarts Mosquitto once and
+   fails when it is still not up 120 s later (web#517), then builds and publishes the developer docs and checks `https://<host name>/developers/`.
    The build logs stay on the host in `/opt/treklink/logs/`; the last lines are printed when a host step
    fails.
 7. Prints the URLs and the health results.
@@ -197,6 +198,36 @@ two health URLs. Read-only.
 For a shell on the host: `aws ssm start-session --target <InstanceId> --profile treklink --region
 ap-southeast-2` (needs the Session Manager plugin for the AWS CLI on the laptop), then
 `sudo -i` and `cd /opt/treklink/app/deploy/aws`. Logs: manual path §9.
+
+### After any redeploy: the broker (web#517)
+
+On 2026-11-18 the go-auth plugin panicked in its ACL cache a few minutes after a backend-only redeploy, the
+broker exited, and the container stayed `Up` while `start.sh` slept. Three things now cover it: the plugin's
+cache is off (`mosquitto/mosquitto.conf`), `start.sh` exits within `BROKER_CHECK_SECONDS` (5 s) of the
+broker exiting so `restart: unless-stopped` starts it again, and the host step of `up.sh` restarts the broker
+once when health shows `mqtt` down. After any redeploy, and before a field test or a demo, check it:
+
+```bash
+curl -s https://<host name>/api/health
+```
+
+The answer must show `"mqtt":"up"`. When it shows `"mqtt":"down"`, on the host:
+
+```bash
+docker compose ps mosquitto
+```
+
+```bash
+docker compose logs --tail 50 mosquitto
+```
+
+```bash
+docker compose restart mosquitto
+```
+
+`docker compose ps` shows the broker `unhealthy` when port 1883 refuses a TCP connection. Compose does not
+restart an unhealthy container by itself, so restart it as above and check health again within a minute
+(the backend reconnects every 5 s). Keep the log lines of a crash for the issue.
 
 ### Down
 
@@ -542,7 +573,7 @@ docker compose build backend && docker compose up -d backend
 ```
 
 **Restart window.** While the backend is down, the broker cannot ask its hooks. A new connection is
-dropped after the 5 s hook timeout. A connected client whose 60 s ACL cache entry has expired has its
+dropped after the 5 s hook timeout. The plugin's cache is off (web#517), so a connected client has its
 connection closed at its next publish, because a hook error is not a denial. In the rehearsal, a QoS 1
 client then resent the message after the backend returned, and the message was stored once. The Field
 Station keeps unacknowledged rows in SQLite and sends them again. A node publishing directly uses the
