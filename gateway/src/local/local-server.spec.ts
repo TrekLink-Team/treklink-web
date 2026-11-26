@@ -118,6 +118,10 @@ describe('Field Station local API (gateway-sync task 5.2)', () => {
           brokerUrl: 'mqtts://mqtt.treklink.vn:8883',
           lastError: { message: 'connect ECONNREFUSED', at: T0 - 5_000 },
           lastFlushAt: T0 - 130_000,
+          refused: {
+            total: 20,
+            recent: [{ eventId: 'ev-out-19', priority: 2, reasonCode: 135, refusals: 3, refusedAt: T0 - 60_000 }],
+          },
         }),
       },
       serial: {
@@ -201,7 +205,7 @@ describe('Field Station local API (gateway-sync task 5.2)', () => {
     });
   });
 
-  it('GET /local/uplink returns the broker state, the last error and the serial port', async () => {
+  it('GET /local/uplink returns the broker state, the last error, the refused rows and the serial port', async () => {
     const server = await start(stubSources());
     expect(json(await call(server.port, '/local/uplink')).result).toEqual({
       broker: {
@@ -209,6 +213,13 @@ describe('Field Station local API (gateway-sync task 5.2)', () => {
         since: '2026-11-01T04:58:00.000Z',
         url: 'mqtts://mqtt.treklink.vn:8883',
         lastError: { message: 'connect ECONNREFUSED', at: '2026-11-01T04:59:55.000Z' },
+        // web#558: rows the broker refused three times, no longer sent.
+        refused: {
+          total: 20,
+          recent: [
+            { eventId: 'ev-out-19', priority: 2, reasonCode: 135, refusals: 3, refusedAt: '2026-11-01T04:59:00.000Z' },
+          ],
+        },
       },
       serial: {
         port: '/dev/ttyUSB0',

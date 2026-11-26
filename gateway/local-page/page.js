@@ -83,6 +83,16 @@
     setText('broker-since', broker.since ? when(broker.since) : 'not connected yet');
     setText('broker-url', broker.url);
     setText('broker-error', broker.lastError ? broker.lastError.message + ', ' + ago(broker.lastError.at) : 'none');
+    // Rows the broker refused three times are no longer sent (web#558).
+    var refused = broker.refused;
+    var last = refused && refused.recent[0];
+    setText(
+      'broker-refused',
+      !last
+        ? 'none'
+        : refused.total + ' not sent; latest ' + last.eventId + ' (P' + last.priority + '), reason code ' +
+            last.reasonCode + ', refused ' + last.refusals + ' times, ' + ago(last.refusedAt),
+    );
     var serial = uplink.serial;
     var mode = serial.simulation ? 'simulation (no node on the port)' : serial.port;
     setText('serial-state', mode + (serial.reading ? ', reading' : ', not reading'));

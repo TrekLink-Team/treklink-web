@@ -1,6 +1,6 @@
 import * as mqtt from 'mqtt';
 import pino from 'pino';
-import { SQLitePriorityQueue } from '../queue/priority-queue';
+import { MAX_REFUSALS, RefusedEvent, SQLitePriorityQueue } from '../queue/priority-queue';
 import { gatewayConfig } from '../config';
 import { buildHealthReport, gatewayVersion, healthTopic } from './health-report';
 
@@ -156,6 +156,7 @@ export class GatewayMqttClient {
     brokerUrl: string;
     lastError: { message: string; at: number } | null;
     lastFlushAt: number | null;
+    refused: { total: number; recent: RefusedEvent[] };
   } {
     return {
       connected: this.isConnected,
@@ -163,6 +164,7 @@ export class GatewayMqttClient {
       brokerUrl: redactBrokerUrl(this.brokerUrl),
       lastError: this.lastErrorSeen,
       lastFlushAt: this.lastFlushAt,
+      refused: this.queue.refusedSummary(),
     };
   }
 
@@ -241,8 +243,11 @@ export class GatewayMqttClient {
 
   // Publishes one batch in tier order and waits for every acknowledgement, then takes the next batch
   // until the queue is empty. One flush runs at a time, so a row is never published twice by two
-  // overlapping flushes; a row whose publish failed stays queued for the next flush, its attempt counted.
-  // A drained queue sends a health report, so the cloud sees the empty queue and the flush time at once.
+  // overlapping flushes; a row whose publish failed stays queued for the next flush, its attempt counted,
+  // and the chain stops until the next frame or connect starts a flush. A row the broker refuses for the
+  // MAX_REFUSALS-th time leaves the queue (web#558); a batch whose only failures left it goes on at once,
+  // so permanently refused rows never hold up the rows behind them. A drained queue sends a health
+  // report, so the cloud sees the empty queue and the flush time at once.
   public flushQueue(): void {
     if (!this.isConnected || !this.client || this.flushing) return;
     const batch = this.queue.peek(gatewayConfig.queue.flushBatchSize);
@@ -268,27 +273,45 @@ export class GatewayMqttClient {
         done();
         continue;
       }
-      // A row leaves only on a successful PUBACK. A refused one (reason code 0x80 or higher, such as 135
-      // when the broker ACL refuses the topic) stays queued with its attempt counted, and the local page
-      // shows the reason (web#548).
-      this.client.publish(uplink.topic, uplink.payload, { qos: gatewayConfig.mqtt.qos }, (err, packet) => {
-        const refused = refusalCode(err, packet);
-        if (!err && refused === null) {
-          this.queue.remove(item.id);
-          this.lastFlushAt = Date.now();
-        } else {
-          failed = true;
-          this.queue.markAttempt(item.id);
-          if (refused !== null) {
-            const message = `Publish refused by the broker, reason code ${refused}${err ? ` (${err.message})` : ''}`;
-            this.lastErrorSeen = { message, at: Date.now() };
-            logger.error(`Failed to publish event ${item.eventId}: ${message}`);
+      // A row leaves the queue on a successful PUBACK. A refused one (reason code 0x80 or higher, such
+      // as 135 when the broker ACL refuses the topic, web#548) stays queued with its refusal counted until
+      // its MAX_REFUSALS-th refusal moves it to the refused list (web#558); the local page shows both.
+      this.client.publish(
+        uplink.topic,
+        uplink.payload,
+        { qos: gatewayConfig.mqtt.qos },
+        (err, packet) => {
+          const refused = refusalCode(err, packet);
+          if (!err && refused === null) {
+            this.queue.remove(item.id);
+            this.lastFlushAt = Date.now();
+          } else if (refused !== null) {
+            const { refusals, movedOut } = this.queue.markRefused(item.id, refused);
+            const reason = `reason code ${refused}${err ? ` (${err.message})` : ''}`;
+            this.lastErrorSeen = {
+              message: `Publish refused by the broker, ${reason}`,
+              at: Date.now(),
+            };
+            if (movedOut) {
+              logger.error(
+                `Event ${item.eventId} refused by the broker ${refusals} times, ${reason}: moved to the refused list, not sent again.`,
+              );
+            } else {
+              failed = true;
+              logger.error(
+                `Failed to publish event ${item.eventId}: Publish refused by the broker, ${reason} (refusal ${refusals} of ${MAX_REFUSALS})`,
+              );
+            }
           } else {
-            logger.error(`Failed to publish event ${item.eventId}: ${err?.message ?? 'unknown error'}`);
+            failed = true;
+            this.queue.markAttempt(item.id);
+            logger.error(
+              `Failed to publish event ${item.eventId}: ${err?.message ?? 'unknown error'}`,
+            );
           }
-        }
-        done();
-      });
+          done();
+        },
+      );
     }
   }
 
@@ -305,7 +328,8 @@ export class GatewayMqttClient {
       { qos: 1 },
       (err, packet) => {
         const refused = refusalCode(err, packet);
-        if (refused !== null) logger.warn(`Health report refused by the broker, reason code ${refused}`);
+        if (refused !== null)
+          logger.warn(`Health report refused by the broker, reason code ${refused}`);
         else if (err) logger.warn(`Health report not sent: ${err.message}`);
       },
     );
