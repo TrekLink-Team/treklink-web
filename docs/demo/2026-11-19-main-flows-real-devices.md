@@ -103,8 +103,9 @@ before pressing SOS in front of the audience.
 | 5 | Field | Press SOS at B | SOS marker at B, linked to the incident |
 | 6 | Field | Leave the unit silent past the stale threshold | The unit turns stale with its last seen time |
 
-On 18 November the position stayed fixed while moving (treklink-firmware#38, fixed in v2.7.26-treklink.4). The
-walk retest of 19 November is recorded in §8.
+On 18 November the position stayed fixed while moving (treklink-firmware#38): fix shipped in v2.7.26-treklink.4, walk
+retest of 19 November blocked (no GPS fix), not yet verified. Latest evidence: on 25 November a294's first position
+reached the live map at 16:07 (TK-230 log); movement between two points is still to be shown. Runs are in §8.
 
 ## 6. MF-05, end, return and close
 
