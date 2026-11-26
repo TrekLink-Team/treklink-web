@@ -657,7 +657,13 @@ describe('DemoPanelService commands (REQ-PNL-03, REQ-PNL-04, REQ-PNL-07)', () =>
     expect(f.maintenance.complete).toHaveBeenCalledWith(
       'd-1',
       'm-1',
-      expect.objectContaining({ status: 'COMPLETED', expectedVersion: 2 }),
+      // devices api-design 14 refuses COMPLETED without actualCostVnd (400 on the AWS staging run).
+      {
+        status: 'COMPLETED',
+        resolution: 'Demo panel: casing resealed and tested.',
+        actualCostVnd: 0,
+        expectedVersion: 2,
+      },
       'u-staff',
       NOW,
       tx,
