@@ -190,6 +190,8 @@ echo "  treklink-backend:$(printf '%s' "$COMMIT" | cut -c1-12) built"
 step "start compose"
 mkdir -p "$WEB_ROOT/developers-releases"
 if [ "$HOST_SERVES_WEB" -eq 1 ]; then mkdir -p "$WEB_ROOT/releases"; fi
+# The backend container before this deploy, to tell whether compose replaced it (below).
+backend_before="$(compose ps -q backend 2>/dev/null || true)"
 quiet compose up -d --remove-orphans
 if [ "${#recreate[@]}" -gt 0 ]; then
   echo "  mounted files changed, recreating: ${recreate[*]}"
@@ -207,6 +209,14 @@ until [ "$(docker inspect -f '{{.State.Health.Status}}' "$backend_id" 2>/dev/nul
   waited=$((waited + 5))
 done
 echo "  backend healthy after ${waited}s"
+# A new backend container usually has a new address. broker-hook-proxy re-resolves the name for each
+# request (infra/mosquitto/broker-hook-proxy.conf.template), and a restart also covers a proxy still on a
+# template from before that change: on 2026-11-26 a proxy up 13 days kept the old address, every hook
+# answered 502 and no MQTT client could connect.
+if [ "$backend_id" != "$backend_before" ]; then
+  echo "  the backend container is new: restarting broker-hook-proxy"
+  quiet compose restart broker-hook-proxy
+fi
 compose ps --format 'table {{.Service}}\t{{.State}}\t{{.Status}}'
 
 # ---------------------------------------------------------------------------------------------------
@@ -297,8 +307,9 @@ if [ "$api_code" != "200" ]; then
 fi
 
 # The broker behind the field uplink (web#517): a broker that died while the backend restarted left health
-# at mqtt down with the container Up. The backend's subscriber reconnects every 5 s, so up within 60 s is
-# expected; otherwise the broker is restarted once and must be up within 120 s.
+# at mqtt down with the container Up, and a broker-hook-proxy holding the backend's old address answered
+# every hook 502 (2026-11-26). The backend's subscriber reconnects every 5 s, so up within 60 s is
+# expected; otherwise the proxy and the broker are restarted once and must be up within 120 s.
 mqtt_state() {
   curl -s --max-time 10 "https://$HOST_NAME/api/health" 2>/dev/null \
     | grep -o '"mqtt":"[a-z]*"' | head -n 1 | cut -d'"' -f4 || true
@@ -317,14 +328,14 @@ mqtt=""
 if wait_for_mqtt 60; then
   echo "HEALTH mqtt up"
 else
-  echo "  /api/health shows mqtt ${mqtt:-unreadable} after 60 s: restarting mosquitto once; its last log lines:"
-  compose logs --no-color --tail 20 mosquitto || true
-  quiet compose restart mosquitto
+  echo "  /api/health shows mqtt ${mqtt:-unreadable} after 60 s: restarting broker-hook-proxy and mosquitto once; their last log lines:"
+  compose logs --no-color --tail 20 broker-hook-proxy mosquitto || true
+  quiet compose restart broker-hook-proxy mosquitto
   if wait_for_mqtt 120; then
-    echo "HEALTH mqtt up after the broker restart"
+    echo "HEALTH mqtt up after restarting the proxy and the broker"
   else
-    echo "  /api/health still shows mqtt ${mqtt:-unreadable} after the broker restart; mosquitto's last log lines:" >&2
-    compose logs --no-color --tail 40 mosquitto >&2 || true
+    echo "  /api/health still shows mqtt ${mqtt:-unreadable} after the restart; the last log lines:" >&2
+    compose logs --no-color --tail 40 broker-hook-proxy mosquitto >&2 || true
     exit 1
   fi
 fi

@@ -4,16 +4,28 @@
 # reachable only on the compose network, serves the two hook paths only, and logs no headers.
 # MQTT_AUTH_HOOK_SECRET must be hexadecimal (`openssl rand -hex 32`): it is written inside a
 # double-quoted nginx string, where a quote, a dollar sign or a backslash would break the header.
+#
+# The backend's name is resolved again for each request, through Docker's DNS (127.0.0.11), at most 10 s
+# old (web#517 follow-up). A plain `proxy_pass http://backend:3000` resolves once at start, so after a
+# redeploy that gave the backend a new address every hook answered 502 until the proxy restarted, and
+# with the go-auth cache off no CONNECT or publish was allowed. proxy_pass through a variable makes nginx
+# resolve at request time; with a variable it sends the URI as written, so $request_uri keeps the path
+# the broker asked for. The image's envsubst replaces only ${NAME} where NAME is set in the container's
+# environment (docker-entrypoint.d/20-envsubst-on-templates.sh), so $hook_backend and $request_uri pass
+# through untouched. A name only /etc/hosts knows (extra_hosts) is not seen by the resolver; an IP
+# address needs no resolver at all.
 server {
     listen 8080;
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    set $hook_backend ${BROKER_HOOK_BACKEND};
 
     location = /api/internal/mqtt/user {
-        proxy_pass ${BROKER_HOOK_BACKEND};
+        proxy_pass $hook_backend$request_uri;
         proxy_set_header X-Broker-Secret "${MQTT_AUTH_HOOK_SECRET}";
     }
 
     location = /api/internal/mqtt/acl {
-        proxy_pass ${BROKER_HOOK_BACKEND};
+        proxy_pass $hook_backend$request_uri;
         proxy_set_header X-Broker-Secret "${MQTT_AUTH_HOOK_SECRET}";
     }
 
