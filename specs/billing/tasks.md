@@ -123,6 +123,10 @@
   - **Test**: unit (`billing-reads.service.spec.ts`); `test:db` (`test/list-sort.db-spec.ts`: every field in both directions on two seeded invoices)
   - _Requirements: chapter 06 §11.2 (leader ruling 2026-11-05)_
   - **Done** (2026-11-05, KhoaDD under D-078, `feat/server-sort-paged-lists`)
+  - **Fix** (2026-11-26, TanNB, treklink-web#512): without a period, the list `totals.outstandingVnd` nets inside each
+    contract and adds what the contracts still owe, the rule of the overview's "Still due" (ruling on treklink-web#87
+    point 4). Before, a credit on one contract lowered the figure of the whole list. With a period it is unchanged and
+    equals the revenue report row (#501). Unit-tested (`invoices.repository.spec.ts`)
 
 ## Phase 5: API Presentation Layer
 
