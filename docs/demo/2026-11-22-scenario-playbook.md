@@ -339,7 +339,7 @@ real Staff and Manager action (leader ruling 2026-11-20).
 | 7 | B | TL-0018: **Inspect**, **Damaged**, tick Casing cracked (CASING_CRACKED), **Record inspection** | | "Damaged, maintenance", "Damage 400,000 VND, on the closing invoice" |  Casing cracked not listed: sign in again as B, open the counter with **More actions**, **Open the counter**, inspect again |
 | 8 | B, Close | Tab **Close** | | Blocker "... unpaid on the contract's invoices." with **Open the invoices**; no Close action yet |  No blocker shown: switch to another tab and back (the close check reloads on focus); if **Close contract** is offered, go to step 10 and say nothing was due |
 | 9 | B | **Open the invoices**, the Closing invoice, **Record counter payment**, Method Cash, receipt, **Record** | the prefilled amount; receipt CT-2026-0419 | Toast "Payment of <amount> VND received." (amount = 400,000 VND less any end-now credit) **(check by hand)** | `/t/billing`, filter the contract |
-| 9b | B | When step 8 shows no blocker and **Money** reads "TrekLink owes ... VND" (the end-now credit exceeds the damage, rehearsal 1): the Closing invoice row, **Actions**, record the refund | reference CT-2026-0419 | The invoice reads "Refunded to organization: <amount> VND" | Record it from `/t/billing` on the Closing invoice |
+| 9b | B | When step 8 shows no blocker and **Money** reads "TrekLink owes ... VND" (the end-now credit exceeds the damage, rehearsal 1): the Closing invoice row, **Actions**, **Mark refunded**, **Mark refunded** in the dialog | Note: CT-2026-0419 | The invoice shows "Refunded to organization" with the amount, the time and the note CT-2026-0419 | Open the Closing invoice from `/t/billing` and press **Mark refunded** there |
 | 10 | B | Counter tab Close, **Close contract**, confirm | | Toast "RC-2026-0002 closed."; badge Closed | If a blocker remains, read it and resolve it; the close check reloads on focus |
 
 ---
@@ -435,7 +435,7 @@ differed from this file, then correct the file.
 
 | Date | Who ran it | Environment | Result | Notes |
 |---|---|---|---|---|
-| 2026-11-21 | LongLP | AWS staging, reseed of 2026-11-21 | Pass with fallback (step 2) | Step 2: End now answered "Internal server error" (about 18:36) yet the contract ended (closing invoice issued 18:36); pressed once. Steps 8 and 9: the end-now credit exceeded the damage, so nothing was due and TrekLink owed 470,000 VND; refund recorded on the closing invoice (CT-2026-0419). Closed 18:43 |
+| 2026-11-21 | LongLP | AWS staging, reseed of 2026-11-21 | Pass with fallback (step 2) | Step 2: End now answered "Internal server error" (about 18:36) yet the contract ended (closing invoice issued 18:36); pressed once (treklink-web#535). Steps 8 and 9: the end-now credit exceeded the damage, so nothing was due and TrekLink owed 470,000 VND; refund recorded on the closing invoice (CT-2026-0419). Closed 18:43 |
 | | | | | |
 | | | | | |
 
