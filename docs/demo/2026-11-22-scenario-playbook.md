@@ -48,7 +48,7 @@ MF-01a to MF-05 in order; about 30 to 35 minutes per group, 5 minutes of slides,
 | MQTT broker | The Broker URL shown with the Field Station credential (MF-01c step 9); `deploy/aws/RUNBOOK.md` §7 |
 | What the host runs | `NODE_ENV=production`, the simulator off, Demo control off (`DEMO_CONTROLS_ENABLED=false`, `deploy/aws/.env.aws.example:14-16`). So `/t/admin/demo` and its quick scenarios are absent. Every step below uses the real screens. Mail is SMTP (`MAIL_TRANSPORT=smtp`, `.env.aws.example:73`): every `treklink.dev+...@gmail.com` address lands in the team inbox `treklink.dev@gmail.com` |
 | Database state | Wiped and reseeded on Sat 2026-11-21, and again before each later rehearsal (section 11). Before each flow: the fresh seed (section 2) plus what the earlier flows of the same rehearsal left (section 3) |
-| Browser | One browser profile per account: a private window shares nothing with a normal one, but all private windows of one browser share one session, so two InPrivate windows sign in as the last account used (rehearsal 1). Use, for example, Edge for Staff, Edge InPrivate for one account and Chrome for another. The session is held in memory: a reload or a typed URL signs the window out (`frontend/src/entities/session/model.ts`, 2026-11-01 script §1.4). Move with the sidebar and the links |
+| Browser | One browser profile per account: a private window shares nothing with a normal one, but all private windows of one browser share one session, so two InPrivate windows sign in as the last account used (rehearsal 1). Use, for example, Edge for Staff, Edge InPrivate for one account and Chrome for another. The session is held in memory: a reload or a typed URL signs the window out (`frontend/src/entities/session/model.ts`, 2026-11-01 script §1.4). Move with the sidebar and the links. Do not use browser Back inside a flow: a Back press during the handover leaves the flow and loses the typed values (treklink-web#536) |
 
 Run order, always the same, because each flow uses what the earlier one left:
 
@@ -411,7 +411,7 @@ differed from this file, then correct the file.
 
 | Date | Who ran it | Environment | Result | Notes |
 |---|---|---|---|---|
-| | | | | |
+| 2026-11-25 | LongLP | AWS staging, no reseed since 2026-11-21; outdoor run with real v2 units on RC-2026-0006 | Pass with fallback (step 1) | Station `fs-org-0001-3`. With a264 as receiver every packet was refused, because a264 was not rented to ORG-0001 (treklink-web#547); with a274 as receiver, 35 events 15:50 to 16:11, all Attributed. Duplicate case not run |
 | | | | | |
 | | | | | |
 
@@ -419,7 +419,7 @@ differed from this file, then correct the file.
 
 | Date | Who ran it | Environment | Result | Notes |
 |---|---|---|---|---|
-| | | | | |
+| 2026-11-25 | LongLP | AWS staging, outdoor run with real v2 units on RC-2026-0006 | Fail (step 1) | No SOS incident was created during the run; only the seeded INC-2026-000001 exists |
 | | | | | |
 | | | | | |
 
@@ -428,7 +428,7 @@ differed from this file, then correct the file.
 | Date | Who ran it | Environment | Result | Notes |
 |---|---|---|---|---|
 | 2026-11-21 | LongLP | AWS staging, reseed of 2026-11-21 | Pass | Step 1 lists no RC-2026-0004 units (that contract was ORG-0002 in this run). Step 6: 200 with five units, all NOT_HEARD (MF-02 not run); U2: 401 after the revoke |
-| | | | | |
+| 2026-11-25 | LongLP | AWS staging, outdoor run with real v2 units on RC-2026-0006 | Pass with deviation (step 3) | Live map showed a274 (position 15:52) and a294 (first position on the wire, 16:07, treklink-firmware#38); movement between two points not shown; a278 got no GPS lock. API key steps not rerun |
 | | | | | |
 
 ### MF-05 (LongLP, TK-230)
