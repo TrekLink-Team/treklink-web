@@ -72,7 +72,8 @@ async function runTrial(
     uplink.url,
     queue,
     { username: '', secret: '' },
-    { reconnectPeriodMs: options.reconnectMs },
+    // The aedes test broker refuses MQTT 5.
+    { reconnectPeriodMs: options.reconnectMs, protocolVersion: 4 },
   );
   const events = new Map<string, EventRecord>();
   let arrivals = 0;

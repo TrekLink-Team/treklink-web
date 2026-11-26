@@ -11,6 +11,7 @@ import { GatewayMqttClient } from './mqtt-client';
 const { P0_SOS, P1_LOCATION, P2_GPS, P3_TELEMETRY } = PriorityTier;
 const UPLINK = 'treklink/2/json/#';
 const silent = { warn: () => undefined, error: () => undefined };
+// The stations speak MQTT 3.1.1 (protocolVersion 4): the aedes test broker refuses MQTT 5.
 
 // A stock-shaped packet whose `id` names its queue event, so a received message maps back to its row.
 const packet = (n: number, tier: PriorityTier) => {
@@ -55,7 +56,7 @@ describe('Field Station flush across an outage (gateway-sync task 5.1)', () => {
       broker.url,
       queue,
       { username: '', secret: '' },
-      { reconnectPeriodMs: 50 },
+      { reconnectPeriodMs: 50, protocolVersion: 4 },
     );
     station.connect();
     cleanups.push(() => station.disconnect());
@@ -178,7 +179,7 @@ describe('Field Station flush across an outage (gateway-sync task 5.1)', () => {
     [0, 1, 2].forEach((n) => add(n, P3_TELEMETRY));
     add(3, P2_GPS);
 
-    const station = new GatewayMqttClient(uplink.url, queue, { username: '', secret: '' }, { reconnectPeriodMs: 50 });
+    const station = new GatewayMqttClient(uplink.url, queue, { username: '', secret: '' }, { reconnectPeriodMs: 50, protocolVersion: 4 });
     station.connect();
     cleanups.push(() => station.disconnect());
     await waitFor(() => held.length === 4, 5_000, 'the first batch in flight');
@@ -224,7 +225,7 @@ describe('Field Station flush across an outage (gateway-sync task 5.1)', () => {
       const queue = new SQLitePriorityQueue(join(root, 'queue.db'), { maxRows: 2, logger });
       cleanups.push(() => queue.close());
       queue.enqueue('ev-0', P3_TELEMETRY, packet(0, P3_TELEMETRY));
-      const station = new GatewayMqttClient(uplink.url, queue, { username: '', secret: '' }, { reconnectPeriodMs: 50 });
+      const station = new GatewayMqttClient(uplink.url, queue, { username: '', secret: '' }, { reconnectPeriodMs: 50, protocolVersion: 4 });
       station.connect();
       cleanups.push(() => station.disconnect());
       await waitFor(() => held.length === 1, 5_000, 'ev-0 in flight');

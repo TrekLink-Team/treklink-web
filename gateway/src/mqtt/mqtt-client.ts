@@ -15,19 +15,37 @@ export interface StationCredential {
 /**
  * The mqtt.js options of one connection. The Field Station username and secret go in only when both
  * are set; with either missing the client connects anonymously, as the open demo broker expects. The
- * protocol, `mqtt://` or `mqtts://`, comes from the broker URL itself.
+ * protocol, `mqtt://` or `mqtts://`, comes from the broker URL itself. MQTT 5 (web#548): under 3.1.1
+ * Mosquitto acknowledges a QoS 1 publish its ACL refused with a plain PUBACK, so the row was deleted;
+ * under 5 the PUBACK carries the reason code (135, not authorized) and the publish fails.
  */
 export function connectOptions(
   credential: StationCredential,
   clientId: string,
   reconnectPeriod: number,
+  protocolVersion: 4 | 5 = 5,
 ): mqtt.IClientOptions {
-  const options: mqtt.IClientOptions = { clientId, reconnectPeriod };
+  const options: mqtt.IClientOptions = { clientId, reconnectPeriod, protocolVersion };
   if (credential.username !== '' && credential.secret !== '') {
     options.username = credential.username;
     options.password = credential.secret;
   }
   return options;
+}
+
+/** The lowest MQTT 5 reason code that means failure (MQTT 5.0 section 2.4). */
+export const PUBACK_FAILURE = 0x80;
+
+/**
+ * The reason code of a publish the broker refused, or null when it did not refuse it: a PUBACK reason
+ * code of 0x80 or higher, which mqtt.js also reports as the error's `code` (ErrorWithReasonCode).
+ */
+export function refusalCode(err: Error | undefined, packet: object | undefined): number | null {
+  const fromPacket = (packet as { reasonCode?: unknown } | undefined)?.reasonCode;
+  if (typeof fromPacket === 'number' && fromPacket >= PUBACK_FAILURE) return fromPacket;
+  const fromError = (err as { code?: unknown } | undefined)?.code;
+  if (typeof fromError === 'number' && fromError >= PUBACK_FAILURE) return fromError;
+  return null;
 }
 
 /** The broker URL without any user information, so a password in the URL never reaches the log. */
@@ -104,7 +122,10 @@ export class GatewayMqttClient {
   private healthTimer: NodeJS.Timeout | null = null;
   /** Station clock, epoch ms, of the last publish the broker acknowledged. */
   private lastFlushAt: number | null = null;
-  /** The last connection error and the station clock, epoch ms, when it happened; for the local page. */
+  /**
+   * The last connection error, or the last publish the broker refused, and the station clock, epoch ms,
+   * when it happened; for the local page.
+   */
   private lastErrorSeen: { message: string; at: number } | null = null;
   /** Station clock, epoch ms, of the last change between connected and not connected. */
   private stateSince: number | null = null;
@@ -114,9 +135,10 @@ export class GatewayMqttClient {
     private brokerUrl: string = gatewayConfig.mqtt.brokerUrl,
     private queue: SQLitePriorityQueue,
     private credential: StationCredential = gatewayConfig.station,
-    // The outage tests and harness shorten the reconnect period; the gateway itself always uses the
-    // configured GATEWAY_MQTT_RECONNECT_PERIOD_MS.
-    private readonly options: { reconnectPeriodMs?: number } = {},
+    // The outage tests and harness shorten the reconnect period, and speak MQTT 3.1.1 (4) because their
+    // in-process aedes broker refuses MQTT 5; the gateway itself always uses the configured
+    // GATEWAY_MQTT_RECONNECT_PERIOD_MS and MQTT 5.
+    private readonly options: { reconnectPeriodMs?: number; protocolVersion?: 4 | 5 } = {},
   ) {}
 
   /** True while the broker connection is up. */
@@ -149,6 +171,7 @@ export class GatewayMqttClient {
       this.credential,
       `${gatewayConfig.mqtt.clientIdPrefix}-${Math.random().toString(16).substring(2, 8)}`,
       this.options.reconnectPeriodMs ?? gatewayConfig.mqtt.reconnectPeriodMs,
+      this.options.protocolVersion ?? 5,
     );
     const as = options.username === undefined ? 'without credentials' : `as ${options.username}`;
     logger.info(`Connecting to MQTT broker at ${redactBrokerUrl(this.brokerUrl)} ${as}...`);
@@ -245,14 +268,24 @@ export class GatewayMqttClient {
         done();
         continue;
       }
-      this.client.publish(uplink.topic, uplink.payload, { qos: gatewayConfig.mqtt.qos }, (err) => {
-        if (!err) {
+      // A row leaves only on a successful PUBACK. A refused one (reason code 0x80 or higher, such as 135
+      // when the broker ACL refuses the topic) stays queued with its attempt counted, and the local page
+      // shows the reason (web#548).
+      this.client.publish(uplink.topic, uplink.payload, { qos: gatewayConfig.mqtt.qos }, (err, packet) => {
+        const refused = refusalCode(err, packet);
+        if (!err && refused === null) {
           this.queue.remove(item.id);
           this.lastFlushAt = Date.now();
         } else {
           failed = true;
           this.queue.markAttempt(item.id);
-          logger.error(`Failed to publish event ${item.eventId}: ${err.message}`);
+          if (refused !== null) {
+            const message = `Publish refused by the broker, reason code ${refused}${err ? ` (${err.message})` : ''}`;
+            this.lastErrorSeen = { message, at: Date.now() };
+            logger.error(`Failed to publish event ${item.eventId}: ${message}`);
+          } else {
+            logger.error(`Failed to publish event ${item.eventId}: ${err?.message ?? 'unknown error'}`);
+          }
         }
         done();
       });
@@ -270,8 +303,10 @@ export class GatewayMqttClient {
       healthTopic(mqttRoot, username),
       JSON.stringify(report),
       { qos: 1 },
-      (err) => {
-        if (err) logger.warn(`Health report not sent: ${err.message}`);
+      (err, packet) => {
+        const refused = refusalCode(err, packet);
+        if (refused !== null) logger.warn(`Health report refused by the broker, reason code ${refused}`);
+        else if (err) logger.warn(`Health report not sent: ${err.message}`);
       },
     );
   }

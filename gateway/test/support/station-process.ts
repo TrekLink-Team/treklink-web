@@ -14,7 +14,8 @@ const client = new GatewayMqttClient(
   brokerUrl,
   queue,
   { username: '', secret: '' },
-  { reconnectPeriodMs: 100 },
+  // The aedes test broker refuses MQTT 5.
+  { reconnectPeriodMs: 100, protocolVersion: 4 },
 );
 client.connect();
 process.on('SIGTERM', () => {
