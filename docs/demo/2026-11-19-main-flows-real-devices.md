@@ -11,9 +11,9 @@ reseed of 2026-11-21.
 | Item | Value |
 |---|---|
 | Staging | the `aws-staging` entry of `deploy/system-endpoints.json` on `main` |
-| Sign-in | `/demo`, one click per account: TrekLink Staff, Org Manager, Org Operator |
+| Sign-in | `/demo`, one click per account: TrekLink Staff, Org Manager, Org Operator. This describes 18 and 19 November; the quick sign-in needs `DEMO_TEST_ACCOUNTS_ENABLED` (`deploy/aws/.env.aws.example:97-101`), and on the staging now the accounts of the scenario playbook apply |
 | Organization | ORG-0001, TrekLink Demo Tours Co., Ltd. |
-| Receiver (station unit) | Treklink a278, `!0aa3a278`, TrekLink v2, on the laptop over USB |
+| Receiver (station unit) | Treklink a278, `!0aa3a278`, TrekLink v2, on the laptop over USB. It must be one of the organization's rented units: the gateway publishes every packet under the receiver's node, and the broker refuses the whole topic otherwise (treklink-web#547) |
 | Remote unit (carried) | Treklink a294, `!0aa3a294`, TrekLink v2, on battery |
 | Firmware | v2.7.26-treklink.4, flashed with tk-flasher **Install** (erases the unit) |
 | Field Station | LaptopLong, station `fs-org-0001-12`, page http://localhost:4321 |
@@ -73,7 +73,7 @@ back on, and see the queue drain to 0 and both events reach Field data sync as A
 (14:22 to 14:24).
 
 Run on 19 November, 13:34 to 13:35: the TEXT and the SOS from a294 were listed under `!0aa3a294`, and a278 only
-with its own telemetry (treklink-web#518 fixed by #520).
+with its own telemetry (treklink-web#518 fixed by treklink-web#520).
 
 ## 4. MF-03, SOS to incident closed
 
@@ -112,7 +112,7 @@ reached the live map at 16:07 (TK-230 log); movement between two points is still
 | # | Account | Action | Value | Expected |
 |---|---|---|---|---|
 | 1 | Staff | Contract, **More actions**, **End contract now** | reason `MF-05 demo return` | Preview of the unused-days credit; press confirm once |
-| 2 | Staff | | | The dialog closes; status Return due with **Record return** (treklink-web#521 fixed by #522) |
+| 2 | Staff | | | The dialog closes; status Return due with **Record return** (treklink-web#521 fixed by treklink-web#522) |
 | 3 | Staff | **Record return**, Check-in, scan or type each asset tag | the five tags | Check-in shows 0 left |
 | 4 | Staff | Reset tab, **Record reset** per unit after doing the three steps on the real units | | "Reset logged", Next: Inspect |
 | 5 | Staff | **Inspect** per unit: Passed for good units | | Passed units go Available |
@@ -153,3 +153,7 @@ paid outside TrekLink and recorded on the closing invoice, which then reads "Ref
 | 2026-11-19 | MF-03 | LongLP | Failed | Unrouted SOS after handover (treklink-web#527) |
 | 2026-11-19 | MF-04 | LongLP | Blocked | a294 got no GPS fix, no POSITION reached the station (treklink-firmware#38) |
 | 2026-11-19 | MF-05 | LongLP | Returned, close waits | Damage and refund recorded; close waits for INC-2026-000015 to leave its reopen window |
+| 2026-11-25 | MF-01 | LongLP | Passed | Outdoor run, RC-2026-0006 (ORG-0001, five v2: a274, a278, a294, TL-0001, TL-0002), handed over 15:07 |
+| 2026-11-25 | MF-02 | LongLP | Passed | Station `fs-org-0001-3` on a274: 35 events 15:50 to 16:11, all Attributed. The first receiver, a264, was not rented and every packet was refused (treklink-web#547) |
+| 2026-11-25 | MF-04 | LongLP | Partly | Positions of a274 (15:52) and a294 (16:07) on the live map; movement between two points not shown; a278 got no GPS lock |
+| 2026-11-25 | MF-03 | LongLP | Not passed | No SOS incident was created during the run |
