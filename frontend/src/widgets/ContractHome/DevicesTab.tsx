@@ -195,6 +195,8 @@ export const DevicesTab: React.FC<Props> = ({
                   ? 'This is the last unit. End the contract now instead.'
                   : 'This is the last unit. Cancel the request instead.'
                 : undefined,
+            // The reason holds the slot on the last unit, where no shown unit may take Release.
+            reasonKeepsSlot: true,
             onSelect: onRelease,
           },
         ]

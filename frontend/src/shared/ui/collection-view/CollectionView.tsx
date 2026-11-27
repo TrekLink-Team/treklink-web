@@ -581,13 +581,18 @@ export function CollectionView<T>({
   const pushedAside = placement === 'aside' && (host ? host.owner !== null : paneVisible);
   const fitsNarrow = fitNarrow || host !== null || pushedAside;
 
-  const actionsOf = (item: T) =>
-    itemActions.filter((action) => !action.allowed || action.allowed(item));
+  // This item may take the action, or, with reasonKeepsSlot, is refused it with a reason.
+  const holdsSlot = (action: CollectionAction<T>, item: T) =>
+    !action.allowed ||
+    action.allowed(item) ||
+    (action.reasonKeepsSlot === true && action.unavailableReason?.(item) !== undefined);
+  const actionsOf = (item: T) => itemActions.filter((action) => holdsSlot(action, item));
   // The action slots of the list (§11.4): an action any shown item may take keeps its slot on every
-  // row, so no button moves because another appeared. An action no item may take (the role never
-  // has it) is absent for the whole list.
+  // row, so no button moves because another appeared, and so does one with reasonKeepsSlot that a
+  // shown item is refused with a reason. An action no item may take and none has a reason for (the
+  // role never has it) is absent for the whole list.
   const listActions = itemActions.filter(
-    (action) => !action.allowed || visible.some((item) => action.allowed?.(item)),
+    (action) => !action.allowed || visible.some((item) => holdsSlot(action, item)),
   );
   // Why an action that holds a slot is unavailable for this item, or undefined when it is available.
   const reasonOf = (action: CollectionAction<T>, item: T) => {
