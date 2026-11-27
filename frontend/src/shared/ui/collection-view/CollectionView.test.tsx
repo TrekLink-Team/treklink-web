@@ -551,6 +551,57 @@ describe('CollectionView', () => {
       expect(actionNames('TL-0003')).toEqual(['Edit TL-0003', 'Show details of TL-0003']);
     });
 
+    it('keeps a disabled slot with its reason for an action no item may take but one is refused with a reason', () => {
+      const release = vi.fn();
+      renderView({
+        itemActions: [
+          { key: 'edit', label: 'Edit', icon: <Pencil />, onSelect: edit },
+          {
+            key: 'release',
+            label: 'Release',
+            icon: <Pencil />,
+            allowed: () => false,
+            unavailableReason: (unit) => (unit.id === 'a' ? 'This is the last unit' : undefined),
+            reasonKeepsSlot: true,
+            onSelect: release,
+          },
+        ],
+      });
+      // Every row keeps the slot, so nothing shifts; the refused row names its reason.
+      expect(actionNames('TL-0001')).toEqual(['Edit TL-0001', 'Release TL-0001', 'Show details of TL-0001']);
+      expect(actionNames('TL-0003')).toEqual(['Edit TL-0003', 'Release TL-0003', 'Show details of TL-0003']);
+      const button = screen.getByRole('button', { name: 'Release TL-0001' });
+      expect(button.getAttribute('aria-disabled')).toBe('true');
+      expect(document.getElementById(button.getAttribute('aria-describedby')!)!.textContent).toBe(
+        'This is the last unit',
+      );
+      fireEvent.click(button);
+      expect(release).not.toHaveBeenCalled();
+      // The details pane shows it too, disabled, with the reason as text.
+      fireEvent.click(screen.getByRole('button', { name: 'Show details of TL-0001' }));
+      const pane = within(screen.getByRole('complementary', { name: 'TL-0001' }));
+      expect((pane.getByRole('button', { name: 'Release TL-0001' }) as HTMLButtonElement).disabled).toBe(true);
+      expect(pane.getByText('This is the last unit')).toBeTruthy();
+    });
+
+    it('leaves out an action never allowed that no item is refused with a reason, or that does not opt in', () => {
+      renderView({
+        itemActions: [
+          { key: 'edit', label: 'Edit', icon: <Pencil />, onSelect: edit },
+          { key: 'purge', label: 'Purge', icon: <Pencil />, allowed: () => false, unavailableReason: () => undefined, reasonKeepsSlot: true, onSelect: vi.fn() },
+          // A reason without reasonKeepsSlot holds no slot: some pages return one for a role that never has the action.
+          { key: 'decide', label: 'Decide', icon: <Pencil />, allowed: () => false, unavailableReason: () => 'Another Admin must decide', onSelect: vi.fn() },
+        ],
+      });
+      expect(screen.queryByRole('button', { name: /^Purge/ })).toBeNull();
+      expect(screen.queryByRole('button', { name: /^Decide/ })).toBeNull();
+      expect(actionNames('TL-0001')).toEqual(['Edit TL-0001', 'Show details of TL-0001']);
+      fireEvent.click(screen.getByRole('button', { name: 'Show details of TL-0001' }));
+      const pane = within(screen.getByRole('complementary', { name: 'TL-0001' }));
+      expect(pane.queryByRole('button', { name: /^Purge/ })).toBeNull();
+      expect(pane.queryByRole('button', { name: /^Decide/ })).toBeNull();
+    });
+
     it('gathers three or more slots into one overflow menu next to Show details', () => {
       renderView({
         itemActions: [

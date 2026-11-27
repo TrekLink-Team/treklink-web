@@ -114,9 +114,10 @@ export const TooltipButton = React.forwardRef<HTMLButtonElement, Props>(function
           data-tooltip-bridge=""
           className={cn('absolute bottom-full z-toast pb-1.5', align === 'end' ? 'right-0' : 'left-0')}
         >
+          {/* whitespace-normal: a table cell's nowrap would push a long reason out of the box. */}
           <span
             role="tooltip"
-            className="flex w-max max-w-[16rem] flex-col rounded-badge bg-inverse px-2 py-1 text-body-sm font-semibold text-ink-inverse shadow-overlay"
+            className="flex w-max max-w-[16rem] flex-col whitespace-normal rounded-badge bg-inverse px-2 py-1 text-body-sm font-semibold text-ink-inverse shadow-overlay"
           >
             <span>{tooltip}</span>
             {unavailable && (

@@ -55,6 +55,13 @@ export interface CollectionAction<T> {
   slot?: string;
   /** Shown but unavailable, with this reason as text. */
   unavailableReason?: (item: T) => string | undefined;
+  /**
+   * An item refused by `allowed` WITH a reason from `unavailableReason` still holds the slot, disabled with that
+   * reason, in the row and in the details pane, even when no shown item may take the action (the last unit's
+   * Release, screen 5.2, D-099). Opt-in, because some pages return a reason for items, or roles, that never
+   * have the action; without it such an action stays absent (chapter 06 §11.4).
+   */
+  reasonKeepsSlot?: boolean;
   destructive?: boolean;
   /**
    * A main quick action (W39, leader UAT 2026-11-06): it keeps its own fixed slot at the inline start of the
