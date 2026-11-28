@@ -204,7 +204,7 @@ Run between steps 3 and 7.
 | Step | Page | Action | Value typed | Expected screen | Fallback |
 |---|---|---|---|---|---|
 | U1 | B, Devices | On one row set Battery % | 35 | Accepted on the row |  Value refused ("Enter the battery as a whole number from 0 to 100."): type 35 again |
-| U2 | B, Sign | **Complete handover** | | Refused: "Battery below 50 % on TL-00xx. Charge before use, or acknowledge." (`handover.service.ts:582`, `devices.handoverMinBatteryPct`) **(check by hand: where the screen shows it and the acknowledge control)** | Go back to Devices, set the row to 90, continue at step 7 |
+| U2 | B, Sign | **Complete handover** | | Refused: "Battery below 50 % on TL-00xx. Charge before use, or acknowledge." (`handover.service.ts:582`, `devices.handoverMinBatteryPct`), shown as an amber banner under the signature box with the link **Proceed anyway** to acknowledge (rehearsal 2, 2026-11-27) | Go back to Devices, set the row to 90, continue at step 7 |
 
 ### Unhappy case: duplicate payment webhook (optional)
 
@@ -390,7 +390,7 @@ differed from this file, then correct the file.
 | Date | Who ran it | Environment | Result | Notes |
 |---|---|---|---|---|
 | 2026-11-21 | LongLP | AWS staging, reseed of 2026-11-21 | Pass with fallback (step 8) | Step 8: the first **Set password and sign in** answered "Internal server error" (about 17:38); the second press signed in (treklink-web#533). U1 refused as written |
-| | | | | |
+| 2026-11-27 | LongLP (rehearsal 2, set R2) | AWS staging, live database, no reseed | Pass | ORG-0005 Bidoup Ridge Adventures Co., Ltd. registered 17:22; U1 refused "This tax code is already registered."; B verified 17:24 (MC-2026-0102) with no Approve offered; D approved "ORG-0005 approved. The Manager can now request devices."; the Manager set the password and signed in |
 | | | | | |
 
 ### MF-01b (LongLP, TK-230)
@@ -398,7 +398,7 @@ differed from this file, then correct the file.
 | Date | Who ran it | Environment | Result | Notes |
 |---|---|---|---|---|
 | 2026-11-21 | LongLP | AWS staging, reseed of 2026-11-21 | Pass with deviation (step 4) | RC-2026-0004 was sent from Tran Van Binh (ORG-0002), not window A: two Edge InPrivate windows share one session. Run each account in its own browser profile |
-| | | | | |
+| 2026-11-27 | LongLP (rehearsal 2) | AWS staging, live database | Pass | Quantity 4 refused "The minimum order is 5 devices."; RC-2026-0013 sent 17:26, five v3 held to 28 Nov 17:26; B approved with the appointment 18:00, "RC-2026-0013 approved. 5 devices reserved.", TL-0012 to TL-0016. Browser Back on step 3 returned to step 2 with the start date kept (treklink-web#536 fixed) |
 | | | | | |
 
 ### MF-01c (LongLP, TK-230)
@@ -406,7 +406,7 @@ differed from this file, then correct the file.
 | Date | Who ran it | Environment | Result | Notes |
 |---|---|---|---|---|
 | 2026-11-21 | LongLP | AWS staging, reseed of 2026-11-21 | Pass with deviation (step 7) | RC-2026-0004 belonged to ORG-0002, so the only signer offered was Tran Van Binh; handed over 18:19. Battery unhappy case not run in this run |
-| | | | | |
+| 2026-11-27 | LongLP (rehearsal 2) | AWS staging, live database | Pass | "Readings set on 5 units."; "Recorded 5 of 5."; Cash 1,125,000 VND, CT-2026-1102, "Payment of 1,125,000 VND received."; TL-0016 at 35 % refused at Sign (amber banner, **Proceed anyway**), set back to 90; signed by Pham Duc Huy, "Handover complete. 5 devices issued under contract RC-2026-0013.", handed over 17:31; Field Station "Bidoup ranger post" credential shown once, `fs-org-0001-4` |
 | | | | | |
 
 ### MF-02 (KhoaDD, TK-231)
@@ -431,14 +431,14 @@ differed from this file, then correct the file.
 |---|---|---|---|---|
 | 2026-11-21 | LongLP | AWS staging, reseed of 2026-11-21 | Pass | Step 1 lists no RC-2026-0004 units (that contract was ORG-0002 in this run). Step 6: 200 with five units, all NOT_HEARD (MF-02 not run); U2: 401 after the revoke |
 | 2026-11-25 | LongLP | AWS staging, outdoor run with real v2 units on RC-2026-0006 | Pass with deviation (step 3) | Live map showed a274 (position 15:52) and a294 (first position on the wire, 16:07, treklink-firmware#38); movement between two points not shown; a278 got no GPS lock. API key steps not rerun |
-| | | | | |
+| 2026-11-27 | LongLP (rehearsal 2) | AWS staging, live database | Pass with deviation (step 1) | Run as A: the `/demo` page offers no Operator account. Live map 13 devices with both sovereignty labels; search TL-0010 left one row; key "Bidoup ranger dashboard" `tlk_61Vi`: `curl` 200, revoked 17:44, `curl` 401. The key row still read Last used "Never" after the 200 |
 
 ### MF-05 (LongLP, TK-230)
 
 | Date | Who ran it | Environment | Result | Notes |
 |---|---|---|---|---|
 | 2026-11-21 | LongLP | AWS staging, reseed of 2026-11-21 | Pass with fallback (step 2) | Step 2: End now answered "Internal server error" (about 18:36) yet the contract ended (closing invoice issued 18:36); pressed once (treklink-web#535). Steps 8 and 9: the end-now credit exceeded the damage, so nothing was due and TrekLink owed 470,000 VND; refund recorded on the closing invoice (CT-2026-0419). Closed 18:43 |
-| | | | | |
+| 2026-11-27 | LongLP (rehearsal 2) | AWS staging, live database | Pass with deviation (step 7) | Notice "Notice recorded. The contract ends on 27 Dec 2026..."; End now credit 2,175,000 VND for 29 days, "Contract ended. Check the units in at the counter." with no error (treklink-web#535 fixed); check-in 5 of 5; reset five; TL-0012 to TL-0015 Passed; TL-0016 Damaged with Casing cracked only, 400,000 VND, run before the two-code and Admin-approval steps were added, so 8a not run; TrekLink owed 650,000 VND, **Mark refunded** with Note CT-2026-1112; "RC-2026-0013 closed." 17:50. Section 11 left to the leader: TL-0016 in maintenance, station `fs-org-0001-4` to revoke |
 | | | | | |
 
 ## 13. Differences from the 2026-11-01 script
@@ -503,7 +503,7 @@ the real units; not projected).
 
 Every run uses its own set, so no organization, email, station or key repeats on the live database. The
 council uses set C. Before a rehearsal, search the tax code in `/t/organizations` (**Search by code, name or
-tax code**): it must not be found **(check by hand: none of these is on staging)**.
+tax code**): it must not be found (2026-11-27, before rehearsal 2: none of these was on staging).
 
 | Field | R1 | R2 | R3 | C (council) | Spare |
 |---|---|---|---|---|---|
@@ -559,7 +559,7 @@ handover time (MF-01c), the incident code (MF-03).
 | 6:30 | "Staff prepare each unit at the counter." | B, **Open the contract**, **Start handover**; Devices: **Scan or type an asset tag**, **Find** | the first tag | "TL-.... is on this contract." | | **More actions**, **Open the counter** |
 | 7:00 | "Readings and the organization's channel key, for all five at once." | Tick **Select all units**; **Battery % for selected**; **GPS fix for selected**; **Set readings for selected**; then on the first row Battery %; **Record provisioning for selected**; **Next** | 90; first row 35 | "Readings set on 5 units."; "Recorded 5 of 5." | | Readings row by row |
 | 8:00 | "The holding fee is paid at the counter." | Payment: **Record a counter payment**; Method Cash; Amount received; **Receipt number**; **Record** | the Due now; CT-2026-1104 | "Payment of 1,125,000 VND received." | | `/t/billing`, the contract's first invoice |
-| 8:45 | "A unit below the minimum battery cannot be handed over." (unhappy) | Preview note **Next**; Sign: **Signing Manager**, **Identity document checked**, the Manager signs, **Complete handover** | Pham Duc Huy; CCCD ending 1234 | Refused: "Battery below 50 % on TL-.... Charge before use, or acknowledge." **(check by hand: where it shows)** | | |
+| 8:45 | "A unit below the minimum battery cannot be handed over." (unhappy) | Preview note **Next**; Sign: **Signing Manager**, **Identity document checked**, the Manager signs, **Complete handover** | Pham Duc Huy; CCCD ending 1234 | Refused: "Battery below 50 % on TL-.... Charge before use, or acknowledge.", an amber banner under the signature box with **Proceed anyway** (do not press it) | | |
 | 9:30 | "Charged, the handover completes and the note is signed." | Back to Devices, first row Battery % 90; Sign, **Complete handover** | 90 | "Handover complete. 5 devices issued under contract RC-2026-00xx."; Active: write the time down | | Panel playback **MF-01c**, **Start** (pays and hands over the approved ORG-0001 contract) |
 | 10:30 | "The organization creates a Field Station credential for its base camp laptop." | A, `/o/field-stations`, **Create Field Station**, Name, **Create** | Hon Giao ranger post | The credential once, "Copy it now; it will not be shown again." Do not copy it on stage | | Skip and say it |
 
@@ -613,7 +613,7 @@ The contract is the one MF-01c handed over (the RC code and five tags on the she
 | Time | Presenter says | Site clicker | Typed | Expected on screen | Panel operator | Fallback |
 |---|---|---|---|---|---|---|
 | 21:00 | "The Manager ends the rental early." | A, `/o/contracts`, the RC code, **Give notice**, confirm; **More actions**, **End contract now**, Reason, confirm | the prepared reason | Badge Ending, then "Contract ended. Check the units in at the counter." | | "Internal server error" (rehearsal 1, web#534): do not press again; open the contract, it has ended |
-| 22:00 | "The units come back at the counter." | B, `/t/contracts`, **Show** menu All, the RC code, **Open the contract**, **Record return**; Check-in: the five tags | the five tags | "Check-in complete. 5 of 5 devices returned." **(check by hand: wording)** | | Tags one at a time |
+| 22:00 | "The units come back at the counter." | B, `/t/contracts`, **Show** menu All, the RC code, **Open the contract**, **Record return**; Check-in: the five tags | the five tags | "Check-in complete. 5 of 5 devices returned." (rehearsal 2; it took about 10 s on the staging) | | Tags one at a time |
 | 22:45 | "Each unit is reset and inspected before it can be rented again." | Reset and inspection: **Record reset** on each, tick the three steps; tags one to four **Inspect**, Passed, **Record inspection** | | "Reset logged"; four units Available | | |
 | 23:40 | "A damaged unit goes to maintenance and is charged on the closing invoice." (unhappy) | The fifth tag: **Inspect**, **Damaged**, tick Antenna broken (ANTENNA_BROKEN) and Casing cracked (CASING_CRACKED), **Record inspection** | | "Damaged, maintenance", "Damage 700,000 VND, waiting for an Admin" | | |
 | 24:05 | "A charge above 500,000 VND needs a second person: an Admin who did not inspect the unit decides it." | D, `/t/damage-charges`, **Show** menu Waiting for an Admin, the tag's row, **Decide**, **Approve**, Reason, **Record decision** | Antenna and casing damage confirmed at the counter | Toast "Saved."; status Approved | | **Decide** disabled: the Admin inspected the unit; the inspection is always B's. Rehearse 23:40 to 25:00: the close keeps about 25 s |
