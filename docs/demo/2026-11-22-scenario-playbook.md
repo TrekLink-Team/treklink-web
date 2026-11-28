@@ -521,6 +521,10 @@ D, E, one browser profile per account, and terminal T). **Panel operator** (wind
 the hotspot; presses only what the sheet names). **Device operator** (the device laptop with the gateway and
 the real units; not projected).
 
+Who (leader, 2026-11-28): each BM04 owner presents their flow: TanNB MF-01a to MF-01c, KhoaDD MF-02, HoangTK MF-03,
+LongNN MF-04, LongLP MF-05. Site clicker LongLP (cover during MF-05 still to name). Panel operator LongNN; TanNB holds
+the panel during MF-04. Device operator KhoaDD.
+
 ### 15.1 Value sets, one per run
 
 Every run uses its own set, so no organization, email, station or key repeats on the live database. The
