@@ -85,6 +85,18 @@ describe('DamageChargesPage (screen 6.4, UC-48)', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('gives a decided charge its own reason, not the self-inspection one (treklink-web#606)', () => {
+    charges = [
+      charge('dc-1', 'staff-1'),
+      charge('dc-2', 'staff-1', { status: 'APPROVED', finalVnd: 700_000, decidedAt: '2026-11-28T10:30:00Z' }),
+    ];
+    renderPage();
+    const decided = within(rowOf('TL-0002')).getByRole('button', { name: /^Decide/ });
+    expect(decided.getAttribute('aria-disabled')).toBe('true');
+    expect(within(rowOf('TL-0002')).getByText('This charge is already decided.')).toBeTruthy();
+    expect(screen.queryByText('Another Admin must decide: you inspected this device.')).toBeNull();
+  });
+
   it('shows Staff the queue read-only', () => {
     roles = ['STAFF'];
     charges = [charge('dc-1', 'staff-9')];

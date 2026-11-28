@@ -177,6 +177,7 @@ const DecisionDialog: React.FC<{ charge: DamageCharge; onClose: () => void }> = 
 };
 
 const SELF_INSPECTED = 'Another Admin must decide: you inspected this device.';
+const ALREADY_DECIDED = 'This charge is already decided.';
 
 // Bulk decisions of screen 6.4 (W29): Approve keeps each amount, Waive keeps nothing; a reduction is
 // per charge, so it stays in the row's Decide dialog. Each runs billing api-design 17 once per row.
@@ -272,7 +273,9 @@ export const DamageChargesPage: React.FC = () => {
             label: 'Decide',
             icon: <Scale />,
             allowed: (charge) => isAdmin && charge.status === 'PENDING_APPROVAL',
-            unavailableReason: (charge) => (decidable(charge) ? undefined : SELF_INSPECTED),
+            // The self-inspection reason only on a pending charge; a decided one says so (treklink-web#606).
+            unavailableReason: (charge) =>
+              charge.status !== 'PENDING_APPROVAL' ? ALREADY_DECIDED : decidable(charge) ? undefined : SELF_INSPECTED,
             onSelect: setDeciding,
           },
         ]}
