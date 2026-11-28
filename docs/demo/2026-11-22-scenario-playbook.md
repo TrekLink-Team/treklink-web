@@ -364,7 +364,10 @@ it runs.
    **Complete maintenance** on that unit (Devices, choose it). Then as B Staff open the unit's device page,
    **Record intake check**, leave GPS fix, Radio and Battery on, **Save**: the unit reads Available.
 3. **The incident.** MF-03 leaves its incident Resolved. Panel action **Close (demo time)** on it
-   (Incidents, choose it): Closed. Leave INC-2026-000001 Unrouted (the MF-03 unhappy case shows it).
+   (Incidents, choose it): Closed. Leave INC-2026-000001 Unrouted (the MF-03 unhappy case shows it). The
+   DS-03b incident on TL-0009 (section 15.6) is left Escalated: panel actions **Acknowledge**, then **False
+   alarm**, then **Close (demo time)** on it; Escalated allows no False alarm directly
+   (`incident-lifecycle.ts:88-95`).
 4. **The Field Station** created in MF-01c: as A, `/o/field-stations`, the run's station, **Revoke**,
    confirm. Never revoke the station of the device laptop.
 5. **The API key** of MF-04 is revoked in its unhappy case; check `/o/api-keys` shows no Active key of the run.
@@ -491,9 +494,27 @@ differed from this file, then correct the file.
 
 ## 15. Run sheet for the Faculty Council, Fri 2026-12-04 19:30
 
-About 30 to 35 minutes for the group: 5 minutes of slides, then 25 minutes of demo, flow by flow in the
-order of section 1, then questions. Each flow shows its happy case and one unhappy case. The panel is never
-on the projector and is never mentioned in the slides.
+About 30 to 35 minutes for the group: 5 minutes of slides, then 29 minutes of demo (0:00 to 29:00), flow
+by flow in the order of section 1, then questions. Each flow shows its happy case and one unhappy case. The
+panel is never on the projector and is never mentioned in the slides.
+
+**BM04 scenarios (leader, 2026-11-28).** The run sheet shows the ten demo scenarios exactly as committed in
+BM04 (`capstone/Documents/tracking/BM04-commitment-scope.md`): DS-01a and DS-01b (WF-01, TanNB), DS-02a and
+DS-02b (WF-02, KhoaDD), DS-03a and DS-03b (WF-03, HoangTK), DS-04a and DS-04b (WF-04, LongNN), DS-05a and
+DS-05b (WF-05, LongLP). Each member demos the workflow they own, so the owner is the presenter of its rows.
+The council passes 5 of 5 main scenarios (the `a` ids) and at least 4 of 5 exception scenarios (the `b`
+ids). A BM04 id in the Time column marks the scenario the row opens or continues; a row without an id belongs
+to the id above it in its section. A row marked (unhappy) without an id is an extra case the council's rules
+ask for, outside BM04: the MF-01a duplicate registration, the MF-01b minimum order, the MF-01c battery, the
+MF-03 Unrouted SOS and the MF-04 revoked key.
+
+**Rows that run in parallel**, because their wait is real time on the live staging and no panel action
+shortens it: DS-03b (the escalation timers, 7 minutes from the SOS to TrekLink Staff: the panel sends its SOS
+at 12:20 inside MF-02, the Manager is shown at 18:30 and Staff at 19:40); DS-04b (the device operator
+switches the unit off at about 15:30, it reads stale from about 20:30, shown at 21:45, cleared by 24:30); and
+the DS-02a outage (the device operator cuts the uplink at 13:20 while the site clicker runs DS-02b). To
+shorten, drop or cut the extra unhappy rows (0:45, 4:00, 8:45, 20:20, 24:00, about 2.5 minutes in all) and
+the MF-02 slide row (11:00, 40 s); no BM04 row drops.
 
 Roles. **Presenter** (speaks, never clicks). **Site clicker** (drives the projected laptop: windows A, B, C,
 D, E, one browser profile per account, and terminal T). **Panel operator** (window P on their own device, on
@@ -524,21 +545,25 @@ tax code**): it must not be found (2026-11-27, before rehearsal 2: none of these
 
 Values every run shares: the new Manager's password from the team's private channel; MF-01b Plan
 **Monthly**, variant **TrekLink v3 (GPS, SOS button)**, Quantity **4** (unhappy) then **5**, start today,
-appointment the next full hour; MF-01c Battery **90** with GPS fix (unhappy row **35**), Method **Cash**,
+appointment the next full hour; DS-01b variant **TrekLink v4 (GPS, SOS, fall detection)**, Quantity **5**
+(or the v4 count shown plus one when it reads 5 or more), never sent; MF-01c Battery **90** with GPS fix (unhappy row **35**), Method **Cash**,
 Amount received the Due now shown (1,125,000 VND at 450,000 VND a month for five v3 units **(check by
 hand: the v3 price on staging)**), Signing Manager **Pham Duc Huy**, identity document **CCCD ending
 1234**; MF-03 **Ranger team dispatched from the Ta Nang post**, **Team at km 6, voice contact with the
 hiker**, **Hiker found, minor ankle injury, walked out**; MF-05 reason **The trek season of Suong Ngan
-Trekking ended early**, damage **Casing cracked (CASING_CRACKED)** on the fifth tag.
+Trekking ended early**, damage **Casing cracked (CASING_CRACKED)** on the fifth tag. DS-03b panel
+**Rented unit for an SOS** **TL-0009** (RC-2026-0001). DS-02a and DS-04b type nothing: the device operator
+switches the uplink and one unit (section 16).
 
 Write on the sheet during the run: the new ORG code (MF-01a), the RC code and the five tags (MF-01b), the
-handover time (MF-01c), the incident code (MF-03).
+handover time (MF-01c), the time of the DS-03b **Send SOS** (T, 12:20), the time the uplink comes back and the
+time the DS-04b unit is switched off (DS-02a, DS-04b), the incident codes of DS-03a and DS-03b.
 
 ### 15.2 MF-01a, organization onboarding (0:00 to 4:00)
 
 | Time | Presenter says | Site clicker | Typed | Expected on screen | Panel operator | Fallback |
 |---|---|---|---|---|---|---|
-| 0:00 | "A trekking company registers itself online and gets its organization code at once." | E, `/`, **Register your organization**, the seven fields, **Register** | set C | "Registration received..." and "Your organization code is ORG-00xx": write it down | Watch | Not saved: panel playback **MF-01a**, **Start** (it registers its own run organization and pauses at the approval); go on at 2:00 with that code |
+| 0:00 DS-01a | "A trekking company registers itself online and gets its organization code at once." | E, `/`, **Register your organization**, the seven fields, **Register** | set C | "Registration received..." and "Your organization code is ORG-00xx": write it down | Watch | Not saved: panel playback **MF-01a**, **Start** (it registers its own run organization and pauses at the approval); go on at 2:00 with that code |
 | 0:45 | "The same company cannot register twice." (unhappy) | E in another browser profile, `/register`, same fields, **Register** | set C, duplicate email | "This tax code is already registered."; no new code | | Accepted: say it, and reject the extra organization as D after the council |
 | 1:15 | "Staff check the papers at the counter; Staff cannot approve." | B, `/t/organizations`, tab **Pending**, the new code; Counter verification: Method **In person**, tick **Business registration** and **Manager ID card**, Master contract number, tick both master contract boxes, **Record verification** | set C master contract | Toast "Saved."; "Verified ..., in person, contract MC-2026-0104"; no Approve for Staff | | Repeat; the button then reads **Update verification** |
 | 2:00 | "Only an Admin approves." | D, `/t/organizations`, tab **Pending**, the code, **Approve** | | Toast "ORG-00xx approved. The Manager can now request devices." | If the MF-01a playback runs, it resumes by itself; otherwise **Resume** | **Approve** disabled: redo 1:15 as B |
@@ -547,13 +572,23 @@ handover time (MF-01c), the incident code (MF-03).
 
 ### 15.3 MF-01b, rental request and approval (4:00 to 6:30)
 
+DS-01b. BM04 writes "2 available, request 3". On the live staging `rentals.minOrderQuantity` is 5 (seed
+migration `20261004120100_seed`), and the request page checks the minimum before the stock
+(`ContractRequestPage.tsx:178-182`), so any quantity under 5 shows the 4:00 message instead of the stock. The
+stock refusal therefore asks for 5 of a variant with fewer than 5 Available: TrekLink v4, 3 Available on
+2026-11-26 (section 2). The page refuses it on **Next** from its own count (MSG11), nothing is sent and no
+unit is held, so the v3 stock MF-01b needs is untouched; were the count not read, the server refuses the
+request with the same text and the rollback holds nothing (`devices.service.ts:328-333`). No panel action is
+needed and none changes stock.
+
 | Time | Presenter says | Site clicker | Typed | Expected on screen | Panel operator | Fallback |
 |---|---|---|---|---|---|---|
 | 4:00 | "A request below the minimum order is refused before it is sent." (unhappy) | A, `/o`, **Request a contract**; Plan **Monthly**; card **TrekLink v3 (GPS, SOS button)**; Quantity; **Next** | 4 | "The minimum order is 5 devices." under Quantity; the page stays on the first step | | |
-| 4:30 | "Five units, from today; they are held for 24 hours." | A: Quantity 5, **Next**; start today, **Next**; **Send request** | 5, today | "Request RC-2026-00xx sent", five devices held, the deposit due: write the RC code down | | No request: panel playback **MF-01b**, **Start** (requests and approves); go on at 6:30 with its code |
+| 4:20 DS-01b | "Three units in stock, five asked: refused, with the stock shown." (unhappy) | A, the same step: card **TrekLink v4 (GPS, SOS, fall detection)**; Quantity; **Next** | 5 | The card reads "... per device per month, 3 available" and the line under Quantity "3 available now" with **Refresh**; on **Next**: "Only 3 TrekLink v4 (GPS, SOS, fall detection) devices are available. Lower the quantity or choose another variant." under Quantity; the page stays on the first step (seen for v3 on staging 2026-11-08, `docs/sessions/2026-11-08-1501-wf01-staging-rerun.md`) **(check by hand: the v4 count on the day)** | Watch: nothing to press | Count 5 or more: type the count plus one, the same refusal follows. "Checking availability..." or "Availability could not be read": **Refresh** once; still no count: say the stock check runs again on sending, and do not send |
+| 4:45 DS-01a | "Five units, from today; they are held for 24 hours." | A: card **TrekLink v3 (GPS, SOS button)**, Quantity 5, **Next**; start today, **Next**; **Send request** | 5, today | "Request RC-2026-00xx sent", five devices held, the deposit due: write the RC code down | | No request: panel playback **MF-01b**, **Start** (requests and approves); go on at 6:30 with its code |
 | 5:30 | "Staff approve with a handover appointment; the units are reserved." | B, `/t/contracts`, **Show** menu **Requested**, the RC code, **Show details**; Handover appointment; **Approve** | the next full hour | Toast "RC-2026-00xx approved. 5 devices reserved." and the five tags: write them down | | Panel action **Approve** on the contract |
 
-### 15.4 MF-01c, payment and handover (6:30 to 11:00)
+### 15.4 MF-01c, payment and handover (6:30 to 11:00), DS-01a continued
 
 | Time | Presenter says | Site clicker | Typed | Expected on screen | Panel operator | Fallback |
 |---|---|---|---|---|---|---|
@@ -564,61 +599,121 @@ handover time (MF-01c), the incident code (MF-03).
 | 9:30 | "Charged, the handover completes and the note is signed." | Back to Devices, first row Battery % 90; Sign, **Complete handover** | 90 | "Handover complete. 5 devices issued under contract RC-2026-00xx."; Active: write the time down | | Panel playback **MF-01c**, **Start** (pays and hands over the approved ORG-0001 contract) |
 | 10:30 | "The organization creates a Field Station credential for its base camp laptop." | A, `/o/field-stations`, **Create Field Station**, Name, **Create** | Hon Giao ranger post | The credential once, "Copy it now; it will not be shown again." Do not copy it on stage | | Skip and say it |
 
-### 15.5 MF-02, device data through the Field Station bridge (11:00 to 14:00)
+### 15.5 MF-02, device data through the Field Station bridge (11:00 to 16:30)
 
 The real units of RC-2026-0006 report through the device laptop's station `fs-org-0001-3` "Outdoor test
 station" (receiver a274). **The panel's MF-02
 playback is forbidden while they send** (section 14).
 
-| Time | Presenter says | Site clicker | Typed | Expected on screen | Panel operator | Fallback |
-|---|---|---|---|---|---|---|
-| 11:00 | "Node, LoRa, the base camp laptop over USB, a SQLite queue with SOS first, MQTT QoS 1, ingestion with eventId dedup." | The architecture slide | | | | |
-| 11:45 | "These are the real units, live." | C, `/o/map`, **Live map** | | a274, a278, a294, TL-0001 and TL-0002 with battery and a recent last seen | Watch the Panel status | No recent report: device operator checks the gateway; then the fallback below |
-| 12:30 | "Staff see the subscriber, the station and every event, attributed." | B, sidebar **Field data sync** | | MQTT subscriber up; the device laptop's station Connected with a Last sync; Recent field events of the real units, Attributed | | Station "Never reported": its health report comes within 60 s |
-| 13:15 | "A packet received twice is stored once." (unhappy) | T: `npm --prefix backend run replay:mqtt -- position --times 2` with `MQTT_BROKER_URL`, `MQTT_USERNAME=node-!de000009`, `MQTT_PASSWORD` set beforehand; then B, refresh | | **Duplicates rejected** grows by one **(check by hand: as section 7 U1 and U2)** | | Say it and show the Sync audit's "Duplicate rejected" rows |
-
-Fallback when the real units cannot report (the device operator confirms on **Field data sync** that none of
-them sent in the last 5 minutes): panel playback **MF-02**, **Start**; the presenter says the positions are
-simulated.
-
-### 15.6 MF-03, SOS to incident (14:00 to 18:00)
-
-| Time | Presenter says | Site clicker | Typed | Expected on screen | Panel operator | Fallback |
-|---|---|---|---|---|---|---|
-| 14:00 | "A hiker holds the SOS button." | Watch window C | | | On the device operator's nod: nothing. If no red banner in 20 s: action **Send SOS**, **Rented unit for an SOS** TL-0010 | Presenter says the SOS from TL-0010 is simulated |
-| 14:20 | "The alert reaches the on-duty Operator at once." | C | | Red banner "SOS: <tag> (<holder>), hh:mm. Acknowledge now." with **Acknowledge**: write the incident code down from `/o/incidents` | | No banner: `/o/incidents`, open the newest incident |
-| 15:00 | "The Operator takes ownership; escalation stops." | C, **Acknowledge** | | Toast "Saved."; Owner Nguyen Thanh Tung, Acknowledged | | Panel action **Acknowledge** on the incident |
-| 15:40 | "The response is recorded." | C, **Response under way**, What is being done, **Save response**; **Add status**, the line, save | the two prepared lines | State Responding; the update with author and time | | Panel action **Response under way** |
-| 16:40 | "The outcome closes the episode; the history keeps every step." | C, **Report outcome**, Outcome, **Resolve incident** | the prepared outcome | State Resolved; History lists each step | | Panel action **Resolve** |
-| 17:20 | "An SOS with no rental behind it goes to TrekLink Staff, Unrouted." (unhappy) | B, `/t/incidents`, **Show** menu **Unrouted**, INC-2026-000001, **Show details** | | Owner "TrekLink Staff queue", state Unrouted. Say the 5-minute rule (section 1) | | Show the row only; leave it Unrouted |
-
-The real SOS: the device operator presses the SOS control of the real unit agreed in the rehearsals (an
-RC-2026-0006 unit, handed over long ago, never TL-0001: section 8) **(check by hand: the SOS control of a v2 unit)**. If the real
-SOS arrives after the panel's, the second incident is marked **False alarm** by C after the council.
-
-### 15.7 MF-04, live map and the organization API (18:00 to 21:00)
+DS-02a takes the station's uplink down on the device laptop while the gateway, and so its serial reader, keep
+running: the device operator turns the laptop's network off (Wi-Fi off, or the network cable or the phone
+tether out) and leaves the USB cable of the receiver a274 in. The gateway then keeps every packet in its
+SQLite queue (log "MQTT connection closed. Storing upcoming events offline in SQLite.", `mqtt-client.ts:204`);
+a row leaves the queue only on the broker's PUBACK, and on reconnect the queue flushes in tier order, P0 SOS
+first (`mqtt-client.ts:224-243`, `gateway/src/mqtt/flush-outage.spec.ts` AC-03). The station's local page,
+`http://127.0.0.1:4321/` on the device laptop (`GATEWAY_LOCAL_PORT`, `gateway/local-page/index.html`), shows
+the badge, the queue by tier and the serial port, and needs no network. A link cut this way goes silent
+without a reset, so the gateway may notice it only at its MQTT keepalive (`gateway/test/harness/README.md`,
+"Not covered"; mqtt.js keeps alive every 60 s by default), up to about 90 s; the rows wait in the queue either
+way. Every real unit was handed over long ago, so the SOS is attributed (D-040, section 1).
 
 | Time | Presenter says | Site clicker | Typed | Expected on screen | Panel operator | Fallback |
 |---|---|---|---|---|---|---|
-| 18:00 | "Every unit of the organization, with battery and last seen." | C, `/o/map`, **Live map**; **Search asset tag, holder or contract** | TL-0010 | The ORG-0001 units of RC-2026-0001, RC-2026-0006 and the new contract; one row for TL-0010 | | Clear the search |
-| 18:45 | "Hoang Sa and Truong Sa are drawn as Vietnamese territory on every map." | C, zoom out to 6 or 7, drag left | | "Quần đảo Hoàng Sa (Việt Nam)" and "Quần đảo Trường Sa (Việt Nam)" | | Tiles slow: the masks draw without tiles |
-| 19:15 | "Staff see every organization, then one." | B, `/t/map`, **Fleet map**, organization filter ORG-0001 | | Every organization's units, then ORG-0001 only | | |
-| 19:45 | "An API key feeds the organization's own dashboard." | A, `/o/api-keys`, **Create API key**, Name, create; copy it to T | Hon Giao ranger dashboard | The key once with **Copy** | | |
-| 20:15 | | T: `curl -s -H "X-Api-Key: <key>" <staging>/api/telemetry/devices` | | 200, `result.devices` with ORG-0001's units | | Show the Live map instead |
-| 20:30 | "A revoked key is refused." (unhappy) | A, the key's row, **Revoke**, confirm; T, the same `curl` | | Toast "API key revoked"; then 401, "Authentication required." | | |
+| 11:00 DS-02a | "Node, LoRa, the base camp laptop over USB, a SQLite queue with SOS first, MQTT QoS 1, ingestion with eventId dedup. In a moment that laptop loses its internet." | The architecture slide | | | | |
+| 11:40 | "These are the real units, live." | C, `/o/map`, **Live map** | | a274, a278, a294, TL-0001 and TL-0002 with battery and a recent last seen | Watch the Panel status | No recent report: device operator checks the gateway; then the fallback below |
+| 12:20 DS-03b | "Another hiker sends an SOS. This one is simulated by us, and nobody will answer it: we come back to it in MF-03." | C, watch | | Red banner "SOS: TL-0009 (Vo Thi Mai Anh), hh:mm. Acknowledge now." (`seed-demo.ts:95`). **Nobody presses Acknowledge on TL-0009**, in any window, until the council ends | Action **Send SOS**, **Rented unit for an SOS** TL-0009 (RC-2026-0001, handed over long ago, so the 5-minute rule holds); write the time T on the sheet | Refused ("Choose a unit that is rented and in live custody.") or no banner in 20 s: say so; DS-03b is then told at 18:30 and not shown |
+| 12:40 DS-02a | "Staff see the subscriber, the station and every event, attributed." | B, sidebar **Field data sync** | | MQTT subscriber up; the device laptop's station Connected with a Last sync; Recent field events of the real units, Attributed, Ingress Field Station; the TL-0009 SOS row, Ingress Node uplink | | Station "Never reported": its health report comes within 60 s |
+| 13:20 DS-02b | "A packet received twice is stored once." (unhappy) | T: `npm --prefix backend run replay:mqtt -- position --times 2` with `MQTT_BROKER_URL`, `MQTT_USERNAME=node-!de000009`, `MQTT_PASSWORD` set beforehand; then B, refresh. **Device operator, at the same time:** the device laptop's network off; the gateway keeps running | | **Duplicates rejected** grows by one **(check by hand: as section 7 U1 and U2)** | | Say it and show the Sync audit's "Duplicate rejected" rows |
+| 14:05 DS-02a | "While that ran, the base camp laptop lost its internet. The radio side keeps working: packets still arrive over USB and wait in the SQLite queue." | Device operator: the local page on the device laptop, turned to the council **(check by hand: the council can see the device laptop's screen)** | | Badge "Uplink: offline, queuing"; Broker "Not connected"; Queue "P2 position" or "P3 telemetry" above 0 and "Waiting to send" growing; Serial port open and "Last packet" still moving | | Badge still "Uplink: connected": the keepalive has not fired yet (up to about 90 s); "Waiting to send" grows all the same. "Waiting to send" still 0: no unit has reported since the cut; wait up to 30 s **(check by hand: how often the real units report)** |
+| 14:45 | "Now the hiker presses SOS, while the uplink is still down." | Device operator: press the SOS control of the RC-2026-0006 unit agreed in rehearsal once (never TL-0001, section 8; never a274, the receiver) **(check by hand: the SOS control of a v2 unit)** | | Local page: the red SOS notice **(check by hand: its wording)**; "P0 SOS" 1, queued after the P2 and P3 rows already waiting | | No P0 row in 30 s: say the SOS did not reach the station; go on at 15:25 with the telemetry only, and show SOS first with the harness below |
+| 15:25 | "The uplink comes back." | Device operator: the network on again. Then switch the DS-04b unit off (section 16) and write the time on the sheet | | Gateway log "Connected to MQTT broker. Triggering queue flush..." then "Flushing N prioritized events from the SQLite queue..." (`mqtt-client.ts:191, 257`); local page "Uplink: connected", "Waiting to send" 0 and a new "Last successful send" | | No reconnect in 30 s: check the network is back; the gateway retries every 3 s (`GATEWAY_MQTT_RECONNECT_PERIOD_MS`); restart nothing |
+| 15:45 | "The SOS, pressed last, went out first; every event is stored once." | B, **Field data sync**, **Refresh** | | Field Stations: the device laptop's station Connected with a new Last flush. Recent field events: the outage's rows, Ingress Field Station, Attributed, the SOS row (Kind SOS) received before every POSITION and TELEMETRY row that was queued ahead of it, so in the newest-first list it sits below them **(check by hand: the list's default order)**. The Received column shows minutes only, so read the order of the rows. Sync audit, **Show** menu Every outcome: one "Accepted" row per event; a publish the cut left unacknowledged comes again as "Duplicate rejected" and is stored once (`mqtt-client.ts:224-232`). C's window gets the SOS banner of one new incident | | Order not readable: open the SOS row and a TELEMETRY row of the outage and compare their Received times **(check by hand: the detail pane shows seconds)**; else say it and run the harness below |
 
-### 15.8 MF-05, term end to close (21:00 to 25:00)
+Fallbacks. When the real units cannot report at all (the device operator confirms on **Field data sync**
+that none of them sent in the last 5 minutes): panel playback **MF-02**, **Start**; the presenter says the
+positions are simulated, and DS-02a is shown with the harness below. The MF-02 playback is never pressed while
+the RC-2026-0006 units send (section 14), so it is no fallback for the SOS of DS-02a. When the real SOS does
+not reach the queue at 14:45 (no SOS incident came from the real units on 2026-11-25, section 12): the
+telemetry rows still show the queue, the flush and the stored-once count. For SOS first, the device operator
+runs the gateway's outage harness in a second terminal on the device laptop, from `gateway/`: it builds its own
+simulated station and an in-process broker, so the running gateway and its serial reader are untouched, and the
+presenter says it is simulated: `npm run harness:outage -- --outage 20 --trials 1 --min-trials 1 --warmup 5
+--tail 5` with stdout discarded (`> NUL` in cmd, `> $null` in PowerShell). A trial takes its outage plus about
+13 s with these warm-up and tail values; the report, on stderr, ends with a row per condition whose NFR-REL-04
+column reads the share of outage P0 that arrived before any P2 or P3, for example "12/12 (100.00 %): pass"
+(`gateway/test/harness/README.md`) **(check by hand: the harness runs on the device laptop)**. MF-03 then
+starts from the panel's **Send SOS** on TL-0010 (15.6). A fallback SOS never goes on a unit of the contract
+MF-01c handed over at about 10:00: inside the 5-minute margin it would be Unattributed and open an Unrouted
+incident (D-040, section 1).
+
+### 15.6 MF-03, SOS to incident (16:30 to 21:00)
+
+DS-03a handles the incident the DS-02a flush opened. DS-03b is the TL-0009 incident the panel opened at 12:20
+(T). The escalation waits are real time, set by the seeded parameters (seed migration
+`20261004120100_seed`, lines 41 to 43): `incidents.primaryAckTimeoutSeconds` 120 s,
+`incidents.backupAckTimeoutSeconds` 120 s, `incidents.managerAckTimeoutSeconds` 180 s, checked every 5 s
+(`incidents.tierTimeouts`, `incident-timers.job.ts:186`) **(check by hand: the three values on the staging
+Parameters page)**. So TL-0009 reads Notifying primary from T, Notifying backup from T+2:00, Notifying manager
+from T+4:00 and Escalated from T+7:00 (with T at 12:20: 14:20, 16:20 and 19:20); each move is a history step
+"No acknowledgement in time" (`frontend/src/entities/incident/api.ts:181`). The Manager sees it in window A,
+Staff in window B; no panel action advances a tier on the live staging (the demo clock's next-tier step lives
+in Demo control, which is off there, section 1). On ORG-0001 the backup is the Manager too (roster: Operator
+primary, Manager backup, section 2), so Pham Duc Huy is alerted from the backup tier on, and the Manager tier
+alerts him again.
+
+| Time | Presenter says | Site clicker | Typed | Expected on screen | Panel operator | Fallback |
+|---|---|---|---|---|---|---|
+| 16:30 DS-03a | "The SOS from the outage reaches the on-duty Operator." | C, `/o/incidents`, the new incident of the real unit (not TL-0009): write its code down | | Red banner "SOS: <tag> (<holder>), hh:mm. Acknowledge now.", hh:mm the time it was pressed during the outage; the TL-0009 banner may show beside it: leave it | If DS-02a brought no SOS: action **Send SOS**, **Rented unit for an SOS** TL-0010 | Presenter says the SOS from TL-0010 is simulated |
+| 16:50 | "The Operator takes ownership; escalation stops." | C, on the incident's page, **Acknowledge** (never the banner's button, which may name TL-0009) | | Toast "Saved."; Owner Nguyen Thanh Tung, Acknowledged | | State already Notifying backup (the primary tier ran out 120 s after the flush): acknowledge all the same, a notifying tier accepts it (`incident-lifecycle.ts:68-74`), and say why. Else panel action **Acknowledge** on the incident |
+| 17:30 | "The response is recorded." | C, **Response under way**, What is being done, **Save response**; **Add status**, the line, save | the two prepared lines | State Responding; the update with author and time | | Panel action **Response under way** |
+| 18:30 DS-03b | "The other SOS: the primary and the backup did not answer, so it has reached the Manager." | A, `/o/incidents`, the TL-0009 incident, **Show details** | | State "Notifying manager", no owner; History: the moves to Notifying backup and Notifying manager, each "No acknowledgement in time" **(check by hand: the History layout)**. A does not acknowledge | | Already Escalated (T was early): show the Notifying manager step in the History with its time |
+| 19:00 DS-03a | "The outcome closes the episode; the history keeps every step." | C, **Report outcome**, Outcome, **Resolve incident** | the prepared outcome | State Resolved; History lists each step | | Panel action **Resolve** |
+| 19:40 DS-03b | "The Manager did not answer either, so it is now with TrekLink Staff." | B, `/t/incidents`, **Show** menu **Escalated**, the TL-0009 row, **Show details** | | State Escalated; History adds the move to Escalated, "No acknowledgement in time"; B's banner lists TL-0009 (`AlertBanner.tsx:71-75`) | | Still Notifying manager: T was late; wait to T+7:05 (read T on the sheet), go on with 20:20 meanwhile, then come back |
+| 20:20 | "An SOS with no rental behind it goes to TrekLink Staff, Unrouted." (unhappy) | B, `/t/incidents`, **Show** menu **Unrouted**, INC-2026-000001, **Show details** | | Owner "TrekLink Staff queue", state Unrouted. Say the 5-minute rule (section 1) | | Show the row only; leave it Unrouted |
+
+The real SOS of DS-03a is the one the device operator pressed during the DS-02a outage (14:45), on the
+RC-2026-0006 unit agreed in the rehearsals (handed over long ago, never TL-0001: section 8). Its incident
+opens when the queue flushes, at about 15:25, so its primary tier runs out at about 17:25: the 16:50
+**Acknowledge** must not slip. If the real SOS arrives after the panel's TL-0010 SOS, the second incident is
+marked **False alarm** by C after the council. The TL-0009 incident stays Escalated to the end; after the
+council the panel operator closes it (section 11 step 3).
+
+### 15.7 MF-04, live map and the organization API (21:00 to 25:00)
+
+DS-04b. The live map marks a unit stale when its last report is older than `monitoring.deviceStaleSeconds`,
+300 s (seed migration `20261004120100_seed` line 48; read 300 s on the staging Parameters page on
+2026-11-04, `docs/sessions/2026-11-04-1250-wf04-staging-run.md`), re-checked against the clock every 15 s
+(`LiveMapPage.tsx:45`). The unit then reads the badge "Offline" and "Offline, last seen <date>, <time>", and
+the header counts it offline (`LiveMapPage.tsx:41-42, 91, 232`); its next report clears it. The
+`staleAfterSeconds` of Field data sync is the station threshold, `monitoring.fieldStationStaleSeconds` 180 s
+(`sync-status.service.ts:85`), not the device one. The silencing controls of the demo field simulation
+(`FieldSimulationSection.tsx:181, 561`) are part of Demo control, which is off on the live staging, so a
+real unit is switched off instead: the device operator switches the DS-04b unit off right after the DS-02a
+restore (about 15:30) and on again at 21:45.
+
+| Time | Presenter says | Site clicker | Typed | Expected on screen | Panel operator | Fallback |
+|---|---|---|---|---|---|---|
+| 21:00 DS-04a | "Every unit of the organization, with battery and last seen; none of another organization's." | C, `/o/map`, **Live map**; **Search asset tag, holder or contract** | TL-0010 | The ORG-0001 units of RC-2026-0001, RC-2026-0006 and the new contract, none of RC-2026-0004 (ORG-0002); one row for TL-0010 | | Clear the search |
+| 21:45 DS-04b | "This unit has been silent for more than five minutes: it shows stale, with when it was last heard." | C, clear the search; the DS-04b unit's row. **Device operator:** switch the unit on again | | Badge "Offline", "Offline, last seen <today>, <the switch-off time or just before>"; the header "N live, N offline, N not heard since handover" counts it offline | | Still live: the unit was not off for 5 minutes; say it and show the row again at 24:30 |
+| 22:15 DS-04a | "Hoang Sa and Truong Sa are drawn as Vietnamese territory on every map." | C, zoom out to 6 or 7, drag left | | "Quần đảo Hoàng Sa (Việt Nam)" and "Quần đảo Trường Sa (Việt Nam)" | | Tiles slow: the masks draw without tiles |
+| 22:45 | "Staff see every organization, then one." | B, `/t/map`, **Fleet map**, organization filter ORG-0001 | | Every organization's units, then ORG-0001 only | | |
+| 23:15 | "An API key feeds the organization's own dashboard." | A, `/o/api-keys`, **Create API key**, Name, create; copy it to T | Hon Giao ranger dashboard | The key once with **Copy** | | |
+| 23:45 | | T: `curl -s -H "X-Api-Key: <key>" <staging>/api/telemetry/devices` | | 200, `result.devices` with ORG-0001's units | | Show the Live map instead |
+| 24:00 | "A revoked key is refused." (unhappy) | A, the key's row, **Revoke**, confirm; T, the same `curl` | | Toast "API key revoked"; then 401, "Authentication required." | | |
+| 24:30 DS-04b | "It reported again, so it is live again." | C, `/o/map`, **Live map**, the DS-04b unit's row | | No Offline badge; "Last seen <today>, <a time after 21:45>" ("No position yet, last seen ..." for a unit without a GPS fix); the header counts it live | | Still Offline: the unit has not reported since it was switched on **(check by hand: time from switch-on to the first report)**; say it clears at its next report and show it after MF-05 |
+
+### 15.8 MF-05, term end to close (25:00 to 29:00)
 
 The contract is the one MF-01c handed over (the RC code and five tags on the sheet), never RC-2026-0006.
 
 | Time | Presenter says | Site clicker | Typed | Expected on screen | Panel operator | Fallback |
 |---|---|---|---|---|---|---|
-| 21:00 | "The Manager ends the rental early." | A, `/o/contracts`, the RC code, **Give notice**, confirm; **More actions**, **End contract now**, Reason, confirm | the prepared reason | Badge Ending, then "Contract ended. Check the units in at the counter." | | "Internal server error" (rehearsal 1, web#534): do not press again; open the contract, it has ended |
-| 22:00 | "The units come back at the counter." | B, `/t/contracts`, **Show** menu All, the RC code, **Open the contract**, **Record return**; Check-in: the five tags | the five tags | "Check-in complete. 5 of 5 devices returned." (rehearsal 2; it took about 10 s on the staging) | | Tags one at a time |
-| 22:45 | "Each unit is reset and inspected before it can be rented again." | Reset and inspection: **Record reset** on each, tick the three steps; tags one to four **Inspect**, Passed, **Record inspection** | | "Reset logged"; four units Available | | |
-| 23:40 | "A damaged unit goes to maintenance and is charged on the closing invoice." (unhappy) | The fifth tag: **Inspect**, **Damaged**, tick Antenna broken (ANTENNA_BROKEN) and Casing cracked (CASING_CRACKED), **Record inspection** | | "Damaged, maintenance", "Damage 700,000 VND, waiting for an Admin" | | |
-| 24:05 | "A charge above 500,000 VND needs a second person: an Admin who did not inspect the unit decides it." | D, `/t/damage-charges`, **Show** menu Waiting for an Admin, the tag's row, **Decide**, **Approve**, Reason, **Record decision** | Antenna and casing damage confirmed at the counter | Toast "Saved."; status Approved | | **Decide** disabled: the Admin inspected the unit; the inspection is always B's. Rehearse 23:40 to 25:00: the close keeps about 25 s |
-| 24:35 | "Open balances are settled; the contract closes." | Tab **Close**: when it shows a balance due, **Open the invoices**, the Closing invoice, **Record counter payment**, Cash, receipt, **Record**; when TrekLink owes, section 10 step 9b; then **Close contract**, confirm | CT-2026-1114 | "RC-2026-00xx closed."; badge Closed | | Panel playback **MF-05**, **Start** (ends this contract, returns every unit Passed, pays and closes; the damaged case is then only told) |
+| 25:00 DS-05a | "The Manager ends the rental early." | A, `/o/contracts`, the RC code, **Give notice**, confirm; **More actions**, **End contract now**, Reason, confirm | the prepared reason | Badge Ending, then "Contract ended. Check the units in at the counter." | | "Internal server error" (rehearsal 1, web#534): do not press again; open the contract, it has ended |
+| 26:00 | "The units come back at the counter." | B, `/t/contracts`, **Show** menu All, the RC code, **Open the contract**, **Record return**; Check-in: the five tags | the five tags | "Check-in complete. 5 of 5 devices returned." (rehearsal 2; it took about 10 s on the staging) | | Tags one at a time |
+| 26:45 | "Each unit is reset and inspected before it can be rented again." | Reset and inspection: **Record reset** on each, tick the three steps; tags one to four **Inspect**, Passed, **Record inspection** | | "Reset logged"; four units Available | | |
+| 27:40 DS-05b | "A damaged unit goes to maintenance and is charged on the closing invoice." (unhappy) | The fifth tag: **Inspect**, **Damaged**, tick Antenna broken (ANTENNA_BROKEN) and Casing cracked (CASING_CRACKED), **Record inspection** | | "Damaged, maintenance", "Damage 700,000 VND, waiting for an Admin" | | |
+| 28:05 | "A charge above 500,000 VND needs a second person: an Admin who did not inspect the unit decides it." | D, `/t/damage-charges`, **Show** menu Waiting for an Admin, the tag's row, **Decide**, **Approve**, Reason, **Record decision** | Antenna and casing damage confirmed at the counter | Toast "Saved."; status Approved | | **Decide** disabled: the Admin inspected the unit; the inspection is always B's. Rehearse 27:40 to 29:00: the close keeps about 25 s |
+| 28:35 DS-05a, DS-05b | "Open balances are settled; the contract closes." | Tab **Close**: when it shows a balance due, **Open the invoices**, the Closing invoice, **Record counter payment**, Cash, receipt, **Record**; when TrekLink owes, section 10 step 9b; then **Close contract**, confirm | CT-2026-1114 | "RC-2026-00xx closed."; badge Closed | | Panel playback **MF-05**, **Start** (ends this contract, returns every unit Passed, pays and closes; the damaged case is then only told) |
 
 After the council: section 11 for set C.
 
@@ -630,6 +725,12 @@ Done by the leader and the panel operator from 17:30, signed off by 19:00.
 - [ ] **Health.** `GET <staging>/api/health` shows `"database":"up"` and `"mqtt":"up"` (`deploy/aws/RUNBOOK.md`).
 - [ ] **Panel writable.** `/demo/panel` opens with the password over the hotspot; the Panel status shows it writable **(check by hand: the status wording)**; no playback runs.
 - [ ] **Stock.** At least 5 v3 Available (MF-01b requests 5 TrekLink v3 units; 6 on 2026-11-26); otherwise section 11 step 2 for units in maintenance.
+- [ ] **DS-01b stock.** On `/o/contracts/new` as A, the card **TrekLink v4 (GPS, SOS, fall detection)** reads under 5 available (3 on 2026-11-26); if it reads 5 or more, the sheet's DS-01b quantity is that count plus one. Leave the page with **Cancel**, nothing sent.
+- [ ] **DS-02a outage switch.** On the device laptop, the operator has rehearsed taking the network down and back (Wi-Fi off and on, or the cable or tether out and in) with the gateway running: the local page `http://127.0.0.1:4321/` reads "Uplink: offline, queuing" within about 90 s, "Last packet" keeps moving, and on restore "Waiting to send" drains to 0 **(check by hand: the device laptop's network path)**. The local page is open in a browser on the device laptop, "Waiting to send" reads 0 before the start, and the way to show its screen to the council is agreed.
+- [ ] **DS-02a SOS unit.** The RC-2026-0006 unit for the SOS is agreed (never TL-0001, never the receiver a274) and its SOS control rehearsed through the station once, with a Resolved and closed incident afterwards (section 11 step 3).
+- [ ] **DS-02a harness fallback.** `npm ci` done at the repository root on the device laptop; a second terminal open in `gateway/` with the harness command of section 15.5 typed, not run.
+- [ ] **DS-03b.** The panel's **Rented unit for an SOS** lists TL-0009; no incident is open on TL-0009; the ORG-0001 roster still reads Operator primary, Manager backup; the panel operator has a clock to write T.
+- [ ] **DS-04b unit.** One RC-2026-0006 unit is agreed for DS-04b (never a274, never the DS-02a SOS unit), the device operator knows how to switch it off and on, and in rehearsal it reported again within 2.5 minutes of switching on **(check by hand: how the unit switches off and how soon it reports after boot)**. Every real unit reports at least once every 5 minutes, or the live map reads it Offline without being silenced **(check by hand)**.
 - [ ] **Real units.** a274, a278, a294, TL-0001 and TL-0002 charged, Rented on RC-2026-0006, reporting on **Field data sync** within the last 5 minutes; the gateway runs on the device laptop with the receiver on COM5, a unit ORG-0001 holds (web#547).
 - [ ] **No leftovers.** No incident open but INC-2026-000001; no Requested or Approved contract of ORG-0001; no unpaid invoice of an earlier run; no Active API key of an earlier run; RC-2026-0001 and RC-2026-0006 Active.
 - [ ] **Value set C unused.** Its tax code is not found in `/t/organizations`.
